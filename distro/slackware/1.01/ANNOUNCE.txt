@@ -1,0 +1,84 @@
+From: Patrick J. Volkerding (volkerdi@mhd1.moorhead.msus.edu)
+ Subject: [ANNOUNCE] Slackware Linux 1.01 
+ Newsgroups: comp.os.linux.announce
+ Date: 1993-08-04 08:33:56 PST 
+
+
+The Slackware Linux distribution (v. 1.01) is now available for 
+anonymous FTP. This is a complete installation system designed for
+386/486 systems with a 3.5" boot floppy. 486 optimizations are now 
+used for most of the included software.
+
+This improved version now includes kernel support for SCSI controllers.
+I don't own a SCSI card, so the SCSI features have not been tested. The
+kernel compile (0.99pl12 alpha) went smoothly, so I am optimistic that
+these drivers will work. Let me know how it goes. I'll make separate
+a1/a2 sets for each type of supported card if that's what has to be done.
+
+This release is based largely on the SLS system, but has been enhanced and
+modified substantially. There are two main disk series, A (13 disks) and
+X (11 disks). Some of the features:   
+
+Some features on the base package (Series A) :
+  Source for the Linux DOS emulator version 0.49.
+  The FAQ for kernel level 99pl10.
+  Kernel source and image at .99pl12 Alpha.
+    [compiled with these options: math emulation support, normal hard drive
+    support, full SCSI support, TCP/IP, System V IPC, -m486, minix fs, ext2 fs,
+    msdos fs, nfs, proc support, and PS/2 style mouse support. You may need to
+    recompile if you have some other type of busmouse. The kernel was compiled 
+    with libc 4.4.1, g++ 2.4.5]
+  The new keytable utilities released with .99pl12 alpha.
+  The NET-2 networking package, preconfigured to use loopback.
+  A public domain version of ksh, and tcsh 6.04 (with the bugs worked out)
+  GNU gcc, g++, and Objective-C at versions 2.4.5. These are the new
+  versions from sunsite with 486 optimizations.
+  Includes and libraries at version 4.4.1
+  mailx, quota utilities, experimental winapi source, sound drivers.
+  The TCL toolkit and samples.
+
+  In addition, the installation program has been improved to offer more
+  information about the packages (and the installation procedure itself)
+  as you install.
+
+  The install program can also automatically install LILO, configuring it
+  to boot either from your master boot record or from OS/2's Boot Manager.
+
+Some features of the X Windows disks (Series X) :
+  XFree-86 version 1.3.
+  Open Look Virtual Window Manager is the default window manager.
+  XS3-0.4.4 server offers support for S3 based video cards.
+  XV 3.00 Image viewer and required libraries included.
+  PEX files from the XFree-86 1.3 distribution are included.
+
+Although TeX support is not included in the Slackware release, you may
+optionally install the SLS T series as you install the Slackware disks.
+
+How to get the Slackware(tm) release:
+
+The Slackware release may be obtained by anonymous FTP from
+ftp.cdrom.com in directory /pub/linux/slackware. This will be the main home 
+for this distribution, so look there for the latest versions. This is most
+definately a real computer (tm) so there shouldn't be any of the problems
+that happened the last time around when I tried to use a computer with only 2 
+megabytes of RAM for the archive site.
+
+Read the file INSTALL for basic installation info. 
+ChangeLog will track any changes to the distribution needed in the
+future, so check this file from time to time if you're trying to keep
+your disks current. 
+
+Also new with this release, all the disks except a1 are available under
+/pub/linux/slackware/zipped_disks as zip archives containing the files for
+each disk. These may be easier to deal with if you are making your disks
+on a DOS machine.
+
+If you find any problems with the distribution, or if you have any suggestions
+for improvements, please let me know. If you know of more up-to-date versions
+of software in the distribution, I'd like to hear about that, too.
+
+Have fun, folks!
+
+Patrick J. Volkerding
+volkerdi@mhd1.moorhead.msus.edu
+bf703@cleveland.freenet.edu

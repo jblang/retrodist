@@ -1,0 +1,1 @@
+slackware.tar.gz https://archive.org/download/slackware-beta/slack-pre1.0.tar.gz

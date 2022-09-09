@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk1.iso
+disc2.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk2.iso
+disc3.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk3.iso
+disc4.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk4.iso
+disc5.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk5.iso
+disc6.iso https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk6.iso

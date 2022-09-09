@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/LDR1296/LDR_1296_1.ISO
+disc2.iso https://archive.org/download/LDR1296/LDR_1296_2.ISO
+disc3.iso https://archive.org/download/LDR1296/LDR_1296_3.ISO
+disc4.iso https://archive.org/download/LDR1296/LDR_1296_4.ISO
+disc5.iso https://archive.org/download/LDR1296/LDR_1296_5.ISO
+disc6.iso https://archive.org/download/LDR1296/LDR_1296_6.ISO

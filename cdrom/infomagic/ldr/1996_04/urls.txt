@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_1.iso
+disc2.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_2.iso
+disc3.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_3.iso
+disc4.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_4.iso
+disc5.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_5.iso
+disc6.iso https://archive.org/download/InfomagicLinuxDevelopersResourceApril1996/ldr0496_6.iso

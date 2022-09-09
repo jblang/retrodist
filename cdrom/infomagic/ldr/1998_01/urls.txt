@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%201%20Red%20Hat%205_0.iso
+disc2.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%202%20Slackware%203_4.iso
+disc3.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%203%20SuSE%205_1.iso
+disc4.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%204%20Sunsite%20Archive%20part%201.iso
+disc5.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%205%20Sunsite%20Archive%20part%202.iso
+disc6.iso https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%206%20Red%20Hat%20Powertools%205_0.iso

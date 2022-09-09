@@ -1,0 +1,148 @@
+# $Header: /home/x_cvs/mit/server/ddx/x386/Xconfig.cpp,v 1.8 1993/01/24 03:47:46 dawes Exp $
+# $XConsortium: Xconfig,v 1.2 91/08/26 14:34:55 gildea Exp $
+#
+# Copyright 1990,91 by Thomas Roell, Dinkelscherben, Germany.
+#
+# Permission to use, copy, modify, distribute, and sell this software and its
+# documentation for any purpose is hereby granted without fee, provided that
+# the above copyright notice appear in all copies and that both that
+# copyright notice and this permission notice appear in supporting
+# documentation, and that the name of Thomas Roell not be used in
+# advertising or publicity pertaining to distribution of the software without
+# specific, written prior permission.  Thomas Roell makes no representations
+# about the suitability of this software for any purpose.  It is provided
+# "as is" without express or implied warranty.
+#
+# THOMAS ROELL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+# INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+# EVENT SHALL THOMAS ROELL BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+# CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+# DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+# TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+#
+# Author:  Thomas Roell, roell@informatik.tu-muenchen.de
+#
+# Extensive modifications by the XFree86 Core Team
+
+#
+# ** Refer to the X386 man page for details about the format of this file **
+# ** The X386 man page is installed as /usr/X386/man/man1/X386.1x **
+#
+
+#
+# some nice paths, to avoid conflicts with other X-servers
+#
+RGBPath		"/usr/X386/lib/X11/rgb"
+
+#
+# Multiple FontPath entries are allowed (which are concatenated together),
+# as well as specifying multiple comma-separated entries in one FontPath
+# command (or a combination of both methods)
+#
+FontPath	"/usr/X386/lib/X11/fonts/misc/"
+FontPath	"/usr/X386/lib/X11/fonts/Type1/"
+FontPath	"/usr/X386/lib/X11/fonts/Speedo/"
+FontPath	"/usr/X386/lib/X11/fonts/75dpi/"
+# FontPath	"/usr/X386/lib/X11/fonts/100dpi/"
+
+#
+# Uncomment this to cause a core dump at the spot where a signal is 
+# received.  This may leave the console in an unusable state, but may
+# provide a better stack trace in the core dump to aid in debugging
+#
+ NoTrapSignals
+
+#
+# Enable this to use the XQUEUE driver for keyboard and mouse handling
+# under System V.  This may go away in the future.
+#
+# Note - If you use XQUEUE, you must comment out the keyboard and
+#        mouse definitions.
+#
+# Xqueue
+#
+
+# Keyboard and various keyboard-related parameters
+#
+Keyboard
+  AutoRepeat 500 5
+  ServerNumLock
+#  Xleds      1 2 3
+#  DontZap
+#
+# To set the LeftAlt to Meta, RightAlt key to ModeShift, 
+# RightCtl key to Compose, and ScrollLock key to ModeLock:
+# 
+#  LeftAlt     Meta
+#  RightAlt    ModeShift
+#  RightCtl    Compose
+#  ScrollLock  ModeLock
+
+#
+# Mouse definition and related parameters
+#
+PS/2	"/dev/ps2aux"
+  BaudRate	1200
+#  SampleRate	150
+#  Emulate3Buttons
+
+#
+# The graphics drivers
+# First the 8-bit colour SVGA driver
+#
+
+vga256
+  Chipset "clgd5426"
+  Virtual	1024 768
+#  vendor  "nolinear"
+  Clocks 25 28 40 72 50 78 36 45 90 120 80 32 110 65 75 95
+# To disable SpeedUp, use NoSpeedUp
+#
+#  NoSpeedUp
+
+  ViewPort      0 0
+Modes 	  "1024x768"
+# Modes 	  "800x600" "640x480"
+
+#
+# Next the 1-bit mono SVGA driver
+#
+vga2
+
+  Virtual	800 600
+  ViewPort      0 0
+  Modes        "800x600"
+  Clocks 25 28 40 72 50 78 36 45 90 120 80 32 110 65 75 95
+
+#
+# The Hercules driver.  For Hercules, the only valid configuration option
+# is ScreenNo (refer to the manual page).
+#
+# hga2
+
+#
+# And last,  the database of video modes
+#
+
+ModeDB
+# OFFICIAL VESA Monitor timings + IBM Standards - TRY THESE FIRST
+# Contributor:          Thomas Roell [roell@sgcs.com]
+# Last Edit Date:       3/29/92
+#
+# name        clock   horizontal timing     vertical timing      flags
+"640x480"     25     640 672 768 800 480 490 492 509
+#"800x600"     40     800 824 984 1016         600 600 608 630
+#"800x600"     40     800 832 920 1048         600 600 608 630
+"800x600"     40     800 832 920 1048        600 600 608 630
+"800x600i"    25     800 832 920 1688        600 600 604  668   Interlace
+"1024x768"    45     1024 1040 1216 1264      768  777  785  817  Interlace
+"1024x768"    65     1024 1056 1264 1328      768  768  776  796
+"1024x768"    70     1024 1056 1320 1352      768  768  778  806
+"1024x768"    75     1024 1056 1336 1368      768  768  779  806
+"1024x768"    80     1024 1056 1080 1328      768  776  786  800
+"1024x768"    85     1024 1056 1376 1408      768  768  780  806
+"1024x768"    90     1024 1056 1136 1424      768  768  781  796
+#
+
+

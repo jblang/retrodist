@@ -1,0 +1,4 @@
+disc1.iso https://archive.org/download/Linux_Developers_Resource_InfoMagic_March_1995_Disc_1/Linux%20Developer%27s%20Resource%20%28InfoMagic%29%20%28March%201995%29%20%28Disc%201%29.iso
+disc2.iso https://archive.org/download/Linux_Developers_Resource_InfoMagic_March_1995_Disc_2/Linux%20Developer%27s%20Resource%20%28InfoMagic%29%20%28March%201995%29%20%28Disc%202%29.iso
+disc3.iso https://archive.org/download/Linux_Developers_Resource_InfoMagic_March_1995_Disc_3/Linux%20Developer%27s%20Resource%20%28InfoMagic%29%20%28March%201995%29%20%28Disc%203%29.iso
+disc4.iso https://archive.org/download/Linux_Developers_Resource_InfoMagic_March_1995_Disc_4/Linux%20Developer%27s%20Resource%20%28InfoMagic%29%20%28March%201995%29%20%28Disc%204%29.iso

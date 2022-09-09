@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/LDR0497_6cd/LDR_04971.ISO
+disc2.iso https://archive.org/download/LDR0497_6cd/LDR_04972.ISO
+disc3.iso https://archive.org/download/LDR0497_6cd/LDR_04973.ISO
+disc4.iso https://archive.org/download/LDR0497_6cd/LDR_04974.ISO
+disc5.iso https://archive.org/download/LDR0497_6cd/LDR_04975.ISO
+disc6.iso https://archive.org/download/LDR0497_6cd/LDR_04976.ISO

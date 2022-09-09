@@ -1,0 +1,2 @@
+disc1.iso https://archive.org/download/Toolkit_for_Linux_Walnut_Creek_August_1994/Toolkit%20for%20Linux%20%28Walnut%20Creek%29%20%28August%201994%29%20%28Disc%201%29.iso
+disc2.iso https://archive.org/download/Toolkit_for_Linux_Walnut_Creek_August_1994/Toolkit%20for%20Linux%20%28Walnut%20Creek%29%20%28August%201994%29%20%28Disc%202%29.iso
