@@ -2,7 +2,9 @@
 
 [Slackware](http://www.slackware.com/), first released in July 1993 by Patrick Volkerding, is the oldest Linux distro still maintained.  
 
-Version 1.0 started out as a collection of patches and new packages to SLS. It  used the same install scripts and SLS packages could be installed directly. The install scripts were rewritten in Version 1.1 at the request of SLS author Peter MacDonald, who objected to other distributions using his install scripts. 
+Version 1.0 started out as a collection of patches and new packages for SLS. It used the same install scripts and SLS packages could be installed directly. 
+
+Version 1.1 saw the install scripts rewritten at the request of SLS author Peter MacDonald, who objected to other distributions using his scripts. 
 
 More historical information:
 

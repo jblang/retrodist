@@ -13,7 +13,7 @@ for ZIP in $CACHE/install/a1/*.zip; do
   rm $ZIP
 done
 mv $CACHE/install/a2i $CACHE/install/a2
-cp $CACHE/install/a1/a1disk $CACHE/a1.img
+cp $CACHE/install/a1/a1disk $CACHE/boot.img
 
 # clean up some files that got put into the wrong dirs
 WRONGDISKS=$(ls $CACHE/install/a*/diskx* $CACHE/install/x*/diska*)

@@ -20,6 +20,5 @@ elif [[ -f "$1/slackver.txt" ]]; then
   VER="$(cat "$1/slackver.txt")"
   (cd $ORIGBASE; slackware_mirror $VER)
 else
-  echo "Don't know how to download $1"
-  exit 1
+  echo "Nothing to download for $1"
 fi

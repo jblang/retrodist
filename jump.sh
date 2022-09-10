@@ -38,6 +38,7 @@ packages:
 write_files:
   - path: /etc/vsftpd.conf
     content: |
+      listen_address=10.0.2.1
       listen=NO
       listen_ipv6=YES
       anonymous_enable=YES
@@ -70,7 +71,7 @@ network:
       name: enp0s3
       subnets:
         - type: static
-          address: 10.0.2.100/24
+          address: 10.0.2.1/24
           routes:
             - network: 10.0.2.0/24
               gateway: 10.0.2.2

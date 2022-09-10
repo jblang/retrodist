@@ -23,3 +23,9 @@ most important server. :)
 >After some digging I found SLS 1.02 X disks to be compatible. This may have been the original intention, that information seems to be lost. The T disks work as well. Everything should be installable, I've done it including X in PCem.
 >
 >This has Linux kernel 0.99pl9, libc 4.3.3 and XFree86 1.2.
+
+XFree86 1.2 doesn't support the Cirrus Logic SVGA card emulated by QEMU, so it can only run the mono server.
+
+## Installation
+
+The autoinstall scripts for 1.01 also work with 1.0beta, and the manual installation procedure is similar too. See the [instructions](../1.01/README.md#installation) for 1.01.

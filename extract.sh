@@ -24,7 +24,7 @@ if [[ ! -d $CACHE ]]; then
       BASE=$(basename $FILE)
       echo "Extracting $BASE"
       for EXT in .iso .zip .tar.gz; do
-        BASE=$(basename $FILE $EXT)
+        BASE=$(basename $BASE $EXT)
       done
       DEST="$CACHE/$BASE"
       if [[ ! -f "$DEST" ]]; then
