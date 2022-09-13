@@ -1,10 +1,11 @@
 SOURCE=$SLACKBASE/slackware-pre-1.0-beta
+cp -lR $SOURCE $CACHE/install
 mkdir -p $CACHE/install/a1
-mv $SOURCE/diska01 $CACHE/install/a1/a1disk
-cp $CACHE/install/a1/a1disk $CACHE/boot.img
-for DISK in "$SOURCE"/diska*; do
+mv $CACHE/install/diska01 $CACHE/install/a1/a1disk
+for DISK in "$CACHE"/install/diska*; do
   NUM=$(basename "$DISK" | sed 's/diska0*//')
   if [[ -d "$DISK" ]]; then
-    cp -R "$DISK" "$CACHE/install/a$NUM"
+    mv "$DISK" "$CACHE/install/a$NUM"
   fi
 done
+cp $CACHE/install/a1/a1disk $CACHE/boot.img

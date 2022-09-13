@@ -1,1 +1,0 @@
-../../../1.01/_autoinst/install.d/10ttycfg.sh
