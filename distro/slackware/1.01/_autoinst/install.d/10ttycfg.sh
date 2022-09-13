@@ -4,15 +4,19 @@ if [ -d "$ETCPATH" ]; then
     echo '### Configuring serial console...'
 
     # add s0 entry in inittab
+    if [ -x "$ROOTMOUNT/sbin/getty" ]; then
+        GETTY="/sbin/getty"
+    else
+        GETTY="/etc/getty"
+    fi
     cp $ETCPATH/inittab $ETCPATH/inittab.orig
-    echo "s0:6:respawn:/etc/getty 9600 ttyS0" >> $ETCPATH/inittab
+    echo "s0:123456:respawn:$GETTY $TTYS $BAUD" >> $ETCPATH/inittab
 
-    # change login.defs to get allowed root consoles from securetty
+    # Comment out CONSOLE line login.defs to use securetty instead
     cp $ETCPATH/login.defs $ETCPATH/login.defs.orig
     sed 's/^CONSOLE/#CONSOLE/' $ETCPATH/login.defs.orig > $ETCPATH/login.defs
-    echo "CONSOLE /etc/securetty" >> $ETCPATH/login.defs
-
+    
     # add ttyS0 to securetty
     cp $ETCPATH/securetty $ETCPATH/securetty.orig
-    echo "ttyS0" >> $ETCPATH/securetty
+    echo "$TTYS" >> $ETCPATH/securetty
 fi

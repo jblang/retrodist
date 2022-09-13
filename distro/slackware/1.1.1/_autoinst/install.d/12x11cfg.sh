@@ -1,0 +1,1 @@
+../../../1.01/_autoinst/install.d/12x11cfg.sh

@@ -4,7 +4,7 @@ if [[ ! -f hda.img ]]; then
 fi
 if [[ ! -d hdb ]]; then
   cp -R $CACHE hdb
-  cp -R $CONF/../_autoinst/* hdb
+  cp -LR $CONF/../_autoinst/* hdb
 fi
 if [[ ! -f fda.img ]]; then
   mv hdb/boot.img fda.img

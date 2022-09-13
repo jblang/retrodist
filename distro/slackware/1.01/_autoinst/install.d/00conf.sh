@@ -4,6 +4,7 @@ SWAPSIZE=16384
 
 ROOTDEVICE=/dev/hda2
 ROOTMOUNT=/root
+ROOTFSTYPE=ext2
 
 INSTDEV=/dev/fd0
 INSTSRC=/mnt/install
@@ -24,3 +25,17 @@ fi
 
 # rdev video modes: -3=Ask, -2=Extended, -1=NormalVga, 1=key1, 2=key2...
 VGAMODE=-1
+ 
+# serial configuration
+TTYS=ttyS0
+BAUD=9600
+ 
+# network configuration
+HOSTNAME="darkstar"
+DOMAINNAME="frop.org"
+IPADDR="10.0.2.111"
+NETMASK="255.255.255.0"
+NETWORK="10.0.2.0"
+BROADCAST="10.0.2.255"
+GATEWAY="10.0.2.2"
+NAMESERVER="10.0.2.1"

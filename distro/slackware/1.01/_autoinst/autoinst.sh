@@ -1,13 +1,8 @@
 #!/bin/sh
 # Automatic installation for retro distros
+AUTOINST=$( cd "$( dirname "$0" )" > /dev/null 2>&1 && pwd )
 
 echo "# automatic installation"
-echo
-
-echo "## initializing environment..."
-source /mnt/autoconf.sh
-set
-echo
 
 # outputs fdisk commands to add a partition
 new_partition() {
@@ -65,8 +60,8 @@ partition() {
 
 # run installation scripts
 echo "## running installation scripts..."
-for INSTFILE in /mnt/autoinst.d/[0-9]*.sh; do
-    source "$INSTFILE"
+for INSTFILE in $AUTOINST/install.d/[0-9]*.sh; do
+    . "$INSTFILE"
 done
 
 # all done; reboot
