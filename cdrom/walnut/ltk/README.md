@@ -1,6 +1,6 @@
 # Walnut Creek Linux Toolkit
 
-Walnut Creek CD-ROM released several Linux Toolkit CDs with Linux distros available at the time plus files from sunsite and tsx-11. I could only find one from 1994 and 3 from 1999 on archive.org. I am not sure if there were others. The distros on each edition are listed below.
+Walnut Creek CD-ROM released several Linux Toolkit CDs with Linux distros available at the time plus files from sunsite and tsx-11. I could only find one from 1994 and 3 from 1999 on archive.org. I am not sure if others were produced. The distros included on each edition are listed below.
 
 ## Aug 1994
 

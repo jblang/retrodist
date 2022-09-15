@@ -30,7 +30,7 @@ The files in the `a1` directory are zipped, unlike on the official mirror. When 
 
 [chitaotao](https://archive.org/details/slackware101) uploaded another version to archive.org in December 2021 with the description:
 
-> A much more complete disck set of  slackware 1.01. The 7z file is from slackware mirror (containing a1-a11, x10) the zip file contains a1-a11, x1-x11, t1-t3. 
+> A much more complete disk set of slackware 1.01. The 7z file is from slackware mirror (containing a1-a11, x10) the zip file contains a1-a11, x1-x11, t1-t3. 
 
 The archive contains floppy images for the complete `a1-a13`, `t1-t3`, and `x1-x10` series as well as a QEMU image for an installed system.  The files in the `a` series are indeed identical to those from the official mirror, except that `a10` is missing `smail.tgz`.  However, the files from the `x` series are identical to those from SLS 1.03, as are files in the `t` except for `texpk.tgz`.
 

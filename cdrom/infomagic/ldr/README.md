@@ -2,7 +2,7 @@
 
 InfoMagic was a purveyor of shareware and open-source CD-ROMs during the 90s similar to Walnut Creek. They made several editions of their Linux Developer's Resource CDs each year from 1993 until 1998. Their December 1993 edition was the earliest Linux CD-ROM that I could find on archive.org. A scan of their [1996 Catalog](https://archive.org/details/InfoMagic1996CDROMCatalog/mode/2up) is also on archive.org.
 
-Each edition contained current distributions at the time as well as mirrors of well-known FTP sites like sunsite and tsx-11.  A summary of distros on each edition is listed below. Some CDs also contain other bonus materials. Refer to the README.txt in each directory for details.
+Each edition contained current distributions at the time as well as snapshots the sunsite and tsx-11 FTP sites. A summary of distros on each edition is listed below. Some CDs also contain other bonus materials. Refer to the README.txt in each directory for details.
 
 ## Dec 1993
 
