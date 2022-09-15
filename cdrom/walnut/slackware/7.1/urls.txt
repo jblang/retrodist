@@ -1,0 +1,4 @@
+disc1.iso https://archive.org/download/Slackware_Linux_7.1_Walnut_Creek_July_2000/Slackware%20Linux%207.1%20%28Walnut%20Creek%29%20%28July%202000%29%20%28Disc%201%29.iso
+disc2.iso https://archive.org/download/Slackware_Linux_7.1_Walnut_Creek_July_2000/Slackware%20Linux%207.1%20%28Walnut%20Creek%29%20%28July%202000%29%20%28Disc%202%29.iso
+disc3.iso https://archive.org/download/Slackware_Linux_7.1_Walnut_Creek_July_2000/Slackware%20Linux%207.1%20%28Walnut%20Creek%29%20%28July%202000%29%20%28Disc%203%29.iso
+disc4.iso https://archive.org/download/Slackware_Linux_7.1_Walnut_Creek_July_2000/Slackware%20Linux%207.1%20%28Walnut%20Creek%29%20%28July%202000%29%20%28Disc%204%29.iso

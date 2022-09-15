@@ -1,0 +1,2 @@
+disc1.iso https://archive.org/download/Slackware_Linux_2.3_Walnut_Creek_July_1995/Slackware%20Linux%202.3%20%28Walnut%20Creek%29%20%28July%201995%29%20%28Disc%201%29.iso
+disc2.iso https://archive.org/download/Slackware_Linux_2.3_Walnut_Creek_July_1995/Slackware%20Linux%202.3%20%28Walnut%20Creek%29%20%28July%201995%29%20%28Disc%202%29.iso
