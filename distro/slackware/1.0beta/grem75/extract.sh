@@ -1,5 +1,6 @@
-tar xfz $ORIG/slackware.tar.gz -C $CACHE
-mv $CACHE/slack-pre1.0 $CACHE/install
-mkdir -p $CACHE/install/a1
-mv $CACHE/install/a1.img $CACHE/install/a1/a1disk
-cp $CACHE/install/a1/a1disk $CACHE/boot.img
+mkdir -p $CACHEDIR/install
+tar xfz $ORIGDIR/slackware.tar.gz -C $CACHEDIR
+mv $CACHEDIR/slack-pre1.0 $CACHEDIR/install/install
+mkdir -p $CACHEDIR/install/install/a1
+mv $CACHEDIR/install/install/a1.img $CACHEDIR/install/install/a1/a1disk
+cp $CACHEDIR/install/install/a1/a1disk $CACHEDIR/boot.img

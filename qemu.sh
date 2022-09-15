@@ -7,15 +7,23 @@ if [[ $# -lt 1 ]]; then
   echo "Usage $(basename $0) conf"
   exit 1
 fi
+NAME=$1
+shift
 
-$SCRIPTDIR/extract.sh $1
+$SCRIPTDIR/extract.sh $NAME
 
-CONF=$PWD/$1
-CACHE=$CACHEBASE/$1
-QEMUDIR=$QEMUBASE/$1
+# for distros that are sourced from elsewhere
+CONFDIR=$PWD/$NAME
+if [[ -f $CONFDIR/source.txt ]]; then
+  SOURCE=$(cat $CONFDIR/source.txt)
+  ORIGDIR=$ORIGBASE/$SOURCE
+else
+  ORIGDIR=$ORIGBASE/$NAME
+fi
+CACHEDIR=$CACHEBASE/$NAME
+QEMUDIR=$QEMUBASE/$NAME
 mkdir -p $QEMUDIR
 cd $QEMUDIR
-shift
 
 QEMU="qemu-system-i386"
 QEMU_MACHINE="type=isapc"
@@ -29,8 +37,8 @@ QEMU_RETRONET="
 QEMU_EXTRA=""
 
 # Prepare to run
-if [[ -f $CONF/prep.sh ]]; then
-  source $CONF/prep.sh
+if [[ -f $CONFDIR/prep.sh ]]; then
+  source $CONFDIR/prep.sh
 fi
 
 # Add -drive parameters for each image provided

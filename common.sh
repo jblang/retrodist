@@ -23,18 +23,33 @@ download_list() {
   done
 }
 
+fix_perms() {
+    sudo chown -R $USER:$USER "$1"
+    chmod -R ugo+r "$1"
+    chmod -R u+w "$1"
+    chmod -R go-w "$1"
+    if [[ -d "$1" ]]; then
+      find "$1" -type d | xargs chmod ugo+x
+    fi
+}
+
 mount_copy() {
-  echo "Using sudo to mount $(basename $1); enter your password if prompted."
-  sudo mount -o ro $1 /mnt
-  if [[ $? ]]; then
-    sudo cp -R --preserve=timestamp "/mnt" $2
-    sudo umount /mnt
-    sudo chown -R $USER:$USER $2
-    chmod -R ugo+r $2
-    chmod -R u+w $2
-    chmod -R go-w $2
-    find $2 -type d | xargs chmod ugo+x
+  IMAGE=$1
+  DEST=$2
+  shift; shift
+  echo "Using sudo to mount $(basename $IMAGE); enter your password if prompted."  
+  sudo mount -o ro "$IMAGE" /mnt
+  if [[ $# -gt 0 ]]; then
+    while [[ $# -gt 0 ]]; do
+      sudo cp -R --preserve=timestamp "/mnt/$1" "$DEST"
+      fix_perms $DEST/$(basename $1)
+      shift
+    done
+  else
+    sudo cp -R --preserve=timestamp "/mnt" "$DEST"
+    fix_perms $DEST
   fi
+  sudo umount /mnt
 }
 
 slackware_mirror() {
