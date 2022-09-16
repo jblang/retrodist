@@ -1,1 +1,4 @@
-.retro
+.downloads/
+.retrojump/
+**/.cache/
+**/.qemu/

@@ -1,0 +1,343 @@
+#!/usr/bin/env bash
+# Downloads, extracts, and runs retro distros
+SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+RETROHOME=${RETROHOME:-$SCRIPTDIR}
+ORIGBASE=$RETROHOME/.downloads
+SLACKBASE=$ORIGBASE/mirrors.slackware.com/slackware
+
+# download a list URLs from a file with the specified filename
+# file format is `filename url`, one per line
+download_list() {
+  if [[ $# -ne 2 ]]; then
+    exit 1
+  fi
+  cat $1 | while read FILE URL || [ "$FILE" ]; do
+    DEST=$2/$FILE
+    if [[ ! -f "$DEST" ]]; then
+      echo "Downloading $FILE"
+      wget --no-verbose --show-progress -O "$DEST" "$URL"
+    else
+      echo "Already downloaded: $FILE"
+    fi
+  done
+}
+
+# download a version of Slackware from the official mirror
+slackware_mirror() {
+  if [[ $# -ne 1 ]]; then
+    exit 1
+  fi
+  if [[ ! -d "$SLACKBASE/slackware-$1" ]]; then
+    wget \
+      --no-verbose \
+      --show-progress \
+      --recursive \
+      --no-parent \
+      --reject "*.md5*,*.meta4,*.sha*,*mirror*,*index*" \
+      "http://mirrors.slackware.com/slackware/slackware-$1/"
+  else
+    echo "Already downloaded: slackware-$1"
+  fi
+}
+
+# fix permissions/ownership for files copied from disk image
+fix_perms() {
+    sudo chown -R $USER:$USER "$1"
+    chmod -R ugo+r "$1"
+    chmod -R u+w "$1"
+    chmod -R go-w "$1"
+    if [[ -d "$1" ]]; then
+      find "$1" -type d | xargs chmod ugo+x
+    fi
+}
+
+# mount a disk image and copy files from it
+mount_copy() {
+  IMAGE=$1
+  DEST=$2
+  shift; shift
+  echo "Extract: using sudo to mount $(basename $IMAGE)"  
+  sudo mount -o ro "$IMAGE" /mnt
+  if [[ $# -gt 0 ]]; then
+    while [[ $# -gt 0 ]]; do
+      sudo cp -R --preserve=timestamp "/mnt/$1" "$DEST"
+      fix_perms $DEST/$(basename $1)
+      shift
+    done
+  else
+    sudo cp -R --preserve=timestamp "/mnt" "$DEST"
+    fix_perms $DEST
+  fi
+  sudo umount /mnt
+}
+
+# download original files for the selected distro
+retro_download() {
+  if [[ -f "$SOURCEDIR/download.sh" ]]; then
+    mkdir -p $ORIGDIR
+    pushd $ORIGDIR > /dev/null
+    source "$SOURCEDIR/download.sh"
+    popd > /dev/null
+  elif [[ -f "$SOURCEDIR/urls.txt" ]]; then
+    mkdir -p $ORIGDIR
+    download_list "$SOURCEDIR/urls.txt" "$ORIGDIR"
+  elif [[ -f "$SOURCEDIR/slackver.txt" ]]; then
+    mkdir -p $ORIGDIR
+    VER="$(cat "$SOURCEDIR/slackver.txt")"
+    (cd $ORIGBASE; slackware_mirror $VER)
+  else
+    echo "Nothing to download"
+  fi
+}
+
+# extract installation files for the selected distro
+retro_extract() {
+  if [[ ! -d $CACHEDIR ]]; then
+    retro_download
+    if [[ -f "$CONFDIR/extract.sh" ]]; then
+      mkdir -p $CACHEDIR
+      pushd $CACHEDIR > /dev/null
+      source "$CONFDIR/extract.sh"
+      popd > /dev/null
+    else
+      echo "Nothing to extract"
+    fi
+
+    # copy auto installation files if they exist
+    if [[ -d "$CONFDIR/../_autoinst" ]]; then
+      mkdir -p $CACHEDIR/install
+      cp -LR $CONFDIR/../_autoinst/* $CACHEDIR/install
+    fi
+  else
+    echo "Using cached files"
+  fi
+}
+
+
+# run QEMU for the selected distro
+retro_run() {
+  retro_extract
+  mkdir -p $QEMUDIR
+  pushd $QEMUDIR > /dev/null
+
+  # link installation files
+  if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
+    ln -s $CACHEDIR/boot.img fda.img
+  fi
+  if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
+    ln -s $CACHEDIR/root.img fdb.img
+  fi
+  if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
+    ln -s $ORIGDIR/disc1.iso hdc.iso
+  fi
+  if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
+    ln -s $CACHEDIR/install hdb
+  fi
+
+  # default configuration
+  QEMU_SYSTEM="qemu-system-i386"
+  QEMU_MACHINE="type=isapc"
+  QEMU_SMP="1"
+  QEMU_RAM="16M"
+  QEMU_HD_SIZE="500M"
+  QEMU_HD_FORMAT="qcow2"
+  QEMU_NET_DEVICE="ne2k_isa"
+  QEMU_INTERNET="" # disabled
+  QEMU_RETRONET="
+    -netdev socket,id=retronet,connect=:1234
+    -device $QEMU_NET_DEVICE,netdev=retronet"
+  QEMU_EXTRA=""
+
+  # Allow overriding default configuration
+  if [[ -f $CONFDIR/qemu.sh ]]; then
+    source $CONFDIR/qemu.sh
+  fi
+
+  # create hard drive image
+  if [[ ! -f hda.img ]]; then
+    if [[ -f fda.img || -f hdc.iso ]]; then
+      qemu-img create -f $QEMU_HD_FORMAT hda.img $QEMU_HD_SIZE
+    else
+      echo "No bootable devices"
+      if [[ -d $QEMUDIR && -z $(ls -A $QEMUDIR) ]]; then
+        rmdir $QEMUDIR
+      fi
+      exit 1
+    fi
+  fi
+
+  # Add -drive parameters for each image provided
+  QEMU_DRIVES=""
+  for DRIVE in fda fdb hda hdb hdc hdd; do
+    INDEX=$(echo $DRIVE | cut -c3 | tr abcd 0123)
+    if [[ $DRIVE = fd* ]]; then
+      INTERFACE=floppy
+      FORMAT=raw
+    else
+      INTERFACE=ide
+      if [[ -f $DRIVE.img ]]; then
+        FORMAT=$QEMU_HD_FORMAT
+      else
+        FORMAT=raw
+      fi
+    fi
+    if [[ -f $DRIVE.img ]]; then
+      QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=$FORMAT,file=$DRIVE.img"
+    elif [[ -f $DRIVE.iso ]]; then
+      QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=$FORMAT,media=cdrom,file=$DRIVE.iso"
+    elif [[ -d $DRIVE ]]; then
+      QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=raw,file=fat:rw:$DRIVE"
+    fi
+  done
+
+  # Run QEMU
+  QEMU_COMMAND="
+    $QEMU_SYSTEM 
+      -machine $QEMU_MACHINE
+      -smp $QEMU_SMP
+      -m $QEMU_RAM
+      -serial mon:stdio
+      $QEMU_INTERNET
+      $QEMU_RETRONET
+      $QEMU_DRIVES
+      $QEMU_EXTRA
+      $@"
+  
+  QEMU_COMMAND=$(echo $QEMU_COMMAND | tr -d '\n' | tr -s ' ')
+  echo
+  echo "QEMU command: $QEMU_COMMAND"
+  echo
+  if [[ $COMMAND == "run" ]]; then
+    $QEMU_COMMAND
+  fi
+  popd > /dev/null
+}
+
+# generate bat file for running QEMU on windows
+retro_package() {
+  echo $@
+  if [[ $# -ge 1 && $1 == "--hda" ]]; then
+    FILES="hda.img retro.bat retro.sh"
+    shift
+  else
+    FILES="*"
+  fi
+  retro_run $@
+  echo
+  echo "Packaging $CONFNAME..."
+  echo "@echo off" > "$QEMUDIR/retro.bat"
+  echo $QEMU_COMMAND >> "$QEMUDIR/retro.bat"
+  echo "#!/bin/sh" > "$QEMUDIR/retro.sh"
+  echo $QEMU_COMMAND >> "$QEMUDIR/retro.sh"
+  chmod +x "$QEMUDIR/retro.sh"
+  TARNAME=$(echo $CONFNAME | tr / -)
+  (cd $QEMUDIR; tar cvfz ../$TARNAME.tar.gz $FILES --dereference --transform "s|^|$TARNAME/|")
+  ls -lh $TARNAME.tar.gz
+}
+
+retro_reset() {
+  read -p "Really remove QEMU images and cached files for $CONFNAME? " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    rm -rf $CACHEDIR
+    rm -rf $QEMUDIR
+    echo "Distro reset."
+  else
+    echo "Reset aborted."
+  fi
+}
+
+# usage instructions
+retro_usage() {
+cat <<EOF
+Usage: $(basename $0) [COMMAND] [CONFIG] [OPTIONS]
+
+Commands:
+  run       default run the distro in QEMU; calls extract
+  extract   extract files for the distro; calls download
+  download  download source files for the distro or CD-ROM
+  package   create a tar with the QEMU image files and startup script
+  reset     remove the QEMU images and cached files for the distro
+
+Config:
+  If specified, should be the name of a config directory.
+  Defaults to the current directory.
+
+Additional options are passed to QEMU verbatim.
+
+EOF
+exit 1
+}
+
+# see if the first parameter is a command; default to run otherwise
+if [[ $# -ge 1 ]]; then
+  case $1 in
+    run | extract | download | reset | package)
+      COMMAND=$1
+      shift
+      ;;
+    *)
+      COMMAND=run
+  esac
+else
+  COMMAND=run
+fi
+
+# next parameter should be a configuration file; default to pwd
+if [[ $# -eq 1 ]]; then
+  if [[ -d "$1" ]]; then
+    CONFDIR=$(cd "$1" && pwd)
+    shift
+  elif [[ -d "$SCRIPTDIR/$1" ]]; then
+    CONFDIR=$(cd "$SCRIPTDIR/$1" && pwd)
+    shift
+  elif [[ $1 == \-* ]]; then
+    CONFDIR=$PWD
+  else
+    echo "Configuration $1 doesn't exist"
+    exit 1
+  fi
+else
+  CONFDIR=$PWD
+fi
+
+CONFNAME=$(echo $CONFDIR | sed "s|$SCRIPTDIR/||")
+
+# handle distros that are sourced from CD-ROMs
+if [[ -f $CONFDIR/source.txt ]]; then
+  SOURCE=$(cat $CONFDIR/source.txt)
+else
+  SOURCE=$CONFNAME
+fi
+SOURCEDIR=$(cd "$SCRIPTDIR/$SOURCE" && pwd)
+
+ORIGDIR=$ORIGBASE/$SOURCE
+CACHEDIR=$CONFDIR/.cache
+QEMUDIR=$CONFDIR/.qemu
+
+# temp directory automatically cleaned up on exit
+TEMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEMPDIR"' EXIT
+
+# output configuration details
+cat <<EOF
+Retro Distro Playground by J.B. Langston
+
+Command:    $COMMAND
+Config:     $CONFDIR
+Source:     $SOURCEDIR
+Download:   $ORIGDIR
+Cache:      $CACHEDIR
+QEMU:       $QEMUDIR
+
+EOF
+
+# run the selected command
+case $COMMAND in
+  download) retro_download;;
+  extract) retro_extract;;
+  run) retro_run $@;;
+  package) retro_package $@;;
+  reset) retro_reset;;
+  *) retro_usage;;
+esac
