@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs qemu using files in the current or specified directory
+# Runs qemu configured for the specified distro
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPTDIR/common.sh
 
@@ -10,6 +10,7 @@ fi
 NAME=$1
 shift
 
+# automatically download and extract
 $SCRIPTDIR/extract.sh $NAME
 
 # for distros that are sourced from elsewhere
@@ -25,20 +26,42 @@ QEMUDIR=$QEMUBASE/$NAME
 mkdir -p $QEMUDIR
 cd $QEMUDIR
 
-QEMU="qemu-system-i386"
+# link installation files
+if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
+  ln -s $CACHEDIR/boot.img fda.img
+fi
+if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
+  ln -s $CACHEDIR/root.img fdb.img
+fi
+if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
+  ln -s $ORIGDIR/disc1.iso hdc.iso
+fi
+if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
+  ln -s $CACHEDIR/install hdb
+fi
+
+# default configuration
+QEMU_SYSTEM="qemu-system-i386"
 QEMU_MACHINE="type=isapc"
 QEMU_SMP="1"
 QEMU_RAM="16M"
+QEMU_HD_SIZE="500M"
+QEMU_HD_FORMAT="qcow2"
 QEMU_NET_DEVICE="ne2k_isa"
-QEMU_INTERNET=""
+QEMU_INTERNET="" # disabled
 QEMU_RETRONET="
   -netdev socket,id=retronet,connect=:1234
   -device $QEMU_NET_DEVICE,netdev=retronet"
 QEMU_EXTRA=""
 
-# Prepare to run
-if [[ -f $CONFDIR/prep.sh ]]; then
-  source $CONFDIR/prep.sh
+# Allow overriding default configuration
+if [[ -f $CONFDIR/qemu.sh ]]; then
+  source $CONFDIR/qemu.sh
+fi
+
+# create hard drive image
+if [[ ! -f hda.img ]]; then
+  qemu-img create -f $QEMU_HD_FORMAT hda.img $QEMU_HD_SIZE
 fi
 
 # Add -drive parameters for each image provided
@@ -51,7 +74,7 @@ for DRIVE in fda fdb hda hdb hdc hdd; do
   else
     INTERFACE=ide
     if [[ -f $DRIVE.img ]]; then
-      FORMAT=qcow2
+      FORMAT=$QEMU_HD_FORMAT
     else
       FORMAT=raw
     fi
@@ -68,7 +91,7 @@ done
 set | grep QEMU_
 
 # Run QEMU
-$QEMU \
+$QEMU_SYSTEM \
   -machine $QEMU_MACHINE \
   -smp $QEMU_SMP \
   -m $QEMU_RAM \

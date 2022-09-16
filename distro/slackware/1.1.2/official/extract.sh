@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-cp -lR $SLACKBASE/slackware-1.1.2 $CACHEDIR/install
-cp $CACHEDIR/install/bootdisk/1_44meg/bareboot.gz $CACHEDIR/boot.img.gz
-cp $CACHEDIR/install/bootdisk/1_44meg/color144.gz $CACHEDIR/root.img.gz
-gunzip $CACHEDIR/boot.img.gz
-gunzip $CACHEDIR/root.img.gz
+cp -lR $SLACKBASE/slackware-1.1.2 install
+cp install/bootdisk/1_44meg/bareboot.gz boot.img.gz
+cp install/bootdisk/1_44meg/color144.gz root.img.gz
+gunzip boot.img.gz
+gunzip root.img.gz

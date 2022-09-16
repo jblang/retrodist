@@ -4,6 +4,10 @@ This repo contains tools for exploring early Linux distributions in [QEMU](https
 
 Running retro distros in QEMU has been done many times by many people, but until now there has not been a central repository of recipes for running a wide variety of distros.
 
+![chitaotao](screenshots/chitaotao.png)
+![install](screenshots/install111.png)
+![x11111](screenshots/x11111.png)
+
 ## Retro Distros
 
 Scripts are provided for downloading, extracting, and running retro distros. All of the scripts take a configuration directory as their first argument. 
@@ -45,32 +49,40 @@ Infuriatingly, ssh uses lowercase `-p` to specify the port, while scp and sftp u
 
 ## Adding Distros
 
-To add support for a new distro, create a new configuration directory.  Configuration files should address the following steps.
+To add support for a new distro, create a new `distro/version/variant` configuration directory.  Configuration files should address the following steps.
 
 ### Downloading
 
 Downloads are configured using one of the following files, in order of precedence:
 
-- `download.sh`, if present, will be executed to download the files. This provides a general mechanism to handle special cases.
-- `urls.txt`, if present, contains a list of files to download in the format `filename url` with one file per line.
-- `slackver.txt`, if present, contains the version of Slackware to download from the Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
+- `download.sh` executes as a general script to handle special cases.
+- `urls.txt` contains a list of files to download in the format `filename url` with one file per line.
+- `slackver.txt` contains the version to download from the Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
 
 ### Extraction
 
-If an `extract.sh` file exists in the distro's directory, the main `extract.sh` script will call it to perform distro-specific extraction. Otherwise, it will attempt to extract any zips, tar.gz archives, and ISO files that were downloaded into the distro's cache directory.
+Extraction is configured by files in the distro's config directory:
+- `source.txt` specifies the CD-ROM that the distro comes from.
+- `extract.sh` performs distro-specific extraction...
+  - If the distro doesn't support installing from an IDE CD-ROM, extract files to the `install` directory. This will be mounted as a FAT partition to `/dev/hdb1`.
+  - If a boot floppy is required, copy it to `boot.img`.
+  - If a root floppy is required, copy it to `root.img`.
+  - Extract any additional files required for installation.
 
 ### Preparation
 
-The `qemu.sh` script will source `prep.sh` from the distro directory if it exists. This script should do the following:
-- Override any non-default values for the `QEMU_*` variables from `qemu.sh`.
-- Create disk images or directories necessary for installation. 
-
-Files in the distro's directory will be attached as follows:
-- `fda.img` and `fdb.img` will be attached to the first and second floppy drives, respectively.
-- The following images or directories will be attached to the corresponding IDE device, in order of precedence:
-  - `hda.img` through `hdd.img`: the format is assumed to be qcow2.
-  - `hda.iso` through `hdd.iso`: the format is assumed to be raw, and will be treated as a CD-ROM.
-  - Directories `hda` through `hdd`: the files in the directory can be mounted as a FAT filesystem in the VM via `/dev/hdb1`, etc.
+The main `qemu.sh` script configures QEMU as follows:
+- Sets QEMU_* variables with the default hardware configuration
+- Creates symlinks to attach installation files to the appropriate device:
+- `boot.img` -> `fda.img`: first floppy drive (`/dev/fd0`)
+- `root.img` -> `fdb.img`: second floppy drive (`/dev/fd1`)
+- `install` -> `hdb`: FAT partition (`/dev/hdb1`)
+- `disc1.iso` -> `hdc.img`: CD-ROM drive (`/dev/hdc`)
+- Sources the distro's `qemu.sh` file if it exists. This file should:
+  - Override QEMU_* variables for non-default hardware configuration
+  - Create symlinks for any additional files needed by the installation
+  - Perform any special-case initialization required by the distro
+- Creates main hard drive image `hda.img` with size `QEMU_HD_SIZE` and format `QEMU_HD_FORMAT`
 
 ## Credits
 

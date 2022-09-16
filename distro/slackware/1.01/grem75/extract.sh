@@ -1,25 +1,25 @@
 # unzip files from source archive to correct directory
-unzip -q $ORIGDIR/slackware.zip -d $CACHEDIR
-mkdir -p $CACHEDIR/install/install
-for ZIP in $CACHEDIR/*.ZIP; do
+unzip -q $ORIGDIR/slackware.zip
+mkdir -p install/install
+for ZIP in *.ZIP; do
   DISK=$(basename $ZIP .ZIP | sed 's/SK101//' | tr A-Z a-z)
-  unzip -L -q $ZIP -d $CACHEDIR/install/install/$DISK
+  unzip -L -q $ZIP -d install/install/$DISK
   rm $ZIP
 done
 
 # unzip files in A1 directory
-for ZIP in $CACHEDIR/install/install/a1/*.zip; do
-  unzip -L -q $ZIP -d $CACHEDIR/install/install/a1
+for ZIP in install/install/a1/*.zip; do
+  unzip -L -q $ZIP -d install/install/a1
   rm $ZIP
 done
-mv $CACHEDIR/install/install/a2i $CACHEDIR/install/install/a2
-cp $CACHEDIR/install/install/a1/a1disk $CACHEDIR/boot.img
+mv install/install/a2i install/install/a2
+cp install/install/a1/a1disk boot.img
 
 # clean up some files that got put into the wrong dirs
-WRONGDISKS=$(ls $CACHEDIR/install/install/a*/diskx* $CACHEDIR/install/install/x*/diska*)
+WRONGDISKS=$(ls install/install/a*/diskx* install/install/x*/diska*)
 for WRONG in $WRONGDISKS; do
   WRONGDIR=$(dirname $WRONG)
-  NEWDIR=$CACHEDIR/install/install/$(basename $WRONG | sed "s/disk//")b
+  NEWDIR=install/install/$(basename $WRONG | sed "s/disk//")b
   mkdir -p $NEWDIR
   FILES=$(cat $WRONG | cut -d: -f1 | sort | uniq)
   for FILE in $FILES; do
