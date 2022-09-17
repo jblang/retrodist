@@ -1,0 +1,1 @@
+x_svga.tgz https://mirrors.slackware.com/slackware/slackware-1.1.2/x2/x_svga.tgz

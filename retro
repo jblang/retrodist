@@ -23,7 +23,7 @@ download_list() {
 }
 
 # download a version of Slackware from the official mirror
-slackware_mirror() {
+download_slackware() {
   if [[ $# -ne 1 ]]; then
     exit 1
   fi
@@ -38,6 +38,33 @@ slackware_mirror() {
   else
     echo "Already downloaded: slackware-$1"
   fi
+}
+
+# download original files for the selected distro
+download_all() {
+  mkdir -p $2
+  if [[ -f $1/source.txt ]]; then
+    SOURCE=$(cat $1/source.txt)
+    SOURCEDIR=$(cd "$SCRIPTDIR/$SOURCE" && pwd)
+    download_all $SOURCEDIR $ORIGBASE/$SOURCE
+    ln -sfr $ORIGBASE/$SOURCE/* $2
+  fi
+  if [[ -f "$1/urls.txt" ]]; then
+    download_list "$1/urls.txt" "$2"
+  fi
+  if [[ -f "$1/slackver.txt" ]]; then
+    VER="$(cat "$1/slackver.txt")"
+    (cd $ORIGBASE; download_slackware $VER)
+  fi
+  if [[ -f "$1/download.sh" ]]; then
+    pushd $2 > /dev/null
+    source "$1/download.sh"
+    popd > /dev/null
+  fi
+}
+
+retro_download() {
+  download_all $CONFDIR $ORIGDIR
 }
 
 # fix permissions/ownership for files copied from disk image
@@ -69,25 +96,6 @@ mount_copy() {
     fix_perms $DEST
   fi
   sudo umount /mnt
-}
-
-# download original files for the selected distro
-retro_download() {
-  if [[ -f "$SOURCEDIR/download.sh" ]]; then
-    mkdir -p $ORIGDIR
-    pushd $ORIGDIR > /dev/null
-    source "$SOURCEDIR/download.sh"
-    popd > /dev/null
-  elif [[ -f "$SOURCEDIR/urls.txt" ]]; then
-    mkdir -p $ORIGDIR
-    download_list "$SOURCEDIR/urls.txt" "$ORIGDIR"
-  elif [[ -f "$SOURCEDIR/slackver.txt" ]]; then
-    mkdir -p $ORIGDIR
-    VER="$(cat "$SOURCEDIR/slackver.txt")"
-    (cd $ORIGBASE; slackware_mirror $VER)
-  else
-    echo "Nothing to download"
-  fi
 }
 
 # extract installation files for the selected distro
@@ -122,16 +130,16 @@ retro_run() {
 
   # link installation files
   if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
-    ln -s $CACHEDIR/boot.img fda.img
+    ln -sr $CACHEDIR/boot.img fda.img
   fi
   if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
-    ln -s $CACHEDIR/root.img fdb.img
+    ln -sr $CACHEDIR/root.img fdb.img
   fi
   if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
-    ln -s $ORIGDIR/disc1.iso hdc.iso
+    ln -sr $ORIGDIR/disc1.iso hdc.iso
   fi
   if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
-    ln -s $CACHEDIR/install hdb
+    ln -sr $CACHEDIR/install hdb
   fi
 
   # default configuration
@@ -300,18 +308,9 @@ if [[ $# -eq 1 ]]; then
 else
   CONFDIR=$PWD
 fi
+CONFNAME=$(echo $CONFDIR | sed "s|^$SCRIPTDIR/||")
 
-CONFNAME=$(echo $CONFDIR | sed "s|$SCRIPTDIR/||")
-
-# handle distros that are sourced from CD-ROMs
-if [[ -f $CONFDIR/source.txt ]]; then
-  SOURCE=$(cat $CONFDIR/source.txt)
-else
-  SOURCE=$CONFNAME
-fi
-SOURCEDIR=$(cd "$SCRIPTDIR/$SOURCE" && pwd)
-
-ORIGDIR=$ORIGBASE/$SOURCE
+ORIGDIR=$ORIGBASE/$CONFNAME
 CACHEDIR=$CONFDIR/.cache
 QEMUDIR=$CONFDIR/.qemu
 
@@ -325,7 +324,6 @@ Retro Distro Playground by J.B. Langston
 
 Command:    $COMMAND
 Config:     $CONFDIR
-Source:     $SOURCEDIR
 Download:   $ORIGDIR
 Cache:      $CACHEDIR
 QEMU:       $QEMUDIR

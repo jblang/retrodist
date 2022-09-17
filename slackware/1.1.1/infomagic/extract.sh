@@ -5,6 +5,4 @@ mount_copy $ORIGDIR/disc1.iso . \
 mv slackware install
 mv uniboot boot.img
 # 1.1.1 x_svga.tgz has CRC error, so borrow working package from 1.1.2
-SOURCE112=distro/slackware/1.1.2/official
-(cd $SCRIPTDIR; ./download.sh $SOURCE112)
-cp $SLACKBASE/slackware-1.1.2/x2/x_svga.tgz install/x2/x_svga.tgz
+cp $ORIGDIR/x_svga.tgz install/x2/x_svga.tgz
