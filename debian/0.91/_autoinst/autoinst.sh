@@ -1,0 +1,1 @@
+../../../slackware/1.01/_autoinst/autoinst.sh

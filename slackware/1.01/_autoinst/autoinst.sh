@@ -1,10 +1,14 @@
 #!/bin/sh
 # Automatic installation for retro distros
-AUTOINST=$( cd "$( dirname "$0" )" > /dev/null 2>&1 && pwd )
-
 echo "# automatic installation"
 
 # run installation scripts
-for INSTFILE in $AUTOINST/install.d/[0-9]*.sh; do
+if [ -d /var/adm/mount/install.d ]; then
+    AUTOINST=/var/adm/mount/install.d
+elif [ -d /mnt/install.d ]; then
+    AUTOINST=/mnt/install.d
+fi
+
+for INSTFILE in $AUTOINST/[0-9]*.sh; do
     . "$INSTFILE"
 done

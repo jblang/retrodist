@@ -5,6 +5,7 @@ swapon $SWAPDEVICE
 echo "## initializing root filesystem..."
 mke2fs $ROOTDEVICE
 mount -t $ROOTFSTYPE $ROOTDEVICE $ROOTMOUNT
+mkdir -p $ROOTMOUNT/tmp
 
 # set up fstab
 cat > $ROOTMOUNT/fstab.tmp <<EOF
