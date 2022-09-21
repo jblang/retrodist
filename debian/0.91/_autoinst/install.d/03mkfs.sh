@@ -1,1 +1,0 @@
-../../../../slackware/1.01/_autoinst/install.d/03mkfs.sh

@@ -31,10 +31,10 @@ Configuration files are provided in the [cdrom](cdrom) directory for downloading
 
 Old distributions are riddled with security holes and have no business being on the internet. If you were to connect them, they often do not support modern network protocols, so you can't do much.  Yes, you *can* put Slackware 1.0 on the internet and `ping www.google.com`, but that's about it, and that's probably a good thing. Even its FTP client won't work from behind a firewall because it doesn't support passive mode.
 
-`retrojump` will start a modern Ubuntu VM configured as a jump box with an FTP server and other niceties to interact with your retro boxes. This VM has a connection to the internet but also a second private network interface that all the retro boxes can talk to. The VM's SSH port is forwarded to `2222` on the host, and convenience commands are provided to ssh, sftp, and scp. It is accessible to the retro distros via FTP to `10.0.2.1`. The username and password is `retro`/`retro`.  
+`jump` will start a modern Ubuntu VM configured as a jump box with an FTP server and other niceties to interact with your retro boxes. This VM has a connection to the internet but also a second private network interface that all the retro boxes can talk to. The VM's SSH port is forwarded to `2222` on the host, and convenience commands are provided to ssh, sftp, and scp. It is accessible to the retro distros via FTP to `10.0.2.1`. The username and password is `retro`/`retro`.  
 
 ```
-Usage: retrojump COMMAND ...
+Usage: jump COMMAND ...
 
 Commands:
   run     start the jump box with a serial console
@@ -93,7 +93,7 @@ The `retro` script configures QEMU to run the a distro by doing the following:
 
 ## License
 
-The scripts in this repo are under MIT license.
+Unless otherwise noted, the scripts in this repo are under MIT license.
 
 Copyright 2022 J.B. Langston
 

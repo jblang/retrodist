@@ -1,0 +1,884 @@
+#! /bin/sh
+#
+# dpkg (Debian pkg) - Debian Linux package maintenance utility (distributed
+#   with Debian Linux 0.91 BETA)
+#
+# Copyright (C) 1994 Ian A. Murdock <imurdock@shell.portal.com>
+#
+# (Inspired by StopALOP by Dr. Greg Wettstein.)
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+CLLVL1="1 2 3"
+CLLVL2="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18"
+CLLVL3="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+DIR=`pwd`
+MOUNTDIR="/tmp/install"
+WHOAMI=`whoami`
+
+BELL=`tput bel`
+BOLD=`tput bold`
+CLR=`tput clear`
+INVIS=`tput civis`
+NORM=`tput sgr0`
+REV=`tput rev`
+VIS=`tput cnorm`
+
+add ()
+{
+        FDIR="$DIR/"
+        trap "" 1 2 3 15
+        if [ $DEV != "none" ]; then
+                if [ $MOUNTFLAG = "yes" ]; then
+                        mkdir $MOUNTDIR
+                        mount -t $FS $DEV $MOUNTDIR || ( echo "dpkg: Cannot mount device \`$DEV' (\`$FS' filesystem)." ; touch /tmp/nomount )
+                        if [ -f /tmp/nomount ]; then
+                                rmdir $MOUNTDIR ; rm -f /tmp/nomount ; exit 1
+                        fi
+                fi
+                if [ ! -f $MOUNTDIR/$FDIR$PKG.deb ]; then
+                        echo -n "dpkg: Could not find \`$PKG.deb' on \`$DEV'"
+                        if [ $DIR != "" ]; then
+                                echo " in the directory \`$DIR'."
+                        else
+                                echo "."
+                        fi 2>/dev/null
+                        if [ $MOUNTFLAG = "yes" ]; then
+                                umount $MOUNTDIR ; rmdir $MOUNTDIR 
+                        fi
+                        exit 1
+                else
+                        ( pkginstall $MOUNTDIR/$FDIR$PKG.deb ) 2>/dev/null
+                        ( for INST in `ls /var/adm/dpkg/inst/*.inst`
+                          do
+                                sh $INST ; rm -f $INST
+                          done ) 2>/dev/null 
+                        if [ $MOUNTFLAG = "yes" ]; then
+                                umount $MOUNTDIR ; rmdir $MOUNTDIR 
+                        fi
+                        exit 0
+                fi
+        else
+                if [ ! -f $FDIR$PKG.deb ]; then
+                        echo -n "dpkg: Could not find \`$PKG.deb'"
+                        if [ $DIR != "" ]; then
+                                echo " in the directory \`$DIR'."
+                        else
+                                echo " in the current directory."
+                        fi 2>/dev/null
+                        exit 1
+                else
+                        ( pkginstall $FDIR$PKG.deb ) 2>/dev/null
+                        ( for INST in `ls /var/adm/dpkg/inst/*.inst`
+                          do
+                                sh $INST ; rm -f $INST
+                          done ) 2>/dev/null
+                        exit 0
+                fi
+        fi
+}
+
+backup ()
+{
+        if [ -f /var/adm/dpkg/debian/categories.old -a /var/adm/dpkg/debian/packages.old ]; then
+                mv /var/adm/dpkg/debian/categories /var/adm/dpkg/debian/categories.tmp
+                mv /var/adm/dpkg/debian/categories.old /var/adm/dpkg/debian/categories
+                mv /var/adm/dpkg/debian/categories.tmp /var/adm/dpkg/debian/categories.old
+                mv /var/adm/dpkg/debian/packages /var/adm/dpkg/debian/packages.tmp
+                mv /var/adm/dpkg/debian/packages.old /var/adm/dpkg/debian/packages
+                mv /var/adm/dpkg/debian/packages.tmp /var/adm/dpkg/debian/packages.old
+                echo "dpkg: backup package lists restored.  Use \`--backup' to undo."
+                exit 0
+        else
+                echo "dpkg: no backup package lists found."
+                exit 1
+        fi
+}
+        
+bold () { echo -n $BOLD ; echo -n $1 ; echo -n $NORM; }
+
+catcheck ()
+{
+        if [ `fieldcat 1 2>/dev/null` ]; then
+                SELFILE="packages" ; SELTYPE="package"
+        else
+                SELFILE="categories" ; SELTYPE="category"
+        fi
+}
+        
+category ()
+{
+        ACTION="$1"
+        tput cup 21 0 ; cl "$CLLVL1"
+        tput cup 22 0
+        echo -n "Enter the two-letter category code: "
+        echo -n $VIS ; read INPUT ; echo -n $INVIS
+        case $INPUT in
+                Dc) CAT="Dc" ; catwrite ;;
+                Dv) CAT="Dv" ; catwrite ;;
+                Em) CAT="Em" ; catwrite ;;
+                Gs) CAT="Gs" ; catwrite ;;
+                Is) CAT="Is" ; catwrite ;;
+                Nw) CAT="Nw" ; catwrite ;;
+                Ut) CAT="Ut" ; catwrite ;;
+                Wd) ACTION="pkg" ; SELFILE="packages" ; SELTYPE="package" ; CAT="Wd" ;;
+                Xs) ACTION="pkg" ; SELFILE="packages" ; SELTYPE="package" ; CAT="Xs" ;;
+                Xw) CAT="Xw" ; catwrite ;;
+                *) CAT="none"
+        esac
+        if [ $ACTION = "pkg" ]; then
+                catcheck 
+        fi
+}
+
+catwrite ()
+{
+        if [ $ACTION = "sel" ]; then
+                        sed s/"   $CAT "/" x $CAT "/ /var/adm/dpkg/debian/packages > /tmp/packages ; mv /tmp/packages /var/adm/dpkg/debian/packages
+                        sed s/"$CAT   "/"$CAT x "/ /var/adm/dpkg/debian/categories > /tmp/categories ; mv /tmp/categories /var/adm/dpkg/debian/categories
+        else
+                if [ $ACTION = "desel" ]; then
+                        sed s/" x $CAT "/"   $CAT "/ /var/adm/dpkg/debian/packages > /tmp/packages ; mv /tmp/packages /var/adm/dpkg/debian/packages
+                        sed s/"$CAT x "/"$CAT   "/ /var/adm/dpkg/debian/categories > /tmp/categories ; mv /tmp/categories /var/adm/dpkg/debian/categories
+                fi
+        fi
+}
+
+cl ()
+{
+        for LOOP in $1
+        do
+                echo "                                                                                "
+        done
+}
+
+contents ()
+{
+        if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                cd /
+                ls -adl `cat /var/adm/dpkg/list/$PKG.list`
+                cd $DIR
+                exit 0
+        else
+                not_installed
+        fi
+}
+
+desc ()
+{
+        if [ -f /var/adm/dpkg/desc/$PKG.desc ]; then
+                cat /var/adm/dpkg/desc/$PKG.desc
+                if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                        echo "\`$PKG' is currently installed on the system."
+                else
+                        echo "\`$PKG' is not currently installed on the system."
+                fi
+                exit 0
+        else
+                no_desc
+                exit 1
+        fi
+}
+
+deselectpkg ()
+{
+        tput cup 21 0 ; cl "$CLLVL1"
+        tput cup 22 0
+        echo -n "Enter the number of the package that you wish to deselect: "
+        echo -n $VIS ; read PKGNUM ; echo -n $INVIS
+        if [ ! $PKGNUM ]; then
+                selredraw
+                continue
+        fi
+        if [ ! `field 1 2>/dev/null` ]; then
+                tput cup 21 0 ; cl "$CLLVL1"
+                tput cup 22 18
+                echo "Please enter package numbers one at a time."
+                sleep 2
+                selredraw
+                continue
+        fi
+        STATUS=`field 2`
+        if [ $STATUS="x" ]; then
+                CATEGORY=`field 3`
+                sed "$PKGNUM"s/" x"/"  "/ /var/adm/dpkg/debian/$SELFILE > /tmp/$SELFILE
+                mv /tmp/$SELFILE /var/adm/dpkg/debian/$SELFILE
+                NUMPKG=`grep -c " x $CATEGORY" /var/adm/dpkg/debian/$SELFILE`
+                if [ $NUMPKG = 0 ]; then
+                        SELFILE="categories"
+                        sed s/"$CATEGORY x "/"$CATEGORY   "/ /var/adm/dpkg/debian/$SELFILE > /tmp/$SELFILE
+                        mv /tmp/$SELFILE /var/adm/dpkg/debian/$SELFILE
+                        SELFILE="packages"
+                fi
+        fi
+        selredraw
+}
+
+dpkgmain ()
+{
+        SELFILE="categories"
+        SELTYPE="category"
+        echo -n $INVIS
+        selmain
+}
+
+field () { cut -d " " -f $1 /var/adm/dpkg/debian/packages | sed -n "$PKGNUM"p; }
+
+fieldcat () { cut -d " " -f $1 /var/adm/dpkg/debian/categories | grep -x "$CAT"; }
+
+fix ()
+{
+        if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                if [ -f /var/adm/dpkg/perm/$PKG.perm ]; then
+                        echo -n "Fixing the permissions of \`$PKG'..."
+                        fixperms -q $PKG
+                        echo "done."
+                else
+                        echo "dpkg: Could not find fixperms file for the package \`$PKG'."
+                        exit 1
+                fi
+        else
+                not_installed
+        fi
+}
+
+
+help ()
+{
+        echo ""
+        echo "Invoking \`dpkg' without arguments enters package selection mode."
+        echo ""
+        echo "The options for \`dpkg' are as follows:"
+        echo " -a,--add: Add/install a package to the system"
+        echo " -b,--backup: Copy the backup package lists to the master packages lists"
+        echo " -c,--contents: Display the contents of an installed package in \`ls -adl' format"
+        echo " -d,--describe: Describe a Debian Linux package"
+        echo " -f,--fix: Set the permissions/ownerships of the package to their correct values" 
+        echo " -h,--help: Display this message"
+        echo " -i,--integrity: Check a package's integrity (permissions and ownerships)"
+        echo " -l,--list: List the packages installed on the system and their versions"
+        echo " -o,--original: Copy the original package lists to the master package lists"
+        echo " -p,--process: Process a dpkg batch list"
+        echo " -r,--rm: Remove/deinstall a package from the system"
+        echo " -s,--search: Search package lists for a specific file"
+        echo " -u,--upgrade: Upgrade a component of the system"
+        echo " -v,--version: Display the version number of a package"
+        echo ""
+        echo "NOTE: The \`.deb' extension is unnecessary when specifiying package name."
+        echo ""
+        echo "Please refer to dpkg(8) for more details."
+        echo ""
+        exit 0
+}
+
+integrity ()
+{
+        if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                if [ -f /var/adm/dpkg/perm/$PKG.perm ]; then
+                        echo -n "Checking the integrity of \`$PKG'..."
+                        fixperms -cq $PKG 2>/tmp/fixperms.err
+                        echo "done."
+                        cat /tmp/fixperms.err
+                        rm -f /tmp/fixperms.err
+                        exit 0
+                else
+                        echo "dpkg: Could not find fixperms file for the package \`$PKG'."
+                        exit 1
+                fi
+        else
+                not_installed
+        fi
+}
+
+list ()
+{
+        declare -i PKGNUM=0
+        for PKG in `ls /var/adm/dpkg/ver/*.ver | sed "s,/var/adm/dpkg/ver/,," | sed "s,.ver,,"`
+        do
+                if [ $PKGNUM = 0 ]; then
+                        echo "Packages installed on the system:"
+                fi
+                echo "     $PKG (version `cat /var/adm/dpkg/ver/$PKG.ver`)"
+                PKGNUM=$PKGNUM+1
+        done
+        if [ $PKGNUM = 0 ]; then
+                echo "No packages are installed on the system."
+        else
+                if [ $PKGNUM = 1 ]; then
+                        echo "$PKGNUM package is installed on the system."
+                else
+                        echo "$PKGNUM packages are installed on the system."
+                fi
+        fi
+        exit 0
+}
+
+missing_arg ()
+{
+        echo "dpkg: Missing argument for option \`$OPT'."
+        echo ""
+        usage
+        exit 1
+}
+
+no_desc ()
+{
+        echo "dpkg: there is no description for the package \`$PKG'."
+}
+
+not_installed ()
+{
+        echo "dpkg: \`$PKG' is not an installed package."
+        exit 1
+}
+
+original ()
+{
+        mv /var/adm/dpkg/debian/categories /var/adm/dpkg/debian/categories.old
+        cp /var/adm/dpkg/debian/categories.orig /var/adm/dpkg/debian/categories
+        mv /var/adm/dpkg/debian/packages /var/adm/dpkg/debian/packages.old
+        cp /var/adm/dpkg/debian/packages.orig /var/adm/dpkg/debian/packages
+        echo "dpkg: original (empty) package lists restored.  Use \`--backup' to undo."
+        exit 0
+}
+ 
+packages ()
+{
+        tput cup 3 0 ; cl "$CLLVL2"
+        tput cup 4 0
+        if [ $SELTYPE = "package" ]; then
+                grep " $CAT " /var/adm/dpkg/debian/packages
+        else
+                cat /var/adm/dpkg/debian/categories
+        fi
+}
+
+pkgdeinstall ()
+{
+        cd /
+        echo -n "Removing package \`$PKG'..."
+        if [ -f /var/adm/dpkg/dep/$PKG.dep ]; then
+                sh /var/adm/dpkg/dep/$PKG.dep
+                if [ $? = 1 ]; then
+                        exit 1
+                fi
+        fi
+        cp /var/adm/dpkg/list/$PKG.list /tmp/$PKG.list
+        for FILE in `cat /tmp/$PKG.list`
+        do
+                if [ ! -d $FILE ]; then
+                        rm -f $FILE
+                fi
+        done
+        for FILE in `cat /tmp/$PKG.list`
+        do
+                if [ -d $FILE ]; then
+                        rmdir $FILE 2>/dev/null || echo "Cannot remove directory \`$FILE'."
+                fi
+        done
+        echo "done."
+        rm -f /tmp/$PKG.list
+        cd $DIR
+}
+
+pkginstall ()
+{
+        FPKG="$1"
+        cd /
+        if [ -f /var/adm/dpkg/desc/$PKG.desc ]; then
+                cat /var/adm/dpkg/desc/$PKG.desc
+        else
+                no_desc
+        fi
+        echo "Approximate uncompressed size: `gzip -l $FPKG | sed /atio/d | cut -c11-19` bytes."
+        echo "" ; echo -n "Installing \`$PKG'..."
+        zcat $FPKG 2>>/var/adm/dpkg/dpkg.log | cpio -dim ; echo "done."
+        fix $PKG
+        echo "" ; df | sed "/\/tmp\/install/d"
+        echo "" ; echo "Installation of \`$PKG' (version `cat /var/adm/dpkg/ver/$PKG.ver`) complete."
+        cd $DIR
+}
+
+process ()
+{
+        declare -i ROW=8
+        declare -i COLUMN=1
+        declare -i DUPLICATES=0
+        SELPKG=0
+        TOTALSELPKGS=`cat /var/adm/dpkg/debian/packages | cut -d " " -f 2 | sed -n /x/p | wc -l | cut -c6-7`
+        FDIR="$DIR/"
+        trap "" 1 2 3 15
+        while true
+        do
+                echo ""
+                echo "Prepare $DEV (\`dpkg' will mount it for you) and press <`bold "RETURN"`>.  Press \`q'"
+                echo -n "and then <`bold "RETURN"`> when finished: "
+                read ANS
+                if [ $ANS = "q" ]; then
+                        break
+                fi 2>/dev/null
+                echo ""
+                mkdir -p $MOUNTDIR
+                mount -t $FS $DEV $MOUNTDIR || ( echo "dpkg: Cannot mount device \`$DEV' (\`$FS' filesystem)." ; touch /tmp/nomount )
+                if [ -f /tmp/nomount ]; then
+                        rmdir $MOUNTDIR ; rm -f /tmp/nomount ; exit 1
+                fi
+                ( for PKG in `ls $MOUNTDIR/$FDIR*.deb | sed s,"$MOUNTDIR/$FDIR",, | sed s/".deb"//`
+                  do
+                        PKGNUM=`cat /var/adm/dpkg/debian/packages | cut -c1-17 | sed -n /" $PKG "/p | cut -d " " -f 1`
+                        STATUS=`field 2`
+                        if [ $STATUS = "x" ]; then
+                                if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                                        echo ""
+                                        echo ""
+                                        echo -n "*** Skipping \`" ; echo -n $BOLD ; echo -n "$PKG" ; echo -n $NORM ; echo "': already installed. ***"
+                                        echo ""
+                                        DUPLICATES=$DUPLICATES+1
+                                else
+                                        echo ""
+                                        pkginstall $MOUNTDIR/$FDIR$PKG.deb
+                                        echo ""
+                                        echo $PKG >> /tmp/install.pkg
+                                        SELPKG=`expr $SELPKG + 1`
+                                fi
+                        else
+                                echo ""
+                                echo ""
+                                echo -n "*** Skipping \`" ; echo -n $BOLD ; echo -n "$PKG" ; echo -n $NORM ; echo "': not a selected package. ***"
+                                echo ""
+                        fi 2>/dev/null
+                        echo "" ; echo "" ; echo -n $BOLD ; echo -n "Installation status report:" ; echo -n $NORM ; echo -n " $SELPKG/$TOTALSELPKGS selected packages installed ($DUPLICATES duplicates)." ; echo ""
+                        echo $SELPKG > /tmp/selpkg
+                  done ) 2>>/var/adm/dpkg/dpkg.log
+                if [ -f /tmp/selpkg ]; then
+                        SELPKG=`cat /tmp/selpkg` ; rm -f /tmp/selpkg
+                fi
+                umount $MOUNTDIR ; rmdir $MOUNTDIR 
+                echo ""
+                echo -n $BELL
+                echo "Done."
+                echo ""
+        done
+        echo ""
+        echo -n "Press <" ; echo -n $BOLD ; echo -n "RETURN" ; echo -n $NORM ; echo -n "> to continue..." 
+        read INPUT
+        echo -n $CLR
+        echo -n $BOLD ; echo "*** Installation log ***" ; echo -n $NORM
+        if [ -s /var/adm/dpkg/dpkg.log ]; then
+                echo ""
+                more /var/adm/dpkg/dpkg.log 2> /dev/null
+                mv /var/adm/dpkg/dpkg.log /var/adm/dpkg/dpkg_log
+        else
+                echo ""
+                echo "There were no errors during installation."
+        fi
+        echo ""
+        echo -n "Press <`bold "RETURN"`> to continue..."
+        read RETURN
+        echo -n $CLR
+        echo -n $BOLD ; echo "*** Package installation check ***" ; echo -n $NORM
+        echo ""
+        echo "Checking to make sure that all selected packages were installed..."
+        echo ""
+        echo "(Bold indicates a package that was selected but not installed, normal indicates"
+        echo "a properly installed package.)"
+        echo ""
+        cat /var/adm/dpkg/debian/packages | sed -n /" x "/p > /tmp/pkgs_selected
+        cat /tmp/pkgs_selected > /tmp/pkgs_bak
+        ROW=8
+        COLUMN=1
+        echo -n $INVIS
+        for PKG in `cat /tmp/pkgs_bak | cut -d " " -f 4`
+        do
+                tput cup "$ROW" "$COLUMN"
+                if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                        echo $PKG
+                else
+                        echo -n $BOLD ; echo $PKG ; echo -n $NORM
+                        echo $PKG >> /var/adm/dpkg/not_installed
+                fi
+                if [ $COLUMN -lt 70 ]; then
+                        COLUMN=$COLUMN+10
+                else
+                        ROW=$ROW+1 ; COLUMN=1
+                fi
+        done
+        echo -n $VIS
+        echo ""
+        ( for INST in `ls /var/adm/dpkg/inst/*.inst`
+          do
+                sh $INST ; rm -f $INST
+          done ) 2>/dev/null
+        mv /var/adm/dpkg/debian/categories /var/adm/dpkg/debian/categories.old
+        mv /var/adm/dpkg/debian/packages /var/adm/dpkg/debian/packages.old
+        cp /var/adm/dpkg/debian/categories.orig /var/adm/dpkg/debian/categories
+        cp /var/adm/dpkg/debian/packages.orig /var/adm/dpkg/debian/packages
+        rm -f /tmp/install.pkg /tmp/pkgs_bak /tmp/pkgs_selected
+}
+
+remove ()
+{
+        if [ -f /var/adm/dpkg/list/$PKG.list ]; then
+                pkgdeinstall $PKG
+                exit 0
+        else
+                not_installed
+        fi
+}
+
+search ()
+{
+        PKG=`( grep -x ".$FILE" /var/adm/dpkg/list/*.list | awk '
+                BEGIN { FS = "/" }
+                {
+                        printf("%s\n", $6);
+                }' ) | sed s/.list:// | sort | uniq`
+        if [ $PKG ]; then
+                echo "\`$FILE' is from the package \`$PKG'."
+        else
+                echo "Could not find \`$FILE' in any installed packages.  Did you specify full path?"
+                exit 1
+        fi
+        exit 0
+}
+
+selectpkg ()
+{
+        tput cup 21 0 ; cl "$CLLVL1"
+        tput cup 22 0
+        echo -n "Enter the number of the package that you wish to select: "
+        echo -n $VIS ; read PKGNUM ; echo -n $INVIS
+        if [ ! $PKGNUM ]; then
+                selredraw
+                continue
+        fi
+        if [ ! `field 1 2>/dev/null` ]; then
+                tput cup 21 0 ; cl "$CLLVL1"
+                tput cup 22 18
+                echo "Please enter package numbers one at a time."
+                sleep 2
+                selredraw
+                continue
+        fi
+        STATUS=`field 2`
+        if [ -n $STATUS ]; then
+                CATEGORY=`field 4`
+                sed "$PKGNUM"s/"  "/" x"/ /var/adm/dpkg/debian/$SELFILE > /tmp/$SELFILE
+                mv /tmp/$SELFILE /var/adm/dpkg/debian/$SELFILE
+                NUMPKG=`grep -c " x $CATEGORY" /var/adm/dpkg/debian/$SELFILE`
+                if [ $NUMPKG = 1 ]; then 
+                        SELFILE="categories"
+                        sed s/"$CATEGORY   "/"$CATEGORY x "/ /var/adm/dpkg/debian/$SELFILE > /tmp/$SELFILE
+                        mv /tmp/$SELFILE /var/adm/dpkg/debian/$SELFILE
+                        SELFILE="packages"
+                fi
+        fi
+        selredraw
+}
+
+selheader ()
+{
+        echo -n $CLR
+        echo ""
+        echo -n $BOLD
+        if [ $SELTYPE = "package" ]; then
+                echo -n "No S "
+        else
+                echo -n "Ca S "
+        fi
+        if [ $SELTYPE = "package" ]; then
+                echo -n "Ca Package name (ver)"
+        else
+                echo -n "Category name"
+        fi
+        echo -n "  Description"
+        if [ $SELTYPE = "package" ]; then
+                echo "                                 Page $1"
+        else
+                echo "                                         Page $1"
+        fi
+        echo -n "=="
+        if [ $SELTYPE = "package" ]; then
+                echo -n " = == =================="
+        else
+                echo -n " = ============="
+        fi
+        if [ $SELTYPE = "package" ]; then
+                echo "  =================================================="
+        else
+                echo "  =========================================================="
+        fi
+        echo -n $NORM
+}
+
+selinput ()
+{
+        if [ $SELTYPE = "package" ]; then
+                tput cup 23 50 ; echo -n $VIS ; read INPUT ; echo -n $INVIS
+                tput cup 23 50 ; echo "                            "
+                case $INPUT in
+                        [Ss]*) selectpkg ;;
+                        [Dd]*) deselectpkg ;;
+                        [Rr]*) selredraw ;;
+                        [Bb]*) SELFILE="category" ; SELTYPE="category" ; selredraw ;;
+                esac
+        else
+                tput cup 23 50 ; echo -n $VIS ; read INPUT ; echo -n $INVIS
+                tput cup 23 50 ; echo "                            "
+                case $INPUT in
+                        [Ss]*) category "sel" ; selredraw ;;
+                        [Dd]*) category "desel" ; selredraw ;;
+                        [Pp]*) category "pkg" ; selredraw ;;
+                        [Rr]*) selredraw ;;
+                        [Qq]*) echo ""
+                               echo "To process any pending selections, use the following:"
+                               echo ""
+                               echo "   # dpkg --process <device> <filesystem_type> <directory>"
+                               echo ""
+                               echo "where <device> is the full path of the device where Debian Linux packages are"
+                               echo "located (for example, /dev/fd0 or /dev/hda8), <filesystem_type> is the type of"
+                               echo "filesystem found on that device (for example, minix or msdos) and the optional"
+                               echo "argument <directory> is the directory on the filesystem in which to search for"
+                               echo "Debian Linux packages.  If <directory> is omitted, root (/) is assumed."
+                               echo ""
+                               echo "Please see dpkg(8) for further details."
+                               echo "" ; echo -n $VIS ; exit 0 ;;
+                esac
+        fi
+}
+
+selmain ()
+{
+        selheader 1 ; selprompt ; packages "$PAGE"
+        while true
+        do
+                selinput
+        done
+}
+
+selprompt ()
+{
+        tput cup 21 0
+        echo ""
+        if [ $SELTYPE = "package" ]; then
+                echo "(`bold s`)elect package, (`bold d`)eselect package, (`bold p`)revious/(`bold n`)ext page, (`bold r`)edraw screen,"
+                echo -n "(`bold b`)ack to the cateogory menu   Please select one: "
+        else
+                echo "(`bold s`)elect category, (`bold d`)eselect category, category (`bold p`)ackage menu, (`bold r`)edraw"
+                echo "screen, (`bold q`)uit and process     Please select one: "
+        fi
+}
+
+selredraw ()
+{
+        echo -n $CLR
+        case $PAGE in
+                "$TMP1") selheader 1 ;;
+                "$TMP2") selheader 2 ;;
+                "$TMP3") selheader 3 ;;
+                "$TMP4") selheader 4 ;;
+                "$TMP5") selheader 5 ;;
+                "$TMP6") selheader 6 ;;
+        esac
+        selprompt
+        packages "$PAGE"
+}
+
+too_many_arg ()
+{
+        echo "dpkg: Too many arguments for option \`$OPT'."
+        echo ""
+        usage
+        exit 1
+}
+
+uidcheck ()
+{
+        if [ $WHOAMI != "root" ]; then
+                if [ $NUMARG = 0 ]; then
+                        echo "Only root is allowed to invoke \`dpkg' in package selection mode."
+                else
+                        echo "Only root is allowed to invoke \`dpkg $OPT'."
+                fi
+                exit 1
+        fi
+}
+
+unknown_opt ()
+{
+        echo "dpkg: Unknown option \`$OPT'."
+        echo ""
+        usage
+        exit 1
+}
+
+usage ()
+{
+        echo "Usage: dpkg [ -a --add ] package <device> <filesystem_type> <directory>"
+        echo "            [ -u --upgrade ] package <device> <filesystem_type> <directory>"
+        echo "            [ -r --rm ] package"
+        echo "            [ -b --backup ] [ -o --original ]"
+        echo "            [ -p --process ] device filesystem_type <directory>"
+        echo "       dpkg [ -c --contents ] [ -d --describe ] [ -f --fix ]"
+        echo "            [ -i --integrity ] [ -v --version ] package"
+        echo "            [ -s --search ] file"
+}
+
+upgrade ()
+{
+        echo "dpkg: this function will be implemented in the next version of Debian Linux." 
+}
+
+version ()
+{
+        echo "`cat /var/adm/dpkg/ver/$PKG.ver`"
+        exit 0
+}
+        
+
+NUMARG="$#"
+OPT="$1"
+
+case $NUMARG in
+        0) uidcheck ; dpkgmain ;;
+esac
+
+case $OPT in
+        "-a" | "--add")  
+                uidcheck
+                MOUNTFLAG="yes"
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; DEV="none" ; FS="" ; DIR="" ; add ;;
+                        3) PKG="$2"
+                           if [ -d $3 ]; then
+                                DIR="$3" ; DEV="none" ; FS="none"
+                           else
+                                DEV="$3" ; FS="minix" ; DIR=""
+                           fi
+                           add ;;
+                        4) PKG="$2" ; DEV="$3"
+                           if [ $4 = "ext" -o $4 = "ext2" -o $4 = "hpfs" -o \
+                                 $4 = "hpfs" -o $4 = "isofs" -o $4 = "minix" -o \
+                                 $4 = "msdos" -o $4 = "nfs" -o $4 = "sysv" -o \
+                                 $4 = "xiafs" ]; then
+                                FS="$4" ; DIR=""
+                           else
+                                DIR="$4" ; FS="minix"
+                           fi
+                           add ;;
+                        5) PKG="$2" ; DEV="$3" ; FS="$4" ; DIR="$5" ; add ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-b" | "--backup")
+                case $NUMARG in
+                        1) backup ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-c" | "--contents")
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; contents ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-d" | "--describe")
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; desc ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-f" | "--fix")
+                uidcheck
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; fix ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-h" | "--help")
+                case $NUMARG in
+                        1) help ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-i" | "--integrity")
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; integrity ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-l" | "--list")
+                case $NUMARG in
+                        1) list ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-o" | "--original")
+                case $NUMARG in
+                        1) original ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-p" | "--process")
+                uidcheck
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) missing_arg ;;
+                        3) DEV="$2" ; FS="$3" ; DIR="" ; process ;;
+                        4) DEV="$2" ; FS="$3" ; DIR="$4" ; process ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-r" | "--rm")
+                uidcheck
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; remove ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-s" | "--search")
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) FILE="$2" ; search ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-u" | "--upgrade")
+                uidcheck
+                MOUNTFLAG="yes"
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; DEV="none" ; FS="" ; DIR="" ; upgrade ;;
+                        3) PKG="$2"
+                           if [ -d $3 ]; then
+                                DIR="$3" ; DEV="none" ; FS="none"
+                           else
+                                DEV="$3" ; FS="minix" ; DIR=""
+                           fi
+                           upgrade ;;
+                        4) PKG="$2" ; DEV="$3"
+                           if [ -d $4 ]; then
+                                DIR="$4" ; FS="minix"
+                           else
+                                FS="$4" ; DIR=""
+                           fi
+                           upgrade ;;
+                        5) PKG="$2" ; DEV="$3" ; FS="$4" ; DIR="$5" ; upgrade ;;
+                        *) too_many_arg ;;
+                esac ;;
+        "-v" | "--version")
+                case $NUMARG in
+                        1) missing_arg ;;
+                        2) PKG="$2" ; version ;;
+                        3) too_many_arg ;;
+                esac ;;
+        *)
+                unknown_opt ;;
+esac

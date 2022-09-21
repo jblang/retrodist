@@ -9,3 +9,4 @@ for DISK in install/install/diska*; do
   fi
 done
 cp install/install/a1/a1disk boot.img
+autoinst_prep 500M

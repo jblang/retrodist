@@ -1,0 +1,1527 @@
+#!/bin/sh
+#
+# Copyright 1993 Patrick Volkerding, Moorhead, Minnesota USA
+# All rights reserved.
+#
+# Redistribution and use of this script, with or without modification, is 
+# permitted provided that the following conditions are met:
+#
+# 1. Redistributions of this script must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+#  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+#  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO
+#  EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+#  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+#  OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+#  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+#  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+#  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# As always, bug reports, suggestions, etc: volkerdi@mhd1.moorhead.msus.edu
+# or bf703@cleveland.freenet.edu, or (if you absolutely must) (218) 233-4349.
+# 
+# T_PX = target prefix, T_MT = target mounted
+print_list() {
+cat << EOF
+      A   - Base Linux system
+      AP  - Various applications that do not need X
+      D   - Program Development (C, C++, Kernel source, Lisp, Perl, etc.)
+      E   - GNU Emacs
+      F   - FAQ lists
+      IV  - Interviews: libraries, include files, Doc and Idraw apps for X
+      N   - Networking (TCP/IP, UUCP, Mail)
+      TCL - Tcl/Tk/TclX, Tcl language, and Tk toolkit for developing X apps
+      OI  - ObjectBuilder for X
+      OOP - Object Oriented Programming (GNU Smalltalk 1.1.1)
+      X   - XFree-86 2.0 Base X Windows System
+      XAP - X Windows Applications
+      XD  - XFree-86 2.0 X Windows program/server development system
+      XV  - XView 3.2 release 5. (OpenLook [virtual] Window Manager, apps)
+      Y   - Games (that do not require X)
+EOF
+}
+# 'probe()' borrowed from LILO QuickInst.
+probe()
+{
+ [ ! -z "`dd if=$1 bs=1 count=1 2>/dev/null | tr '\0' x`" ]
+ return
+}
+T_MT="n"
+ADDSOFT="n"
+if [ ! -L /usr/man ]; then # detect a *real* Linux system (are man pages there?)
+ T_PX="/"
+ ADDSOFT="a"
+ T_MT="y"
+else
+ T_PX="/mnt"
+fi
+if [ "$1" = "-target_mounted" -o "$2" = "-target_mounted" ]; then # the target partitions have been manually mounted
+ T_MT="y"
+fi
+if [ "$1" = "-ibm" -o "$2" = "-ibm" ]; then # Valuepoint
+ VP="true"
+else
+ VP="false"
+fi
+if [ "y" = "$T_MT" ]; then # target partitions have been manually mounted
+ if mount | fgrep /var/adm/mount 1> /dev/null 2> /dev/null ; then
+  umount /var/adm/mount
+ fi
+ if [ "$T_PX" = "/mnt" ]; then
+  cat << EOF
+You have used the '-target_mounted' flag. In order to proceed, you must
+have formatted all of your Linux partitions with mke2fs or mkxfs and
+mounted all of them beneath /mnt. You should also use mkswap on your swap
+swap partitions and use 'swapon' to activate them.
+
+When run in this mode, 'setup' does not automatically create an /etc/fstab
+for you. When the installation completes, you must create an /etc/fstab
+before you reboot. (if you're not just adding software, in which case you
+already have an /etc/fstab)
+
+Since your real /etc directory is mounted under /mnt, you'll want to
+say 'vi /mnt/etc/fstab' and not 'vi /etc/fstab', of course.
+EOF
+ fi
+else
+ if [ -d /mnt/etc -o /mnt/lost+found ]; then # nothing should be on /mnt here!
+  umount -a 1> /dev/null 2> /dev/null
+  mount /proc /proc -t proc
+ fi
+fi
+rm -f /var/adm/mount 2> /dev/null
+rmdir /var/adm/mount 2> /dev/null
+mkdir /var/adm/mount 2> /dev/null
+rm -f /fsta*
+SWAP_IN_USE="false"
+REFORM="a"
+echo
+echo "Welcome to Slackware Linux Setup (v. 1.1.1)"
+while [ 0 ]; do 
+ if [ "$T_PX" = "/" ]; then # skip keyboard config if on HD.
+  echo
+  break;
+ fi
+ while [ 0 ]; do
+  cat << EOF
+
+Linux supports many different keyboard configurations. If you are not
+using a US keyboard, you will probably want to remap your keyboard.
+
+Would you like to remap your keyboard?
+
+1 - yes
+2 - no
+
+EOF
+  echo -n "Your choice (1/2)? "
+  read REPLY;
+  if [ "$REPLY" = "1" -o "$REPLY" = "2" ]; then
+   break;
+  fi
+ done
+ if [ "$REPLY" = "1" ]; then
+  echo
+  echo "Please select one of the following keyboard maps:"
+  echo
+  COUNT="1"
+  for mapname in /usr/keytables/*gz; do
+   THISMAP="$COUNT -- `basename $mapname`                              "
+   THISMAP="`echo "$THISMAP" | cut -b1-38`"
+   FUN_RESULT="`expr $COUNT % 2`"
+   if [ "$FUN_RESULT" = "1" ]; then
+    echo -n "$THISMAP"
+   else
+    echo "$THISMAP"
+   fi
+   COUNT=`expr $COUNT + 1`
+  done
+  #(cd usr/keytables; ls *.gz)
+  echo
+  echo
+  echo -n "Which keyboard map would you like (1 - `expr $COUNT - 1`)? "
+  read MAPNUM;
+  COUNT="1"
+  MAPNAME="garbage" # and then we look for the real one
+  for mapname in /usr/keytables/*gz; do
+   if [ "$COUNT" = "$MAPNUM" ]; then
+    MAPNAME=`basename $mapname`
+   fi
+   COUNT=`expr $COUNT + 1`
+  done
+  if [ ! -r /usr/keytables/$MAPNAME ]; then 
+   cat << EOF
+
+ Hey you! Follow the rules!
+ Going back...
+EOF
+   continue;
+  else
+   rm -f /usr/keytables/keytemp/* 
+   cp /usr/keytables/$MAPNAME /usr/keytables/keytemp
+   gzip -d /usr/keytables/keytemp/*.gz
+   FULLNAME=`ls /usr/keytables/keytemp/*.map`
+   SHORTNAME=`basename $FULLNAME`
+   echo
+   echo "Installing keyboard map '$SHORTNAME'..."
+   echo
+   loadkeys $FULLNAME
+   cat << EOF
+OK, the new map is now installed. You may now test it by typing
+anything you want. To quit testing the keyboard, enter [y] on a
+line by itself to accept the map and go on, or [n] on a line by
+itself to reject the current keyboard map and select a new one.
+
+EOF
+   while [ 0 ]; do
+    echo -n "test keyboard, or [n], or [y] => "
+    read REPLY;
+    if [ "$REPLY" = "n" -o "$REPLY" = "y" ]; then
+     break;
+    fi
+   done
+   if [ "$REPLY" = "y" ]; then
+    REMAPPING_DONE="true"
+    break;
+   else
+    continue;
+   fi
+  fi # if map is readable
+ else
+  # No remapping done
+  break;
+ fi
+done
+if [ "y" = "$T_MT" -a "$T_PX" = "/mnt" ]; then
+ while [ 0 ]; do
+  echo
+  echo "Are you installing Linux from scratch, or adding software to an existing"
+  echo "system? "
+  echo
+  echo -n "[I]nstall from scratch, or [a]dd? "
+  read ADDSOFT;
+  if [ "$ADDSOFT" = "a" -o "$ADDSOFT" = "i" ]; then
+   break;
+  fi
+ done
+fi
+PARTLIST="`fdisk -l | fgrep "Linux native"`"
+if [ "y" = "$T_MT" ]; then
+ PARTLIST="BOGUS" # A wonderful example of unstructured programming
+fi
+if [ ! "$PARTLIST" = "" ]; then
+ if [ ! "$PARTLIST" = "BOGUS" ]; then
+  SWAPLIST="`fdisk -l | fgrep "Linux swap"`" 
+  if [ "$SWAPLIST" = "" ]; then
+   echo 
+   echo "You have not created a swap partition with Linux fdisk."
+   echo -n "Do you want to continue without a swapfile ([y]es, [n]o)? "
+   read REPLY;
+   if [ "$REPLY" = "n" -o "$REPLY" = "N" ]; then
+    echo 
+    echo "Create a swapfile with Linux fdisk, and then run setup again."
+    echo 
+    exit;
+   fi
+  else
+   echo  
+   if [ "`echo "$SWAPLIST" | sed -n '2 p'`" = "" ]; then
+    echo "Slackware Setup has detected a swap partition:"
+    echo "`echo "$SWAPLIST" | sed -n '1 p'`"
+    echo 
+    echo -n "Do you wish to install this partition as your swapspace ([y]es, [n]o)? "
+   else
+    echo "Slackware Setup has detected the following swap partitions:"
+    echo "$SWAPLIST" 
+    echo
+    echo -n "Do you wish to install these as your swap partitions ([y]es, [n]o)? "
+   fi
+   read REPLY;
+   if [ "$REPLY" = "y" -o "$REPLY" = "Y" ]; then
+    cat << EOF
+
+IMPORTANT NOTE: If you have already made any of your swap partitions
+active (using the swapon command), then you should not allow setup to
+use mkswap on your swap partitions, because it may corrupt memory pages
+that are currently swapped out. Instead, you will have to make sure that
+your swap partitions have been prepared (with mkswap) before they will
+work. You might want to do this to any inactive swap partitions before
+you reboot.
+
+EOF
+    echo -n "Do you want setup to use mkswap on your swap partitions ([y]es, [n]o)? "  
+    read USE_SWAP;
+    echo
+    rm -f /fstab.swap
+    rm -f $T_PX/fstab
+    CURRENT_SWAP="1" 
+    while [ ! "`echo "$SWAPLIST" | sed -n "$CURRENT_SWAP p"`" = "" ]; do 
+     echo "Setting up swapspace..."
+     SWAP_SIZE="`fdisk -l | fgrep "Linux swap" | sed -n "$CURRENT_SWAP p" | cut -b38-45`"
+     SWAP_PART="`fdisk -l | fgrep "Linux swap" | sed -n "$CURRENT_SWAP p" | cut -b1-10`"
+     if [ "$USE_SWAP" = "Y" -o "$USE_SWAP" = "y" ]; then 
+      mkswap $SWAP_PART $SWAP_SIZE
+     fi
+     swapon $SWAP_PART
+     echo "Adding this line to /etc/fstab:"
+     SWAP_IN_USE="`echo "$SWAP_PART       swap        swap        defaults"`"
+     echo "$SWAP_IN_USE"
+     echo "$SWAP_IN_USE" >> /fstab.swap
+     echo "Swapspace configured."
+     CURRENT_SWAP="`expr $CURRENT_SWAP + 1`"
+    done
+   fi
+  fi  
+  echo 
+  if [ ! "`echo "$PARTLIST" | sed -n '2 p'`" = "" ]; then # more than one:
+   echo "The following partitions on your machine are available for Linux:"
+   ONLY_ONE="false"
+  else
+   echo "The following partition is available for Linux:"
+   ONLY_ONE="true"
+  fi
+  echo 
+  echo "   Device Boot  Begin   Start     End  Blocks   Id  System"
+  fdisk -l | fgrep "Linux native"
+  while [ 0 ]; do 
+   if [ "$ONLY_ONE" = "false" ]; then
+    echo
+    echo -n "Which device would you like to use for your root Linux partition? "
+    read ROOT_DEVICE;
+   else
+    ROOT_DEVICE="`echo "$PARTLIST" | cut -b1-10`"
+   fi
+   echo 
+   if [ ! -b $ROOT_DEVICE ]; then
+    echo "Invalid device. Try again. Use a format such as:"
+    echo "/dev/hda3 or whatever the device name is."
+    continue;
+   fi
+   if fdisk -l | fgrep "Linux native" | fgrep $ROOT_DEVICE 1> /dev/null 2> /dev/null ; then
+    ROOT_SIZE="`fdisk -l | fgrep "$ROOT_DEVICE" | cut -b38-45`"
+    cat << EOF
+If this is the root partition of an existing Linux system, you
+may add more software to the existing system, or you may
+reformat the partition and install from scratch.
+
+EOF
+    echo -n "Would you like to [a]dd more software, or [i]nstall from scratch? "
+    read ADDSOFT;
+    while [ 0 ]; do
+     cat << EOF
+
+There are two main filesystem types that are used for Linux. These are
+the xiafs filesystem, and the second extended filesystem (ext2).
+If you are adding software to a system that has already been installed,
+you must enter the filesystem type it currently uses. If you're installing
+to a new system, you can try either filesystem type.
+
+Which of these two filesystems to use is one of those things that some
+Linux users like to argue about needlessly. Both are good filesystems, and
+it's hard to say whether either one has a significant speed or reliability
+advantage. Ext2 does have one nice feature that xiafs doesn't have yet -
+as an ext2 partition is unmounted, a clean bit is written to it. When the
+machine is rebooted, checking is skipped for any partitions that have the
+clean bit on them. For this reason, ext2 systems boot faster than xiafs
+systems, unless you disable the automatic filesystem checking in /etc/rc.d/rc.S.
+If you use xiafs for your root partition, you'll see some warnings when you
+shut the system down. These are harmless and can be ignored.
+
+What filesystem do you have (or do you plan to use) on your root
+EOF
+     echo -n "partition ($ROOT_DEVICE), [e]xt2fs or [x]iafs? "
+     read ROOT_SYS_TYPE; 
+     if [ "$ROOT_SYS_TYPE" = "e" ]; then
+      ROOT_SYS_TYPE="ext2"
+      break;
+     elif [ "$ROOT_SYS_TYPE" = "x" ]; then
+      ROOT_SYS_TYPE="xiafs"
+      break;
+     fi
+    done
+    while [ 0 ]; do
+     if [ "$ADDSOFT" = "a" ]; then
+      echo
+      echo "Software will be added to your system without reformatting your"
+      echo "partitions. "
+      echo
+      echo "Mounting your root partition..."
+      mount -t $ROOT_SYS_TYPE $ROOT_DEVICE /mnt
+      if [ ! -r $T_PX/etc/fstab ]; then
+       echo
+       echo "Either you have specified the wrong filesystem type, or there"
+       echo "is no Linux system currently installed on the partition."
+       echo  
+       echo "Sorry, but you'll have to try again." 
+       exit;
+      fi
+      echo "Scanning your /etc/fstab..."
+      echo
+      index="0"
+      while [ 0 ]; do
+              index="`expr $index + 1`"
+       THISLINE="`cat $T_PX/etc/fstab | tr "[\011]" "[\040]" | sed -n "$index p"`"
+              BLANKCHECK="`echo $THISLINE | sed 's/ //g'`"
+              if [ "$BLANKCHECK" = "" ]; then
+                      break;
+              fi
+              if echo "$THISLINE" | fgrep ext2 1> /dev/null 2> /dev/null ; then
+                      ADD_TYPE="ext2"
+       elif echo "$THISLINE" | fgrep xiafs 1> /dev/null 2> /dev/null ; then
+        ADD_TYPE="xiafs"
+              else
+                      continue;
+              fi
+       NEWPART="`echo "$THISLINE" | cut -b1-10`"
+       THISLINE="`echo "$THISLINE" | cut -b11-`"
+       while [ 0 ]; do
+        FIRST="`echo "$THISLINE" | cut -b1`"
+        if [ "$FIRST" = "/" ]; then
+         break;
+        fi
+        THISLINE="`echo "$THISLINE" | cut -b2-`"
+       done
+       SECOND="`echo "$THISLINE" | cut -b2`" 
+       if [ "$SECOND" = " " ]; then
+        # We don't want to remount the / partition
+        continue;
+       fi
+       end_of_line="1"
+       while [ 0 ]; do
+        end_of_line="`expr $end_of_line + 1`"
+        if [ "`echo "$THISLINE" | cut -b$end_of_line`" = " " -o "`echo "$THISLINE" | cut -b$end_of_line`" = "" -o "`echo "$THISLINE" | cut -b$end_of_line`" = "fucking tab character" ]; then
+         # Found it!
+                end_of_line="`expr $end_of_line - 1`"
+         break;
+        fi
+       done
+       MNTDIR="`echo "$THISLINE" | cut -b1-$end_of_line`"
+       echo "Mounting $NEWPART under $T_PX$MNTDIR as type $ADD_TYPE..."
+       mount -t $ADD_TYPE $NEWPART $T_PX$MNTDIR
+      done
+      break;
+     else
+      cat << EOF
+
+Since you've chosen to install Linux from scratch, we want to be
+sure you know how to proceed, and we also want to give you one last
+chance to change your mind. When using this option, you must install
+to a blank partition. If you have not already formatted it manually
+then you must format it when prompted.
+
+Enter [i] again to install from scratch, or [a] to add
+software to your existing system.
+
+EOF
+      echo -n "Install fresh, or add software to your current system? ([i]nstall, [a]dd)? "
+      read REFORM;
+      if [ "$REFORM" = "i" ]; then
+       echo
+       echo "If this partition has not been formatted, you should format it."
+       echo
+       break;
+      else
+       ADDSOFT="a"
+      fi
+     fi           
+    done
+    if [ ! "$ADDSOFT" = "a" ]; then
+     echo -n "Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)? "
+     read DOFORMAT;
+     echo
+     if [ "$DOFORMAT" = "Y" -o "$DOFORMAT" = "y" -o "$DOFORMAT" = "c" ]; then
+      echo "Attempting to unmount $ROOT_DEVICE..."
+      umount $ROOT_DEVICE 
+      echo "Formatting $ROOT_DEVICE ($ROOT_SIZE blocks) as type $ROOT_SYS_TYPE..."
+      if [ "$ROOT_SYS_TYPE" = "ext2" ]; then
+       if [ "$DOFORMAT" = "c" ]; then
+        mke2fs -c $ROOT_DEVICE $ROOT_SIZE
+       else
+        mke2fs $ROOT_DEVICE $ROOT_SIZE
+       fi
+      else
+       if [ "$DOFORMAT" = "c" ]; then
+        mkxfs -c $ROOT_DEVICE $ROOT_SIZE
+       else
+        mkxfs $ROOT_DEVICE $ROOT_SIZE
+       fi
+      fi
+      echo "Done formatting device $ROOT_DEVICE."
+     fi
+     echo "Mounting your new root partition:"
+     mount -t $ROOT_SYS_TYPE $ROOT_DEVICE $T_PX 1> /dev/null 2> /dev/null
+     echo "Root partition mounted."
+     if [ ! "$SWAP_IN_USE" = "false" ]; then
+      cat /fstab.swap >> $T_PX/fstab
+     fi
+     echo "$ROOT_DEVICE       /        $ROOT_SYS_TYPE        defaults" >> $T_PX/fstab 
+     break;
+    fi
+   else # device not tagged Linux native
+    echo "The partition you have selected is not tagged as Linux"
+    echo "native. Either select a new partition, or tag the selected"
+    echo "one with Linux fdisk." 
+    continue;
+   fi
+   break;
+  done # mounting the target root partition
+  if [ ! "$ADDSOFT" = "a" ]; then
+   # Now, if the user wants to mount some other partitions for /usr or
+   # /usr/X386 or whatever (/tmp, you name it), Here's where we do that
+   echo 
+   if [ ! "`echo "$PARTLIST" | sed -n '2 p'`" = "" ]; then
+    cat << EOF
+You seem to have more than one partition tagged as Linux native.
+You may use these to distribute your Linux system across more than
+one partition. Currently, you have $ROOT_DEVICE mounted as your /
+partition. You might want to mount large directories such as /usr
+or /usr/X386 or seperate partitions. You should not try to mount
+/etc or /bin on their own partitions since they contain utilities
+needed to bring the system up and mount partitions.
+
+Would you like to use some of the other Linux partitions
+EOF
+    echo -n "to mount some of your directories ([y]es, [n]o)? "
+    read MOUNTMORE;
+    if [ "$MOUNTMORE" = "y" -o "$MOUNTMORE" = "Y" ]; then
+     while [ 0 ]; do
+      echo 
+      echo "These are your Linux partitions:"
+      echo "$PARTLIST" 
+      echo 
+      echo "These partitions are already in use:"
+      mount | fgrep mnt
+      echo 
+      echo "Please enter the partition you would like to use, or"
+      echo -n "type <q> to quit adding new partitions: " 
+      read NEXT_PARTITION;
+      if [ "$NEXT_PARTITION" = "q" ]; then
+       break;
+      fi
+      if [ ! -b $NEXT_PARTITION ]; then
+       echo
+       echo "Invalid device. Try again. Use a format such as:"
+       echo "/dev/hda3 or whatever the device name is."
+       continue;
+      else
+       if fdisk -l | fgrep "Linux native" | fgrep $NEXT_PARTITION 1> /dev/null 2> /dev/null ; then
+        NEXT_SIZE="`fdisk -l | fgrep "$NEXT_PARTITION" | cut -b38-45`"
+        while [ 0 ]; do
+         echo 
+         echo -n "What type of filesystem would you like to use ([e]xt2fs, [x]iafs)? " 
+         read NEXT_SYS_TYPE;
+         if [ "$NEXT_SYS_TYPE" = "x" ]; then
+          NEXT_SYS_TYPE="xiafs"
+          break;
+         elif [ "$NEXT_SYS_TYPE" = "e" ]; then
+          NEXT_SYS_TYPE="ext2"
+          break;
+         fi
+        done
+        echo
+        echo -n "Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)? "
+        read DOFORMAT;
+        if [ "$DOFORMAT" = "Y" -o "$DOFORMAT" = "y" -o "$DOFORMAT" = "c" ]; then
+         echo "Formatting $NEXT_PARTITION ($NEXT_SIZE blocks) as Linux $NEXT_SYS_TYPE..."
+         if [ "$NEXT_SYS_TYPE" = "ext2" ]; then
+          if [ "$DOFORMAT" = "c" ]; then
+           mke2fs -c $NEXT_PARTITION $NEXT_SIZE
+          else
+           mke2fs $NEXT_PARTITION $NEXT_SIZE
+          fi
+         else
+          if [ "$DOFORMAT" = "c" ]; then
+           mkxfs -c $NEXT_PARTITION $NEXT_SIZE
+          else
+           mkxfs $NEXT_PARTITION $NEXT_SIZE
+          fi
+         fi
+         echo "Done formatting device $NEXT_PARTITION."
+        fi
+        echo 
+        echo "Now this new partition must be mounted somewhere in your new"
+        echo "directory tree. For example, if you want to put it under /usr/X386,"
+        echo "then respond: /usr/X386"
+        echo 
+        echo -n "Where would you like to mount $NEXT_PARTITION? "
+        read NEW_DIRECTORY;
+        echo "Mounting device $NEXT_PARTITION under $NEW_DIRECTORY on your root device:"
+        mkdir -p /mnt$NEW_DIRECTORY
+        chmod 755 /mnt$NEW_DIRECTORY
+        mount -t $NEXT_SYS_TYPE $NEXT_PARTITION /mnt$NEW_DIRECTORY 1> /dev/null 2> /dev/null
+        echo "Partition $NEXT_PARTITION mounted."
+        echo "$NEXT_PARTITION        $NEW_DIRECTORY        $NEXT_SYS_TYPE        defaults" >> /mnt/fstab 
+        echo 
+        echo -n "Would you like to mount some more additional partitions ([y]es, [n]o)? "
+        read REPLY;
+        if [ "$REPLY" = "n" -o "$REPLY" = "N" ]; then
+         echo
+         break;
+        fi
+       else # device not tagged Linux native
+        echo "The partition you have selected is not tagged as Linux"
+        echo "native. Either select a new partition, or tag the selected"
+        echo "one with Linux fdisk." 
+        continue;
+       fi
+      fi
+     done # mounting additional partitions
+    fi
+   else
+    echo "Installing all software on $ROOT_DEVICE."
+    echo 
+   fi # end of target partition setup
+   # Add DOS partitions.
+   DOSLIST="`fdisk -l | fgrep "DOS"`"
+   HPFSLIST="`fdisk -l | fgrep "HPFS"`"
+   if [ ! "$HPFSLIST" = "" ]; then
+    DOSLIST="`echo -e "$DOSLIST\n$HPFSLIST"`"
+   fi
+   if [ ! "$DOSLIST" = "" ]; then # there are DOS or OS/2 partitions:
+    cat << EOF
+DOS AND OS/2 PARTITION SETUP
+
+The following DOS FAT or OS/2 HPFS partitions were found:
+
+$DOSLIST
+
+Would you like to set up some of these partitions to be visible
+EOF
+    echo -n "from Linux ([y]es, [n]o)? "
+    read ADDDOS;
+    if [ "$ADDDOS" = "y" -o "$ADDDOS" = "Y" ]; then
+     while [ 0 ]; do
+      USED_DOS_PARTITIONS="`cat /mnt/fstab | fgrep msdos`"
+      USED_HPFS_PARTITIONS="`cat /mnt/fstab | fgrep hpfs`"
+      if [ ! "$USED_HPFS_PARTITIONS" = "" ]; then
+       USED_DOS_PARTITIONS="`echo -e "$USED_DOS_PARTITIONS\n$USED_HPFS_PARTITIONS"`"
+      fi
+      if [ ! "$USED_DOS_PARTITIONS" = "" ]; then
+       echo
+       echo "These DOS or OS/2 partitions have already been added"
+       echo "to your /etc/fstab:"
+       echo "$USED_DOS_PARTITIONS"
+      fi
+      echo 
+      echo "These DOS or OS/2 partitions are available to mount:"
+      echo "$DOSLIST" 
+      echo 
+      echo "Please enter the partition you would like to access from Linux, or"
+      echo -n "type <q> to quit adding new partitions: " 
+      read NEXT_PARTITION;
+      echo 
+      if [ "$NEXT_PARTITION" = "q" ]; then
+       break;
+      fi
+      if [ ! -b $NEXT_PARTITION ]; then
+       echo "Invalid device. Try again. Use a format such as:"
+       echo "/dev/hda3 or whatever the device name is."
+       continue;
+      else
+       if echo "$DOSLIST" | fgrep $NEXT_PARTITION 1> /dev/null 2> /dev/null ; then
+        # Here we should test to be sure the partition has not been used
+        if fgrep $NEXT_PARTITION /mnt/fstab 1> /dev/null 2> /dev/null ; then
+         # We have already added this partition.
+         echo "Sorry, you have already added the partition $NEXT_DEVICE to the"
+         echo "list of devices that are mounted at boot time. Either choose a"
+         echo "partition you have not yet used, or [q]uit to go on."
+         continue;
+        fi
+        echo "Now this new partition must be mounted somewhere in your directory"
+        echo "tree. Please enter the directory under which you would like to put"
+        echo "it. for instance, you might want to reply /dosc, /dosd, or something"
+        echo "like that."
+        echo
+        echo -n "Where would you like to mount $NEXT_PARTITION? "
+        read NEW_DIR;
+	if [ ! "`echo $NEW_DIR | cut -b1`" = "/" ]; then
+         NEW_DIR="/$NEW_DIR"
+        fi
+        echo 
+        echo "Creating mount point directory..."
+        mkdir -p /mnt$NEW_DIR
+        echo "Setting directory permissions..."
+        chmod 755 /mnt$NEW_DIR
+        if fdisk -l | fgrep "DOS" | fgrep $NEXT_PARTITION 1> /dev/null 2> /dev/null ; then
+         echo "Adding DOS partition to /etc/fstab..."
+         echo "$NEXT_PARTITION        $NEW_DIR        msdos        defaults" >> /mnt/fstab 
+        else
+         echo "Adding HPFS partition (read only) to /etc/fstab..."
+         echo "$NEXT_PARTITION        $NEW_DIR        hpfs         ro" >> /mnt/fstab 
+        fi
+        echo "Done adding partition $NEXT_PARTITION."
+       else # device not tagged as DOS
+        echo "The partition you have selected is not tagged as a DOS or OS/2"
+        echo "partition, please try again."
+        continue;
+       fi
+      fi
+     done # mounting DOS/HPFS partitions
+    fi
+   fi
+  fi # ! just adding stuff
+ fi # PARTLIST != BOGUS (for T_MT)
+ DISTRIBUTION_SOURCE="/var/adm/mount"
+ SOURCE_DEVICE="/dev/fd0"
+ if [ "$T_PX" = "/" ]; then
+  echo -n "Would you like to install more software ([y]es, [n]o)? "
+  read INSFT;
+ fi
+ if [ "$INSFT" = "y" -o ! "$T_PX" = "/" ]; then
+  cat << EOF
+ 
+SOURCE MEDIA SELECTION
+
+1 -- Install from a hard drive partition.
+2 -- Install from floppy disks.
+3 -- Install via NFS.
+4 -- Install from a pre-mounted directory.
+5 -- Install from CD-ROM.
+
+EOF
+  echo -n "From which source will you be installing Linux (1/2/3/4/5)? "
+  read SOURCE_MEDIA;
+  echo 
+  if [ "$SOURCE_MEDIA" = "1" ]; then
+   cat << EOF
+INSTALLING FROM HARD DISK
+
+In order to install directly from the hard disk you must have a partition with
+a directory containing the Slackware distribution such that each disk other than
+the boot disk is contained in a subdirectory. For example, if the distribution 
+is in /stuff/slack, then you have to have directories named /stuff/slack/a1, 
+/stuff/slack/a2, and so on each containing the files that would be on that disk.
+You may install from DOS, HPFS, or Linux partitions.
+
+EOF
+   while [ 0 ]; do
+    echo "Please enter the partition where the Slackware sources can be"
+    echo -n "found, or [p] to see a partition list: "
+    read SLACK_DEVICE;
+    echo 
+    if [ "$SLACK_DEVICE" = "p" -o "$SLACK_DEVICE" = "P" ]; then
+     echo "Here are your partitions:"
+     echo
+     fdisk -l | fgrep "/dev"
+     echo
+     continue;
+    fi
+    break;
+   done
+   cat << EOF
+Now we need to know what directory on this partition the Slackware sources
+can be found in. In the example above, this would be: /stuff/slack
+
+NOTE: You must give the directory name relative to the top of the partition.
+So, for example, if you're going to mount this partition under /usr, don't
+include the '/usr' at the beginning of the pathname.
+
+EOF
+   echo -n "What directory are the Slackware sources in? "
+   read SLACK_SOURCE_LOCATION;
+   echo
+   if mount | fgrep $SLACK_DEVICE 1> /dev/null 2> /dev/null ; then
+    # This partition is already mounted, so we will have to
+    # tweak things funny.
+    rm -f /var/adm/mount 2> /dev/null
+    rmdir /var/adm/mount 2> /dev/null
+    PREFIX="`mount | fgrep $SLACK_DEVICE`"
+    PREFIX="`echo "$PREFIX" | cut -b14-`"
+    end_of_line="1"
+    while [ 0 ]; do
+     end_of_line="`expr $end_of_line + 1`"
+     if [ "`echo "$PREFIX" | cut -b$end_of_line`" = " " ]; then  # Found it!
+      end_of_line="`expr $end_of_line - 1`"
+      break;
+     fi
+    done
+    PREFIX="`echo "$PREFIX" | cut -b1-$end_of_line`"
+    ln -sf $PREFIX /var/adm/mount 
+   else
+    while [ 0 ]; do
+     cat << EOF
+What type of filesystem does your Slackware source partition contain?
+
+1 - FAT (MS-DOS, DR-DOS, OS/2)
+2 - Linux Second Extended Filesystem
+3 - Linux Xiafs
+4 - Linux MINIX
+5 - OS/2 HPFS
+
+EOF
+     echo -n "Filesystem (1,2,3,4,5)? "
+     read FILESYS;
+     if [ "$FILESYS" = "1" ]; then 
+      SLACK_FS_TYPE="msdos"
+      break;
+     elif [ "$FILESYS" = "2" ]; then 
+      SLACK_FS_TYPE="ext2"
+      break;
+     elif [ "$FILESYS" = "3" ]; then 
+      SLACK_FS_TYPE="xiafs"
+      break;
+     elif [ "$FILESYS" = "4" ]; then 
+      SLACK_FS_TYPE="minix"
+      break;
+     elif [ "$FILESYS" = "5" ]; then 
+      SLACK_FS_TYPE="hpfs"
+      break;
+     fi
+    done
+    if [ "$FILESYS" = "5" ]; then
+     mount -o ro -t $SLACK_FS_TYPE $SLACK_DEVICE /var/adm/mount
+    else
+     mount -t $SLACK_FS_TYPE $SLACK_DEVICE /var/adm/mount
+    fi
+    if [ ! $? = 0 ]; then # there was a mount error
+     cat << EOF
+
+There was a problem mounting your partition. Would you like to:
+
+1 -- Abort 'setup'.
+2 -- Ignore the error and continue.
+
+EOF
+     echo -n "Which (1/2)? "
+     read DOWHAT;
+     if [ $DOWHAT = 1 ]; then
+      echo
+      echo "Aborting..."
+      exit;
+     fi
+     echo
+    fi # mount error
+   fi
+   echo 
+   if [ -d /var/adm/mount/$SLACK_SOURCE_LOCATION ]; then
+    DISTRIBUTION_SOURCE=/var/adm/mount/$SLACK_SOURCE_LOCATION
+   else
+    cat << EOF
+
+Sorry, but the directory $SLACK_SOURCE_LOCATION does not exist
+on partition $SLACK_DEVICE.
+
+Aborting installation...
+
+EOF
+    exit
+   fi
+   SOURCE_MOUNTED="-source_mounted"
+  elif [ "$SOURCE_MEDIA" = "4" ]; then
+   cat << EOF
+
+OK, we will install from a directory that is currently mounted. This can be
+mounted normally or through NFS. You need to specify the name of the directory
+that contains the subdirectories for each source disk.
+
+EOF
+   echo -n "Which directory would you like to install from? "
+   read SOURCEDIR;
+   rm -f /var/adm/mount 2> /dev/null
+   rmdir /var/adm/mount 2> /dev/null
+   ln -sf $SOURCEDIR /var/adm/mount
+   if [ -d $SOURCEDIR ]; then
+    DISTRIBUTION_SOURCE=/var/adm/mount
+   else
+    cat << EOF
+
+Sorry - the directory you specified is not valid. Please check the directory
+and try again.
+
+Aborting installation...
+
+EOF
+    exit 1;
+   fi
+   SOURCE_MOUNTED="-source_mounted"
+  elif [ "$SOURCE_MEDIA" = "2" ]; then
+   cat << EOF
+
+The base Slackware series (A) can be installed from 1.2M or 1.44M media. 
+Most of the other disks will not fit on 1.2M media, but can be downloaded
+to your hard drive and installed from there later.
+
+1 - /dev/fd0H1440 (1.44M drive a:)
+2 - /dev/fd1H1440 (1.44M drive b:)
+3 - /dev/fd0h1200 (1.2M drive a:)
+4 - /dev/fd1h1200 (1.2M drive b:)
+EOF
+   while [ 0 ]; do
+    echo
+    echo -n "Which drive would you like to install from (1/2/3/4)? "
+    read WHICH_DRIVE;
+    echo
+    if [ "$WHICH_DRIVE" = "1" ]; then
+     SOURCE_DEVICE="/dev/fd0H1440"
+     break;
+    elif [ "$WHICH_DRIVE" = "2" ]; then
+     SOURCE_DEVICE="/dev/fd1H1440"
+     break;
+    elif [ "$WHICH_DRIVE" = "3" ]; then
+     SOURCE_DEVICE="/dev/fd0h1200"
+     break;
+    elif [ "$WHICH_DRIVE" = "4" ]; then
+     SOURCE_DEVICE="/dev/fd1h1200"
+     break;
+    fi
+   done 
+  elif [ "$SOURCE_MEDIA" = "3" ]; then
+   cat << EOF
+
+NFS INSTALLATION
+
+We need to know a few things before going on...
+
+EOF
+   if [ "$T_PX" = "/" ]; then
+    echo "You're running off the hard drive filesystem. Is this machine"
+    echo "currently running on the network you plan to install from? If"
+    echo "so, we won't try to reconfigure your ethernet card."
+    echo 
+    echo -n "Are you up-and-running on the network ([y]es, [n]o)? "
+    read UPNRUN;
+    echo
+   fi
+   if [ ! "$UPNRUN" = "y" ]; then
+    cat << EOF
+You will need to enter the IP address you wish to
+assign to this machine. Example: 111.112.113.114
+
+EOF
+    echo -n "What is your IP address? "
+    read LOCAL_IPADDR;
+    cat << EOF
+
+Now we need to know your netmask.
+Typically this will be 255.255.255.0
+
+EOF
+    echo -n "What is your netmask? "
+    read LOCAL_NETMASK;
+    cat << EOF
+
+Typically your broadcast address will be the same as
+your IP address with 255 replacing the final value.
+Example: 111.112.113.255
+
+EOF
+    echo -n "What is your broadcast address? "
+    read LOCAL_BROADCAST;
+    cat << EOF
+
+Now we need your network address.
+
+Your network address will usually be the same as your IP
+address, with the last value replaced by 0.
+For example: 111.112.113.0
+
+EOF
+    echo -n "What is your network address? "
+    read LOCAL_NETWORK;
+    echo 
+    echo -n "Do you have a gateway (y/n)? "
+    read HAVE_GATEWAY;
+    echo 
+    if [ "$HAVE_GATEWAY" = "y" ]; then
+     echo 
+     echo -n "What is your gateway address? "
+     read LOCAL_GATEWAY;  
+    fi
+   fi # ! UPNRUN
+   cat << EOF
+
+Good! We're all set on the local end, but now we need to know
+where to find the software packages to install. First, we need
+the IP address of the machine where the Slackware sources are
+stored.
+
+EOF
+   if [ "$UPNRUN" = "y" ]; then
+    cat << EOF
+Since you're already running on the network, you should be able to use the
+hostname instead of an IP address if you wish.
+
+EOF
+   fi
+   echo -n "What is the IP address of your NFS server? "
+   read REMOTE_IPADDR;
+   if [ ! "$UPNRUN" = "y" ]; then
+    cat << EOF
+
+Slackware can configure either an INTERNAL ethernet card, or an
+EXTERNAL D-Link adaptor.
+
+EOF
+    echo -n "Which type of ethernet device do you have ([i]nternal, [e]xternal)? "
+    read ENET_DEVICE;
+    if [ "$ENET_DEVICE" = "e" -o "$ENET_DEVICE" = "E" ]; then
+     ENET_DEVICE="dl0"
+    else
+     ENET_DEVICE="eth0" 
+    fi
+   fi # ! UPNRUN
+   cat << EOF
+
+There must be a directory on the server with the Slackware sources for 
+each disk in subdirectories beneath it.
+
+The installation script needs to know the name of the directory
+on your server that contains the disk subdirectories. For example,
+if your A3 disk is found at /slackware/a3, then you would
+respond: /slackware
+
+EOF
+   echo -n "What is the Slackware source directory? "
+   read REMOTE_PATH;
+   echo 
+   if [ ! "$UPNRUN" = "y" ]; then
+    echo "Configuring ethernet card..."
+    ifconfig $ENET_DEVICE $LOCAL_IPADDR netmask $LOCAL_NETMASK broadcast $LOCAL_BROADCAST
+    route -n add $LOCAL_NETWORK
+    if [ "$HAVE_GATEWAY" = "y" ]; then
+     echo "Configuring your gateway..."
+     route add default gw $LOCAL_GATEWAY metric 1
+    fi
+   fi
+   echo "Mounting NFS..."
+   mount -t nfs $REMOTE_IPADDR:$REMOTE_PATH /var/adm/mount
+   SOURCE_MOUNTED="-source_mounted"
+   DISTRIBUTION_SOURCE="/var/adm/mount"
+   echo
+  elif [ "$SOURCE_MEDIA" = "5" ]; then
+   cat << EOF
+INSTALLING FROM CD-ROM
+
+In order to install Slackware Linux from a CD-ROM, it must contain the
+distribution arranged beneath a source directory in the same way as if you
+were to install it from a hard drive or NFS. The source directory must
+contain subdirectories for each floppy disk. Your CD-ROM should be compatible
+with this format if it contains a mirror of the Slackware FTP site. 
+
+What type of CD-ROM drive do you have?
+
+1 -- SCSI [ /dev/scd0 or /dev/scd1 ]
+2 -- Sony CDU31A [ /dev/cdu31a ]
+3 -- Sony 535 [ /dev/sonycd ]
+4 -- Mitsumi  [ /dev/mcd ]
+5 -- Sound Blaster Pro (Panasonic) [ /dev/spbcd ]
+
+EOF
+   while [ 0 ]; do
+    echo -n "CD-ROM type (1/2/3/4/5)? "
+    read CD_ROM_TYPE;
+    echo
+    if [ "$CD_ROM_TYPE" = "1" ]; then
+     cat << EOF
+Which SCSI CD-ROM are you using? If you're not sure, select scd0.
+
+1 -- /dev/scd0
+2 -- /dev/scd1
+
+EOF
+     echo -n "Which SCSI CD-ROM (1/2)? "
+     read WHICH_SCSI_CD;
+     echo
+     if [ "$WHICH_SCSI_CD" = "1" ]; then
+      CD_DEVICE="/dev/scd0"
+      break;
+     else
+      CD_DEVICE="/dev/scd1"
+      break;
+     fi
+    elif [ "$CD_ROM_TYPE" = "2" ]; then
+     CD_DEVICE="/dev/cdu31a"
+     break;
+    elif [ "$CD_ROM_TYPE" = "3" ]; then
+     CD_DEVICE="/dev/sonycd"
+     break;
+    elif [ "$CD_ROM_TYPE" = "4" ]; then
+     CD_DEVICE="/dev/mcd"
+     break;
+    elif [ "$CD_ROM_TYPE" = "5" ]; then
+     CD_DEVICE="/dev/sbpcd"
+     break;
+    fi
+   done
+   cat << EOF
+Now we need to know which directory on the CD contains the Slackware sources.
+This location may vary depending on the CD you have. If you're using the 
+TransAmeritech CD, you may just hit [enter] and the default directory 
+of 'slackware.111' will be used.
+
+EOF
+   echo -n "What directory are the Slackware sources in [slackware.111]? "
+   read SLACK_SOURCE_LOCATION;
+   if [ "$SLACK_SOURCE_LOCATION" = "" ]; then
+    SLACK_SOURCE_LOCATION="slackware.111"
+   fi
+   echo
+   while [ 0 ]; do
+    mount -o ro -t iso9660 $CD_DEVICE /var/adm/mount
+    if [ ! $? = 0 ]; then
+     cat << EOF
+
+There was an error attempting to mount the CD-ROM device. Would you like to:
+
+1 -- Abort the installation
+2 -- Attempt to mount the CD-ROM device again
+3 -- Ignore the error and continue.
+
+EOF
+     echo -n "Which (1/2/3)? "     
+     read DOWHAT;
+     echo
+     if [ $DOWHAT = 1 ]; then
+      exit;
+     elif [ $DOWHAT = 3 ]; then
+      break;
+     fi
+    else
+     break;
+    fi
+   done
+   # since we've mounted successfully, let's refresh the link:
+   if [ ! -d $T_PX/dev ]; then
+    mkdir $T_PX/dev
+    chown root.root $T_PX/dev
+    chmod 755 $T_PX/dev
+   fi
+   ( cd $T_PX/dev ; ln -sf $CD_DEVICE cdrom )
+   DISTRIBUTION_SOURCE=/var/adm/mount/$SLACK_SOURCE_LOCATION
+   SOURCE_MOUNTED="-source_mounted"
+  fi # remote sources are now mounted, if they needed to be
+  cat << EOF
+
+SERIES SELECTION:
+
+These disk sets (and possibly more) are available:
+EOF
+  print_list;
+  cat << EOF
+
+You may specify any combination of disk sets at the prompt which follows,
+including sets from SLS. For example - to install the base system, base X 
+windows, and the Tcl toolkit, you would enter: A X TCL 
+Use spaces to seperate the set names. You may use upper or lower case.
+
+EOF
+  echo -n "Which disk sets do you want to install? "
+  read INSTSETS;
+  INSTT="`echo "$INSTSETS" | sed 's/ /#/g'`"
+  INSTT="`echo "$INSTT" | sed 's/,/#/g'`"
+  INSTT="`echo "$INSTT" | sed 's/;/#/g'`"
+  SERIES="-sets #`echo $INSTT`#"
+  cat << EOF
+
+SOFTWARE INSTALLATION
+
+Next, software packages are going to be transfered on to your hard drive.
+If this is your first time installing Linux, you should probably use
+PROMPT mode. This will follow a defaults file on the first disk of each
+series you install that will ensure that required packages are installed
+automatically. You will be prompted for the installation of other packages.
+
+These defaults are user definable -- you may set any package to be added
+or skipped automatically by editing your choices into a file called TAGFILE
+that will be found on the first disk of each series. There will also be a
+copy of the original tagfile called TAGFILE.ORG available in case you want
+to restore the default settings. The tagfile contains all the instructions
+needed to completely automate your installation.
+
+NOTE: Software may be added to your system after the initial installation.
+A copy of setup will be placed in your /sbin directory. Just type 'setup' to
+add software to your system. Another script, PKGTOOL, may be used to add
+software packages from the current directory, or to cleanly remove packages
+that you want uninstalled.
+
+If you don't use PROMPT mode, the install program will just go ahead and
+install everything from the disk sets you have selected.
+
+EOF
+  echo -n "Do you want to use PROMPT mode (y/n)? "
+  read REPLY;
+  echo 
+  if [ "$REPLY" = "y" -o "$REPLY" = "Y" ]; then
+   IGNORE_TAGFILES=""
+   cat << EOF
+PROMPT mode selected.
+
+Using prompting defaults found in tagfiles along the way.
+EOF
+  else
+   IGNORE_TAGFILES="-ignore_tagfiles"
+   cat << EOF
+PROMPT mode not selected.
+
+Installing all the packages on the selected disk sets.
+EOF
+  fi
+  if [ "$DISTRIBUTION_SOURCE" != "" ]; then
+   pkgtool $SOURCE_MOUNTED $IGNORE_TAGFILES -source_device $SOURCE_DEVICE -source_dir $DISTRIBUTION_SOURCE -target_dir $T_PX $SERIES
+  else
+   pkgtool $SOURCE_MOUNTED $IGNORE_TAGFILES -source_device $SOURCE_DEVICE -target_dir $T_PX $SERIES
+  fi
+  if [ ! "$ADDSOFT" = "a" ]; then 
+   echo "none        /proc        proc        defaults" >> $T_PX/fstab
+   echo " " >> $T_PX/fstab
+  fi
+ fi # adding software from / ?
+ # Make 'ROOTDEV' file so /etc/rc.d/rc.S knows which partition to remount
+ if [ ! -r $T_PX/etc/rc.d/ROOTDEV ]; then
+  echo "$ROOT_DEVICE" > $T_PX/etc/rc.d/ROOTDEV
+  chmod 644 $T_PX/etc/rc.d/ROOTDEV
+ fi
+ if [ "$T_PX" = "/" -o "$ADDSOFT" = "a" ]; then
+  cat << EOF
+
+EXTRA CONFIGURATION
+
+If you wish, you may now go through the options to reconfigure your
+hardware, make a bootdisk, and install LILO.
+
+If you've installed a new kernel image, you should go through these
+steps again. Otherwise, it's up to you.
+
+EOF
+  echo -n "Reconfigure ([y]es, [n]o)? "
+  read RECON;
+  echo
+  if [ "$RECON" = "y" ]; then
+   ADDSOFT="n"
+  else
+   ADDSOFT="a"
+  fi
+ fi
+ if [ ! "$ADDSOFT" = "a" ]; then
+  if [ ! -r $T_PX/sbin/pkgtool ]; then
+   cp /bin/pkgtool $T_PX/sbin/pkgtool
+   cp /bin/setup $T_PX/sbin/setup
+   chmod 755 $T_PX/sbin/pkgtool $T_PX/sbin/setup
+  fi
+  if [ ! -r $T_PX/etc/fstab ]; then
+   mv $T_PX/fstab $T_PX/etc/fstab
+   chmod 644 $T_PX/etc/fstab
+  fi
+  echo
+  echo "It is recommended that you make a boot disk."
+  echo -n "Would you like to do this ([y]es, [n]o)? "
+  read MAKE_BOOT;
+  if [ "$MAKE_BOOT" = "y" ]; then # we can make a boot disk since the boot drive is free
+   cat << EOF
+
+BOOT DISK CREATION
+
+Now put a formatted floppy in your boot drive.
+This will be made into your Linux boot disk. Use this to
+boot Linux until LILO has been configured to boot from
+the hard drive.
+
+Any data on the target disk will be destroyed.
+EOF
+   echo -n "Insert the disk and press [return], or [s] if you want to skip this step: "
+   read REPLY;
+   echo
+   if [ ! "$REPLY" = "s" ]; then
+    echo "Creating boot disk..."
+    if [ -r $T_PX/vmlinuz ]; then
+     KERNEL='/vmlinuz'
+    else
+     KERNEL='/zImage'
+    fi
+    echo "  - writing kernel to disk: (dd if=$T_PX$KERNEL of=/dev/fd0)"
+    dd if=$T_PX$KERNEL of=/dev/fd0
+    echo "Configuring boot disk..."
+    echo -n "  - boot device: "
+    rdev /dev/fd0 $ROOT_DEVICE
+    echo "(rdev /dev/fd0 $ROOT_DEVICE)"
+    echo -n "  - video mode: "
+    rdev -v /dev/fd0 -1
+    echo "(rdev -v /dev/fd0 -1)"
+    echo -n "  - mount root read-only: "
+    echo "(rdev -R /dev/fd0 1)"
+    rdev -R /dev/fd0 1
+    sync
+    echo "Boot disk created."
+   else
+    echo "Boot disk creation skipped."
+    echo "You better install LILO, or you'll have a hard time booting."
+   fi
+   echo 
+  fi
+  echo
+  echo "MODEM/MOUSE CONFIGURATION"
+  while [ 0 ]; do
+   cat << EOF
+
+Modem Setup:
+
+A link in /dev will be created from your callout device (cua0, cua1,
+cua2, cua3) to /dev/modem. You can change this link later if you put
+your modem on a different port.
+
+EOF
+   echo -n "Would you like to set up your modem ([y]es, [n]o)? "
+   read REPLY;
+   if [ "$REPLY" = "y" -o "$REPLY" = "Y" ]; then
+    cat << EOF
+
+These are the standard serial I/O devices:
+
+0 -- /dev/ttyS0 (or com1: under DOS)
+1 -- /dev/ttyS1 (or com2: under DOS)
+2 -- /dev/ttyS2 (or com3: under DOS)
+3 -- /dev/ttyS3 (or com4: under DOS)
+
+EOF
+    echo -n "Which device is your modem attached to (0, 1, 2, 3)? "
+    read MODEM_DEVICE;
+    if [ "$MODEM_DEVICE" = "0" ]; then
+     (cd $T_PX/dev; ln -sf cua0 modem)
+     break;
+    elif [ "$MODEM_DEVICE" = "1" ]; then
+     (cd $T_PX/dev; ln -sf cua1 modem)
+     break;
+    elif [ "$MODEM_DEVICE" = "2" ]; then
+     (cd $T_PX/dev; ln -sf cua2 modem)
+     break;
+    elif [ "$MODEM_DEVICE" = "3" ]; then
+     (cd $T_PX/dev; ln -sf cua3 modem)
+     break;
+    else
+     echo "Not a valid device. Please hit [enter] to try again, or [q]"
+     echo -n "to skip modem configuration."
+     read REPLY;
+     if [ "$REPLY" = "q" ]; then
+      break;
+     fi
+     echo
+    fi
+   else
+    break;
+   fi
+  done
+  while [ 0 ]; do
+   cat << EOF
+
+Mouse Setup:
+
+A link will be created in /dev from your mouse device to /dev/mouse.
+You can change this link later if you switch to a different type of
+mouse.
+
+EOF
+   MTYPE="none"
+   echo -n "Would you like to set up your mouse ([y]es, [n]o)? "
+   read REPLY;
+   if [ "$REPLY" = "y" -o "$REPLY" = "Y" ]; then
+    cat << EOF
+
+These types are supported:
+
+1 -- Microsoft compatible serial mouse.
+2 -- QuickPort or PS/2 style mouse. (Auxiliary port).
+3 -- Logitech Bus Mouse
+4 -- ATI XL Bus Mouse
+5 -- Microsoft Bus Mouse
+6 -- Mouse Systems serial mouse
+
+EOF
+    echo -n "Which type of mouse do you have (1, 2, 3, 4, 5, 6) ? "
+    read MOUSE_TYPE;
+    if [ "$MOUSE_TYPE" = "1" -o "$MOUSE_TYPE" = "6" ]; then
+     cat << EOF
+
+These are the standard serial I/O devices:
+
+0 -- /dev/ttyS0 (or com1: under DOS)
+1 -- /dev/ttyS1 (or com2: under DOS)
+2 -- /dev/ttyS2 (or com3: under DOS)
+3 -- /dev/ttyS3 (or com4: under DOS)
+
+EOF
+     echo -n "Which device is your mouse attached to (0, 1, 2, 3)? "
+     read MOUSE_DEVICE;
+     if [ "$MOUSE_TYPE" = "1" ]; then
+      MTYPE="ms"
+     else
+      MTYPE="msc"
+     fi
+     if [ "$MOUSE_DEVICE" = "0" ]; then
+      (cd $T_PX/dev; ln -sf cua0 mouse)
+      break;
+     elif [ "$MOUSE_DEVICE" = "1" ]; then
+      (cd $T_PX/dev; ln -sf cua1 mouse)
+      break;
+     elif [ "$MOUSE_DEVICE" = "2" ]; then
+      (cd $T_PX/dev; ln -sf cua2 mouse)
+      break;
+     elif [ "$MOUSE_DEVICE" = "3" ]; then
+      (cd $T_PX/dev; ln -sf cua3 mouse)
+      break;
+     fi
+    elif [ "$MOUSE_TYPE" = "2" ]; then
+     (cd $T_PX/dev; ln -sf ps2aux mouse)
+     MTYPE="ps2"
+     break;
+    elif [ "$MOUSE_TYPE" = "3" ]; then
+     (cd $T_PX/dev; ln -sf bmouselogitec mouse)
+     MTYPE="logi"
+     break;
+    elif [ "$MOUSE_TYPE" = "4" ]; then
+     (cd $T_PX/dev; ln -sf bmouseatixl mouse)
+     MTYPE="bm"
+     break;
+    elif [ "$MOUSE_TYPE" = "5" ]; then
+     (cd $T_PX/dev; ln -sf bmousems mouse)
+     MTYPE="bm"
+     break;
+    else
+     echo "Incorrect mouse selection. Please try again."
+    fi
+    echo
+   else
+    break;
+   fi
+  done
+  export MTYPE
+  ( cd $T_PX ; chmod 755 ./ )
+  ( cd $T_PX ; chmod 755 ./var )
+  if [ -d $T_PX/usr/src/linux ]; then
+   chmod 755 $T_PX/usr/src/linux
+  fi
+  if [ ! -d $T_PX/proc ]; then
+   mkdir $T_PX/proc
+   chown root.root $T_PX/proc
+  fi
+  if [ ! -L $T_PX/lib/cpp ]; then
+    ( cd $T_PX/lib; ln -sf /usr/lib/gcc-lib/i486-linux/2.4.5/cpp cpp )
+  fi
+  if [ ! -d $T_PX/usr/spool/uucp ]; then
+   mkdir -p $T_PX/usr/spool/uucp
+  fi
+  chown uucp.uucp $T_PX/usr/spool/uucp
+  chmod 1777 $T_PX/usr/spool/uucp
+  if [ ! -d $T_PX/usr/spool/uucppublic ]; then
+   mkdir -p $T_PX/usr/spool/uucppublic
+  fi
+  chown uucp.uucp $T_PX/usr/spool/uucppublic
+  chmod 1777 $T_PX/usr/spool/uucppublic
+  chmod 1777 $T_PX/tmp
+  if [ ! -d $T_PX/usr/spool/mail ]; then
+   mkdir -p $T_PX/usr/spool/mail
+   chmod 755 $T_PX/usr/spool
+   chown root.mail $T_PX/usr/spool/mail
+   chmod 775 $T_PX/usr/spool/mail
+  fi 
+
+  # Post installation and setup scripts added by packages.
+  if [ -d $T_PX/usr/adm/setup ]; then
+   if [ "$T_PX" = "/" ]; then
+    ROOT_DEVICE="`mount | fgrep "on / " | cut -b-10`"
+   fi
+   for INSTALL_SCRIPTS in $T_PX/usr/adm/setup/setup.*
+   do
+    SCRIPT=`basename $INSTALL_SCRIPTS`
+    # Here, we call each script in /usr/adm/setup. Two arguments are provided:
+    # 1 -- the target prefix (normally /, but /mnt from the bootdisk)
+    # 2 -- the name of the root device.
+    ( cd $T_PX ; sh usr/adm/setup/$SCRIPT $T_PX $ROOT_DEVICE )
+    if echo $SCRIPT | fgrep onlyonce 1> /dev/null 2> /dev/null; then # only run after first install
+     if [ ! -d $T_PX/usr/adm/setup/install ]; then
+      mkdir $T_PX/usr/adm/setup/install
+     fi
+     mv $INSTALL_SCRIPTS $T_PX/usr/adm/setup/install
+    fi
+   done
+  fi
+
+ fi # ! just adding stuff
+ rm -f $T_PX/tagfile
+ if [ "$REMAPPING_DONE" = "true" ]; then
+  if [ -r /mnt/usr/lib/keytables/$SHORTNAME ]; then
+   echo "echo 'Loading keyboard map \"$SHORTNAME\"...'" >> /mnt/etc/rc.d/rc.local
+   echo "loadkeys /usr/lib/keytables/$SHORTNAME" >> /mnt/etc/rc.d/rc.local
+  else
+   cat << EOF
+You loaded a custom keyboard map ($SHORTNAME), but didn't
+install the keytable package. Rather than tell you you're
+just out of luck, I suppose I'll install a minimal keymap
+system for you. :^)
+EOF
+   mkdir -p /mnt/usr/lib/keytables
+   chmod 755 /mnt/usr/lib/keytables
+   cp /usr/keytables/keytemp/* /mnt/usr/lib/keytables
+   cp /bin/loadkeys /mnt/sbin
+   echo "echo 'Loading keyboard map \"$SHORTNAME\"...'" >> /mnt/etc/rc.d/rc.local
+   echo "loadkeys /usr/lib/keytables/$SHORTNAME" >> /mnt/etc/rc.d/rc.local
+  fi
+ fi 
+ sync
+ if [ "$T_PX" = "/" ]; then
+  echo "Installation of additional software is now complete."
+ else
+  echo "Linux installation is complete. "
+ fi
+ if [ "$T_PX" = "/mnt" ]; then
+  echo 
+  echo "You may now reboot your computer by pressing control+alt+delete."
+  echo 
+ fi
+ if [ "$T_PX" = "/mnt" ]; then
+  echo "If you installed LILO, remove the boot disk from your computer "
+  echo "before rebooting. "
+ fi
+ if [ "y" = "$T_MT" ]; then
+  if [ ! "$ADDSOFT" = "a" ]; then
+   echo
+   echo "Don't forget to create your /etc/fstab if you don't have one!"
+   echo "(vi $T_PX/etc/fstab)"
+   echo
+  fi
+ fi
+ echo 
+else
+ cat << EOF
+You have not yet designated any disk partitions as Linux native.
+
+If you are planning to use OS/2 Boot Manager, make your Linux
+partitions with OS/2 fdisk, reboot this disk, and then use Linux
+fdisk to tag the partitions as type 83 (Linux native).
+
+Linux fdisk will select a default device when called without
+arguments, and from there it is menu driven. If you don't want
+to partition the default device, then call fdisk with the device
+you want as the argument, like this:
+
+fdisk /dev/hdb
+
+If you are not using the OS/2 Boot Manager, then you may use Linux
+fdisk to create partitions for Linux. Other than the exception for
+the OS/2 Boot Manager, you are usually better off creating partitions
+for a given OS using a partitioning tool native to that OS. In other
+words, you probably shouldn't try to make your DOS or other non-Linux
+partitions with the Linux fdisk.
+
+Please make one or more partitions for Linux, and try setup again.
+If you haven't already, you might want to also make a swap partition
+while you're in fdisk. 8 megabytes would be a good starting size for
+a single user system. Linux swap is tagged as type 82.
+EOF
+ exit;
+fi
+if mount | fgrep /var/adm/mount 1> /dev/null 2> /dev/null ; then
+ umount /var/adm/mount 
+fi
+rm -f /var/adm/mount 2> /dev/null
+rmdir /var/adm/mount 2> /dev/null
+mkdir /var/adm/mount 2> /dev/null
+chmod 755 /var/adm/mount
+if [ -r /tagfile ]; then
+ rm -f /tagfile
+fi
+chmod 755 $T_PX
+chmod 1777 $T_PX/tmp
+# end slackware setup script

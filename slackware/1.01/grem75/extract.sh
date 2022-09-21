@@ -27,3 +27,6 @@ for WRONG in $WRONGDISKS; do
   done
   mv $WRONG $NEWDIR
 done
+
+# copy auto installation files
+autoinst_prep 500M

@@ -1,0 +1,2 @@
+common/diskinit.sh
+slackware/pkgtool.sh

@@ -1,0 +1,465 @@
+#! /bin/sh
+#
+# dinstall: Debian Linux installation utility (distributed with 0.91 BETA)
+#
+# Copyright (c) 1994 Ian A. Murdock <imurdock@shell.portal.com>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+AGAIN=0
+BREAKFLAG=0
+CLLVL1="1 2 3"
+CLLVL2="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+
+BLINK=`tput blink`
+BOLD=`tput bold`
+CLR=`tput clear`
+INVIS=`tput civis`
+NORM=`tput sgr0`
+REV=`tput rev`
+VIS=`tput cnorm`
+
+bold () { echo -n $BOLD ; echo -n $1 ; echo -n $NORM; }
+
+cl ()
+{
+	for LOOP in $1
+	do
+		echo "                                                                                "
+	done
+}
+
+fdiskerr ()
+{
+        echo ""
+        echo "Please make sure that you are using the correct device name for your hard disk."
+	echo ""
+	rettocont
+	return 1
+}
+
+fdiskmain ()
+{
+        fdisksetup
+	echo -n $CLR ; echo "Partitioning $DISK..."
+	if [ -l $DISK -gt 8 ]; then
+		fdiskerr
+		outline ; mainmenu ; mainprompt
+		return 1
+	fi
+	if [ $? !=0 ]; then
+		break
+	fi 2> /dev/null
+	echo -n $VIS ; fdisk $DISK || BREAKFLAG=1
+	if [ $BREAKFLAG = 1 ]; then
+		BREAKFLAG=0
+		echo -n $INVIS
+		fdiskerr
+		outline ; mainmenu ; mainprompt
+		return 1
+	fi
+	if [ $? != 0 ]; then
+		break
+	fi
+	echo ""
+	echo "Would you like to reboot the system now (this is required if the partition table"
+	echo -n "was altered) (y/n)? "
+	read ANS ; echo -n $INVIS
+	if [ $ANS != "n" ]; then
+		echo ""
+		echo "Rebooting... please stand by..."
+		echo ""
+		sync ; reboot
+	else
+		echo "" ; echo "" ; echo "" ; echo ""
+		rettocont ; outline ; mainmenu ; mainprompt
+	fi
+}
+
+fdisksetup ()
+{
+	tput cup 19 0 ; cl "$CLLVL1"
+	tput cup 19 15 
+        echo "Which disk do you wish to partition [/dev/hda]?"
+	tput cup 20 34 ; echo -n $REV ; echo "/dev/   " ; echo -n $NORM
+	tput cup 20 39 ; echo -n $REV ; echo -n $VIS
+        read DISK
+	echo -n $INVIS ; echo -n $NORM
+        if [ ! $DISK ]; then
+                DISK=`selectdefault /dev/hda`
+	else
+		DISK="/dev/$DISK"
+        fi
+}
+
+installbase ()
+{
+	echo -n $CLR ; echo -n $VIS
+	echo -n $BOLD ; echo "*** Debian Linux base system installation ***" ; echo -n $NORM
+	echo ""
+	echo "Before proceeding you should have created the filesystems on which Debian"
+	echo "Linux will be installed."
+	echo ""
+	echo -n "Continue with the installation of the base system (y/n) [y]? "
+	read INPUT
+	if [ $INPUT = "n" ]; then
+		echo -n $INVIS ; outline ; mainmenu ; mainprompt ; maininput
+	fi 2>/dev/null
+	echo ""
+	echo "Now you need to mount each of the filesystems that you created under /root."
+	echo "Be careful not to mount a filesystem over another!  For example, /root/usr"
+	echo "must be mounted before /root/usr/local.  In addition, be sure to mount root"
+	echo "(as /root) first."
+	echo ""
+	echo "Basically, you simply need to mount the partitions as they will be mounted"
+	echo "on your installed system with \`/root' prepended to the directory name."
+	while true
+	do
+		echo ""
+		echo "The following filesystems are mounted..."
+		echo ""
+		df | sed /fd/d 
+		echo ""
+		echo "...(`bold m`)ount another filesystem, (`bold u`)nmount a mounted filesystem,"
+		echo -n "or (`bold c`)ontinue with the installation: "
+		read INPUT
+		case $INPUT in
+			[Mm*])
+				echo "" ; fdisk -l | sed -n /native/p
+				echo ""
+				echo -n "Mount which filesystem (ex: /dev/hda3)? "
+				echo -n $BOLD ; echo -n "/dev/" ; read FS ; echo -n $NORM
+				FS="/dev/$FS"
+				echo -n "Mount `bold "$FS"` on which directory (ex: /usr)? "
+				echo -n $BOLD ; echo -n "/root/" ; read DIR ; echo -n $NORM
+				echo ""
+				mkdir -p /root/$DIR
+				mount -t ext2 $FS /root/$DIR || ( echo "" ; echo "Cannot mount $FS on /root$DIR." ; echo "" ; break ) ;;
+			[Uu*])
+				echo ""
+				echo -n "Unmount which filesystem (ex: /dev/hda3)? "
+				echo -n $BOLD ; echo -n "/dev/" ; read FS ; echo -n $NORM
+				FS="/dev/$FS"
+				umount $FS ;;
+			[Cc*])
+				BREAKFLAG=1 ;;
+		esac
+		if [ $BREAKFLAG = 1 ]; then
+			BREAKFLAG=0
+			break
+		fi
+	done
+	while true
+	do
+		echo ""
+		echo "Will you be installing the Debian Linux base system from..."
+		echo ""
+		echo "   Drive                          Linux           DOS"
+		echo "   =================================================="
+		echo "   The first floppy drive         `bold "/dev/fd0"`        A:"
+		echo "   The second floppy drive        `bold "/dev/fd1"`        B:"
+		echo ""
+		echo -n "Please specify /dev/fd0 or /dev/fd1 [/dev/fd0]: "
+		echo -n $BOLD ; echo -n "/dev/" ; read DEVICE ; echo -n $NORM
+		if [ ! $DEVICE ]; then
+			DEVICE=`selectdefault /dev/fd0`
+		else
+			DEVICE="/dev/$DEVICE"
+			if [ $DEVICE != "/dev/fd0" -a $DEVICE != "/dev/fd1" ]; then
+				echo ""
+				echo "Please specify /dev/fd0 or /dev/fd1."
+				AGAIN=1
+			fi
+		fi 2>/dev/null
+		if [ $AGAIN != 1 ]; then
+			AGAIN=0
+			break
+		else
+			AGAIN=0
+		fi
+	done
+	echo ""
+	cd /root
+	echo -n "Please insert basedisk #1 into $DEVICE and press <`bold "RETURN"`>: " ; read INPUT
+	echo -n $BOLD ; echo "Installing basedisk #1:" ; echo -n $NORM
+	zcat < $DEVICE 2>/dev/null | cpio -dimV
+	echo ""
+	echo -n "Please insert basedisk #2 into $DEVICE and press <`bold "RETURN"`>: " ; read INPUT
+	echo -n $BOLD ; echo "Installing basedisk #2:" ; echo -n $NORM
+	zcat < $DEVICE 2>/dev/null | cpio -dimV
+	cd /
+	echo ""
+	echo -n $BOLD ; echo "Calling \`dsetup' to configure the new system..." ; echo -n $NORM
+	dsetup
+	echo ""
+	echo -n $BOLD ; echo "\`dsetup' finished." ; echo -n $NORM
+	echo "" ; echo ""
+	echo "WARNING: No automatic LILO installation is done here."
+	echo ""
+        echo -n "Would you like to make a custom bootdisk before proceeding (y/n)? "
+        read BOOTDISK
+        if [ $BOOTDISK = "y" ]; then
+		echo ""
+                echo -n "Please insert a floppy disk into your boot drive and press <" ; echo -n $BOLD ; echo -n "RETURN" ; echo -n $NORM ; echo -n ">..."
+		read INPUT
+                echo ""
+                echo "Copying the kernel image to the floppy disk..."
+                /root/bin/dd if=/root/vmlinuz of=/dev/fd0
+                echo "Done."
+		echo ""
+		echo "Now you may reboot your system with the custom bootdisk."
+	else
+		echo ""
+		echo "Ok.  Now you may reboot your system with the installation bootdisk.  At the"
+		echo "introductory screen follow the instructions to boot to your new system." 
+	fi 2> /dev/null
+	/root/bin/cp /etc/setup.sh /root/sbin/setup.sh
+	chmod 755 /root/sbin/setup.sh 
+	echo "" ; echo "" ; echo "" ; echo ""
+	rettocont ; outline ; mainmenu ; mainprompt
+}
+
+maininput ()
+{
+	while true
+	do
+		tput cup 17 49 ; echo -n $VIS ; read INPUT ; echo -n $INVIS
+		working
+		case $INPUT in
+			1) fdiskmain ;;
+			2) swapmain ;;
+			3) mkfsmain ;;
+			4) viewpart ;;
+			5) installbase ;;
+			6) echo -n $CLR ; echo "" ; echo "Rebooting... please stand by..." ; echo "" ; sync ; reboot ;;
+			7) echo -n $CLR ; echo -n $VIS ; exit 0 ;;
+		esac
+		tput cup 19 0 ; cl "$CLLVL1" ; mainprompt
+	done
+}
+	
+mainmenu ()
+{
+	tput cup 3 0 ; cl "$CLLVL2" 
+	tput cup 7 13 ; echo -n $REV ; echo -n " 1 " ; echo -n $NORM ; echo "  Run fdisk to partition your hard disk(s)"
+	tput cup 8 13 ; echo -n $REV ; echo -n " 2 " ; echo -n $NORM ; echo "  Initialize and activate your swap partition(s)"
+	tput cup 9 13 ; echo -n $REV ; echo -n " 3 " ; echo -n $NORM ; echo "  Format your Linux native partition(s) with mke2fs"
+	tput cup 10 13 ; echo -n $REV ; echo -n " 4 " ; echo -n $NORM ; echo "  View partition table"
+	tput cup 11 13 ; echo -n $REV ; echo -n " 5 " ; echo -n $NORM ; echo "  Install the Debian Linux base system"
+	tput cup 12 13 ; echo -n $REV ; echo -n " 6 " ; echo -n $NORM ; echo "  Reboot the system"
+	tput cup 13 13 ; echo -n $REV ; echo -n " 7 " ; echo -n $NORM ; echo "  Return to the shell"
+}
+
+mainprompt ()
+{
+	tput cup 19 0 ; cl "$CLLVL1"	
+	tput cup 17 30
+	echo -n "Please select one: "
+}
+
+mkfserr ()
+{
+	echo $CLR
+	echo ""
+	echo "$FS does not appear to be defined as a Linux native partition!  Please"
+	echo "make sure that you are entering the correct device name and that your partition"
+	echo "table was setup properly."
+	echo ""
+	rettocont
+}
+
+mkfsmain ()
+{
+	mkfssetup
+	if [ $BREAKFLAG = 1 ]; then
+		BREAKFLAG=0
+		return 1
+	fi
+	if [ $? != 0 ]; then
+		break
+	fi
+	if [ ! -b $FS ]; then
+		tput cup 19 0 ; cl "$CLLVL1"
+		tput cup 19 28 ; echo "$FS does not exist!"
+	else
+		typecheck $FS native
+		if [ $? != 0 ]; then
+			mkfserr
+			outline ; mainmenu ; mainprompt
+		else
+			echo -n $CLR ; echo -n $VIS ; echo -n "Would you like to check for bad blocks (y/n) [y]? "
+			read CHECKBAD
+        		if [ $CHECKBAD = "n" ]; then
+        		        OPTNS=""
+      			else
+        		        OPTNS=" -c "
+        		fi 2>/dev/null
+			echo ""
+			echo -n "Making an ext2 filesystem on `bold "$FS"`"
+			if [ $OPTNS = "-c" ]; then
+				echo " (checking for bad blocks)..."
+			else
+				echo "..."
+			fi 2> /dev/null
+			echo ""
+			mke2fs $OPTNS $FS `fdisk -s $FS`
+			rettocont
+			outline ; mainmenu ; mainprompt
+		fi
+	fi
+}
+
+mkfssetup ()
+{
+        tput cup 18 0 ; cl "$CLLVL1"
+        tput cup 19 10 
+        echo "On which partition do you wish to create an ext2 filesystem?"
+        tput cup 20 34 ; echo -n $REV ; echo "/dev/    " ; echo -n $NORM
+        tput cup 20 39 ; echo -n $REV ; echo -n $VIS
+        read FS
+        echo -n $INVIS ; echo -n $NORM
+        if [ ! $FS ]; then
+		BREAKFLAG=1
+        else
+                FS="/dev/$FS"
+        fi
+}
+
+outline ()
+{
+	echo -n $CLR
+	echo -n $BOLD ; echo "dinstall: Debian Linux installation utility -- Copyright (C) 1994 Ian A. Murdock"
+	echo "================================================================================" ; echo -n $NORM
+	tput cup 23 0
+	echo -n $BOLD ; echo "================================================================================" ; echo -n $NORM 
+}
+
+rettocont ()
+{
+	tput cup 21 26
+	echo -n "Press <`bold "RETURN"`> to continue..." ; echo -n $NORM
+	echo -n $VIS ; read INPUT ; echo -n $INVIS
+}
+
+selectdefault () { echo $1; }
+
+swaperr ()
+{
+	echo $CLR
+        echo ""
+        echo "$SWAP does not appear to be defined as a swap partition!  Please make sure"
+	echo "that you are entering the correct device name and that your partitition table"
+	echo "was setup properly."
+        echo ""
+	rettocont
+}
+
+swapfail ()
+{
+	echo ""
+	echo "Something went wrong.  Please make sure that you are entering the correct device"
+	echo "name and that your partition table was setup properly."
+	echo ""
+	rettocont
+	outline ; mainmenu ; mainprompt
+}
+
+swapmain ()
+{
+	swapsetup
+        if [ ! -b $SWAP ]; then
+                tput cup 19 0 ; cl "$CLLVL1"
+                tput cup 19 28 ; echo "$SWAP does not exist!"
+	else
+		typecheck $SWAP swap
+		if [ $? != 0 ]; then
+			swaperr
+			outline ; mainmenu ; mainprompt
+		else
+			echo -n $CLR
+			echo -n "Would you like to check for bad blocks (y/n) [y]? "
+			echo -n $VIS ; read CHECKBAD ; echo -n $INVIS
+			if [ $CHECKBAD = "n" ]; then
+				OPTNS=""
+			else
+				OPTNS=" -c "
+			fi 2>/dev/null
+			echo ""
+			echo -n "Initializing $SWAP"
+			if [ $OPTNS = "-c" ]; then
+				echo " (checking for bad blocks)..."
+			else
+				echo "..."
+			fi 2> /dev/null
+			mkswap $OPTNS $SWAP `fdisk -s $SWAP` || ( swapfail ; return 1 )
+			if [ $? != 1 ]; then
+				echo "" ; echo "Activating $SWAP..."
+				swapon $SWAP
+				echo "" ; echo "Done."
+				rettocont
+				outline ; mainmenu ; mainprompt
+			fi
+		fi
+	fi
+}
+
+swapsetup ()
+{
+        SWAPGUESS=`fdisk -l | sed -n /swap/p | sed -n 1p | cut -c1-9`
+	tput cup 18 0 ; cl "$CLLVL1"
+	tput cup 19 12
+	echo "What is the name of your swap partition  [$SWAPGUESS]?"
+	tput cup 20 34 ; echo -n $REV ; echo "/dev/    " ; echo -n $NORM
+	tput cup 20 39 ; echo -n $REV ; echo -n $VIS
+	read SWAP
+	echo -n $INVIS ; echo -n $NORM
+	if [ ! $SWAP ]; then
+		SWAP=`selectdefault $SWAPGUESS`
+	else
+		SWAP="/dev/$SWAP"
+	fi
+}
+
+typecheck ()
+{
+	PART=`echo $1 | cut -c7-11`
+        ARG=$2
+        CHECK=`fdisk -l | sed -n /$PART/p | cut -c59-64`
+        if [ $CHECK != $ARG ]; then
+                return 1
+        fi
+}
+
+viewpart ()
+{
+	echo -n $CLR
+	fdisk -l
+	rettocont ; outline ; mainmenu ; mainprompt
+}
+
+working ()
+{
+	tput cup 17 0 ; cl "$CLLVL1"
+	tput cup 20 35
+	echo -n $BLINK ; echo "Working..." ; echo -n $NORM
+}
+
+#
+# The main program begins here.
+#
+
+echo -n $INVIS
+outline ; mainmenu ; mainprompt ; maininput

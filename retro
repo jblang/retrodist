@@ -4,14 +4,90 @@ SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 RETROHOME=${RETROHOME:-$SCRIPTDIR}
 ORIGBASE=$RETROHOME/.downloads
 SLACKBASE=$ORIGBASE/mirrors.slackware.com/slackware
+AUTOBASE=$SCRIPTDIR/autoinst
 
-# download a list URLs from a file with the specified filename
+# outputs fdisk commands to add a partition
+new_partition() {
+cat <<EOF
+n
+$PARTMODE
+EOF
+# logical partition doesn't ask for a partition number
+if [ "$PARTMODE" != "l" ]; then
+    echo $PARTNUM
+fi
+cat <<EOF
+$PARTBEGIN
+$PARTEND
+t
+$PARTNUM
+$PARTTYPE
+EOF
+}
+
+# adds an extra newline to stdin so read loop works correctly
+cat_newline() {
+    cat $1
+    echo
+}
+
+# generates fdisk commands for the partition table specified with format:
+#   mode    num     begin   end     type
+# mode: p = primary; e = extended; l = logical
+# num: partition number: 1-4 (primary/extended); 5+: logical
+# begin/end: in "cylinders" (depends on disk size and kernel version)
+# type: 82 = swap, 83 = ext2
+fdisk_commands() {
+    cat_newline $1 | while read PARTMODE PARTNUM PARTBEGIN PARTEND PARTTYPE PARTIGNORE; do
+        case $PARTMODE in
+            [pel] ) new_partition ;;    # primary / extended / logical
+            * ) ;;                      # ignore invalid partition modes
+        esac        
+    done
+    echo "w"    # write partition
+    echo        # extra newline
+}
+
+# link the autoinst files listed in $1 to the directory $2
+link_autoinst() {
+    NUM=1
+    cat_newline $1 | while read FILE; do
+        ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
+        NUM=$(($NUM+1))
+    done
+}
+
+autoinst_copy() {
+  echo "Using sudo to mount $1..."
+  sudo mount $1 /mnt
+  sudo cp $AUTOBASE/autoinst.sh /mnt
+  sudo chmod +x /mnt/autoinst.sh
+  sudo umount /mnt
+}
+
+# prepare auto-install/config files for the current distro
+# $1 is a partition table file in `autoinst/fdisk`
+autoinst_prep() {
+  AUTOINSTD=$CACHEDIR/install/autoinst.d
+  mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
+  ln $AUTOBASE/autoinst.sh $AUTOBASE/autoconf.sh $CONFDIR/config.sh $AUTOINSTD
+  link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
+  link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
+  fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
+  if [[ -f $CACHEDIR/root.img ]]; then
+    autoinst_copy $CACHEDIR/root.img
+  elif [ -f $CACHEDIR/boot.img ]; then
+    autoinst_copy $CACHEDIR/boot.img
+  fi
+}
+
+# download URLs to the specified filenames contained in file $1 
 # file format is `filename url`, one per line
 download_list() {
   if [[ $# -ne 2 ]]; then
     exit 1
   fi
-  cat $1 | while read FILE URL || [ "$FILE" ]; do
+  cat_newline $1 | while read FILE URL; do
     DEST=$2/$FILE
     if [[ ! -f "$DEST" ]]; then
       echo "Downloading $FILE"
@@ -22,7 +98,7 @@ download_list() {
   done
 }
 
-# download a version of Slackware from the official mirror
+# download version $1 of Slackware from the official mirror
 download_slackware() {
   if [[ $# -ne 1 ]]; then
     exit 1
@@ -40,7 +116,7 @@ download_slackware() {
   fi
 }
 
-# download original files for the selected distro
+# download files for the distro $1 to directory $2
 download_all() {
   mkdir -p $2
   if [[ -f $1/source.txt ]]; then
@@ -110,17 +186,10 @@ retro_extract() {
     else
       echo "Nothing to extract"
     fi
-
-    # copy auto installation files if they exist
-    if [[ -d "$CONFDIR/../_autoinst" ]]; then
-      mkdir -p $CACHEDIR/install
-      cp -LR $CONFDIR/../_autoinst/* $CACHEDIR/install
-    fi
   else
     echo "Using cached files"
   fi
 }
-
 
 # run QEMU for the selected distro
 retro_run() {

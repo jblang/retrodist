@@ -1,0 +1,2 @@
+common/diskinit.sh
+debian/baseinst.sh

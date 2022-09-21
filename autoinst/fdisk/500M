@@ -1,0 +1,4 @@
+# partition table for 500MB drive
+# mode  num     begin   end     type
+p       1       1       128     82  # 64MB swap
+p       2       129     1015    83  # ext2

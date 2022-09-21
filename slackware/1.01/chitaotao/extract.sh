@@ -7,3 +7,4 @@ for IMG in $TEMPDIR/[atx]*.img; do
   mount_copy $IMG install/install/$DISK
 done
 cp install/install/a1/a1disk boot.img
+autoinst_prep 500M

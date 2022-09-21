@@ -1,1 +1,0 @@
-../../../../slackware/1.01/_autoinst/install.d/00common.sh

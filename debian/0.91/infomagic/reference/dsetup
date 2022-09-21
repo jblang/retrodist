@@ -1,0 +1,609 @@
+#! /bin/sh
+#
+# dsetup: Debian Linux system setup utility (distributed with 0.91 BETA)
+#
+# Copyright (c) 1994 Ian A. Murdock <imurdock@shell.portal.com>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+AGAIN=0
+BOLD=`tput bold`
+INVIS=`tput civis`
+NORM=`tput sgr0`
+VIS=`tput cnorm`
+
+echo ""
+echo "Your partition setup is as follows:"
+fdisk -l | sed -n /Linux/p
+echo ""
+while true
+do
+	ROOTGUESS=`mount | sed -n "/on \/root /p" | cut -d " " -f 1`
+	echo "$ROOTGUESS appears to be your root filesystem, but that's just a guess."
+	echo -n "Which partition contains your root filesystem? "
+	echo -n $BOLD ; echo -n "/dev/" ; read ROOTDEV ; echo -n $NORM
+	ROOTDEV="/dev/$ROOTDEV"
+	if [ ! -b $ROOTDEV ]; then
+		echo "$ROOTDEV does not exist!  Try again."
+		AGAIN=1
+	fi
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+while true
+do
+	SWAPGUESS=`fdisk -l | sed -n "/Linux swap/p" | cut -d " " -f 1`
+	if [ $SWAPGUESS ]; then
+		echo "It looks like $SWAPGUESS is your swap partition."
+	else
+		echo "I have no idea what your swap partition is."
+	fi 2>/dev/null
+	echo -n "Which partition is your swap partition (<" ; echo -n $BOLD ; echo -n "RETURN" ; echo -n $NORM ; echo -n "> for none)? "
+	echo -n $BOLD ; echo -n "/dev/" ; read SWAP ; echo -n $NORM
+	if [ ! $SWAP ]; then
+		SWAP="none"
+	else
+		SWAP="/dev/$SWAP"
+		if [ ! -b $SWAP ]; then
+			echo "$SWAP does not exist!  Try again."
+			AGAIN=1
+		fi
+	fi 2>/dev/null
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+echo ""
+echo -n "   Setting up /etc/fstab..."
+sed /dev/d /root/etc/fstab > /tmp/fstab
+sed /proc/d /tmp/fstab > /root/etc/fstab
+cat /etc/mtab | sed "s/ 0 0//" | sed /fd/d | sed /install/d | sed "s/root\///" | sed "s/root//" | sed /proc/d | sed "s/ /		/" | sed "s/ /		/" | sed "s/ /	/" >> /root/etc/fstab
+if [ $SWAP != "none" ]; then
+	echo "$SWAP		none	 	swap	sw" >> /root/etc/fstab
+fi
+echo "/proc			proc		proc	defaults" >> /root/etc/fstab
+echo "done."
+ROOT=`echo $ROOTDEV | sed "s/\/dev\///"`
+DISK=`echo $ROOT | cut -c1-4`
+echo -n "   Changing root to $ROOTDEV in configuration files..."
+( sed "s/\/dev\/hda3/\/dev\/$ROOT/" /root/etc/lilo.conf > /tmp/lilo.conf ) 2>/dev/null
+sed "s/\/dev\/hda3/\/dev\/$ROOT/" /root/etc/rc.d/rc.S > /tmp/rc.S
+mv /tmp/rc.S /root/etc/rc.d/rc.S ; chmod 754 /root/etc/rc.d/rc.S
+sed "s/\/dev\/hda3/\/dev\/$ROOT/" /root/etc/rc.d/rc.K > /tmp/rc.K
+mv /tmp/rc.K /root/etc/rc.d/rc.K ; chmod 754 /root/etc/rc.d/rc.K
+echo "done."
+echo -n "   Setting root device to $ROOTDEV..."
+/root/usr/sbin/rdev /root/vmlinuz $ROOTDEV
+/root/usr/sbin/rdev -R /root/vmlinuz 1
+/root/usr/sbin/rdev -v /root/vmlinuz -1
+echo "done."
+
+echo -n $VIS
+echo ""
+echo -n $BOLD ; echo "Networking setup..." ; echo -n $NORM
+echo ""
+while true
+do
+	echo "What is the unqualified hostname of your machine?"
+ 	echo -n "	(ex: debra): "
+	read HOST
+	echo "What is the local domainname without the leading \`.'?"
+	echo -n "   (ex: debian.org): "
+	read DOMAIN
+	HOSTNAME="$HOST.$DOMAIN"
+	echo ""
+	while true
+	do
+		echo -n "Your fully-qualified hostname is $HOSTNAME.  Correct (y/n)? "
+		read CONFIRM
+		if [ $CONFIRM = "n" ]; then
+			AGAIN=1
+			break
+		else
+			if [ $CONFIRM != "y" ]; then
+				echo "" ; echo "Please enter \`y' or \`n'." ; echo "" ; AGAIN=1
+			fi
+		fi
+		if [ $AGAIN != 1 ]; then
+			AGAIN=0
+			break
+		else
+			AGAIN=0
+		fi
+	done
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+		echo ""
+	fi
+done
+echo ""
+echo -n "   Setting hostname in networking configuration files..."
+sed "s/debra.debian.org/$HOSTNAME/" /root/etc/HOSTNAME > /tmp/HOSTNAME
+mv /tmp/HOSTNAME /root/etc/HOSTNAME
+sed "s/debra.debian.org/$HOSTNAME/" /root/etc/hosts > /tmp/hosts
+sed "s/debra/$HOST/" /tmp/hosts > /root/etc/hosts
+sed "s/debian.org/$DOMAIN/" /root/etc/resolv.conf > /tmp/resolv.conf
+mv /tmp/resolv.conf /root/etc/resolv.conf
+echo "done."
+echo -n "   Setting hostname in mail configuration files..."
+sed "s/debra.debian.org/$HOSTNAME/" /root/etc/elm.rc | sed "s/debian.org/$DOMAIN/" > /tmp/elm.rc
+sed "s/debra/$HOST/" /tmp/elm.rc > /root/etc/elm.rc
+sed "s/debra.debian.org/$HOSTNAME/" /root/etc/smail.conf | sed "s/debian.org/$DOMAIN/" > /tmp/smail.conf
+sed "s/debra/$HOST/" /tmp/smail.conf > /root/etc/smail.conf 
+echo "done."
+echo ""
+while true
+do
+	echo "Debian Linux comes with loopback networking setup to work out of the box."
+	echo -n "Does your machine require additional networking setup (y/n)? "
+	read INPUT
+	if [ $INPUT = "y" ]; then
+		echo ""
+		while true
+		do
+			echo "What is the IP address of your machine?"
+			echo -n "	(ex: 123.456.78.9): "
+			read IPADD
+			echo ""
+			echo "What is your netmask?"
+			echo -n "       (ex: 255.255.255.0): "
+			read NETMASK
+			echo ""
+			echo "What is your network address?"
+			echo -n "	(ex: 123.456.78.0): "
+			read NETADD
+			echo ""
+			echo "What is your broadcast address (if you don't have one, type \`none')?"
+			echo -n "	(ex: 123.456.78.0): "
+			read BROADCAST
+			echo ""
+			echo "What is your gateway address?"
+			echo -n "	(ex: 123.456.78.1): "
+			read GATEWAY
+			echo ""
+			echo "What is the address of your nameserver (if your machine is the name server,"
+			echo "enter 127.0.0.1; if you don't have one, type \`none')?"
+			echo -n "	(ex: 123.456.78.1): "
+			read NAMESRV
+			echo ""
+			while true
+			do
+				echo -n $BOLD ; echo -n "   IP address: 		" ; echo -n $NORM ; echo "$IPADD"
+				echo -n $BOLD ; echo -n "   netmask: 		" ; echo -n $NORM ; echo "$NETMASK"
+				echo -n $BOLD ; echo -n "   network address: 	" ; echo -n $NORM ; echo "$NETADD"
+				echo -n $BOLD ; echo -n "   broadcast address: 	" ; echo -n $NORM ; echo "$BROADCAST"
+				echo -n $BOLD ; echo -n "   gateway: 		" ; echo -n $NORM ; echo "$GATEWAY"
+				echo -n $BOLD ; echo -n "   nameserver: 		" ; echo -n $NORM ; echo "$NAMESRV"
+				echo ""
+				echo -n "Is this correct (y/n)? "
+				read INPUT
+				if [ $INPUT = "n" ]; then
+					AGAIN=1
+					break
+				else
+					if [ $INPUT != "y" ]; then
+						echo "" ; echo "Please enter \`y' or \`n'." ; echo "" ; AGAIN=1
+					fi 
+				fi
+				if [ $AGAIN != 1 ]; then
+					AGAIN=0
+					break
+				else
+					AGAIN=0
+				fi
+			done
+			if [ $AGAIN != 1 ]; then
+				AGAIN=0
+				break
+			else
+				echo ""
+				AGAIN=0
+			fi
+		done
+		echo ""
+		while true
+		do
+			echo -n "Do you have an ethernet connection (y/n)? "
+			read INPUT
+			echo ""
+			if [ $INPUT = "y" ]; then
+				echo -n "   Setting up /etc/rc.d/rc.inet1..."
+				echo "" >> /root/etc/rc.d/rc.inet1
+				echo "IPADDR=\"$IPADD\"	# Your IP address" >> /root/etc/rc.d/rc.inet1
+				echo "NETMASK=\"$NETMASK\"	# Your netmask" >> /root/etc/rc.d/rc.inet1
+				echo "NETWORK=\"$NETADD\"	# Your network address" >> /root/etc/rc.d/rc.inet1
+				if [ $BROADCAST = "none" ]; then
+					echo "BROADCAST=\"\"	# Your broadcast address (blank if none)" >> /root/etc/rc.d/rc.inet1
+				else
+					echo "BROADCAST=\"$BROADCAST\"	# Your broadcast address (blank if none)" >> /root/etc/rc.d/rc.inet1
+				fi
+				echo "GATEWAY=\"$GATEWAY\"	# Your gateway address" >> /root/etc/rc.d/rc.inet1
+				echo "" >> /root/etc/rc.d/rc.inet1
+				if [ $BROADCAST = "none" ]; then
+					echo "/sbin/ifconfig eth0 \${IPADDR} netmask \${NETMASK}" >> /root/etc/rc.d/rc.inet1
+				else
+					echo "/sbin/ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST}" >> /root/etc/rc.d/rc.inet1
+				fi
+				echo "" >> /root/etc/rc.d/rc.inet1
+				echo "/sbin/route add \${IPADDR}" >> /root/etc/rc.d/rc.inet1
+				echo "/sbin/route add \${NETWORK}" >> /root/etc/rc.d/rc.inet1
+				echo "/sbin/route add default gw \${GATEWAY} metric 1" >> /root/etc/rc.d/rc.inet1
+				echo "done."
+			else
+				if [ $INPUT = "n" ]; then
+					break
+				else
+					echo "" ; echo "Please answer \`y' or \`n'." ; echo "" ; AGAIN=1
+				fi
+			fi
+			if [ $AGAIN != 1 ]; then
+				AGAIN=0
+				break
+			else
+				AGAIN=0
+			fi
+		done
+		echo -n "   Setting up networking configuration files..."
+		sed /localhost/d /root/etc/hosts > /tmp/hosts
+		mv /tmp/hosts /root/etc/hosts
+		echo "127.0.0.1			localhost" >> /root/etc/hosts
+		echo "$IPADD			$HOSTNAME	$HOST" >> /root/etc/hosts
+		echo "localnet $NETADD" >> /root/etc/networks
+		if [ $NAMESRV != "none" ]; then
+			echo "nameserver $NAMESRV" >> /root/etc/resolv.conf
+		fi
+		echo "done."
+		echo ""
+		echo "Please refer to the NET-2 HOWTO (available in /usr/doc if the \`doc' package"
+		echo "is installed) for instructions on setting up SLIP."
+	else
+		if [ $INPUT = "n" ]; then
+			break
+		else
+			echo "" ; echo "Please answer \`y' or \`n'." ; echo "" ; AGAIN=1
+		fi
+	fi
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+echo "" ; echo ""
+echo -n $BOLD ; echo "Timezone setup..." ; echo -n $NORM
+echo ""
+while true
+do
+	echo -n "Is your system clock set to GMT? "
+	read INPUT
+	if [ $INPUT = "y" ]; then
+		echo "" ; echo "Okay."
+		break
+	else
+		if [ $INPUT = "n" ]; then
+			echo ""
+			echo -n "   Ensuring that \`clock' knows the hardware clock is set to localtime..."
+			sed "s/\/sbin\/clock -u -s/\/sbin\/clock -s/" /root/etc/rc.d/rc.M > /tmp/rc.M
+			mv /tmp/rc.M /root/etc/rc.d/rc.M ; chmod 754 /root/etc/rc.d/rc.M
+			echo "done."
+			break
+		else
+			echo "" ; echo "Please answer \`y' or \`n'." ; echo ""
+		fi
+	fi
+done
+echo ""
+while true
+do
+	echo -n $BOLD
+	echo "Now you need to select the appropriate timezone for your location.  The"
+	echo "following is a space-delimited list of available timezones.  At the"
+	echo "\`Which timezone?' prompt, type the appropriate timezone (for example,"
+	echo "\`Japan' or \`US/Pacific')."
+	echo -n $NORM
+	cat << EOF
+
+CET Cuba EET Egypt Factory GB-Eire GMT GMT+0 GMT+1 GMT+10 GMT+11 GMT+12 GMT+13
+GMT+2 GMT+3 GMT+4 GMT+5 GMT+6 GMT+7 GMT+8 GMT+9 GMT-0 GMT-1 GMT-10 GMT-11 GMT-12
+GMT-2 GMT-3 GMT-4 GMT-5 GMT-6 GMT-7 GMT-8 GMT-9 GMT0 GMT1 GMT10 GMT11 GMT12
+GMT13 GMT2 GMT3 GMT4 GMT5 GMT6 GMT7 GMT8 GMT9 Greenwich Hongkong Iceland Iran
+Israel Jamaica Japan Libya MET NZ Navajo PRC Poland ROC ROK Singapore Turkey
+UCT UTC Universal W-SU WET Zulu
+ 
+Australia/LHI Australia/NSW Australia/North Australia/Queensland Australia/South
+Australia/Tasmania Australia/Victoria Australia/West Australia/Yancowinna
+
+Brazil/Acre Brazil/DeNoronha Brazil/East Brazil/West
+
+Canada/Atlantic Canada/Central Canada/East-Saskatchewan Canada/Eastern
+Canada/Mountain Canada/Newfoundland Canada/Pacific Canada/Yukon
+
+Chile/Continental Chile/EasterIsland
+
+EOF
+
+	echo -n "Press <" ; echo -n $BOLD ; echo -n "RETURN" ; echo -n $NORM ; echo -n "> for more..." ; read INPUT ; echo ""
+	cat << EOF
+
+Mexico/BajaNorte Mexico/BajaSur Mexico/General
+
+SystemV/AST4 SystemV/AST4ADT SystemV/CST6 SystemV/CST6CDT SystemV/EST5
+SystemV/EST5EDT SystemV/HST10 SystemV/MST7 SystemV/MST7MDT SystemV/PST8
+SystemV/PST8PDT SystemV/YST9 SystemV/YST9YDT
+
+US/Alaska US/Aleutian US/Arizona US/Central US/East-Indiana US/Eastern US/Hawaii
+US/Michigan US/Mountain US/Pacific US/Pacific-New US/Samoa
+
+EOF
+	echo -n "Please enter the appropriate timezone.  Press <" ; echo -n $BOLD ; echo -n "RETURN" ; echo -n $NORM ; echo "> to see the list again."
+	echo "" ; echo -n $BOLD ; echo -n "Which timezone? " ; echo -n $NORM
+	read ZONE
+	if [ ! $ZONE ]; then
+		echo ""
+		AGAIN=1
+	else
+		if [ ! -e /root/usr/lib/zoneinfo/$ZONE ]; then
+			echo ""
+			echo "The timezone \`$ZONE' does not exist!  Try again." ; AGAIN=1
+		else
+			if [ -d /root/usr/lib/zoneinfo/$ZONE ]; then
+				echo ""
+				echo "\`$ZONE' is not specific enough.  Please try \`$ZONE/<specific timezone>.'" ; AGAIN=1
+			else
+				echo ""
+				echo -n "   Setting timezone for the system to \`$ZONE'..."
+				cd /root/etc
+				/root/bin/ln -sf ../usr/lib/zoneinfo/$ZONE localtime
+				cd /
+				echo "done."
+			fi
+		fi
+	fi
+	if [ $AGAIN != 1 ]; then
+		break
+		AGAIN=0
+	else
+		echo ""
+		AGAIN=0
+	fi
+done
+echo "" ; echo ""
+echo -n $BOLD ; echo "Keyboard setup..." ; echo -n $NORM
+echo ""
+echo "If you require the United States keymaps, then this part may be skipped as that"
+echo "is the default in Debian Linux (yes, I'm a Yank :)."
+echo ""
+while true
+do
+	echo -n "Load a non-US keymap at boot time (y/n)? "
+	read INPUT
+	if [ $INPUT = "y" ]; then
+		while true
+		do
+			echo "" ; echo "The following keymaps are available with Debian Linux:" ; echo ""
+			ls /root/etc/keytables
+			echo ""
+			echo -n "Which keymap should be loaded at boot time? "
+			read KEYMAP
+			if [ ! -e /root/etc/keytables/$KEYMAP ]; then
+				echo ""
+				echo "The keymap \`$KEYMAP' does not exist!  Try again." ; AGAIN=1
+			else
+				echo ""
+				echo -n "   Setting the keymap to \`$KEYMAP'..."
+				sed "s/us.map/$KEYMAP/" /root/etc/rc.d/rc.M > /tmp/rc.M
+				mv /tmp/rc.M /root/etc/rc.d/rc.M ; chmod 754 /root/etc/rc.d/rc.M
+				echo "done."
+			fi
+			if [ $AGAIN != 1 ]; then
+				AGAIN=0
+				break
+			else
+				AGAIN=0
+			fi
+		done
+	else
+		if [ $INPUT != "n" ]; then
+			echo ""
+			echo "Please enter \`y' or \`n'."
+			echo ""
+			AGAIN=1
+		fi
+	fi
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+echo "" ; echo ""
+echo -n $BOLD ; echo "Modem setup..." ; echo -n $NORM
+echo ""
+echo "We will now setup your modem and mouse.  However, Debian Linux does not create"
+echo "symlinks in the /dev directory; this is considered dangerous.  You may create"
+echo "\`/dev/modem' and \`/dev/mouse' links later if you wish.  This setup simply"
+echo "changes the configuration files installed with Debian Linux to reflect the"
+echo "proper devices on your machine."
+echo ""
+while true
+do
+	echo "Which port contains your modem (if you have one)?"
+	echo ""
+	echo "	(#)	Linux device file	DOS COM port"
+	echo "	(1)	    /dev/cua0		    COM1"
+	echo "	(2)         /dev/cua1		    COM2"
+	echo "  	(3)	    /dev/cua2		    COM3"
+	echo "  	(4)	    /dev/cua3		    COM4"
+	echo ""
+	echo "  	(5) 	          *** No modem ***"
+	echo ""
+	echo -n "Which (1/2/3/4/5)? "
+	read INPUT
+	case $INPUT in
+		1) MODEM="/dev/cua0" ; break ;;
+		2) MODEM="/dev/cua1" ; break ;;
+		3) MODEM="/dev/cua2" ; break ;;
+		4) MODEM="/dev/cua3" ; break ;;
+		5) MODEM="none" ; break ;;
+		*) echo "" ; echo "Please enter \`1', \`2', \`3', \`4' or \`5'." ; echo "" ; AGAIN=1 ;;
+	esac
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+if [ $MODEM != "none" ]; then
+	echo ""
+	echo -n "   Changing modem device to $MODEM in configuration files..."
+	DEVMODEM=`echo $MODEM | sed "s/\/dev\///"`
+	DEVMODNO=`echo $DEVMODEM | sed "s/cua//"`
+	sed "s/cua3/$DEVMODEM/" /root/etc/skel/.mykermrc > /tmp/mykermrc
+	mv /tmp/mykermrc /root/etc/skel/.mykermrc
+	/root/bin/cp /root/etc/skel/.mykermrc /root/root/.mykermrc
+	sed "s/cua3/$DEVMODEM/" /root/etc/default/uugetty.ttyS3 > /tmp/uugetty
+	rm -f /root/etc/default/uugetty.ttyS3
+	mv /tmp/uugetty /root/etc/default/uugetty.ttyS"$DEVMODNO"
+	echo "done."
+fi
+echo "" ; echo ""
+echo -n $BOLD ; echo "Mouse setup..." ; echo -n $NORM
+echo ""
+while true
+do
+        echo "Which type of mouse do you have (if you have one)?"
+        echo ""
+        echo "  	(#)     Mouse Type"
+        echo "  	(1)      Serial mouse of any type"
+        echo "  	(2)      Logitech-compatible bus mouse"
+        echo "  	(3)      PS/2 mouse port"
+        echo "  	(4)      Microsoft \"InPort\" bus mouse"
+	echo "  	(5)      ATI XL bus mouse"
+        echo ""
+        echo "  	(6)      *** No mouse ***"
+        echo ""
+        echo -n "Which (1/2/3/4/5/6)? "
+        read INPUT
+        case $INPUT in
+                1)
+		   echo ""
+		   while true
+		   do
+        		echo "Which port contains your mouse?"
+        		echo ""
+        		echo "  	(#)     Linux device file       DOS COM port"
+        		echo "  	(1)         /dev/cua0               COM1"
+        		echo "  	(2)         /dev/cua1               COM2"
+        		echo "	(3)         /dev/cua2               COM3"
+        		echo "	(4)         /dev/cua3               COM4"
+        		echo ""
+        		echo -n "Which (1/2/3/4)? "
+        		read INPUT
+        		case $INPUT in
+        		        1) MOUSE="/dev/cua0" ; break ;;
+        		        2) MOUSE="/dev/cua1" ; break ;;
+        		        3) MOUSE="/dev/cua2" ; break ;;
+        		        4) MOUSE="/dev/cua3" ; break ;;
+				*) echo "" ; echo "Please enter \`1', \`2', \`3' or \`4'." ; echo "" ; AGAIN=1
+			esac
+			if [ $AGAIN != 1 ]; then
+				AGAIN=0
+				break
+			else
+				AGAIN=0
+			fi
+		   done
+		   echo ""
+		   while true
+		   do
+			echo "What type of serial mouse do you have?"
+			echo ""
+			echo "	(#)	Mouse type"
+			echo "	(1)	 Microsoft"
+			echo "	(2)	 Mouse Systems Corp."
+			echo "	(3)	 MM series"
+			echo "	(4)	 Logitech"
+			echo "	(5)	 MSC 3-bytes"
+			echo ""
+			echo -n "Which (1/2/3/4/5)? "
+			read INPUT
+			case $INPUT in
+				1) MTYPE="ms" ; break ;;
+				2) MTYPE="msc" ; break ;;
+				3) MTYPE="mm" ; break ;;
+				4) MTYPE="logi" ; break ;;
+				5) MTYPE="sun" ; break ;;
+				*) echo "" ; echo "Please enter \`1', \`2', \`3', \`4' or \`5'." ; echo "" ; AGAIN=1
+			esac
+			if [ $AGAIN != 1 ]; then
+				AGAIN=0
+				break
+			else
+				AGAIN=0
+			fi
+		   done ;;
+		2) MOUSE="/dev/logibm" ; MTYPE="bm" ; break ;;
+                3) MOUSE="/dev/psaux" ; MTYPE="ps2" ; break ;;
+                4) MOUSE="/dev/inportbm" ; MTYPE="bm" ; break ;;
+                5) MOUSE="/dev/atibm" ; MTYPE="bm" ; break ;;
+		6) MOUSE="none" ; break ;;
+		*) echo "" ; echo "Please enter \`1', \`2', \`3', \`4', \`5' or \`6'." ; echo "" ; AGAIN=1
+	esac
+	if [ $AGAIN != 1 ]; then
+		AGAIN=0
+		break
+	else
+		AGAIN=0
+	fi
+done
+if [ $MOUSE != "none" ]; then
+	case $MTYPE in
+		"ms") LMTYPE="Microsoft" ;;
+		"msc") LMTYPE="Mousesystems" ;;
+		"mm") LMTYPE="MMseries" ;;
+		"logi") LMTYPE="Logitech" ;;
+		"bm") LMTYPE="Busmouse" ;;
+		"sun") LMTYPE="Mouseman" ;;
+		"ps2") LMTYPE="PS\/2" ;;
+	esac
+	if [ $LMTYPE = "PS\/2" ]; then
+		LMPR="PS/2"
+	else
+		LMPR="$LMTYPE"
+	fi
+	echo ""
+	echo "   Changing mouse device to $MOUSE (type $LMPR) in configuration"
+	echo -n "   files..."
+	DEVMOUSE=`echo $MOUSE | sed "s/\/dev\///"`
+	sed "s/cua0/$DEVMOUSE/" /root/etc/rc.d/rc.M > /tmp/rc.M
+	sed "s/logi/$MTYPE/" /tmp/rc.M > /root/etc/rc.d/rc.M ; chmod 754 /root/etc/rc.d/rc.M
+	sed "s/cua0/$DEVMOUSE/" /root/etc/X11/Xconfig > /tmp/Xconfig
+	sed "s/Logitech/$LMTYPE/" /tmp/Xconfig > /root/etc/X11/Xconfig
+	echo "done."
+fi
