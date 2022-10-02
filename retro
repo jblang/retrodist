@@ -14,7 +14,7 @@ $PARTMODE
 EOF
 # logical partition doesn't ask for a partition number
 if [ "$PARTMODE" != "l" ]; then
-    echo $PARTNUM
+  echo $PARTNUM
 fi
 cat <<EOF
 $PARTBEGIN
@@ -25,10 +25,10 @@ $PARTTYPE
 EOF
 }
 
-# adds an extra newline to stdin so read loop works correctly
+# adds a final newline to a file so read loop works correctly
 cat_newline() {
-    cat $1
-    echo
+  cat $1
+  echo
 }
 
 # generates fdisk commands for the partition table specified with format:
@@ -38,23 +38,23 @@ cat_newline() {
 # begin/end: in "cylinders" (depends on disk size and kernel version)
 # type: 82 = swap, 83 = ext2
 fdisk_commands() {
-    cat_newline $1 | while read PARTMODE PARTNUM PARTBEGIN PARTEND PARTTYPE PARTIGNORE; do
-        case $PARTMODE in
-            [pel] ) new_partition ;;    # primary / extended / logical
-            * ) ;;                      # ignore invalid partition modes
-        esac        
-    done
-    echo "w"    # write partition
-    echo        # extra newline
+  cat_newline $1 | while read PARTMODE PARTNUM PARTBEGIN PARTEND PARTTYPE PARTIGNORE; do
+    case $PARTMODE in
+      [pel] ) new_partition ;;    # primary / extended / logical
+      * ) ;;                      # ignore invalid partition modes
+    esac        
+  done
+  echo "w"    # write partition
+  echo        # extra newline
 }
 
 # link the autoinst files listed in $1 to the directory $2
 link_autoinst() {
-    NUM=1
-    cat_newline $1 | while read FILE; do
-        ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
-        NUM=$(($NUM+1))
-    done
+  NUM=1
+  cat_newline $1 | while read FILE; do
+    ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
+    NUM=$(($NUM+1))
+  done
 }
 
 autoinst_copy() {
@@ -89,11 +89,13 @@ download_list() {
   fi
   cat_newline $1 | while read FILE URL; do
     DEST=$2/$FILE
-    if [[ ! -f "$DEST" ]]; then
-      echo "Downloading $FILE"
-      wget --no-verbose --show-progress -O "$DEST" "$URL"
-    else
-      echo "Already downloaded: $FILE"
+    if [[ -n "$FILE" && -n "$URL" ]]; then
+      if [[ ! -f "$DEST" ]]; then
+        echo "Downloading $FILE"
+        wget --no-verbose --show-progress -O "$DEST" "$URL"
+      else
+        echo "Already downloaded: $FILE"
+      fi
     fi
   done
 }
@@ -145,13 +147,13 @@ retro_download() {
 
 # fix permissions/ownership for files copied from disk image
 fix_perms() {
-    sudo chown -R $USER:$USER "$1"
-    chmod -R ugo+r "$1"
-    chmod -R u+w "$1"
-    chmod -R go-w "$1"
-    if [[ -d "$1" ]]; then
-      find "$1" -type d | xargs chmod ugo+x
-    fi
+  sudo chown -R $USER:$USER "$1"
+  chmod -R ugo+r "$1"
+  chmod -R u+w "$1"
+  chmod -R go-w "$1"
+  if [[ -d "$1" ]]; then
+    find "$1" -type d | xargs chmod ugo+x
+  fi
 }
 
 # mount a disk image and copy files from it
