@@ -1,4 +1,3 @@
-common/diskinit.sh
 common/ttycfg.sh
 common/netcfg.sh
 common/xconfig.sh
