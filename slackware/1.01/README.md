@@ -36,8 +36,13 @@ The files in the `a` series are identical to those from the official mirror, exc
 
 Automatic installation is supported (and recommended) for 1.0x and 1.1.x versions.
 
-- Log in as `root` when prompted. Ignore the rest of the instructions.
-- Run the automatic installer: `/autoinst.sh`.
+Log in as `root` when prompted. Ignore the rest of the instructions and enter the following intead:
+
+```
+mount -t msdos /dev/hdb1 /mnt
+/mnt/autoinst.d/autoinst.sh
+```
+
 - Marvel as cryptic text scrolls by much faster than it would have on a real PC in 1993. When the installation is done, the VM will reboot.
 - The scripts will configure your system and then reboot again.
 - Log in as `root` once again. You've now got a fully-loaded Slackware 1.01 system, with properly configured X, networking, and serial console. Have fun! :^)

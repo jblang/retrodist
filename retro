@@ -61,9 +61,16 @@ link_autoinst() {
   done
 }
 
-autoinst_copy() {
-  echo "Using sudo to mount $1..."
-  sudo mount $1 /mnt
+# patches boot or root disk with autoinst.sh
+autoinst_patch() {
+  retro_extract
+  if [[ -f $CACHEDIR/root.img ]]; then
+    PATCHIMG=$CACHEDIR/root.img
+  elif [ -f $CACHEDIR/boot.img ]; then
+    PATCHIMG=$CACHEDIR/boot.img
+  fi
+  echo "Using sudo to patch $PATCHIMG..."
+  sudo mount $PATCHIMG /mnt
   sudo cp $AUTOBASE/autoinst.sh /mnt
   sudo chmod +x /mnt/autoinst.sh
   sudo umount /mnt
@@ -78,11 +85,6 @@ autoinst_prep() {
   link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
   link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
   fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
-  if [[ -f $CACHEDIR/root.img ]]; then
-    autoinst_copy $CACHEDIR/root.img
-  elif [ -f $CACHEDIR/boot.img ]; then
-    autoinst_copy $CACHEDIR/boot.img
-  fi
 }
 
 # download URLs to the specified filenames contained in file $1 
@@ -339,6 +341,7 @@ Commands:
   run       default run the distro in QEMU; calls extract
   extract   extract files for the distro; calls download
   download  download source files for the distro or CD-ROM
+  patch     patch the boot/root disk for auto-installation.
   package   create a tar with the QEMU image files and startup script
   reset     remove the QEMU images and cached files for the distro
 
@@ -355,7 +358,7 @@ exit 1
 # see if the first parameter is a command; default to run otherwise
 if [[ $# -ge 1 ]]; then
   case $1 in
-    run | extract | download | reset | package)
+    run | extract | download | reset | patch | package)
       COMMAND=$1
       shift
       ;;
@@ -408,5 +411,6 @@ case $COMMAND in
   run) retro_run $@;;
   package) retro_package $@;;
   reset) retro_reset;;
+  patch) autoinst_patch;;
   *) retro_usage;;
 esac

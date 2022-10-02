@@ -4,9 +4,13 @@ Debian 0.91, released in January 1994, was the first public beta and oldest surv
 
 ### Automatic Installation
 
-To automatically install 0.91, ignore the onscreen instructions and do the following instead:
+To automatically install Debian 0.91, ignore the onscreen instructions and enter the following instead:
 
-- Type `/autoinst.sh` at the shell prompt.
+```
+mount -t msdos /dev/hdb1 /mnt
+/mnt/autoinst.d/autoinst.sh
+```
+
 - The script will automatically partition and format your drive, install the base system, and set up lilo to boot from the hard drive.
 - Once the VM reboots, the scripts continue to install all the additional packages and configure your system.
 - The VM will reboot once again and you have a fully loaded Debian 0.91 system with properly configured X, networking, and a serial console.

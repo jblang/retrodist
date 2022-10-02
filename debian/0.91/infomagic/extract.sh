@@ -1,9 +1,9 @@
-mount_copy $ORIGDIR/disc1.iso . \
-    /distributions/debian/dist
-mv dist/base/* .
+7z x $ORIGDIR/disc1.iso \
+    distributions/debian/dist > /dev/null
+mv distributions/debian/dist/base/* .
 mkdir -p install/packages
-mv dist/packages/*/*.deb install/packages
-rm -rf dist
+mv distributions/debian/dist/packages/*/*.deb install/packages
+rm -rf distributions
 gunzip *.gz
 mv bootdisk boot.img
 mv basedsk1 install/basedsk1.img

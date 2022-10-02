@@ -1,19 +1,34 @@
 # Retro Distro Playground
 
-This repo contains tools for exploring early Linux distributions in [QEMU](https://www.qemu.org/), a cross-platform emulation and virtualization tool. If you don't already have QEMU, [download it](https://www.qemu.org/download/) or install it using your distro's package manager.
+This repo contains tools for exploring early Linux distributions in [QEMU](https://www.qemu.org/), a cross-platform emulation and virtualization tool.
 
-Running retro distros in QEMU has been done many times by many people, but until now there has not been a central repository of recipes for running a wide variety of distros.
+Running retro distros in QEMU has been done many times by many people, but until now there has not been a central repository of recipes for running a wide variety of distros.  This project also emphasizes fully automated installs for reproducible build artifacts.
 
 ![chitaotao](screenshots/chitaotao.png)
 ![x11111](screenshots/x11111.png)
+
+## Prerequisites
+
+The scripts have been developed on Ubuntu 22.04. You will need to install some prerequisites:
+
+```
+sudo apt install qemu-system-x86 cloud-image-utils p7zip-full unzip
+```
+
+The scripts should theoretically be portable to any other linux Distro that has the prerequisites installed, but I haven't tested this. If you don't use the Jump Box, `cloud-image-utils` are not required.
+
+The `package` command (see below) can be used to package the disk images together with a shells script and batch file to start QEMU. This will allow the image to be run on Windows or other operating systems with only QEMU installed. However, the initial preparation needs to be done on Linux.
 
 ## Retro Distros
 
 The `retro` script provides commands for downloading, extracting, and running retro distros. All of the commands take a configuration directory as their first argument. If no directory is provided, the current directory is used.
 
-- `run` will start the specified distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim. 
-- `extract` will extract the specified distro into the `.cache` directory.
-- `download` will download the specified distro's original files into the `.downloads` directory.
+- `run` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim. 
+- `extract` will extract the distro into the `.cache` directory.
+- `download` will download the distro's original files into the `.downloads` directory.
+- `reset` will reset the distro's cache and QEMU configuration
+- `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
+- `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
 
 You won't normally need to run `extract` and `download` manually since `run` will automatically run each of them in turn.
 
@@ -84,6 +99,10 @@ The `retro` script configures QEMU to run the a distro by doing the following:
    - Create symlinks for any additional files needed by the installation
    - Perform any special-case initialization required by the distro
 3. Creates main hard drive image `hda.img` with size `QEMU_HD_SIZE` and format `QEMU_HD_FORMAT`
+
+### Automatic Installation and Configuration
+
+Support may optionally be provided for automatically installing and configuring a distro. Refer to the README in the [autoinst](autoinst) directory for more information.
 
 ## Credits
 
