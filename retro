@@ -6,6 +6,10 @@ ORIGBASE=$RETROHOME/.downloads
 SLACKBASE=$ORIGBASE/mirrors.slackware.com/slackware
 AUTOBASE=$SCRIPTDIR/autoinst
 
+# temp directory automatically cleaned up on exit
+TEMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEMPDIR"' EXIT
+
 # outputs fdisk commands to add a partition
 new_partition() {
 cat <<EOF
@@ -384,10 +388,6 @@ CONFNAME=$(echo $CONFDIR | sed "s|^$SCRIPTDIR/||")
 ORIGDIR=$ORIGBASE/$CONFNAME
 CACHEDIR=$CONFDIR/.cache
 QEMUDIR=$CONFDIR/.qemu
-
-# temp directory automatically cleaned up on exit
-TEMPDIR=$(mktemp -d)
-trap 'rm -rf "$TEMPDIR"' EXIT
 
 # output configuration details
 cat <<EOF
