@@ -5,6 +5,9 @@ SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 JUMPHOME=${JUMPHOME:-$SCRIPTDIR/.retrojump}
 CLOUDIMG=jammy-server-cloudimg-amd64.img
 JUMPIMG=$JUMPHOME/retrojump.img
+# temp directory automatically cleaned up on exit
+TEMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEMPDIR"' EXIT
 
 # temp directory automatically cleaned up on exit
 TEMPDIR=$(mktemp -d)

@@ -1,0 +1,2 @@
+disc1.iso https://archive.org/download/yggdrasil-plug-and-play-linux-fall-1995-cd/Yggdrasil%20Plug%20and%20Play%20Linux%20%5BFall%201995%5D%20Disk%201_.iso
+disc2.iso https://archive.org/download/yggdrasil-plug-and-play-linux-fall-1995-cd/Yggdrasil%20Plug%20and%20Play%20Linux%20%5BFall%201995%5D%20Disk%202_.iso
