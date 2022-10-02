@@ -4,6 +4,7 @@ This repo contains tools for exploring early Linux distributions in [QEMU](https
 
 Running retro distros in QEMU has been done many times by many people, but until now there has not been a central repository of recipes for running a wide variety of distros.  This project also emphasizes fully automated installs for reproducible build artifacts.
 
+![yygdrasil](screenshots/yygdrasil95.png)
 ![chitaotao](screenshots/chitaotao.png)
 ![x11111](screenshots/x11111.png)
 
