@@ -82,8 +82,12 @@ autoinst_prep() {
   AUTOINSTD=$CACHEDIR/install/autoinst.d
   mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
   ln $AUTOBASE/autoinst.sh $AUTOBASE/autoconf.sh $CONFDIR/config.sh $AUTOINSTD
-  link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
-  link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
+  if [[ -f $CONFDIR/autoinst.txt ]]; then
+    link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
+  fi
+  if [[ -f $CONFDIR/autoconf.txt ]]; then
+    link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
+  fi
   fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
 }
 
