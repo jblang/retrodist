@@ -27,13 +27,22 @@ Each edition contained current distributions at the time as well as snapshots th
 - SLS 1.05
 - TAMU 1.0A
 
+## Dec 1994
+
+- bogus 1.0.1
+- Debian 0.91 Beta
+- MCC 1.0+
+- Slackware 2.1.0
+- SLS 1.06
+- TAMU 1.0D
+
 ## Mar 1995
 
+- bogus 1.0.1
 - Debian 0.91 and 0.93
 - MCC 1.0+
 - Slackware 2.2.0
 - SLS 1.06
-- bogus 1.0.1
 
 ## Aug 1995
 
@@ -52,8 +61,8 @@ Each edition contained current distributions at the time as well as snapshots th
 ## Apr 1996
 
 - Debian 0.93R6
-- RedHat 3.0.3 for Intel 
 - RedHat 2.1 for Alpha
+- RedHat 3.0.3 for Intel 
 - Slackware 3.0
 
 ## Sep 1996
@@ -74,8 +83,35 @@ Each edition contained current distributions at the time as well as snapshots th
 - RedHat 4.1
 - Slackware 3.2
 
+## Aug 1997
+
+- Debian 1.3.1
+- Red Hat 4.2
+- Slackware 3.3
+
 ## Jan 1998
 
-- RedHat 5.0 with updates
+- RedHat 5.0
 - Slackware 3.4
 - SuSE 5.1
+
+## Jun 1998 (missing)
+
+- Debian 2.0
+- RedHat 5.1
+- Slackware 3.5
+- SuSE 5.2
+
+## Nov 1998 (missing)
+
+- Debian 2.0 r3
+- RedHat 5.2
+- Slackware 3.6
+- SuSE 5.3
+
+## Dec 1999
+
+- Caldera OpenLinux 2.3
+- Mandrake Linux 6.1
+- Red Hat 6.1
+- Slackware 7.0

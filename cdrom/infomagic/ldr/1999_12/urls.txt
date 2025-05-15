@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/ldr-dec1999/Disc%201%20-%20Red%20Hat%206.1%20Binaries.iso
+disc2.iso https://archive.org/download/ldr-dec1999/Disc%202%20-%20Red%20Hat%206.1%20Sources.iso
+disc3.iso https://archive.org/download/ldr-dec1999/Disc%203%20-%20Mandrake%20Linux%206.1%20Binaries.iso
+disc4.iso https://archive.org/download/ldr-dec1999/Disc%204%20-%20Caldera%20OpenLinux%202.3%20Sources%20Binaries.iso
+disc5.iso https://archive.org/download/ldr-dec1999/Disc%205%20-%20Slackware%20Linux%207.0%20Binaries.iso
+disc6.iso https://archive.org/download/ldr-dec1999/Disc%206%20-%20Slackware%207.0%20Sources%20and%20more.iso

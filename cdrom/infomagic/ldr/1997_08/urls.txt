@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD1.iso
+disc2.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD2.iso
+disc3.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD3.iso
+disc4.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD4.iso
+disc5.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD5.iso
+disc6.iso https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD6.iso
