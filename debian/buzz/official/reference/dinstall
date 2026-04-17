@@ -1,0 +1,1985 @@
+#!	/bin/ash
+cd /Install
+#!	/bin/sh
+
+first () {
+	echo $1
+}
+
+second () {
+	echo $2
+}
+
+last () {
+	eval echo $"$#"
+}
+
+memory ()
+{
+	local line
+	while true; do
+		read line
+		if [ "`first $line`" = "MemTotal:" ]; then
+			echo "`second $line`"
+			return 0
+		fi
+	done
+}
+
+find_swap_partitions ()
+{
+	local line
+	while true; do
+		read line
+		if [ "$line" = "-EOF-" ]; then
+			return 0
+		fi
+		if [ "`last $line`" = "swap" ]; then
+			echo "`first $line`"
+		fi
+	done
+}
+
+low_memory ()
+{
+	local action drive line
+
+	if [ `memory </proc/meminfo` -ge 3464 ]; then return 0; fi
+	
+	while true; do
+		clear
+		echo \
+"This system has relatively little memory. For a system like this, it's
+recommended to activate the swap disk partition before starting Debian's
+graphical installation menu system, as there may not be enough RAM available
+to run the graphical program without the virtual memory provided by the swap
+partition. Thus, you should:
+
+1. Run the disk partitioning program to add a \"Linux swap\" (type 82)
+   partition. If you want to create a \"Linux native\" (type 83) partition
+   or any other partitions on the same disk drive, you should do that at the
+   same time. You will not be able to re-partition the drive once you have
+   activated a swap partition on it.
+2. Once you have created the swap partition, you should then initialize
+   and activate that partition.
+3. Once your swap partition has been activated, you should run the graphical
+   installation menu system.
+
+Please select an action from the menu below:
+
+1. Run the disk partitioning program.
+2. Initialize and activate the swap partition.
+3. Start the graphical installation menu system.
+"
+		read action
+		case "$action" in 
+		1)
+			clear
+			echo "Please wait while disk drives are detected..."
+			local drives="`tryopen -w /dev/hd[a-z] /dev/sd[a-z]`"
+			clear
+			if [ -z "$drives" ]; then
+				echo \
+"No hard disk drives could be found. Make sure they are cabled
+correctly and are turned on before the system is started. You
+may have to change driver settings when you start the system
+with a command at the \"boot:\" prompt, or you may have to load
+a driver that is in a loadable module to solve this problem."
+			else
+				echo \
+"The following drives are available. Drives that are named /dev/hdX
+are IDE, ATA, MFM, or RLL drives. Drives that are named /dev/sdX are
+SCSI drives."
+				for d in $drives; do
+					echo "	"$d
+				done
+				echo -n "
+Please type a drive name from the above list: "
+				read drive
+				if [ -n "$drive" ]; then
+					cfdisk $drive
+				fi
+			fi
+			;;
+		2)
+			clear
+			echo "Please wait while swap partitions are detected..."
+			fdisk -l > /tmp/$$ 2>/dev/null
+			echo "-EOF-" >>/tmp/$$
+			local partitions="`find_swap_partitions < /tmp/$$`"
+			rm -f /tmp/$$
+			clear
+			if [ -z "$partitions" ]; then
+				echo "
+No swap partitions are available. You must select menu item 1 and create
+one.
+
+Please press enter when you are ready to continue."
+				read line
+			else
+				echo "These swap partitions are available: "
+				for p in $partitions; do
+					echo "	"$p
+				done
+				echo -n "
+Please type a partition name from the above list to use: "
+				read drive
+				if [ -z "$drive" ]; then
+					continue
+				fi
+				echo -n "
+This will permanently destroy all data on $drive. Type \"y\" to continue,
+type \"n\" to cancel: "
+				read line
+				case "$line" in 
+				y|Y)
+					mkswap $drive
+					if [ $? -eq 0 ]; then
+						swapon $drive
+						Swap=$drive
+						export Swap
+					fi
+					echo \
+"Please press enter when you are ready to continue."
+					read line
+					;;
+				esac
+			fi
+			;;
+		3)
+			return 0
+			;;
+		esac
+	done
+	echo "Please wait while the graphical installation system starts..."
+	return 0
+}
+
+low_memory
+
+umask 022
+BACKTITLE="Debian Linux 1.1 System Installation"
+export Swap
+Root=""
+CreatedBootFloppy=0
+readonly TempFile="/tmp/`echo $0|sed -e 's/^.*\///'`.$$"
+readonly InstallationRootDevice="`block_device / 2>/dev/null`"
+
+# Pick the first word from a variable.
+
+readonly bold=`tput bold`
+readonly civis=`tput civis`
+readonly clear=`tput clear`
+readonly cnorm=`tput cnorm`
+readonly norm=`tput sgr0`
+
+count_words () {
+	echo "$#"
+}
+
+first () {
+	echo "$1"
+}
+
+# Pick the second word from a variable.
+second () {
+	echo "$2"
+}
+
+# Pick the third word from a variable.
+third () {
+	echo "$3"
+}
+
+# Pick the fourth word from a variable.
+fourth () {
+	echo "$4"
+}
+
+last () {
+	eval echo $"$#"
+}
+
+write_it_down () {
+	local reply
+	echo ""
+	echo "$bold\
+Something went wrong. You might want to write down the error messages
+before you continue. Please press ENTER when you are ready.$norm"
+	read reply
+	return $?
+}
+
+# Ignore interrupt in scripts, catch it in programs started by scripts.
+trap true 2 3
+# When the system halts, clear any menus that may be displayed on the first
+# console.
+trap "rm -f $TempFile; echo $clear; exit 0" 1 15
+cd /
+color_or_monochrome () {
+	if [ "$TERM" = "linux" ]; then
+		export TERM=linux-m
+	fi
+
+	while true; do
+		local choice="`menu \
+"If your monitor displays color, please select \"Color\" here. Select
+\"Continue\" when you are satisfied with the display." \
+		 "Select Color or Monochrome" \
+		 "Next" "Continue with the installation." \
+		 "Color" "Select color display." \
+		 "Monochrome" "Select black-and-white display."`"
+		if [ $? -ne 0 ]; then return 1; fi
+		case $choice in
+		Next)
+			return 0
+			;;
+		Color)
+			export TERM=linux
+			;;
+		Monochrome)
+			export TERM=linux-m
+			;;
+		esac
+	done
+	return 0;
+}
+
+config_keyboard () {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+	/Install/dsetup-kbd
+	return $?
+}
+
+get_required_parameters () {
+	host="`inputBox \
+"Every Debian Linux system has a name - even if it is not on a
+network. This name is called its \"hostname\". You should now
+specify a hostname for your new system.
+
+If your system is going to be on a network, you should talk to the
+administrator of the network before you choose a hostname. If not,
+you may choose any name you like.
+
+If you can't think of a hostname for your new system, you may press
+<ENTER> to use the default hostname of \"debian\"." \
+	"Please enter your Host name" "debian"`"
+	if [ $? -ne 0 ]; then return 255; fi
+
+	if [ -z "$host" ]; then
+		host="debian";
+	elif [ `count_words $host` -ne 1 ]; then
+		infoBox "Problem" "The host name must be one word."
+		return 1
+	fi
+
+	return 0
+}
+
+get_net_parameters () {
+	local I1 I2 I3 I4 R1 R2 R3 R4 N1 N2 N3 N4 ipa netm
+
+	while true; do
+		domain="`inputBox \
+"As with individual systems, every network has a name.
+This name is called the domain name. Please enter your
+Domain Name." "Please enter your Domain name" "$domain"`"
+		if [ $? -ne 0 ]; then return 255; fi
+		if [ ! -z "$domain" ]; then break; fi
+	done
+
+	hostname="$host.$domain"
+	yesNoBox "The full name of your system is $hostname . Correct?" \
+	 "Confirm"
+	if [ $? -ne 0 ]; then return 255; fi
+
+	ipaddr="`inputBox \
+	 "What is the IP address of system \"$host\"?" "Please Enter IP Address" \
+	 "$ipaddr"`"
+	if [ $? -ne 0 -o -z "$ipaddr" ]; then return 255; fi
+	ipa=`echo $ipaddr | sed 's/\./ /g'`
+	I1=`first $ipa`
+	I2=`second $ipa`
+	I3=`third $ipa`
+	I4=`fourth $ipa`
+
+	netmask="`inputBox "What is your netmask?" "Please Enter Netmask" \
+	 "$netmask"`"
+	if [ $? -ne 0 -o -z "$netmask" ]; then return 255; fi
+	netm=`echo $netmask | sed 's/\./ /g'`
+	N1=`first $netm`
+	N2=`second $netm`
+	N3=`third $netm`
+	N4=`fourth $netm`
+
+	R1=`math $I1 $N1 and`
+	R2=`math $I2 $N2 and`
+	R3=`math $I3 $N3 and`
+	R4="0"
+	network="$R1.$R2.$R3.$R4"
+	network="`inputBox "What is the IP address of your network?" \
+	 "Please Enter Network Address" "$network"`"
+	if [ $? -ne 0 -o -z "$network" ]; then return 255; fi
+
+	R1=`math $N1 not 255 and $I1 or`
+	R2=`math $N2 not 255 and $I2 or`
+	R3=`math $N3 not 255 and $I3 or`
+	R4=`math $N4 not 255 and $I4 or`
+	broadcast="$R1.$R2.$R3.$R4"
+	broadcast="`inputBox "What is your IP broadcast address?" \
+	 "Please Enter Broadcast Address" "$broadcast"`"
+	if [ $? -ne 0 -o -z "$broadcast" ]; then return 255; fi
+
+	gateway="none"
+	yesNoBox \
+"A gateway system is one that connects your network to
+other networks such as your company wide-area net or the
+Internet. Is there a gateway system on your network?" "Is there a Gateway?"
+	if [ $? -eq 0 ]; then
+		R1=`math $I1 $N1 and`
+		R2=`math $I2 $N2 and`
+		R3=`math $I3 $N3 and`
+		gateway="$R1.$R2.$R3.1"
+		gateway="`inputBox "What is your IP gateway address?" \
+		 "Please Enter Gateway Address" "$gateway"`"
+		if [ $? -ne 0 -o -z "$gateway" ]; then return 255; fi
+	fi
+
+	local choice
+	choice="`menu \
+"Where is the DNS (Domain Name Service) server?" \
+"Locate DNS Server" \
+	"1" "System \"$host\" will be its own DNS server." \
+	"2" "Another system will be the DNS server for system \"$host\"." \
+	"3" "There will be no DNS server."`"
+	if [ $? -ne 0 ]; then return 255; fi
+
+	nameserver="none"
+
+	case $choice in
+	1)
+		nameserver="127.0.0.1"
+		;;
+	2)
+		nameserver="`inputBox \
+"Please enter the IP addresses (not host names) of up to 5 name
+servers. The input line will scroll to allow you to enter a long
+line. The servers will be queried in the order in which you enter
+them." "Please Enter Name Server Address" "$gateway"`"
+		;;
+	*)
+		nameserver="none"
+		;;
+	esac
+
+
+	yesNoBox \
+"IP Address:        $ipaddr
+Netmask:            $netmask
+Network Address:    $network
+Broadcast Address:  $broadcast
+Gateway Address:    $gateway
+Nameserver Addresses: $nameserver
+
+Correct?" "Please Confirm"
+	if [ $? -ne 0 ]; then return 1; fi
+
+	return 0
+}
+
+set_file_mode ()
+{
+	chown root.root $1
+	chmod 644 $1
+	return 0
+}
+
+write_network_configuration ()
+{
+	# This uses the following variables
+	#
+	# $broadcast
+	# $domain
+	# $ethernet
+	# $gateway
+	# $host
+	# $hostname
+	# $ipaddr
+	# $nameserver
+	# $netmask
+	# $network
+
+	echo $host >/target/etc/hostname
+	set_file_mode /target/etc/hostname
+	
+	echo "localnet	$network" > /target/etc/networks
+	set_file_mode /target/etc/networks
+
+	if [ "$domain" != "none" ]; then
+		cat >/target/etc/resolv.conf << EOF
+domain $domain
+search $domain
+EOF
+		if [ "$nameserver" != "none" ]
+		then
+			echo "nameserver	$nameserver" >> /target/etc/resolv.conf
+		fi
+		set_file_mode /target/etc/resolv.conf
+	fi
+
+
+	cat > /target/etc/init.d/network << EOF
+#!	/bin/sh
+ifconfig lo 127.0.0.1
+route add -net 127.0.0.0
+EOF
+	set_file_mode /target/etc/init.d/network
+	chmod 755 /target/etc/init.d/network
+
+	if [ "$ethernet" -eq 0 ]; then
+		cat > /target/etc/hosts << EOF
+127.0.0.1	localhost
+$ipaddr		$hostname	$host
+EOF
+		cat >> /target/etc/init.d/network << EOF
+IPADDR=$ipaddr
+NETMASK=$netmask
+NETWORK=$network
+BROADCAST=$broadcast
+GATEWAY=$gateway
+ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST}
+route add -net \${NETWORK}
+route add default gw \${GATEWAY} metric 1
+EOF
+	else
+		echo "127.0.0.1	$host	localhost" > /target/etc/hosts
+		set_file_mode /target/etc/hosts
+	fi
+
+	return 0
+}
+
+config_network () {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+
+	local broadcast ethernet gateway host hostname ipaddr nameserver \
+	 netmask network
+
+	while true; do
+		get_required_parameters
+		local status=$?
+		if [ $status -eq 255 ]; then return 255; fi
+		if [ $status -eq 0 ]; then break; fi
+	done
+
+	yesNoBox \
+"Is your system connected to a network?" "Use a Network?"
+	if [ $? -ne 0 ]; then
+		broadcast="127.0.0.255"
+		domain="none"
+		ethernet=1
+		gateway="none"
+		hostname="$host"
+		ipaddr="127.0.0.1"
+		nameserver="none"
+		netmask="255.255.255.0"
+		network="127.0.0.0"
+	else
+		while true; do
+			ipaddr="123.123.123.123"
+			netmask="255.255.255.0"
+			get_net_parameters
+			local status=$?
+			if [ $status -eq 255 ]; then return 255; fi
+			if [ $status -eq 0 ]; then break; fi
+		done
+
+		yesNoBox "Are you connected to the network via Ethernet?" \
+		 "Use Ethernet?"
+		ethernet=$?
+		if [ "$ethernet" -ne 0 -a "$ethernet" -ne 1 ]; then return 255; fi
+	fi
+
+	write_network_configuration
+
+	return 0
+}
+
+config_timezone () {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+	/Install/dsetup-tz
+	return $?
+}
+
+config_base() {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+	require_swap
+	if [ $? -ne 0 ]; then return 1; fi
+	output=`write_fstab`
+	if [ $? -ne 0 -o ! -z "$output" ]; then
+		msgBox \
+"Failed to write /etc/fstab:
+$output" "Problem"
+		return 1
+	fi
+	cp /etc/root.sh /target/root/.configure && \
+	chmod 755 /target/root/.configure
+	cp /etc/setup.sh /target/sbin/setup.sh && \
+	chmod 755 /target/sbin/setup.sh 
+
+	config_keyboard
+	config_timezone
+	rm -f /target/sbin/unconfigured.sh
+}
+
+# Shell interface to "dialog"
+# Bruce Perens, November 1995
+# This is free software under the GNU General Public License.
+
+# Global options
+#	The variable $BACKTITLE specifies the back title.
+#	The variable $DIALOG_OPTIONS, initialized here to --clear, provides
+#	options you want on the command line of each dialog invocation.
+#	The variable $DIALOG_TEST can be set to "echo" to see the calls
+#	to dialog without executing them.
+
+DIALOG_OPTIONS=""
+
+# Make any dialogue box, with default settings and backtitle from
+# $BACKTITLE in the environment.
+#
+# dialog --type arg arg ...
+#
+dialogBox () {
+	local type="$1"
+	shift
+	local title=""
+	local backtitle=""
+
+	local text="$1"
+	shift
+
+	if [ $# -ge 1 ]; then
+		title="$1"
+		shift
+	fi
+
+	if [ -n "$BACKTITLE" ]; then
+		backtitle="$BACKTITLE"
+	fi
+
+	$DIALOG_TEST dialog $DIALOG_OPTIONS --title "$title" --backtitle \
+	 "$backtitle" "$type" "$text" 0 0 "$@" 2>&1 1>/dev/tty
+	local result=$?
+	return $result
+}
+
+# Display a file.
+#
+# fileBox filename [title]
+#
+fileBox () {
+	dialogBox --textbox "$1" "$2"
+}
+
+# textBox takes presents its standard input in a dialog box. This
+# is useful for "here documents" and pipes.
+#
+# textBox [title]
+#
+textBox () {
+	cat >$TempFile
+
+	if [ $? -ne 0 ]; then
+		echo "Can't make temporary file for dialog box." 1>&2
+		return 255
+	fi
+
+	# Note that dialog needs stdin to be the terminal, so I redirect here.
+	< /dev/tty dialogBox --textbox $TempFile "$1"
+	local result=$?
+	rm -f $TempFile
+	return $result
+}
+
+msgBox () {
+	dialogBox --msgbox "$1" "$2"
+}
+
+infoBox () {
+	dialogBox --infobox "$1" "$2"
+}
+
+yesNoBox () {
+	dialogBox --yesno "$1" "$2"
+}
+
+inputBox () {
+	dialogBox --inputbox "$1" "$2" "$3"
+}
+
+# menu text title tag1 item1 ...
+menu () {
+	local text="$1"
+	shift
+	local title="$1"
+	shift
+	dialogBox --menu "$text" "$title" 0 "$@"
+}
+
+# menu text title tag1 item1 status1 ...
+checklist () {
+	local text="$1"
+	shift
+	local title="$1"
+	shift
+	dialogBox --checklist "$text" "$title" 0 "$@"
+}
+
+# menu text title tag1 item1 status1 ...
+radiolist () {
+	local text="$1"
+	shift
+	local title="$1"
+	shift
+	dialogBox --radiolist "$text" "$title" 0 "$@"
+}
+
+extract_base ()
+{
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+
+	# Only verify root choice if it is not empty.
+    if [ ! -z "`ls /target/. 2>/dev/null | sed -e 's/lost+found//'`" ]; then
+		cat > $TempFile << EOF
+		yesNoBox \\
+"The following filesystems are mounted, and will have the
+base system installed to them:
+EOF
+		mount | sed -n '/\/target/p' | sed -e 's:target/::' \
+		 -e 's:/target:/:' >> $TempFile
+
+echo '
+Install the base system?" "Verify Filesystem Choice?"' >> $TempFile
+		. $TempFile
+		if [ $? -ne 0 ]; then return 1; fi
+	fi
+
+	# Mark Shuttleworth, this is for you.
+	# See if the base archive is on the root filesystem, or something that's
+	# mounted.
+	local base_archive=""
+	local archive=base1_1.tgz
+
+	infoBox \
+"The installation program is searching for a local copy of
+the base system in \"/*/$archive\" and \"/*/*/$archive\".
+Please wait." "Please Wait"
+	if [ $? -ne 0 ]; then return 255; fi
+
+	local list="`echo /*/$archive /*/*/$archive`"
+	if [ ! -z "$list" ]; then
+		for f in $list; do
+			if [ -f $f ]; then
+				base_archive=$f
+				break;
+			fi
+		done
+	fi
+	if [ ! -z "$base_archive" ]; then
+		cd /target
+		echo \
+$clear$bold"The system is being extracted from $base_archive ..."$norm
+		echo ""
+		< $base_archive gunzip | star
+		local status=$?
+		cd /Install
+		if [ $status -ne 0 ]; then
+			write_it_down
+			msgBox \
+"There was a problem extracting the system from
+$base_archive ." "Problem"
+			return 1
+		fi
+	else
+		local device=""
+		local designation=""
+		cat > $TempFile <<EOF
+		menu \\
+"Please select the disk drive you will use to install
+the system. If you are using floppy disk drives, you
+will need the \"base\" floppy disks." \\
+		 "Select Disk Drive" \\
+EOF
+		if [ $InstallationRootDevice != /dev/fd0 ]; then
+			echo "\"/dev/fd0\" \"First floppy drive\"" \\>>$TempFile
+		fi
+		if [ $InstallationRootDevice != /dev/fd1 ]; then
+			echo "\"/dev/fd1\" \"Second floppy drive\"" \\>>$TempFile
+		fi
+		# echo "\"CD-ROM\" \"Any CD-ROM drive on your system.\"">>$TempFile
+
+		local device="`. $TempFile`"
+		local status=$?
+		if [ $status -ne 0 -o -z "$device" ]; then return 1; fi
+
+		case $device in
+		/dev/fd0)
+			designation=first
+			;;
+		/dev/fd1)
+			designation=second
+			;;
+		CD-ROM)
+			extract_cd
+			if [ $? -ne 0 ]; then return 1; fi
+		esac
+
+		if [ $device = /dev/fd0 -o $device = /dev/fd1 ]; then
+			echo  $clear$bold\
+"The system is being installed from the $designation floppy drive.
+Please respond to the prompts below."$norm
+			echo ""
+			echo ""
+			local status=$?
+			if [ -f /target/base.tar.gz ]; then
+				rm -f /target/base.tar.gz
+			fi
+			floppy_merge $device > /target/base.tar.gz
+			status=$?
+			if [ "$status" -eq 0 ]; then
+				echo $bold"Extracting files, this will take several minutes..."
+				echo $norm
+				cd /target
+				gunzip < /target/base.tar.gz | star
+				status=$?
+			fi
+			if [ -f /target/base.tar.gz ]; then
+				rm -f /target/base.tar.gz
+			fi
+			cd /Install
+			if [ $status -ne 0 ]; then
+				write_it_down
+				msgBox \
+	"There was a problem extracting the system from
+	$device ." "Problem"
+				return 1
+			fi
+		fi
+	fi
+	cp /etc/unconf.sh /target/sbin/unconfigured.sh
+	mv /target/etc/inittab /target/etc/inittab.real
+	cp /etc/init_tab /target/etc/inittab
+	chmod 755 /target/etc/inittab /target/sbin/unconfigured.sh
+	chown root.root /target/etc/inittab /target/sbin/unconfigured.sh
+	sync
+	return 0
+}
+
+extract_cd ()
+{
+	msgBox "This test version of the installer doesn't do CDs." "Problem"
+	return 1
+}
+
+install_kernel () {
+	local device="$1"
+	echo $clear$bold"Installing the kernel..."$norm
+	echo ""
+	mount -o ro -t msdos $device /floppy
+	if [ $? -ne 0 ]; then return 1; fi
+	cd /floppy
+	if [ $? -ne 0 ]; then cd /Install; umount /floppy; return 1; fi
+	./install.sh /target
+	local status=$?
+	cd /Install
+	umount /floppy 2>/dev/null
+	if [ $status -ne 0 ]; then return 1; fi
+	rdev /target/vmlinuz $Root
+	rdev -R /target/vmlinuz 1
+	rdev -v /target/vmlinuz -1
+	if [ $? -ne 0 ]; then return 1; fi
+	# The code to make /lib/modules/current and invoke "depmod -a"
+	# is redundant with the boot floppy install script. Remove it
+	# once I'm sure all of the boot floppies are up to date.
+	echo $bold"Determining module dependencies..."$norm
+	if [ ! -d /target/lib/modules/current ]; then
+		(cd /target/lib/modules; ln -s $(third `cat /proc/version`) current)
+	fi
+	depmod -a
+}
+
+extract_kernel () {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+
+	umount /floppy 2>/dev/null
+	cat > $TempFile <<EOF
+	menu \\
+"Please select the floppy drive from which to read the
+Debian Linux Boot Disk you used to start the system.
+Unless this is a special installation for a memory-limited
+system, you'll be using the first floppy drive." \\
+	 "Select Disk Drive" \\
+EOF
+	if [ $InstallationRootDevice != /dev/fd0 ]; then
+		echo "\"/dev/fd0\" \"First floppy drive\"" \\>>$TempFile
+	fi
+	if [ $InstallationRootDevice != /dev/fd1 ]; then
+		echo "\"/dev/fd1\" \"Second floppy drive\"" \\>>$TempFile
+	fi
+	echo "" >>$TempFile
+	local device="`. $TempFile`"
+	local status=$?
+	rm -f $TempFile
+	if [ $status -ne 0 -o -z "$device" ]; then return 1; fi
+
+	local designation=""
+
+	case $device in
+	/dev/fd0)
+		designation="first"
+		;;
+	/dev/fd1)
+		designation="second"
+		;;
+	esac
+
+	msgBox \
+"Please insert the Debian Linux Boot Disk in the $designation
+floppy drive." "Please Insert Disk"
+	if [ $? -ne 0 ]; then return 1; fi
+
+	fdflush $device
+	echo -n $clear
+
+	install_kernel "$device"
+	local status=$?
+	if [ $status -ne 0 ]; then
+		write_it_down
+		msgBox \
+"The attempt to install the kernel failed." "Problem"
+		return 1
+	fi
+
+	return 0
+}
+
+find_root () {
+	local root_device="`block_device / 2>/dev/null`"
+	if [ $? -ne 0 ]; then return 1; fi
+	local target_device="`block_device /target 2>/dev/null`"
+	if [ $? -ne 0 ]; then return 1; fi
+	if [ $root_device = $target_device ]; then
+		return 1
+	fi
+	echo $target_device
+	return 0
+}
+
+require_root () {
+	local status=0
+	if [ -z "$Root" ]; then
+		Root=`find_root`
+		if [ $? -ne 0 -o -z "$Root" ]; then
+			msgBox \
+"The requested operation can't be performed until the root
+filesystem is mounted.
+
+Before you begin installation, you must first partition
+your disk, and then initialize and mount your root filesystem,
+and initialize a swap partition.
+Please use the main menu to complete any of those steps
+that you have not done, and then use the main menu to return
+to this step." \
+			"Problem"
+			return 1
+		fi
+	fi
+	return 0
+}
+
+require_swap () {
+	local status=0
+	if [ -z "$Swap" ]; then
+		msgBox \
+"Your swap partition has not been set up.
+Before you begin installation, you must first partition
+your disk, and then initialize and mount your root filesystem,
+and initialize a swap partition.
+Please use the main menu to complete any of those steps
+that you have not done, and then use the main menu to return
+to this step." \
+		"Problem"
+		return 1
+	fi
+	return 0
+}
+
+init_linux () {
+	sync
+	local partition=`select_not_mounted \
+"Please select the partition to initialize as a
+Linux \"EXT2\" filesystem." "Linux native"`
+	if [ $? -ne 0 -o -z "$partition" ]; then return 1; fi
+	yesNoBox \
+"The system can scan the entire partition for un-readable disk
+blocks and will mark any such bad blocks it finds so that they
+will not be used. This requires that every block be read, and
+thus could take a long time, but may save you trouble later.
+
+Should the bad-block scan be performed on $partition?" \
+	"Scan for Bad Blocks?"
+	if [ $? -eq 0 ]; then
+		local cflag="-c "
+	elif [ $? -eq 1 ]; then
+		local cflag=""
+	else
+		return 1
+	fi
+	yesNoBox \
+"You have chosen to initialize $partition as a Linux \"EXT2\"
+filesystem. This will permanently erase any data on this
+disk partition. Are you sure you want to do this?" "Are You Sure?"
+	if [ $? -ne 0 ]; then return 1; fi
+	echo $clear$bold"Creating filesystem..."$norm
+	echo ""
+	mkfs.ext2 $cflag""$partition
+	local status=$?
+	if [ $status -ne 0 ]; then
+		write_it_down
+		msgBox \
+"The filesystem was not created." "Problem"
+		return 1
+	fi
+	mount_partition $partition
+	return $status
+}
+
+init_swap () {
+	if [ ! -z "$Swap" -a "$Swap" != "None" ]; then
+		yesNoBox \
+"You have already activated $Swap as your swap partition. If you
+choose to initialize another swap partition, $Swap will be de-activated
+as your swap partition. If you wish to have multiple swap partitions,
+you can set them up after you've installed the system - this installer
+can only handle one at a time. Answer \"no\" to the following question
+if you wish to keep your present swap partition active.
+
+Initialize and activate a new swap partition?" "Initialize Another Swap Partition?"
+		if [ $? -ne 0 ]; then return 1; fi
+		swapoff $Swap
+		Swap=""
+	fi
+
+	local partition=`select_partition \
+"Please select the partition to initialize as a swap device." "Linux swap"`
+	if [ $? -ne 0 -o -z "$partition" ]; then return 1; fi
+	yesNoBox \
+"The system can scan the entire partition for un-readable disk
+blocks and will mark any such bad blocks it finds so that they
+will not be used. This requires that every block be read, and
+thus could take a long time, but may save you trouble later.
+
+Should the bad-block scan be performed on $partition?" \
+	"Scan for Bad Blocks?"
+	if [ $? -eq 0 ]; then
+		local cflag="-c "
+	elif [ $? -eq 1 ]; then
+		local cflag=""
+	else
+		return 1
+	fi
+	yesNoBox \
+"You have chosen to initialize $partition as a swap device. This
+will permanently erase any data on this disk partition. Are
+you sure you want to do this?" "Are You Sure?"
+	if [ $? -ne 0 ]; then return 1; fi
+	echo $clear$bold"Initializing swap partition..."$norm
+	echo ""
+	mkswap $cflag""$partition
+	local status=$?
+	if [ $status -eq 0 ]; then
+		swapon $partition
+		status=$?
+	fi
+	if [ $status -ne 0 ]; then
+		write_it_down
+		msgBox \
+"The swap partion was not created." "Problem"
+		return 1
+	fi
+	Swap=$partition
+	return 0
+}
+
+no_swap () {
+	yesNoBox \
+"A swap partition is a good idea for all systems, even
+ones with lots of memory. It's strongly encouraged that
+you create one.
+
+If you have less than 8 megabytes of RAM in your system,
+you will need to create a swap partition simply so that
+there is enough virtual memory to finish the installation.
+
+If you answer \"Yes\" to the following question, the system
+will not require you to create a swap partition. It's strongly
+advised that you answer \"No\".
+
+Would you like to do without a swap partition?" "Do Without a Swap Partition"
+	if [ $? -eq 0 ]; then
+		if [ ! -z "$Swap" -a "$Swap" != "None" ]; then
+			swapoff $Swap
+		fi
+		Swap="None"
+	fi
+}
+
+activate_swap () {
+	if [ ! -z "$Swap" -a "$Swap" != "None" ]; then
+		yesNoBox \
+"You have already activated $Swap as your swap partition. If you
+choose to activate another swap partition, $Swap will be de-activated
+as your swap partition. If you wish to have multiple swap partitions,
+you can set them up after you've installed the system - this installer
+can only handle one at a time. Answer \"no\" to the following question
+if you wish to keep your present swap partition active.
+
+Activate a new swap partition?" "Activate Another Swap Partition?"
+		if [ $? -ne 0 ]; then return 1; fi
+		swapoff $partition
+		Swap=""
+	fi
+
+	local partition=`select_partition \
+"Please select the partition to activate as a swap device." "Linux swap"`
+	if [ $? -ne 0 -o -z "$partition" ]; then return 1; fi
+	yesNoBox \
+"You have chosen to activate $partition as a swap device. This
+will permanently erase any data on this disk partition. Are
+you sure you want to do this?" "Are You Sure?"
+	if [ $? -ne 0 ]; then return 1; fi
+	echo $clear$bold"Activating swap partition..."$norm
+	echo ""
+	swapon $partition
+	if [ $? -ne 0 ]; then
+		write_it_down
+		msgBox \
+"The swap partion was not activated." "Problem"
+		return 1
+	fi
+	Swap=$partition
+	return 0
+}
+
+interactive_shell() {
+	cd /
+	echo \
+"You are running \"ash\", a Bourne-shell clone. The root filesystem is a
+RAM disk or floppy. The hard disk filesystems are mounted on \"/target\".
+The editor available to you on this floppy is \"ae\". It's very small
+and easy to figure out - sorry but \"vi\" and \"emacs\" wouldn't fit. To
+get an idea of what Unix utilities are available to you, run \"ls /bin
+/sbin /usr/bin /usr/sbin\". Use the \"exit\" command to return to the
+installation menu.
+"
+	/bin/sh
+	cd /Install
+}
+
+main_menu ()
+{
+	title="Debian Linux 1.1 Installation Main Menu"
+	while true; do
+		# Ignore interrupt in scripts, catch it in programs started by scripts.
+		trap true 2 3
+		infoBox \
+"The installation program is determining the current state
+of your system and the next installation step that should
+be performed." \
+		 "Please Wait"
+		if [ $? -ne 0 ]; then return 255; fi
+
+		local next_action=true
+		local previous_action=true
+		local previous1_action=true
+		local alternate_action=true
+		local alternate1_action=true
+
+		local linux_partitions="`scan_partitions \"Linux native\"`"
+		local swap_partitions="`scan_partitions \"Linux swap\"`"
+		Root=`find_root`
+
+		echo "menu \\" > $TempFile
+
+		if [ -z "$Swap" -a -z "$swap_partitions" ]; then
+			# No "Linux swap" partitions have been created.
+			next_action=partition_disk
+			alternate_action=no_swap
+			cat >> $TempFile << EOF
+" There are no \\"Linux swap\\" disk partitions present on the system. A
+swap disk partition is necessary to provide virtual memory for
+Linux. Please select \\"Next\\" from the menu to partition your hard
+disk. Use the disk partitioning program to add \\"Linux native\\" and
+\\"Linux swap\\" disk partitions to your disks." "$title" \\
+			"Next" "Partition A Hard Disk" \\
+			"Alternate" "Do Without a Swap Partition" \\
+EOF
+		elif [ -z "$linux_partitions" ]; then
+			# No "Linux native" partitions have been created.
+			next_action=partition_disk
+			cat >> $TempFile << EOF
+"There are no \\"Linux native\\" disk partitions present on the system.
+You must create at least one \"Linux native\" disk partition to hold the
+root filesystem, and you may create additional ones. Please select \\"Next\\"
+from the menu to partition your hard disk. Use the disk partitioning
+program to add \\"Linux native\\" disk partitions to your disks." \\
+			"$title" \\
+			"Next" "Partition A Hard Disk" \\
+EOF
+		elif [ -z "$Swap" ]; then
+			# The swap partition has not been initialized and activated.
+			next_action=init_swap
+			alternate_action=activate_swap
+			alternate1_action=no_swap
+			previous_action=partition_disk
+			cat >> $TempFile << EOF
+"There are \\"Linux native\\" and \\"Linux swap\\" disk partitions
+present on your system. The next step would be to initialize
+and activate a swap partition to provide virtual memory to your
+system. If you have not finished partitioning your disks or wish to
+change the partitions, please select \\"Previous\\" from the menu
+to partition them. If you are satisfied with your disk partitions,
+please select \\"Next\\" from the menu to initialize and activate
+your swap partition, or \\"Alternate\\" to activate a
+previously-initialized swap partition. If you absolutely insist on
+doing without a swap partition, select \\"Alternate1\\"." "$title" \\
+			"Next" "Initialize and Activate the Swap Disk Partition" \\
+			"Alternate" "Activate a Previously-Initialized Swap Partition" \\
+			"Alternate1" "Do Without a Swap Partition" \\
+			"Previous" "Partition A Hard Disk" \\
+EOF
+		elif [ -z "$Root" ]; then
+			# The root partition has not been mounted.
+			next_action=init_linux
+			alternate_action=mount_any
+			cat >> $TempFile << EOF
+"There are \\"Linux native\\" disk partitions present on your system but
+none are mounted. You must mount a root filesystem, and you may mount
+other filesystems, before installing the system. If you have just created
+the partitions, you must initialize them before you can mount them. Please
+select \\"Next\" to initialize and mount a Linux disk partition, or
+\\"Alternate\\" to mount a previously-initialized partition." \\
+			"$title" \\
+			"Next" "Initialize A Linux Disk Partition" \\
+			"Alternate" "Mount a Previously-Initialized Disk Partition" \\
+EOF
+		elif [ ! -f /target/sbin/init ]; then
+			# The base system has not been installed.
+			next_action=extract_base
+			alternate_action=init_linux
+			alternate1_action=mount_any
+			cat >> $TempFile << EOF
+"You've mounted your root filesystem. You may initialize and mount
+additional filesystems, or you may go on to install the base system." \\
+			"Debian Linux Installation Main Menu" \\
+			"Next" "Install the Base System" \\
+			"Alternate" "Initialize A Linux Disk Partition" \\
+			"Alternate1" "Mount a Previously-Initialized Disk Partition" \\
+EOF
+		elif [ ! -f /target/vmlinuz ]; then
+			# The operating system kernel has not been installed.
+			next_action=extract_kernel
+			cat >> $TempFile << EOF
+"You've installed the base system. Please select \\"Next\\" to install
+the operating system kernel." "$title" \\
+			"Next" "Install the Operating System Kernel" \\
+EOF
+		elif [ ! -f /target/etc/modules.old ]; then
+			# The modules have not been configured.
+			next_action=modules
+			cat >> $TempFile << EOF
+"You've installed the operating system. Please select \\"Next\\" to
+configure the device driver modules." "$title" \\
+			"Next" "Configure Device Driver Modules" \\
+EOF
+		elif [ -f /target/sbin/unconfigured.sh ]; then
+			# The base system has not been configured.
+			next_action=config_base
+			cat >> $TempFile << EOF
+"You've installed the base system and the operating system kernel.
+Please select \\"Next\\" to configure the base system." "$title" \\
+			"Next" "Configure the Base System" \\
+EOF
+		elif [ ! -f /target/etc/hostname ]; then
+			# The network has not been configured.
+			next_action=config_network
+			cat >> $TempFile << EOF
+"You've configured the base system but not the network.
+Please select \\"Next\\" to configure the network." "$title" \\
+			"Next" "Configure the Network" \\
+EOF
+		elif [ $CreatedBootFloppy -eq 0 -a ! -f /target/etc/lilo.conf ]; then
+			next_action=make_bootable
+			alternate_action=make_boot_floppy
+			alternate1_action=reboot_system
+			cat >> $TempFile << EOF
+"You will either boot Linux from a floppy disk, or you will have it
+boot from the hard disk when your system is turned on.
+Please select \\"Next\\" to make Linux bootable the hard disk, select
+\\"Alternate\\" to make a boot floppy, or select \\"Alternate1\\" to
+reboot the system." \\
+			"$title" \\
+			"Next" "Make Linux Bootable Directly From Hard Disk" \\
+			"Alternate" "Make A Boot Floppy" \\
+			"Alternate1" "Reboot the System" \\
+EOF
+		elif [ $CreatedBootFloppy -eq 0 ]; then
+			# The boot floppy has not been created.
+			next_action=make_boot_floppy
+			alternate_action=reboot_system
+			cat >> $TempFile << EOF
+"You've built your system. You should build a boot floppy that will
+start the system just in case it doesn't start directly from the hard
+disk. Please select \\"Next\\" to build the boot floppy." \\
+			"$title" \\
+			"Next" "Make A Boot Floppy" \\
+			"Alternate" "Reboot the System" \\
+EOF
+		else
+			# Nothing left to do but reboot the system.
+			next_action=reboot_system
+			cat >> $TempFile << EOF
+"You've built your system and boot floppy. The moment of truth
+approaches!  Please select \\"Next\\" to reboot the system." "$title" \\
+			"Next" "Reboot The System" \\
+EOF
+		fi
+		
+cat >>$TempFile << EOF
+		" " " " \\
+		"A" "Partition A Hard Disk" \\
+		"B" "Initialize and Activate a Swap Disk Partition" \\
+		"C" "Activate a Previously-Initialized Swap Partition" \\
+		"D" "Do Without a Swap Partition" \\
+		"E" "Initialize A Linux Disk Partition" \\
+		"F" "Mount a Previously-Initialized Disk Partition" \\
+		"G" "Un-Mount a Disk Partition" \\
+		"H" "Install the Base System" \\
+		"I" "Install the Operating System Kernel" \\
+		"J" "Configure Device Driver Modules" \\
+		"K" "Configure the Base System" \\
+		"L" "Configure the Network" \\
+		"M" "Make Linux Bootable Directly From Hard Disk" \\
+		"N" "Make A Boot Floppy" \\
+		"O" "Reboot The System" \\
+		"P" "View the Disk Partition Table" \\
+		"Q" "Execute A Shell" \\
+EOF
+
+		local action
+		action="`. $TempFile`"
+		if [ $? -ne 0 -o -z "$action" ]; then continue; fi
+		case $action in
+		Next) $next_action;;
+		Alternate) $alternate_action;;
+		Alternate1) $alternate1_action;;
+		Previous) $previous_action;;
+		Previous1) $previous1_action;;
+		A) partition_disk;;
+		B) init_swap;;
+		C) activate_swap;;
+		D) no_swap;;
+		E) init_linux;;
+		F) mount_any;;
+		G) unmount_any;;
+		H) extract_base;;
+		I) extract_kernel;;
+		J) modules;;
+		K) config_base;;
+		L) config_network;;
+		M) make_bootable;;
+		N) make_boot_floppy;;
+		O) reboot_system;;
+		P) view_partitions;;
+		Q) interactive_shell;;
+		esac
+	done
+}
+
+write_boot_floppy ()
+{
+	local device="$1"
+	echo $bold"Please wait while the boot floppy is created."$norm
+	echo ""
+	umount $device 2>/dev/null
+	umount /floppy 2>/dev/null
+	fdflush $device
+	if [ $? -ne 0 ]; then return 1; fi;
+	local size="`getfdprm $device`"
+	if [ $? -ne 0 ]; then return 1; fi;
+	size=`first $size`
+	size=`math $size 2 div`
+	echo "Formatting the floppy..."
+	fdformat $device
+	if [ $? -ne 0 ]; then return 1; fi;
+	echo "Creating a filesystem on the floppy..."
+	gunzip</target/usr/lib/syslinux/img""$size""k.gz >$device
+	if [ $? -ne 0 ]; then return 1; fi;
+	echo "Mounting..."
+	mount -t msdos $device /floppy
+	if [ $? -ne 0 ]; then return 1; fi;
+	echo "Copying the operating system kernel..."
+	cp /target/vmlinuz /floppy/linux
+	if [ $? -ne 0 ]; then umount /floppy; return 1; fi;
+	sync
+	echo "Writing the configuration files..."
+	cat >/floppy/syslinux.cfg << EOF
+DISPLAY message.txt
+TIMEOUT 40
+PROMPT 1
+DEFAULT linux root=$Root
+APPEND ro
+EOF
+	if [ $? -ne 0 ]; then umount /floppy; return 1; fi;
+	cat >/floppy/message.txt << EOF
+
+Linux will be started automatically using the kernel on this floppy disk.
+The root filesystem will be mounted from $Root .
+
+When you start to type a command at the "boot: " prompt, the automatic
+bootstrap process will stop. You may then type the name of the kernel to
+use followed by any kernel options in the form option=value .
+
+The kernel must be on the floppy disk in the first floppy drive. A kernel
+file called "linux" was installed on this floppy when it was created. If you
+wish to use a kernel on the hard disk, remove the floppy and press RESET.
+
+EOF
+	if [ $? -ne 0 ]; then umount /floppy; return 1; fi;
+	echo "Done! Un-mounting the floppy"
+	umount /floppy
+	return 0
+}
+
+make_boot_floppy ()
+{
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+
+	local device=/dev/fd0
+	local designation=first
+
+	if [ "`block_device / 2>/dev/null`" = /dev/fd0 ]; then
+		yesNoBox \
+"You are not using the RAM-disk, and thus the Installation Root
+Disk in the first floppy drive can not be removed.
+
+If your second floppy drive is the same size as the first one,
+you can use it to write a boot floppy which you will place in
+the first drive when you boot the system. Otherwise, you can
+skip this step and use the Debian Installation Boot Disk to boot
+your hard disk by typing \"linux root=$Root\" at the
+\"boot: \" prompt, or you may be able to boot directly from the
+hard disk.
+
+Use the second floppy drive to create a boot floppy?" \
+		"Use Second Floppy Drive?"
+		if [ $? -ne 0 ]; then return 1; fi
+		device=/dev/fd1
+		designation=second
+	fi
+	msgBox \
+"Please place a blank floppy disk in the $designation
+floppy disk drive, and press ENTER." "Change Disk"
+	if [ $? -ne 0 ]; then return 1; fi
+	echo -n $clear
+	write_boot_floppy $device
+	if [ $? -ne 0 ]; then
+		write_it_down
+		msgBox \
+"Creation of a boot floppy failed. Please make sure that
+the floppy was not write-protected, and that you put it
+in the $designation drive. Try another floppy if the
+problem persists." "Problem"
+		return 1
+	fi
+	CreatedBootFloppy=1
+	return 0
+}
+
+run_lilo () {
+	echo "$clear$bold\
+Running LILO to make the kernel able to boot from the hard disk without a
+boot floppy...$norm"
+	echo ""
+	cat >/target/etc/lilo.conf << EOF
+boot=$Root
+root=$Root
+compact
+install=/boot/boot.b
+map=/boot/map
+vga=normal
+delay=20
+image=/vmlinuz
+label=Linux
+read-only
+EOF
+	if [ $? -ne 0 ]; then return 1; fi
+	chmod 644 /target/etc/lilo.conf
+	if [ $? -ne 0 ]; then return 1; fi
+	(export LD_LIBRARY_PATH="/target/lib:/target/usr/lib"; \
+	 /target/sbin/lilo -r /target >/dev/null)
+	return $?
+}
+
+install_mbr ()
+{
+	local device=`echo $Root | sed -e 's/[0-9]$//'`
+
+	yesNoBox \
+"A master boot record is required to boot the system.
+If you are already using a boot manager, and want to
+keep it, answer "no" to the following question. If you
+don't know what a boot manager is or whether you have
+one, answer "yes".
+
+Install a master boot record on $device""?" "Create Master Boot Record?"
+
+	if [ $? -eq 0 ]; then
+		cp /target/boot/mbr.b $device
+		if [ $? -ne 0 ]; then return 1; fi
+	fi
+	return 0
+}
+
+set_boot_default () {
+	local device=`echo $Root | sed -e 's/[0-9]$//'`
+	local partition=`echo $Root | sed -e 's/^[^0-9]*//'`
+
+	yesNoBox \
+"If you want the Debian system to boot automatically from the
+hard disk when you turn your system on, answer \"yes\" to the
+following question.  If you have another operating system
+that you'd prefer to be the one that boots automatically,
+answer \"no\".
+
+Boot the Debian system on $Root as the default?" \
+	"Make Linux the Default Boot Partition?"
+	if [ $? -eq 0 ]; then
+		(export LD_LIBRARY_PATH="/target/lib:/target/usr/lib"; \
+		/target/sbin/activate $device $partition)
+		if [ $? -ne 0 ]; then return 1; fi
+	fi
+	return 0
+}
+
+make_bootable () {
+	run_lilo
+	status=$?
+	if [ $status -ne 0 ]; then
+		write_it_down
+		msgBox \
+"LILO wasn't able to install. You'll still be able to boot
+your system if you create a boot floppy, but it won't be able
+to boot without a floppy.
+
+The most common reason for LILO to fail is an over-large
+root (\"/\") partition. LILO is unable to load any block
+of the kernel from a disk cylinder numbered higher than 1023.
+This is often a problem with disks larger than a Gigabyte
+(1024 MB) or so. One way to solve the problem is to make a
+separate \"/\" and \"/usr\" disk partition, so that the
+entire \"/\" partition will be below the 1023rd cylinder." \
+		"Problem"
+		return 1
+	fi
+	if [ $status -eq 0 ]; then
+		install_mbr
+		status=$?
+	fi
+	if [ $status -eq 0 ]; then
+		set_boot_default
+		status=$?
+	fi
+}
+
+mount_any () {
+	local partition="`select_not_mounted \
+	 \"Please select the partition to mount\"`"
+	if [ $? -ne 0 -o -z "$partition" ]; then return 1; fi
+	mount_partition $partition
+	return $?
+}
+
+unmount_any () {
+	local partitions="`mounted_partitions`"
+	if [ $? -ne 0 -o -z "$partitions" ]; then
+		msgBox \
+"$partitions No mounted disk partitions were detected." \
+		"Problem"
+		return 1
+	fi
+	cat >$TempFile <<EOF
+	menu \\
+	 "Select the disk partition to un-mount." \\
+	 "Select Disk Partition" \\
+EOF
+	local index=0
+	for p in $partitions; do
+		index=`math $index 1 add`
+		echo -n " "$p" " >>$TempFile
+		echo " \"\" \\" >>$TempFile
+	done
+	echo "">>$TempFile
+	local partition="`. $TempFile`"
+	local status=$?
+	rm -f $TempFile
+	if [ $status -ne 0 -o -z "$partition" ]; then return 1; fi
+	unmount_partition $partition
+	return $?
+}
+
+unmount_partition () {
+	local partition="$1"
+
+	umount $partition
+	if [ $? -ne 0 ]; then
+		msgBox \
+"$partition could not be un-mounted. This could mean you
+have another process running in a directory on $partition,
+or you have another filesystem mounted on a mount point
+on $partition." "Problem"
+		return 1
+	fi
+	if [ $partition = "$Root" ]; then
+		Root=""
+	fi
+	return 0
+}
+
+mounted_partitions () {
+	local partitions="`< /etc/mtab sed -e 's/[ 	].*$//' -e '/proc$/d' \
+	 -e '/ramdisk0$/d' -e '/ram$/d' `"
+	if [ $? -ne 0 -o -z "$partitions" ]; then return 1; fi
+	# Reverse the partitions from the mount-table order, as this is the order
+	# in which they would be un-mounted.
+	echo `reverse "$partitions"`
+	return 0
+}
+
+non_mounted_partitions () {
+	local partitions="`scan_partitions \"Linux native\"`"
+	if [ $? -ne 0 -o -z "$partitions" ]; then return 1; fi
+	exclude "`mounted_partitions`" "$partitions"
+	return $?
+}
+
+mount_partition () {
+	local device="$1"
+	local status=0
+
+	if [ -z "$Root" ]; then
+		Root=`find_root`
+		status=$?
+	fi
+	if [ $status -ne 0 -o -z "$Root" ]; then
+		yesNoBox \
+"You must mount your root filesystem (\"/\") before you can
+mount any other filesystems. Would you like to mount
+$1 as the root filesytem?" "Mount as the Root Filesystem?"
+		if [ $? -ne 0 ]; then return 1; fi
+		local mount_point=/
+		local real_mount_point=/target
+	else
+		if [ ! -d /target/usr ]; then
+			local prototype=/usr
+		elif [ "`block_device /target/usr 2>/dev/null`" = $Root ]; then
+			local prototype=/usr
+		elif [ ! -d /target/var ]; then
+			local prototype=/var
+		elif [ "`block_device /target/var 2>/dev/null`" = $Root ]; then
+			local prototype=/var
+		elif [ ! -d /target/home ]; then
+			local prototype=/home
+		elif [ "`block_device /target/home 2>/dev/null`" = $Root ]; then
+			local prototype=/home
+		else
+			local prototype=/
+		fi
+		local mount_point=`inputBox \
+"Select the mount point for $device." "Select Mount Point" $prototype`
+		if [ $status -ne 0 -o -z "$mount_point" ]; then return 1; fi
+		local real_mount_point="/target$mount_point"
+	fi
+
+	echo -n $clear
+	if [ ! -d $real_mount_point ]; then
+		mkdir -p -m 755 $real_mount_point 2>/dev/null >/dev/null
+		if [ $? -eq 0 ]; then
+			chown root.sys $real_mount_point
+		fi
+	fi
+
+	echo -n $clear
+	mount $device $real_mount_point
+	if [ $? -ne 0 -o ! -z "$output" ]; then
+		write_it_down
+		msgBox \
+"Mount of $device on $mount_point failed
+$output" "Problem"
+		return 1
+	fi
+	if [ $mount_point = "/" ]; then
+		Root=$device
+	fi
+	return 0
+}
+
+partition_disk () {
+	sync
+	local status=0
+	local disk="`select_drive`"
+	if [ $? -ne 0 -o -z "$disk" ]; then return 1; fi
+	local mounts="`match_list $disk \"\`mounted_partitions\`\"`"
+	local swap_disk="`match_list $disk $Swap`"
+	local dialog=""
+	if [ ! -z "$mounts" ]; then
+		dialog=\
+"You have mounted
+$mounts from disk $disk
+If you choose to go ahead and re-partition $disk,
+the filesystem(s) will be un-mounted, and you can re-mount
+when you have finished partitioning the disk. If you change
+a previously existing filesystem, you will have to re-initialize
+that filesystem before you mount again, and any data you
+installed it will be erased.
+
+"
+	fi
+	if [ ! -z "$swap_disk" ]; then
+		dialog="$dialog""You have activated a swap partition on $Swap.
+If you choose to go ahead and re-partition $disk,
+your swap partition will be de-activated, and you
+will have to re-initialize and/or re-activate the swap
+partition after you have re-partitioned $disk.
+
+"
+	fi
+	if [ ! -z "$mounts" -o ! -z "$swap_disk" ]; then
+		dialog="$dialog""Re-partition the disk?"
+		yesNoBox "$dialog" "Re-Partition the Disk?"
+		if [ $? -ne 0 ]; then return 1; fi
+	fi
+	if [ ! -z "$mounts" ]; then
+		for m in $mounts; do
+			unmount_partition $m
+			if [ $? -ne 0 ]; then return 1; fi
+		done
+	fi
+	if [ ! -z "$swap_disk" ]; then
+		swapoff $Swap
+		Swap=""
+	fi
+	cfdisk $disk
+	return $?
+}
+
+reboot_system () {
+	sync
+
+	if [ $InstallationRootDevice = /dev/fd0 ]; then
+		yesNoBox "Since you've booted from the first floppy drive without
+using the RAM disk, please keep the Installation Root Disk
+in the drive until the system reboots. Then remove it, and
+press the <RESET> button on your system.
+
+Reboot the system?" "Reboot the system?"
+		if [ $? -ne 0 ]; then return 1; fi
+	else
+		yesNoBox "If you are ready to reboot the system, you should have the
+boot floppy (if you created one) in the first floppy drive,
+or no floppy in the first floppy drive if you want to boot
+directly from the hard disk, or the Installation Boot Disk
+if you want to reboot the installation system.
+Please take care of that before you answer \"yes\" to the following
+question.
+
+Reboot the system?" "Reboot the system?"
+		if [ $? -ne 0 ]; then return 1; fi
+	fi
+
+	sync
+	echo $clear$bold
+	exec reboot
+	exit 1
+}
+
+scan_partitions () {
+	local partitions="`fdisk -l 2>/dev/null | sed -n -e \"/$1/p\" \
+	 | sed -e 's/[ 	].*$//'`"
+	if [ $? -ne 0 -o -z "$partitions" ]; then return 1; fi
+	echo "$partitions"
+	return 0
+}
+
+select_drive () {
+	
+	local drives="`tryopen -w /dev/hd[a-z] /dev/sd[a-z] 2>/dev/null`"
+	if [ -z "$drives" ]; then
+		msgBox \
+"No hard disk drives could be found. Make sure they are cabled
+correctly and are turned on before the system is started. You
+may have to change driver settings when you start the system
+with a command at the \"boot:\" prompt, or you may have to load
+a driver that is in a loadable module to solve this problem." "Problem"
+		return 1;
+	fi
+cat >$TempFile <<EOF
+	menu \\
+"Select the drive to partition. SCSI drives are listed in disk ID
+number order. Only drives that were connected and operating when
+the system was started will show up in this display. CD-ROM drives
+may be mis-identified as writable disk drives by this menu." \\
+	"Select Disk Drive" \\
+EOF
+	local index=0
+	for d in $drives; do
+		index=`math $index 1 add`
+		echo -n $d" " >>$TempFile
+		local description=""
+		case $d in
+		/dev/hda)
+			description="First drive on primary controller (not SCSI)."
+			;;
+		/dev/hdb)
+			description="Second drive on primary controller (not SCSI)."
+			;;
+		/dev/hdc)
+			description="First drive on secondary controller (not SCSI)."
+			;;
+		/dev/hdd)
+			description="Second drive on secondary controller (not SCSI)."
+			;;
+		/dev/sda)
+			description="Lowest-numbered SCSI drive."
+			;;
+		/dev/sdb)
+			description="Second-lowest-numbered SCSI drive."
+			;;
+		/dev/sdc)
+			description="Third-lowest-numbered SCSI drive."
+			;;
+		/dev/sdd)
+			description="Fourth-lowest-numbered SCSI drive."
+			;;
+		/dev/sde)
+			description="Fifth-lowest-numbered SCSI drive."
+			;;
+		/dev/sdf)
+			description="Sixth-lowest-numbered SCSI drive."
+			;;
+		/dev/sdg)
+			description="Seventh-lowest-numbered SCSI drive."
+			;;
+		/dev/sdh)
+			description="Eigth-lowest-numbered SCSI drive."
+			;;
+		esac
+		echo " \"$description\" \\" >>$TempFile
+	done
+	echo "">>$TempFile
+	. $TempFile
+	local status=$?
+	rm -f $TempFile
+	if [ $status -ne 0 ]; then return 1; fi
+}
+
+select_partition () {
+	local message="$1"
+	local type="$2"
+
+	local partitions="`scan_partitions \"$type\"`"
+	if [ $? -ne 0 -o -z "$partitions" ]; then
+		msgBox \
+"No $type disk partitions were detected. Please partition
+the disks and return to this step." "Problem"
+		return 1;
+	fi
+cat >$TempFile <<EOF
+	menu \\
+	 "$message" \\
+	 "Select Disk Partition" \\
+EOF
+	local index=0
+	for p in $partitions; do
+		index=`math $index 1 add`
+		echo -n " "$p" " >>$TempFile
+		echo " \"\" \\" >>$TempFile
+	done
+	echo "">>$TempFile
+	. $TempFile
+	local status=$?
+	rm -f $TempFile
+	if [ $status -ne 0 ]; then return 1; fi
+}
+
+select_not_mounted () {
+	local message="$1"
+	local partitions="`non_mounted_partitions`"
+	if [ $? -ne 0 -o -z "$partitions" ]; then
+		msgBox \
+"No \"Linux native\" disk partitions that had not
+already been mounted were detected." \
+		"Problem"
+		return 1
+	fi
+	cat >$TempFile <<EOF
+	menu \\
+	 "$message" \\
+	 "Select Disk Partition" \\
+EOF
+	local index=0
+	for p in $partitions; do
+		index=`math $index 1 add`
+		echo -n " "$p" " >>$TempFile
+		echo " \"\" \\" >>$TempFile
+	done
+	echo "">>$TempFile
+	local partition="`. $TempFile`"
+	local status=$?
+	if [ $status -ne 0 -o -z "$partition" ]; then return 1; fi
+	echo $partition
+	return 0
+}
+
+view_partitions () {
+  (fdisk -l 2>&1)|textBox "Partition Table"
+}
+
+write_fstab () {
+    cat > /target/etc/fstab <<EOF
+# /etc/fstab: static file system information.
+#
+# <file system>     <mount point>   <type>  <options>   <dump>  <pass>
+$Root               /               ext2    defaults    0       1
+EOF
+    if [ $? -ne 0 ]; then return 1; fi
+
+    if [ ! -z "$Swap" -a "$swap" != "None" ]; then
+        echo \
+         "$Swap               none            swap    sw          0       0" \
+         >> /target/etc/fstab
+        if [ $? -ne 0 ]; then return 1; fi
+    fi
+
+    echo "proc                /proc           proc    defaults    0       0" \
+     >> /target/etc/fstab
+    if [ $? -ne 0 ]; then return 1; fi
+
+    < /etc/mtab sed -n '/target\//p' | sed -e 's/target\///' -e 's/ /   /g' \
+     -e 's/ 0   0/  0   2/' -e 's/  rw  /   defaults    /' >> /target/etc/fstab
+    if [ $? -ne 0 ]; then return 1; fi
+
+    return 0;
+}
+
+# List-processing functions for the shell.
+
+# Exclude the members of the first from the second list. Write the result
+# to stdout.
+exclude () {
+	local exclude="$1"
+	local members="$2"
+	local result=""
+
+	if [ -z "$members" ]; then
+		return 0
+	fi
+	if [ -z "$exclude" ]; then
+		echo "$members"
+		return 0
+	fi
+
+	for m in $members; do
+		local add_to_set=1
+		for e in $exclude; do
+			if [ $m = $e ]; then
+				add_to_set=0
+				break
+			fi
+		done
+		if [ $add_to_set -eq 1 ]; then
+			result="$result $m"
+		fi
+	done
+	echo $result
+	return 0
+}
+
+# Search for a pattern in a list.
+match_list () {
+	local pattern="`echo \"$1\" | sed -e 's:/:\\\/:g'`"
+	local candidates="$2"
+	local matches=""
+
+	for c in $candidates; do
+		local match=`echo $c | sed -n -e "/$pattern/p"`
+		if [ $? -eq 0 -a ! -z "$match" ]; then
+			matches="$matches $c"
+		fi
+	done
+	echo $matches | sed -e 's:\\::g'
+	return 0
+}
+
+# Reverse a list.
+reverse () {
+	local reversed=""
+	for p in ""$@; do
+		reversed="$p $reversed"
+	done
+	echo $reversed
+}
+
+is_root_a_floppy () {
+	if [ $InstallationRootDevice = /dev/fd0 \
+	 -o $InstallationRootDevice = /dev/fd1 ]; then
+		msgBox "You have bootstrapped the Installation Root Disk without
+using the RAM disk. If this is a low-memory installation,
+that's OK, but the installation is going to run a whole
+lot slower this way. If you didn't intend to boot without
+the RAM disk, it probably happened because you didn't have
+to root floppy inserted when the system first asked for it
+at boot time. You might want to reboot with the RAM disk
+if that's the case." "No RAM Disk?"
+	fi
+	return 0
+}
+
+modules () {
+	require_root
+	if [ $? -ne 0 ]; then return 1; fi
+	Target=/target /target/usr/sbin/modconf
+	if [ ! -f /target/etc/modules.old ]; then
+		cp /target/etc/modules /target/etc/modules.old
+	fi
+	return 0
+}
+
+release_notes () {
+	if [ -f /Install/release_notes ]; then
+		textBox "Release Notes" < /Install/release_notes
+	fi
+	return 0
+}
+color_or_monochrome
+release_notes
+is_root_a_floppy
+main_menu

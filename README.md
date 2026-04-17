@@ -23,14 +23,15 @@ The `package` command (see below) can be used to package the disk images togethe
 
 The `retro` script provides commands for downloading, extracting, and running retro distros. All of the commands take a configuration directory as their first argument. If no directory is provided, the current directory is used.
 
-- `run` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim. 
+- `boot` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim.
+- `floppy` will start the distro while forcing boot from the floppy drive.
 - `extract` will extract the distro into the `.cache` directory.
 - `download` will download the distro's original files into the `.downloads` directory.
 - `reset` will reset the distro's cache and QEMU configuration
 - `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
 
-You won't normally need to run `extract` and `download` manually since `run` will automatically run each of them in turn.
+You won't normally need to run `extract` and `download` manually since `boot` will automatically run each of them in turn.
 
 The configuration directories are organized into a `distro/version/variant` heirarchy.  In addition to the configuration files, distro directories may contain a README with pertinent information.
 
@@ -74,6 +75,7 @@ Downloads are configured using one of the following files, in order of precedenc
 - `download.sh` executes as a general script to handle special cases.
 - `urls.txt` contains a list of files to download in the format `filename url` with one file per line.
 - `slackver.txt` contains the version to download from the Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
+- `debrel.txt` contains the Debian release directory to download from the [Debian archive dists tree](https://archive.debian.org/debian/dists/).
 
 ### Extraction
 

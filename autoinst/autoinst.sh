@@ -3,13 +3,20 @@
 echo "### Beginning automatic installation..."
 
 # figure out the source and dest mount points
-if [ -d /var/adm/mount ] && [ -d /mnt ]; then
+if [ -d /target ]; then
+    INSTMOUNT=/mnt
+    ROOTMOUNT=/target
+elif [ -d /var/adm/mount ]; then
     INSTMOUNT=/var/adm/mount
     ROOTMOUNT=/mnt
-elif [ -d /mnt ] && [ -d /root ]; then
+elif [ -d /root ]; then
     INSTMOUNT=/mnt
     ROOTMOUNT=/root
+else
+    echo "Unsupported installer layout; aborting."
+    exit 1
 fi
+mkdir -p $INSTMOUNT
 
 # mount the install source
 mount -t msdos /dev/hdb1 $INSTMOUNT
@@ -27,5 +34,7 @@ for INSTSTEP in $INSTMOUNT/autoinst.d/inststep/[0-9]*.sh; do
 done
 
 echo "### Rebooting..."
+echo "Press ENTER to reboot."
+read line
 sync
 reboot

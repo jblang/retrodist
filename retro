@@ -4,6 +4,7 @@ SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 RETROHOME=${RETROHOME:-$SCRIPTDIR}
 ORIGBASE=$RETROHOME/.downloads
 SLACKBASE=$ORIGBASE/mirrors.slackware.com/slackware
+DEBIANBASE=$ORIGBASE/archive.debian.org/debian/dists
 AUTOBASE=$SCRIPTDIR/autoinst
 
 # temp directory automatically cleaned up on exit
@@ -56,8 +57,10 @@ fdisk_commands() {
 link_autoinst() {
   NUM=1
   cat_newline $1 | while read FILE; do
-    ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
-    NUM=$(($NUM+1))
+    if [[ -n "$FILE" ]]; then
+      ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
+      NUM=$(($NUM+1))
+    fi
   done
 }
 
@@ -110,6 +113,52 @@ download_list() {
   done
 }
 
+# download the named files from URL base $1 into directory $2
+download_files() {
+  if [[ $# -lt 3 ]]; then
+    exit 1
+  fi
+  URLBASE=$1
+  DESTBASE=$2
+  shift 2
+  mkdir -p "$DESTBASE"
+  for FILE in "$@"; do
+    if [[ ! -f "$DESTBASE/$FILE" ]]; then
+      wget \
+        --no-verbose \
+        --show-progress \
+        -O "$DESTBASE/$FILE" \
+        "$URLBASE/$FILE"
+    else
+      echo "Already downloaded: $FILE"
+    fi
+  done
+}
+
+# download the named directories from URL base $1
+download_directories() {
+  if [[ $# -lt 3 ]]; then
+    exit 1
+  fi
+  URLBASE=$1
+  DESTBASE=$2
+  shift 2
+  mkdir -p "$DESTBASE"
+  for DIR in "$@"; do
+    if [[ ! -d "$DESTBASE/$DIR" ]]; then
+      wget \
+        --no-verbose \
+        --show-progress \
+        --recursive \
+        --no-parent \
+        --reject "*index*" \
+        "$URLBASE/$DIR/"
+    else
+      echo "Already downloaded: $DIR"
+    fi
+  done
+}
+
 # download version $1 of Slackware from the official mirror
 download_slackware() {
   if [[ $# -ne 1 ]]; then
@@ -128,6 +177,46 @@ download_slackware() {
   fi
 }
 
+# download release $1 from the Debian archive
+download_debian() {
+  if [[ $# -ne 1 ]]; then
+    exit 1
+  fi
+  RELBASE="$DEBIANBASE/$1"
+  RELURL="https://archive.debian.org/debian/dists/$1"
+  if [[ "$1" != "Debian-0.93R6" ]]; then
+    RELBASE="$RELBASE/main"
+    RELURL="$RELURL/main"
+  fi
+  FILES="Contents-i386.gz"
+  case "$1" in
+    Debian-0.93R6)
+      FILES="README.DEBIAN Contents"
+      DIRS="ms-dos disks"
+      ;;
+    buzz)
+      FILES="README Contents"
+      DIRS="msdos-i386 disks-i386"
+      ;;
+    rex)
+      FILES="README Contents"
+      DIRS="msdos-i386 disks-i386"
+      ;;
+    bo)
+      FILES="README Contents-i386.gz"
+      DIRS="msdos-i386 disks-i386"
+      ;;
+    hamm|slink|potato|woody)
+      DIRS="binary-i386 disks-i386"
+      ;;
+    *)
+      DIRS="binary-i386 installer-i386"
+      ;;
+  esac
+  download_files "$RELURL" "$RELBASE" $FILES
+  download_directories "$RELURL" "$RELBASE" $DIRS
+}
+
 # download files for the distro $1 to directory $2
 download_all() {
   mkdir -p $2
@@ -135,7 +224,7 @@ download_all() {
     SOURCE=$(cat $1/source.txt)
     SOURCEDIR=$(cd "$SCRIPTDIR/$SOURCE" && pwd)
     download_all $SOURCEDIR $ORIGBASE/$SOURCE
-    ln -sfr $ORIGBASE/$SOURCE/* $2
+    ln -sf $ORIGBASE/$SOURCE/* $2
   fi
   if [[ -f "$1/urls.txt" ]]; then
     download_list "$1/urls.txt" "$2"
@@ -143,6 +232,10 @@ download_all() {
   if [[ -f "$1/slackver.txt" ]]; then
     VER="$(cat "$1/slackver.txt")"
     (cd $ORIGBASE; download_slackware $VER)
+  fi
+  if [[ -f "$1/debrel.txt" ]]; then
+    REL="$(cat "$1/debrel.txt")"
+    (cd $ORIGBASE; download_debian $REL)
   fi
   if [[ -f "$1/download.sh" ]]; then
     pushd $2 > /dev/null
@@ -203,25 +296,10 @@ retro_extract() {
   fi
 }
 
-# run QEMU for the selected distro
-retro_run() {
+# boot the selected distro in QEMU
+retro_boot() {
   retro_extract
   mkdir -p $QEMUDIR
-  pushd $QEMUDIR > /dev/null
-
-  # link installation files
-  if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
-    ln -sr $CACHEDIR/boot.img fda.img
-  fi
-  if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
-    ln -sr $CACHEDIR/root.img fdb.img
-  fi
-  if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
-    ln -sr $ORIGDIR/disc1.iso hdc.iso
-  fi
-  if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
-    ln -sr $CACHEDIR/install hdb
-  fi
 
   # default configuration
   QEMU_SYSTEM="qemu-system-i386"
@@ -236,10 +314,29 @@ retro_run() {
     -netdev socket,id=retronet,connect=:1234
     -device $QEMU_NET_DEVICE,netdev=retronet"
   QEMU_EXTRA=""
+  if [[ $COMMAND == "floppy" ]]; then
+    QEMU_EXTRA="$QEMU_EXTRA -boot order=a"
+  fi
 
   # Allow overriding default configuration
   if [[ -f $CONFDIR/qemu.sh ]]; then
     source $CONFDIR/qemu.sh
+  fi
+
+  pushd $QEMUDIR > /dev/null
+
+  # link installation files
+  if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
+    ln -s $CACHEDIR/boot.img fda.img
+  fi
+  if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
+    ln -s $CACHEDIR/root.img fdb.img
+  fi
+  if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
+    ln -s $ORIGDIR/disc1.iso hdc.iso
+  fi
+  if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
+    ln -s $CACHEDIR/install hdb
   fi
 
   # create hard drive image
@@ -296,7 +393,7 @@ retro_run() {
   echo
   echo "QEMU command: $QEMU_COMMAND"
   echo
-  if [[ $COMMAND == "run" ]]; then
+  if [[ $COMMAND == "boot" || $COMMAND == "floppy" ]]; then
     $QEMU_COMMAND
   fi
   popd > /dev/null
@@ -311,7 +408,7 @@ retro_package() {
   else
     FILES="*"
   fi
-  retro_run $@
+  retro_boot $@
   echo
   echo "Packaging $CONFNAME..."
   echo "@echo off" > "$QEMUDIR/retro.bat"
@@ -342,7 +439,9 @@ cat <<EOF
 Usage: $(basename $0) [COMMAND] [CONFIG] [OPTIONS]
 
 Commands:
-  run       default run the distro in QEMU; calls extract
+  help      show this help text
+  boot      boot the distro in QEMU; calls extract
+  floppy    boot the distro in QEMU, forcing boot from the floppy
   extract   extract files for the distro; calls download
   download  download source files for the distro or CD-ROM
   patch     patch the boot/root disk for auto-installation.
@@ -359,18 +458,15 @@ EOF
 exit 1
 }
 
-# see if the first parameter is a command; default to run otherwise
+# see if the first parameter is a command; default to help otherwise
+COMMAND=help
 if [[ $# -ge 1 ]]; then
   case $1 in
-    run | extract | download | reset | patch | package)
+    help | boot | floppy | extract | download | reset | patch | package)
       COMMAND=$1
       shift
       ;;
-    *)
-      COMMAND=run
   esac
-else
-  COMMAND=run
 fi
 
 # next parameter should be a configuration file; default to pwd
@@ -410,11 +506,11 @@ EOF
 
 # run the selected command
 case $COMMAND in
+  help) retro_usage;;
   download) retro_download;;
   extract) retro_extract;;
-  run) retro_run $@;;
+  boot | floppy) retro_boot $@;;
   package) retro_package $@;;
   reset) retro_reset;;
   patch) autoinst_patch;;
-  *) retro_usage;;
 esac
