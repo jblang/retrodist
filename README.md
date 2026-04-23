@@ -25,9 +25,9 @@ The `retro` script provides commands for downloading, extracting, and running re
 
 - `boot` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim.
 - `floppy` will start the distro while forcing boot from the floppy drive.
-- `extract` will extract the distro into the `.cache` directory.
-- `download` will download the distro's original files into the `.downloads` directory.
-- `reset` will reset the distro's cache and QEMU configuration
+- `extract` will extract the distro into the `.extract` directory.
+- `download` will download the distro's original files into the config directory's `.download` directory.
+- `reset` will reset the distro's extracted files and QEMU configuration
 - `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
 
@@ -73,14 +73,14 @@ To add support for a new distro, create a new `distro/version/variant` configura
 Downloads are configured using one of the following files, in order of precedence:
 
 - `download.sh` executes as a general script to handle special cases.
-- `urls.txt` contains a list of files to download in the format `filename url` with one file per line.
-- `slackver.txt` contains the version to download from the Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
-- `debrel.txt` contains the Debian release directory to download from the [Debian archive dists tree](https://archive.debian.org/debian/dists/).
+- `download.txt` contains a list of files to download in the format `filename url` with one file per line.
+- `slackmirror.txt` contains the version to download from Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
+- `debmirror.txt` contains the Debian release directory to download from the [Debian archive dists tree](https://archive.debian.org/debian/dists/).
 
 ### Extraction
 
 Extraction is configured by files in the distro's config directory:
-- `source.txt` specifies the CD-ROM that the distro comes from.
+- `cdrom.txt` specifies the CD-ROM that the distro comes from, relative to the `cdrom` directory.
 - `extract.sh` performs distro-specific extraction...
   - If the distro doesn't support installing from an IDE CD-ROM, extract package files to the `install` directory. This will be mounted as a FAT partition to `/dev/hdb1`.
   - If a boot floppy is required, copy it to `boot.img`.

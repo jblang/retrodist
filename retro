@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # Downloads, extracts, and runs retro distros
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-RETROHOME=${RETROHOME:-$SCRIPTDIR}
-ORIGBASE=$RETROHOME/.downloads
-SLACKBASE=$ORIGBASE/mirrors.slackware.com/slackware
-DEBIANBASE=$ORIGBASE/archive.debian.org/debian/dists
 AUTOBASE=$SCRIPTDIR/autoinst
 
 # temp directory automatically cleaned up on exit
@@ -34,6 +30,20 @@ EOF
 cat_newline() {
   cat $1
   echo
+}
+
+# count the slash-separated path components in a URL
+url_path_depth() {
+  local URLPATH=${1#*://}
+  URLPATH=${URLPATH#*/}
+  URLPATH=${URLPATH%/}
+  if [[ -z "$URLPATH" ]]; then
+    echo 0
+  else
+    local PARTS
+    IFS=/ read -ra PARTS <<< "$URLPATH"
+    echo "${#PARTS[@]}"
+  fi
 }
 
 # generates fdisk commands for the partition table specified with format:
@@ -67,10 +77,10 @@ link_autoinst() {
 # patches boot or root disk with autoinst.sh
 autoinst_patch() {
   retro_extract
-  if [[ -f $CACHEDIR/root.img ]]; then
-    PATCHIMG=$CACHEDIR/root.img
-  elif [ -f $CACHEDIR/boot.img ]; then
-    PATCHIMG=$CACHEDIR/boot.img
+  if [[ -f $EXTRACTDIR/root.img ]]; then
+    PATCHIMG=$EXTRACTDIR/root.img
+  elif [ -f $EXTRACTDIR/boot.img ]; then
+    PATCHIMG=$EXTRACTDIR/boot.img
   fi
   echo "Using sudo to patch $PATCHIMG..."
   sudo mount $PATCHIMG /mnt
@@ -82,7 +92,7 @@ autoinst_patch() {
 # prepare auto-install/config files for the current distro
 # $1 is a partition table file in `autoinst/fdisk`
 autoinst_prep() {
-  AUTOINSTD=$CACHEDIR/install/autoinst.d
+  AUTOINSTD=$EXTRACTDIR/install/autoinst.d
   mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
   ln $AUTOBASE/autoinst.sh $AUTOBASE/autoconf.sh $CONFDIR/config.sh $AUTOINSTD
   if [[ -f $CONFDIR/autoinst.txt ]]; then
@@ -144,6 +154,7 @@ download_directories() {
   DESTBASE=$2
   shift 2
   mkdir -p "$DESTBASE"
+  local CUTDIRS=$(url_path_depth "$URLBASE")
   for DIR in "$@"; do
     if [[ ! -d "$DESTBASE/$DIR" ]]; then
       wget \
@@ -151,6 +162,9 @@ download_directories() {
         --show-progress \
         --recursive \
         --no-parent \
+        --no-host-directories \
+        --cut-dirs="$CUTDIRS" \
+        --directory-prefix="$DESTBASE" \
         --reject "*index*" \
         "$URLBASE/$DIR/"
     else
@@ -164,12 +178,16 @@ download_slackware() {
   if [[ $# -ne 1 ]]; then
     exit 1
   fi
+  local SLACKBASE=$PWD
   if [[ ! -d "$SLACKBASE/slackware-$1" ]]; then
     wget \
       --no-verbose \
       --show-progress \
       --recursive \
       --no-parent \
+      --no-host-directories \
+      --cut-dirs=1 \
+      --directory-prefix="$SLACKBASE" \
       --reject "*.md5*,*.meta4,*.sha*,*mirror*,*index*" \
       "http://mirrors.slackware.com/slackware/slackware-$1/"
   else
@@ -182,6 +200,7 @@ download_debian() {
   if [[ $# -ne 1 ]]; then
     exit 1
   fi
+  local DEBIANBASE=$PWD
   RELBASE="$DEBIANBASE/$1"
   RELURL="https://archive.debian.org/debian/dists/$1"
   if [[ "$1" != "Debian-0.93R6" ]]; then
@@ -219,33 +238,38 @@ download_debian() {
 
 # download files for the distro $1 to directory $2
 download_all() {
-  mkdir -p $2
-  if [[ -f $1/source.txt ]]; then
-    SOURCE=$(cat $1/source.txt)
-    SOURCEDIR=$(cd "$SCRIPTDIR/$SOURCE" && pwd)
-    download_all $SOURCEDIR $ORIGBASE/$SOURCE
-    ln -sf $ORIGBASE/$SOURCE/* $2
+  mkdir -p "$2"
+  if [[ -f $1/cdrom.txt ]]; then
+    CDROM=$(cat $1/cdrom.txt)
+    CDROMDIR=$(cd "$SCRIPTDIR/cdrom/$CDROM" && pwd)
+    CDROMDOWNLOAD=$CDROMDIR/.download
+    download_all "$CDROMDIR" "$CDROMDOWNLOAD"
+    for FILE in "$CDROMDOWNLOAD"/*; do
+      if [[ -e "$FILE" ]]; then
+        ln -sf "$FILE" "$2"
+      fi
+    done
   fi
-  if [[ -f "$1/urls.txt" ]]; then
-    download_list "$1/urls.txt" "$2"
+  if [[ -f "$1/download.txt" ]]; then
+    download_list "$1/download.txt" "$2"
   fi
-  if [[ -f "$1/slackver.txt" ]]; then
-    VER="$(cat "$1/slackver.txt")"
-    (cd $ORIGBASE; download_slackware $VER)
+  if [[ -f "$1/slackmirror.txt" ]]; then
+    VER="$(cat "$1/slackmirror.txt")"
+    (cd "$2"; download_slackware "$VER")
   fi
-  if [[ -f "$1/debrel.txt" ]]; then
-    REL="$(cat "$1/debrel.txt")"
-    (cd $ORIGBASE; download_debian $REL)
+  if [[ -f "$1/debmirror.txt" ]]; then
+    REL="$(cat "$1/debmirror.txt")"
+    (cd "$2"; download_debian "$REL")
   fi
   if [[ -f "$1/download.sh" ]]; then
-    pushd $2 > /dev/null
+    pushd "$2" > /dev/null
     source "$1/download.sh"
     popd > /dev/null
   fi
 }
 
 retro_download() {
-  download_all $CONFDIR $ORIGDIR
+  download_all "$CONFDIR" "$ORIGDIR"
 }
 
 # fix permissions/ownership for files copied from disk image
@@ -281,18 +305,18 @@ mount_copy() {
 
 # extract installation files for the selected distro
 retro_extract() {
-  if [[ ! -d $CACHEDIR ]]; then
+  if [[ ! -d $EXTRACTDIR ]]; then
     retro_download
     if [[ -f "$CONFDIR/extract.sh" ]]; then
-      mkdir -p $CACHEDIR
-      pushd $CACHEDIR > /dev/null
+      mkdir -p $EXTRACTDIR
+      pushd $EXTRACTDIR > /dev/null
       source "$CONFDIR/extract.sh"
       popd > /dev/null
     else
       echo "Nothing to extract"
     fi
   else
-    echo "Using cached files"
+    echo "Using extracted files"
   fi
 }
 
@@ -326,17 +350,17 @@ retro_boot() {
   pushd $QEMUDIR > /dev/null
 
   # link installation files
-  if [[ -f $CACHEDIR/boot.img && ! -f fda.img ]]; then
-    ln -s $CACHEDIR/boot.img fda.img
+  if [[ -f $EXTRACTDIR/boot.img && ! -f fda.img ]]; then
+    ln -s $EXTRACTDIR/boot.img fda.img
   fi
-  if [[ -f $CACHEDIR/root.img && ! -f fdb.img ]]; then
-    ln -s $CACHEDIR/root.img fdb.img
+  if [[ -f $EXTRACTDIR/root.img && ! -f fdb.img ]]; then
+    ln -s $EXTRACTDIR/root.img fdb.img
   fi
   if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
     ln -s $ORIGDIR/disc1.iso hdc.iso
   fi
-  if [[ -d $CACHEDIR/install && ! -d hdb ]]; then
-    ln -s $CACHEDIR/install hdb
+  if [[ -d $EXTRACTDIR/install && ! -d hdb ]]; then
+    ln -s $EXTRACTDIR/install hdb
   fi
 
   # create hard drive image
@@ -422,10 +446,10 @@ retro_package() {
 }
 
 retro_reset() {
-  read -p "Really remove QEMU images and cached files for $CONFNAME? " -n 1 -r
+  read -p "Really remove QEMU images and extracted files for $CONFNAME? " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    rm -rf $CACHEDIR
+    rm -rf $EXTRACTDIR
     rm -rf $QEMUDIR
     echo "Distro reset."
   else
@@ -446,7 +470,7 @@ Commands:
   download  download source files for the distro or CD-ROM
   patch     patch the boot/root disk for auto-installation.
   package   create a tar with the QEMU image files and startup script
-  reset     remove the QEMU images and cached files for the distro
+  reset     remove the QEMU images and extracted files for the distro
 
 Config:
   If specified, should be the name of a config directory.
@@ -488,8 +512,10 @@ else
 fi
 CONFNAME=$(echo $CONFDIR | sed "s|^$SCRIPTDIR/||")
 
-ORIGDIR=$ORIGBASE/$CONFNAME
-CACHEDIR=$CONFDIR/.cache
+ORIGDIR=$CONFDIR/.download
+SLACKBASE=$ORIGDIR
+DEBIANBASE=$ORIGDIR
+EXTRACTDIR=$CONFDIR/.extract
 QEMUDIR=$CONFDIR/.qemu
 
 # output configuration details
@@ -499,7 +525,7 @@ Retro Distro Playground by J.B. Langston
 Command:    $COMMAND
 Config:     $CONFDIR
 Download:   $ORIGDIR
-Cache:      $CACHEDIR
+Extract:    $EXTRACTDIR
 QEMU:       $QEMUDIR
 
 EOF

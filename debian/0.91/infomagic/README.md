@@ -32,14 +32,14 @@ Seriously, just use the automatic installer, but if you *must* have the authenti
 - At the `(qemu)` prompt, enter the command to insert the first disk:
 
     ```
-    change floppy0 ../.cache/install/basedsk1.img
+    change floppy0 ../.extract/install/basedsk1.img
     ```
 
 - Switch back to QEMU and press enter to install disk 1.
 - When prompted to insert disk 2 switch to the monitor and enter:
 
     ```
-    change floppy0 ../.cache/install/basedsk2.img
+    change floppy0 ../.extract/install/basedsk2.img
     ```
 
 - Switch back to QEMU and press enter to install disk 2.

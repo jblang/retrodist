@@ -1,4 +1,4 @@
-.downloads
 .retrojump
-**/.cache
+**/.download
+**/.extract
 **/.qemu
