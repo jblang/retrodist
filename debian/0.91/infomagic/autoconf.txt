@@ -1,4 +1,4 @@
-debian/dpkginst.sh
+debian/dpkginst/default.sh
 common/ttycfg.sh
 common/netcfg.sh
 common/xconfig.sh

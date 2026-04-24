@@ -68,9 +68,18 @@ link_autoinst() {
   NUM=1
   cat_newline $1 | while read FILE; do
     if [[ -n "$FILE" ]]; then
-      ln $AUTOBASE/$FILE $2/$(printf "%02d" $NUM).sh
+      cp "$AUTOBASE/$FILE" "$2/$(printf "%02d" $NUM).sh"
       NUM=$(($NUM+1))
     fi
+  done
+}
+
+copy_autoinst_tree() {
+  local SUBDIR=$1
+  find "$AUTOBASE/$SUBDIR" -type f | while read -r SRC; do
+    local REL=${SRC#"$AUTOBASE"/}
+    mkdir -p "$AUTOINSTD/$(dirname "$REL")"
+    cp "$SRC" "$AUTOINSTD/$REL"
   done
 }
 
@@ -94,7 +103,15 @@ autoinst_patch() {
 autoinst_prep() {
   AUTOINSTD=$EXTRACTDIR/install/autoinst.d
   mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
-  ln $AUTOBASE/autoinst.sh $AUTOBASE/autoconf.sh $CONFDIR/config.sh $AUTOINSTD
+  cp "$AUTOBASE/autoinst.sh" "$AUTOINSTD/"
+  cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/"
+  cp "$CONFDIR/config.sh" "$AUTOINSTD/"
+  for SUBDIR in common debian slackware; do
+    if [[ -d $AUTOBASE/$SUBDIR ]]; then
+      rm -rf "$AUTOINSTD/$SUBDIR"
+      copy_autoinst_tree "$SUBDIR"
+    fi
+  done
   if [[ -f $CONFDIR/autoinst.txt ]]; then
     link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
   fi

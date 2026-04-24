@@ -20,7 +20,7 @@ mkdir -p $ROOTMOUNT/tmp
 
 echo "### Creating fstab..."
 cat > $ROOTMOUNT/fstab.tmp <<EOF
-$ROOTDEV		/		$ROOTFS	defaults
-$SWAPDEV		swap	swap		defaults
-none			/proc	proc		defaults
+$ROOTDEV		/		$ROOTFS	defaults	0	1
+$SWAPDEV		none		swap		sw		0	0
+none			/proc		proc		defaults	0	0
 EOF

@@ -1,0 +1,3 @@
+common/diskinit.sh
+debian/baseinst/093r6.sh
+debian/dpkginst/tree.sh

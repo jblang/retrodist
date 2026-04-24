@@ -1,0 +1,8 @@
+DEBIAN_BASE_TARBALL=base1_1.tgz
+DEBIAN_PREPARE_FUNCTION=prepare_base_system_dinstall
+DEBIAN_ROOT_HOOK=.configure
+DEBIAN_INSTALL_BOOT_FLOPPY=1
+DEBIAN_CONFIGURE_MODULES=1
+DEBIAN_GUARD_ETH0=1
+
+. "$INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh"
