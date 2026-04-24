@@ -8,7 +8,7 @@ To automatically install Debian 0.91, ignore the onscreen instructions and enter
 
 ```
 mount -t msdos /dev/hdb1 /mnt
-/mnt/autoinst.d/autoinst.sh
+/mnt/autoinst
 ```
 
 - The script will automatically partition and format your drive, install the base system, and set up lilo to boot from the hard drive.

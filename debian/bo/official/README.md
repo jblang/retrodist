@@ -8,7 +8,7 @@ To automatically install Debian Bo, ignore the onscreen instructions and enter t
 
 ```sh
 mount -t msdos /dev/hdb1 /mnt
-/mnt/autoinst.d/autoinst.sh
+/mnt/autoinst
 ```
 
 - The script will automatically partition and format the hard drive, install the base system, install the boot kernel and driver modules, configure networking, and install LILO.

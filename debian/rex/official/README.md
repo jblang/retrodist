@@ -8,7 +8,7 @@ To automatically install Debian Rex, ignore the onscreen instructions and enter 
 
 ```sh
 mount -t msdos /dev/hdb1 /mnt
-/mnt/autoinst.d/autoinst.sh
+/mnt/autoinst
 ```
 
 - The script will automatically partition and format the hard drive, install the base system, install the kernel and driver modules, seed module configuration for the default QEMU NE2000 ISA NIC, configure networking, and install LILO.

@@ -40,7 +40,7 @@ Log in as `root` when prompted. Ignore the rest of the instructions and enter th
 
 ```
 mount -t msdos /dev/hdb1 /mnt
-/mnt/autoinst.d/autoinst.sh
+/mnt/autoinst
 ```
 
 - Marvel as cryptic text scrolls by much faster than it would have on a real PC in 1993. When the installation is done, the VM will reboot.

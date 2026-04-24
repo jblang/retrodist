@@ -103,7 +103,7 @@ autoinst_patch() {
 autoinst_prep() {
   AUTOINSTD=$EXTRACTDIR/install/autoinst.d
   mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
-  cp "$AUTOBASE/autoinst.sh" "$AUTOINSTD/"
+  cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
   cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/"
   cp "$CONFDIR/config.sh" "$AUTOINSTD/"
   for SUBDIR in common debian slackware; do
