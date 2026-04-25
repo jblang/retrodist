@@ -45,7 +45,7 @@ This directory contains the Debian-specific install and configuration helpers us
 For Buzz, Rex, and Bo, the `autoinst.txt` entry points at a small wrapper under `baseinst/`. That wrapper sets release-specific variables and then sources:
 
 ```sh
-$INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh
+$SOURCEMOUNT/autoinst.d/debian/baseinst/dinstall.sh
 ```
 
 `dinstall.sh` then runs the shared steps in order:

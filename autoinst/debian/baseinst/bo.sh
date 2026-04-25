@@ -10,4 +10,4 @@ DEBIAN_CONFIGURE_MODULES=1
 DEBIAN_GUARD_ETH0=1
 DEBIAN_SKIP_SETUP_SH=1
 
-. "$INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh"
+. "$SOURCEMOUNT/autoinst.d/debian/baseinst/dinstall.sh"

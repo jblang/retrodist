@@ -1,0 +1,270 @@
+#!/bin/sh
+# copyright Softlanding Software 92,93.  Distribute freely, don't restrict
+#
+# Modified extensively for the Slackware Linux release 1.0 at 0.99pl11A.
+# Any questions, bug reports, or suggestions for improvements in this
+# release should be directed to Patrick Volkerding at the address
+# volkerdi@mhd1.moorhead.msus.edu or bf703@cleveland.freenet.edu.
+# Voice calls are accepted at (218) 233-4349. Support contracts available.
+#
+# Improvement suggestions are more than welcome!!!
+#
+# more mods for v. 1.00 7/12/93
+# ...and still more for v. 1.01 8/2/93
+
+function usage()  {
+	echo " "
+	echo "Installs Linux onto a hard disk from floppies, tape, CD, HD or Network"
+	echo "usage: doinstall PART [ PART2 MNT2 ...]"
+	echo "where: PART is the partition to install to, optionally followed by" 
+	echo "partition/directory pairs to mount on root.   for example"
+	echo "       doinstall /dev/hda2"
+	echo "or:    doinstall /dev/hda2 /dev/hda3 /usr /dev/hdb1 /usr/spool"
+	exit 1
+}
+
+function domount() {
+	if [ ! -b $1 ]; then
+		echo "Error: $1 is not a block device, can not mount on $2";
+		usage;
+		exit 2
+	fi
+#echo -n "Is $1 an Extended FS(2) partition, instead of the default minix? (n/y)"
+#read ans
+#if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	MOUNTTYPE="ext2"
+#else
+#MOUNTTYPE="minix"
+#fi
+	mount -t $MOUNTTYPE $1 $2
+	MNTSTAT=$?;
+	if [ $MNTSTAT != 0 ]; then
+		echo "Error: can not mount $1.  Did you use: mkfs $1 SIZE"
+		echo "where SIZE is the number of blocks shown by fdisk?"
+		exit 1;
+	fi
+}
+
+if [ $# -lt 1 ]; then
+	usage;
+	exit 1
+fi
+ROOTDEVICE=$1
+INSTSRC=
+INSTTYPE=
+INSTMEDIA=
+INSTDEV=/dev/fd0
+
+function mountsource() {
+	case $1 in 
+	harddrive)
+		INSTSRC=/mnt/install
+		echo -n "Enter the partition that the source is on (eg. /dev/hda1):"
+		read hdloc;
+		echo -n "Enter the type of the filesystem (minix/ext2/msdos)";
+		read hdtype;
+		mount -t $hdtype $hdloc /mnt
+	;;
+	cdrom)
+		INSTSRC=/mnt/install
+		echo -n "Is this a Mitsumi CDROM player (y/n)"
+		read ans;
+		if [ "$ans" = "y" -o "$ans" = "Y" ]; then
+			mount -t iso9660 /dev/mcd0 /mnt
+		else
+			echo "Assuming SCSI CDROM"
+			mount -t iso9660 /dev/sr0 /mnt
+		fi
+	;;
+	network)
+		INSTSRC=/mnt/install
+		echo -n "Enter IP address of NFS server:"
+		read ipaddr;
+		echo -n "Enter directory on server where SLS sources are located:"
+		read path;
+		mount -t nfs $ipaddr:$path /mnt || mount -t nfs $ipaddr:$path /mnt
+	;;
+	esac
+	MNTSTAT=$?
+	if [ $MNTSTAT != 0 ]; then
+		echo "error: can not mount source"
+		exit 2;
+	fi
+	if [ -d $INSTSRC/a4 -a -d $INSTSRC/a3 ]; then
+		return
+	else
+		echo "error: SLS distribution files not found in $INSTSRC"
+		usage
+	fi
+}
+
+echo ''
+echo "Welcome to the Slackware Linux installation program (v. 1.01)."   
+while [ 0 ]; do
+	umount /mnt >& /dev/null
+	echo ''
+	echo '    1 - Install from Floppy Disks'
+        echo ' '
+	echo '    2 - Install from Hard Disk'
+	echo '    3 - Install from Tape'
+	echo '    4 - Install from CDROM'
+	echo '    5 - Install from Network (via NFS)'
+	echo ' '
+	echo -n 'Where will you be installing Linux from? '
+	read ans;
+	case $ans in
+		1 ) INSTMEDIA=floppy
+#		while [ 0 ];do 
+#			echo " "
+#			echo '    1)  Drive A: 5 1/4 inch'
+#			echo '    2)  Drive A: 3 1/2 inch'
+#			echo '    3)  Drive B: 5 1/4 inch'
+#			echo '    4)  Drive B: 3 1/2 inch'
+#			echo " "
+#			echo -n "Enter Drive You Will Be Doing The Installation From (1/2/3/4): "
+#			read answer; 
+#			case $answer in
+#				1) INSTDEV=/dev/fd0h1200;;
+#				2) INSTDEV=/dev/fd0H1440;;
+#				3) INSTDEV=/dev/fd1h1200;;
+#				4) INSTDEV=/dev/fd1H1440;;
+#				*) continue;;
+#			esac
+# umount $INSTDEV
+#			break;
+#		done 
+INSTDEV=/dev/fd0H1440
+		;;
+		2 ) INSTMEDIA=harddrive; mountsource harddrive ;;
+		3 ) INSTMEDIA=tape ;;
+		4 ) INSTMEDIA=cdrom; mountsource cdrom ;;
+		5) INSTMEDIA=network; mountsource network ;;
+		*) echo "$ans invalid, pick again"; continue;; 
+	esac
+	break;
+done
+while [ "$INSTMEDIA" != tape ]; do
+echo ' '
+echo '    1 - Install the base Slackware Linux disks (series A)'
+echo '    2 - Install the Slackware series A + Slackware or SLS series X (X11)'
+echo '    3 - Install the Slackware series A + X (X Windows) + T (TeX support)'
+# echo '    3 - Install base system + X11 (70 Meg)'
+# echo '    4 - Install everything (90 Meg)'
+echo " "
+echo -n 'Enter type of install (1 or 2): '
+read ans;
+if [ $ans = 1 ]; then
+	INSTTYPE="mini"
+ 	break;
+elif [ $ans = 2 ]; then
+	INSTTYPE="X11"
+	break;
+elif [ $ans = 3 ]; then
+	INSTTYPE="tex"
+   	break;
+# elif [ $ans = 4 ]; then
+# INSTTYPE="everything"
+# break;
+fi
+done
+umount $ROOTDEVICE >& /dev/null
+domount $ROOTDEVICE /root
+mkdir -p /root/install/installed
+mkdir -p /root/install/disks
+mkdir -p /root/install/scripts
+mkdir -p /root/install/catalog
+echo "$ROOTDEVICE	/		$MOUNTTYPE	defaults" > /root/fstab.tmp
+while [ 0 ]; do
+	if [ "" != "$2" -a "" != "$3" ]; then
+		mkdir -p /root$3
+		domount $2 /root$3
+		echo "$2	$3		$MOUNTTYPE	defaults" >> /root/fstab.tmp
+		shift 2;
+	else
+		break;
+	fi
+done
+if [ -f /root/doinst.sh ]; then
+	sh /root/doinst.sh;
+fi
+#echo -n 'Do you want to be prompted before packages are installed? (y/n): '
+echo ' '
+echo 'SOFTWARE INSTALLATION'
+echo ' '
+echo 'Next, software packages are going to be transfered from the installation'
+echo 'disks on to your hard drive. Some of these packages are required for your'
+echo 'system to work properly. These packages will be labeled [required], and '
+echo 'will be installed automatically.'
+echo ' '
+echo 'Other packages will be labeled [recommended]. Although these are not needed'
+echo 'to run a basic system, they might be used by other packages (like the C '
+echo 'compiler), or are items you may find useful.'
+echo ' '
+echo 'The rest of the packages are considered [optional]. If you have the drive'
+echo 'space for them, you might want to check them out.'
+echo ' '
+#read ans
+#if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	DOPROMPT="-doprompt"
+#fi
+if [ "$INSTSRC" != "" ]; then
+	INSTSRC="-instsrc $INSTSRC"
+fi
+if [ "$INSTMEDIA" = tape ]; then
+	export DOPROMPT
+	tarsh /dev/rmt0 /bin/tapeinstall
+else
+	sysinstall -instdev $INSTDEV $INSTSRC -instroot /root $DOPROMPT -$INSTTYPE
+fi
+mv /root/fstab.tmp /root/etc/fstab
+if [ "$INSTDEV" != "" ]; then
+	if [ $INSTDEV =  /dev/fd1H1440 ]; then
+		INSTDEV=/dev/fd0h1200;
+	elif [ $INSTDEV =  /dev/fd1h1200 ]; then
+		INSTDEV=/dev/fd0H1440;
+	fi
+	echo "FLOPPYA $INSTDEV" >> /root/etc/hwconfig
+fi
+echo "ROOTDEV $ROOTDEVICE" >> /root/etc/hwconfig
+VGAMODE=-3
+if [ "/dev/ram /" = "`rdev`" ]; then
+	echo ' '
+	echo 'BOOT DISK CREATION'
+        echo ' '
+	echo 'Now put a formatted floppy in your boot drive.'
+        echo 'This will be made into your Linux boot disk. Use this to'
+        echo 'boot Linux until LILO has been configured to boot from'
+        echo 'the hard drive.'
+        echo ' '
+        echo 'Any data on the target disk will be destroyed.'
+        echo -n 'Insert the disk and press <return> :'
+	read ans;
+# Use Image or zImage, whichever got installed:
+if [ -s /root/Image ]; then
+	dd if=/root/Image of=$INSTDEV
+else
+	dd if=/root/zImage of=$INSTDEV
+fi
+	rdev $INSTDEV $ROOTDEVICE
+# echo -n "Do you wish to have the video mode preset at boot time? (y/n): "
+# read ans;
+# if [ "$ans" = "y" ]; then
+# echo -n "Enter the mode (-1 for 80x25 mode, or the key 1, 2, 3, ...): "
+# read VGAMODE;
+# rdev -v $INSTDEV $VGAMODE
+        rdev -v $INSTDEV -1
+# fi
+	sync
+fi
+echo "VGAMODE $VGAMODE" >> /root/etc/hwconfig
+if [ -x /root/etc/syssetup ]; then
+	(cd /root; etc/syssetup -instroot /root -install )
+fi
+sync
+echo ' '
+echo 'Installation is complete. '
+echo ' '
+echo 'You may now reboot your computer by pressing control, alt, and the delete'
+echo 'key on the numeric keypad. If you installed LILO, remove the boot disk from'
+echo 'your computer before rebooting. '
+echo ' '

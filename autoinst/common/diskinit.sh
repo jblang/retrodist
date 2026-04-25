@@ -1,6 +1,6 @@
 echo "### Creating partitions..."
-for FDFILE in $INSTMOUNT/autoinst.d/fdisk.*; do
-    FDDEV=$(echo $FDFILE | sed "s,$INSTMOUNT/autoinst\.d/fdisk\.,,g")
+for FDFILE in $SOURCEMOUNT/autoinst.d/fdisk.*; do
+    FDDEV=$(echo $FDFILE | sed "s,$SOURCEMOUNT/autoinst\.d/fdisk\.,,g")
     fdisk /dev/$FDDEV < $FDFILE > /dev/null
 done
 fdisk -l
@@ -15,11 +15,11 @@ case $ROOTFS in
     * )     echo "Unknown filesystem $ROOTFS"; exit 1;;
 esac
 
-mount -t $ROOTFS $ROOTDEV $ROOTMOUNT
-mkdir -p $ROOTMOUNT/tmp
+mount -t $ROOTFS $ROOTDEV $TARGETMOUNT
+mkdir -p $TARGETMOUNT/tmp
 
 echo "### Creating fstab..."
-cat > $ROOTMOUNT/fstab.tmp <<EOF
+cat > $TARGETMOUNT/fstab.tmp <<EOF
 $ROOTDEV		/		$ROOTFS	defaults	0	1
 $SWAPDEV		none		swap		sw		0	0
 none			/proc		proc		defaults	0	0

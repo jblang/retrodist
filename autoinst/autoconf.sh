@@ -3,19 +3,19 @@
 echo "### Beginning automatic configuration..."
 PATH=$PATH:/usr/bin:/bin:/sbin:/usr/sbin
 SCRIPTNAME=$(cd $(dirname $0) && pwd)/$(basename $0)
-INSTMOUNT=/mnt
+SOURCEMOUNT=/mnt
 
-mount -t msdos /dev/hdb1 $INSTMOUNT
+mount -t msdos /dev/hdb1 $SOURCEMOUNT
 
 # make sure an install scripts directory exists
-if [ ! -d "$INSTMOUNT/autoinst.d" ]; then
+if [ ! -d "$SOURCEMOUNT/autoinst.d" ]; then
     echo "No autoinst.d directory found; aborting."
     exit 1
 fi
 
 # run the install scripts
-. $INSTMOUNT/autoinst.d/config.sh
-for CONFSTEP in $INSTMOUNT/autoinst.d/confstep/[0-9]*.sh; do
+. $SOURCEMOUNT/autoinst.d/config.sh
+for CONFSTEP in $SOURCEMOUNT/autoinst.d/confstep/[0-9]*.sh; do
     . "$CONFSTEP"
 done
 

@@ -7,4 +7,4 @@ DEBIAN_INSTALL_DRIVERS=1
 DEBIAN_CONFIGURE_MODULES=1
 DEBIAN_GUARD_ETH0=1
 
-. "$INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh"
+. "$SOURCEMOUNT/autoinst.d/debian/baseinst/dinstall.sh"

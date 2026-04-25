@@ -2,6 +2,9 @@ echo '### Configuring networking...'
 
 ETCPATH=/etc
 RCPATH=$ETCPATH/rc.d
+if [ -z "$NETDEV" ]; then
+    NETDEV=eth0
+fi
 
 # standard network configuration
 if [ -f "$RCPATH/rc.inet1" ]; then
@@ -25,6 +28,20 @@ if [ -f "$RCPATH/rc.inet1" ]; then
 
     # if commands found, configure networking
     if [ -x "$IFCONFIG" ] && [ -x "$ROUTE" ]; then
+        HAVE_NETDEV=
+        if [ -r "/proc/net/dev" ]; then
+            fgrep "$NETDEV:" /proc/net/dev >/dev/null 2>&1
+            if [ $? = 0 ]; then
+                HAVE_NETDEV=yes
+            fi
+        fi
+        if [ -z "$HAVE_NETDEV" ]; then
+            $IFCONFIG -a 2>/dev/null | fgrep "$NETDEV" >/dev/null 2>&1
+            if [ $? = 0 ]; then
+                HAVE_NETDEV=yes
+            fi
+        fi
+
         # rc.inet1
         cp $RCPATH/rc.inet1 $RCPATH/rc.inet1.orig
         echo "#!/bin/sh" > $RCPATH/rc.inet1
@@ -35,33 +52,41 @@ if [ -f "$RCPATH/rc.inet1" ]; then
         fi
         echo "$IFCONFIG lo 127.0.0.1" >> $RCPATH/rc.inet1
         echo "$ROUTE add 127.0.0.1" >> $RCPATH/rc.inet1
-        echo "$IFCONFIG eth0 $IPADDR broadcast $BROADCAST netmask $NETMASK" >> $RCPATH/rc.inet1
-        # for reasons I don't understand debian and slackware 
-        # require these routes to be set up slightly differently
-        if [ "$ORIG_HOSTNAME" = "debra.debian.org" ]; then
-            # debian
-            echo "$ROUTE add $IPADDR" >> $RCPATH/rc.inet1
-            echo "$ROUTE add $NETWORK" >> $RCPATH/rc.inet1
-        else
-            # slackware
-            echo "$ROUTE -n add $NETWORK" >> $RCPATH/rc.inet1
+        if [ -n "$HAVE_NETDEV" ]; then
+            echo "$IFCONFIG $NETDEV $IPADDR broadcast $BROADCAST netmask $NETMASK" >> $RCPATH/rc.inet1
+            # for reasons I don't understand debian and slackware 
+            # require these routes to be set up slightly differently
+            if [ "$ORIG_HOSTNAME" = "debra.debian.org" ]; then
+                # debian
+                echo "$ROUTE add $IPADDR" >> $RCPATH/rc.inet1
+                echo "$ROUTE add $NETWORK" >> $RCPATH/rc.inet1
+            else
+                # slackware
+                echo "$ROUTE -n add $NETWORK" >> $RCPATH/rc.inet1
+            fi
+            echo "$ROUTE add default gw $GATEWAY metric 1" >> $RCPATH/rc.inet1
         fi
-        echo "$ROUTE add default gw $GATEWAY metric 1" >> $RCPATH/rc.inet1
 
         # hosts
         cp $ETCPATH/hosts $ETCPATH/hosts.orig
         echo "127.0.0.1   localhost" > $ETCPATH/hosts
-        echo "$IPADDR     $HOSTNAME.$DOMAINNAME $HOSTNAME" >> $ETCPATH/hosts
+        if [ -n "$HAVE_NETDEV" ]; then
+            echo "$IPADDR     $HOSTNAME.$DOMAINNAME $HOSTNAME" >> $ETCPATH/hosts
+        fi
 
         # resolv.conf
         cp $ETCPATH/resolv.conf $ETCPATH/resolv.conf.orig
-        echo "domain $DOMAINNAME" > $ETCPATH/resolv.conf
-        if [ -n "$NAMESERVER" ]; then
-            echo "nameserver $NAMESERVER" >> $ETCPATH/resolv.conf
+        if [ -n "$HAVE_NETDEV" ]; then
+            echo "domain $DOMAINNAME" > $ETCPATH/resolv.conf
+            if [ -n "$NAMESERVER" ]; then
+                echo "nameserver $NAMESERVER" >> $ETCPATH/resolv.conf
+            fi
+        else
+            : > $ETCPATH/resolv.conf
         fi
 
         # networks
-        if [ "$ORIG_HOSTNAME" = "debra.debian.org" ]; then
+        if [ "$ORIG_HOSTNAME" = "debra.debian.org" -a -n "$HAVE_NETDEV" ]; then
             # again, for reasons I don't understand debian requires
             # localnet but slackware refuses to work if it is there
             cp $ETCPATH/networks $ETCPATH/networks.orig

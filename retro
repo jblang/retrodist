@@ -106,7 +106,7 @@ autoinst_prep() {
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
   cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/"
   cp "$CONFDIR/config.sh" "$AUTOINSTD/"
-  for SUBDIR in common debian slackware; do
+  for SUBDIR in common debian slakware; do
     if [[ -d $AUTOBASE/$SUBDIR ]]; then
       rm -rf "$AUTOINSTD/$SUBDIR"
       copy_autoinst_tree "$SUBDIR"
@@ -350,6 +350,7 @@ retro_boot() {
   QEMU_HD_SIZE="500M"
   QEMU_HD_FORMAT="qcow2"
   QEMU_NET_DEVICE="ne2k_isa"
+  QEMU_ATTACH_ROOT_FDB="1"
   QEMU_INTERNET="" # disabled
   QEMU_RETRONET="
     -netdev socket,id=retronet,connect=:1234
@@ -367,10 +368,16 @@ retro_boot() {
   pushd $QEMUDIR > /dev/null
 
   # link installation files
+  if [[ -f $EXTRACTDIR/boot.img && ! -e boot.img ]]; then
+    ln -s $EXTRACTDIR/boot.img boot.img
+  fi
+  if [[ -f $EXTRACTDIR/root.img && ! -e root.img ]]; then
+    ln -s $EXTRACTDIR/root.img root.img
+  fi
   if [[ -f $EXTRACTDIR/boot.img && ! -f fda.img ]]; then
     ln -s $EXTRACTDIR/boot.img fda.img
   fi
-  if [[ -f $EXTRACTDIR/root.img && ! -f fdb.img ]]; then
+  if [[ -f $EXTRACTDIR/root.img && $QEMU_ATTACH_ROOT_FDB == "1" && ! -f fdb.img ]]; then
     ln -s $EXTRACTDIR/root.img fdb.img
   fi
   if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then

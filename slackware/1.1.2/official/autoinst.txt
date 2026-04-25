@@ -1,2 +1,2 @@
 common/diskinit.sh
-slackware/pkgtool.sh
+slakware/pkginst/111.sh

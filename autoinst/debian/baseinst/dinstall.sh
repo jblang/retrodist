@@ -1,4 +1,4 @@
-. "$INSTMOUNT/autoinst.d/debian/baseinst/shared.sh"
+. "$SOURCEMOUNT/autoinst.d/debian/baseinst/shared.sh"
 
 extract_base_system
 
