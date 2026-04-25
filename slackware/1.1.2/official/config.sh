@@ -12,8 +12,10 @@ ROOTFS=ext2
 # D   - Program Development (C, C++, Kernel source, Lisp, Perl, etc.)
 # E   - GNU Emacs
 # F   - FAQ lists
+# I   - Info pages.
 # IV  - Interviews: libraries, include files, Doc and Idraw apps for X
 # N   - Networking (TCP/IP, UUCP, Mail)
+# T   - TeX
 # TCL - Tcl/Tk/TclX, Tcl language, and Tk toolkit for developing X apps
 # OI  - ObjectBuilder for X
 # OOP - Object Oriented Programming (GNU Smalltalk 1.1.1)
@@ -22,7 +24,7 @@ ROOTFS=ext2
 # XD  - XFree-86 2.0 X Windows program/server development system
 # XV  - XView 3.2 release 5. (OpenLook [virtual] Window Manager, apps)
 # Y   - Games (that do not require X)
-SETS="a ap d e f iv n tcl oi oop x xap xd xv y"
+SETS="a ap d e f i iv n t tcl oi oop x xap xd xv y"
 
 # time zone
 TIMEZONE="US/Central"

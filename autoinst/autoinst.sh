@@ -16,10 +16,6 @@ else
     echo "Unsupported installer layout; aborting."
     exit 1
 fi
-mkdir -p $INSTMOUNT
-
-# mount the install source
-mount -t msdos /dev/hdb1 $INSTMOUNT
 
 # make sure an install scripts directory exists
 if [ ! -d "$INSTMOUNT/autoinst.d" ]; then

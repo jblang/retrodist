@@ -32,7 +32,7 @@ If a distro supports automated installation and/or configuration, it should:
 
 - The `config.sh` script and all the scripts specified by `autoinst.txt ` and `autoconf.txt` are copied to the installation media and sourced by the main script prior to running the individual steps.
 
-- Helper trees such as `common/`, `debian/`, and `slackware/` are copied recursively into `autoinst.d` rather than symlinked. This matters for old installers that see the staged disk through a DOS-backed filesystem export.
+- Helper trees such as `common/`, `debian/`, and `slakware/` are copied recursively into `autoinst.d` rather than symlinked. This matters for old installers that see the staged disk through a DOS-backed filesystem export.
 
 - Some older installers mount the staged disk as plain `msdos`, so helper filenames and directory layout need to remain DOS-friendly.
 

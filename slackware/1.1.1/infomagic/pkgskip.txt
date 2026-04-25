@@ -1,0 +1,2 @@
+# Packages to mark SKP in generated Slackware tagfiles.
+scsikern

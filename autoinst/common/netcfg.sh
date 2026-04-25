@@ -79,3 +79,10 @@ elif [ -f "$ETCPATH/rc.net" ]; then
     sed "s/.*router$/$GATEWAY	router/" $ETCPATH/hosts > $ETCPATH/hosts.1
     mv $ETCPATH/hosts.1 $ETCPATH/hosts
 fi
+
+# enable the NE2000 driver on versions of slackware with loadable modules
+if [ -f "$RCPATH/rc.modules" ]; then
+    cp "$RCPATH/rc.modules" "$RCPATH/rc.modules.orig"
+    sed 's|^#/sbin/modprobe ne io=0xNNN$|/sbin/modprobe ne io=0x300|' \
+        "$RCPATH/rc.modules.orig" > "$RCPATH/rc.modules"
+fi

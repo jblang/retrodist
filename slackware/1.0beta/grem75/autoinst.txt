@@ -1,2 +1,2 @@
 common/diskinit.sh
-slackware/sysinstall.sh
+slakware/sysinst/default.sh

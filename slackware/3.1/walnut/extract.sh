@@ -1,8 +1,11 @@
 7z x $ORIGDIR/disc1.iso . \
+    slakware \
     bootdsks.144/bare.i \
-    rootdsks/color.gz > /dev/null
+    rootdsks/text.gz > /dev/null
+mv slakware install
 mv bootdsks.144/bare.i boot.img
+truncate -s1440k boot.img
 rmdir bootdsks.144
-mv rootdsks/color.gz root.img
+mv rootdsks/text.gz root.img
 rmdir rootdsks
-truncate -s 1440k boot.img root.img
+autoinst_prep 2G

@@ -83,6 +83,72 @@ copy_autoinst_tree() {
   done
 }
 
+slackware_build_tagfiles() {
+  find install -mindepth 1 -maxdepth 1 -type d | while read -r SERIESDIR; do
+    basename "$SERIESDIR" | sed 's/[0-9][0-9]*$//'
+  done | sort -u | while read -r SERIES; do
+    if [[ -z "$SERIES" ]]; then
+      continue
+    fi
+    local FIRSTDIR
+    local SERIESPKG=$TEMPDIR/$SERIES.pkgs
+    FIRSTDIR=$(find install -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | sort | head -n 1)
+    if [[ -z "$FIRSTDIR" ]]; then
+      continue
+    fi
+    find install -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | while read -r SERIESDIR; do
+      find "$SERIESDIR" -maxdepth 1 -type f -name '*.tgz'
+    done | while read -r TGZ; do
+      basename "$TGZ" .tgz
+    done | sort -u > "$SERIESPKG"
+    cat "$SERIESPKG" | while read -r PKG; do
+      if [[ -n "$PKG" ]]; then
+        printf "%s:     ADD\n" "$PKG"
+      fi
+    done > "$FIRSTDIR/tagfile"
+    cp "$FIRSTDIR/tagfile" "$FIRSTDIR/tagfile.new"
+  done
+}
+
+slackware_set_tagfile_package() {
+  local PKG=$1
+  local STATE=$2
+  find install \( -name tagfile -o -name 'tagfile.new' \) -type f | while read -r TAGFILE; do
+    if grep -q "^$PKG:" "$TAGFILE"; then
+      sed -i '' -E "s/^($PKG:)[[:space:]]*(ADD|REC|OPT|SKP)$/\\1     $STATE/" "$TAGFILE"
+    fi
+  done
+}
+
+slackware_apply_pkgskip() {
+  local PKGSKIP=$CONFDIR/pkgskip.txt
+  if [[ ! -f "$PKGSKIP" ]]; then
+    return
+  fi
+  cat_newline "$PKGSKIP" | while read -r PKG _; do
+    case "$PKG" in
+      "" | \#*) continue ;;
+    esac
+    slackware_set_tagfile_package "$PKG" SKP
+  done
+}
+
+slackware_prepare_tagfiles() {
+  if ! find install -mindepth 2 -maxdepth 2 -type f -name '*.tgz' | grep -q .; then
+    return
+  fi
+
+  slackware_build_tagfiles
+
+  for PKG in idekern idenet x_svga x311svga; do
+    slackware_set_tagfile_package "$PKG" ADD
+  done
+
+  slackware_apply_pkgskip
+
+  sync
+}
+
 # patches boot or root disk with autoinst.sh
 autoinst_patch() {
   retro_extract
@@ -106,7 +172,7 @@ autoinst_prep() {
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
   cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/"
   cp "$CONFDIR/config.sh" "$AUTOINSTD/"
-  for SUBDIR in common debian slackware; do
+  for SUBDIR in common debian slakware; do
     if [[ -d $AUTOBASE/$SUBDIR ]]; then
       rm -rf "$AUTOINSTD/$SUBDIR"
       copy_autoinst_tree "$SUBDIR"
@@ -119,6 +185,7 @@ autoinst_prep() {
     link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
   fi
   fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
+  slackware_prepare_tagfiles
 }
 
 # download URLs to the specified filenames contained in file $1 
@@ -350,6 +417,9 @@ retro_boot() {
   QEMU_HD_SIZE="500M"
   QEMU_HD_FORMAT="qcow2"
   QEMU_NET_DEVICE="ne2k_isa"
+  QEMU_ATTACH_ROOT_FDB="0"
+  QEMU_FDTYPE_A="144"
+  QEMU_FDTYPE_B="144"
   QEMU_INTERNET="" # disabled
   QEMU_RETRONET="
     -netdev socket,id=retronet,connect=:1234
@@ -367,10 +437,16 @@ retro_boot() {
   pushd $QEMUDIR > /dev/null
 
   # link installation files
+  if [[ -f $EXTRACTDIR/boot.img && ! -e boot.img ]]; then
+    ln -s $EXTRACTDIR/boot.img boot.img
+  fi
+  if [[ -f $EXTRACTDIR/root.img && ! -e root.img ]]; then
+    ln -s $EXTRACTDIR/root.img root.img
+  fi
   if [[ -f $EXTRACTDIR/boot.img && ! -f fda.img ]]; then
     ln -s $EXTRACTDIR/boot.img fda.img
   fi
-  if [[ -f $EXTRACTDIR/root.img && ! -f fdb.img ]]; then
+  if [[ -f $EXTRACTDIR/root.img && $QEMU_ATTACH_ROOT_FDB == "1" && ! -f fdb.img ]]; then
     ln -s $EXTRACTDIR/root.img fdb.img
   fi
   if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
@@ -417,6 +493,14 @@ retro_boot() {
     fi
   done
 
+  QEMU_GLOBALS=""
+  if [[ -n "$QEMU_FDTYPE_A" ]]; then
+    QEMU_GLOBALS="$QEMU_GLOBALS -global isa-fdc.fdtypeA=$QEMU_FDTYPE_A"
+  fi
+  if [[ -n "$QEMU_FDTYPE_B" ]]; then
+    QEMU_GLOBALS="$QEMU_GLOBALS -global isa-fdc.fdtypeB=$QEMU_FDTYPE_B"
+  fi
+
   # Run QEMU
   QEMU_COMMAND="
     $QEMU_SYSTEM 
@@ -426,6 +510,7 @@ retro_boot() {
       -serial mon:stdio
       $QEMU_INTERNET
       $QEMU_RETRONET
+      $QEMU_GLOBALS
       $QEMU_DRIVES
       $QEMU_EXTRA
       $@"
