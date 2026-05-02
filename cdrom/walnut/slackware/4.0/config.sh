@@ -1,0 +1,6 @@
+# Download configuration for this CD-ROM helper tree
+DOWNLOAD_LIST="disc1.iso https://archive.org/download/Slackware_Linux_4.0_Walnut_Creek_June_1999/Slackware%20Linux%204.0%20%28Walnut%20Creek%29%20%28June%201999%29%20%28Disc%201%29.iso
+disc2.iso https://archive.org/download/Slackware_Linux_4.0_Walnut_Creek_June_1999/Slackware%20Linux%204.0%20%28Walnut%20Creek%29%20%28June%201999%29%20%28Disc%202%29.iso
+disc3.iso https://archive.org/download/Slackware_Linux_4.0_Walnut_Creek_June_1999/Slackware%20Linux%204.0%20%28Walnut%20Creek%29%20%28June%201999%29%20%28Disc%203%29.iso
+disc4.iso https://archive.org/download/Slackware_Linux_4.0_Walnut_Creek_June_1999/Slackware%20Linux%204.0%20%28Walnut%20Creek%29%20%28June%201999%29%20%28Disc%204%29.iso
+"

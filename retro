@@ -74,12 +74,36 @@ link_autoinst() {
   done
 }
 
+# link the autoinst files listed in shell variable content to directory $1
+link_autoinst_var() {
+  local DEST=$1
+  local CONTENT=$2
+  local TMPFILE
+
+  TMPFILE=$(mktemp)
+  printf '%s\n' "$CONTENT" > "$TMPFILE"
+  link_autoinst "$TMPFILE" "$DEST"
+  rm -f "$TMPFILE"
+}
+
 copy_autoinst_tree() {
   local SUBDIR=$1
   find "$AUTOBASE/$SUBDIR" -type f | while read -r SRC; do
     local REL=${SRC#"$AUTOBASE"/}
     mkdir -p "$AUTOINSTD/$(dirname "$REL")"
     cp "$SRC" "$AUTOINSTD/$REL"
+  done
+}
+
+lowercase_tree() {
+  local DEST=$1
+  find "$DEST" -depth | while read -r PATHNAME; do
+    local BASE LOWER
+    BASE=$(basename "$PATHNAME")
+    LOWER=$(printf '%s' "$BASE" | tr A-Z a-z)
+    if [[ "$BASE" != "$LOWER" ]]; then
+      mv "$PATHNAME" "$(dirname "$PATHNAME")/$LOWER"
+    fi
   done
 }
 
@@ -121,11 +145,10 @@ slackware_set_tagfile_package() {
 }
 
 slackware_apply_pkgskip() {
-  local PKGSKIP=$CONFDIR/pkgskip.txt
-  if [[ ! -f "$PKGSKIP" ]]; then
+  if [[ -z "${SKP_PACKAGES:-}" ]]; then
     return
   fi
-  cat_newline "$PKGSKIP" | while read -r PKG _; do
+  printf '%s\n' "$SKP_PACKAGES" | while read -r PKG _; do
     case "$PKG" in
       "" | \#*) continue ;;
     esac
@@ -178,12 +201,8 @@ autoinst_prep() {
       copy_autoinst_tree "$SUBDIR"
     fi
   done
-  if [[ -f $CONFDIR/autoinst.txt ]]; then
-    link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
-  fi
-  if [[ -f $CONFDIR/autoconf.txt ]]; then
-    link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
-  fi
+  link_autoinst_var "$AUTOINSTD/inststep" "$AUTOINST_STEPS"
+  link_autoinst_var "$AUTOINSTD/confstep" "$AUTOCONF_STEPS"
   fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
   slackware_prepare_tagfiles
 }
@@ -205,6 +224,17 @@ download_list() {
       fi
     fi
   done
+}
+
+download_list_var() {
+  local CONTENT=$1
+  local DEST=$2
+  local TMPFILE
+
+  TMPFILE=$(mktemp)
+  printf '%s\n' "$CONTENT" > "$TMPFILE"
+  download_list "$TMPFILE" "$DEST"
+  rm -f "$TMPFILE"
 }
 
 # download the named files from URL base $1 into directory $2
@@ -320,35 +350,60 @@ download_debian() {
   download_directories "$RELURL" "$RELBASE" $DIRS
 }
 
+qemu_defaults() {
+  QEMU_SYSTEM="${QEMU_SYSTEM:-qemu-system-i386}"
+  QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+  QEMU_SMP="${QEMU_SMP:-1}"
+  QEMU_RAM="${QEMU_RAM:-16M}"
+  QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
+  QEMU_HD_FORMAT="${QEMU_HD_FORMAT:-qcow2}"
+  QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+  QEMU_ATTACH_ROOT_FDB="${QEMU_ATTACH_ROOT_FDB:-0}"
+  QEMU_FDTYPE_A="${QEMU_FDTYPE_A:-144}"
+  QEMU_FDTYPE_B="${QEMU_FDTYPE_B:-144}"
+  QEMU_VGA="${QEMU_VGA:-}"
+  QEMU_INTERNET="${QEMU_INTERNET:-}"
+  QEMU_EXTRA="${QEMU_EXTRA:-}"
+}
+
 # download files for the distro $1 to directory $2
 download_all() {
+  local CDROM_SOURCE=""
+  local DOWNLOAD_LIST=""
+  local SLACKMIRROR_VERSION=""
+  local DEBMIRROR_RELEASE=""
+  local CDROM
+  local CDROMDIR
+  local CDROMDOWNLOAD
+  local FILE
+
   mkdir -p "$2"
-  if [[ -f $1/cdrom.txt ]]; then
-    CDROM=$(cat $1/cdrom.txt)
-    CDROMDIR=$(cd "$SCRIPTDIR/cdrom/$CDROM" && pwd)
+  if [[ -f "$1/config.sh" ]]; then
+    source "$1/config.sh"
+  fi
+  if [[ -n "${CDROM_SOURCE:-}" ]]; then
+    CDROM="$CDROM_SOURCE"
+    if ! CDROMDIR=$(cd "$SCRIPTDIR/cdrom/$CDROM" && pwd); then
+      echo "CD-ROM helper tree not found: $SCRIPTDIR/cdrom/$CDROM" >&2
+      return 1
+    fi
     CDROMDOWNLOAD=$CDROMDIR/.download
     download_all "$CDROMDIR" "$CDROMDOWNLOAD"
     for FILE in "$CDROMDOWNLOAD"/*; do
+      if [[ -d "$FILE" && ! -L "$FILE" ]]; then
+        continue
+      fi
       if [[ -e "$FILE" ]]; then
-        ln -sf "$FILE" "$2"
+        ln -sf "$FILE" "$2/$(basename "$FILE")"
       fi
     done
   fi
-  if [[ -f "$1/download.txt" ]]; then
-    download_list "$1/download.txt" "$2"
+  download_list_var "$DOWNLOAD_LIST" "$2"
+  if [[ -n "${SLACKMIRROR_VERSION:-}" ]]; then
+    (cd "$2"; download_slackware "$SLACKMIRROR_VERSION")
   fi
-  if [[ -f "$1/slackmirror.txt" ]]; then
-    VER="$(cat "$1/slackmirror.txt")"
-    (cd "$2"; download_slackware "$VER")
-  fi
-  if [[ -f "$1/debmirror.txt" ]]; then
-    REL="$(cat "$1/debmirror.txt")"
-    (cd "$2"; download_debian "$REL")
-  fi
-  if [[ -f "$1/download.sh" ]]; then
-    pushd "$2" > /dev/null
-    source "$1/download.sh"
-    popd > /dev/null
+  if [[ -n "${DEBMIRROR_RELEASE:-}" ]]; then
+    (cd "$2"; download_debian "$DEBMIRROR_RELEASE")
   fi
 }
 
@@ -387,18 +442,54 @@ mount_copy() {
   sudo umount /mnt
 }
 
+generic_extract() {
+  if [[ -n "${EXTRACT_MEDIA:-}" ]]; then
+    if [[ -n "${EXTRACT_INSTALL_PATH:-}" ]]; then
+      7z x "$ORIGDIR/$EXTRACT_MEDIA" "$EXTRACT_INSTALL_PATH/*" > /dev/null
+      mv "$EXTRACT_INSTALL_PATH" install
+    fi
+    if [[ -n "${EXTRACT_BOOT_PATH:-}" ]]; then
+      7z e "$ORIGDIR/$EXTRACT_MEDIA" "$EXTRACT_BOOT_PATH" > /dev/null
+      mv "$(basename "$EXTRACT_BOOT_PATH")" boot.img
+    fi
+    if [[ -n "${EXTRACT_ROOT_PATH:-}" ]]; then
+      7z e "$ORIGDIR/$EXTRACT_MEDIA" "$EXTRACT_ROOT_PATH" > /dev/null
+      mv "$(basename "$EXTRACT_ROOT_PATH")" root.img
+    fi
+  elif [[ -n "${EXTRACT_INSTALL_SOURCE:-}" ]]; then
+    cp -lR "$EXTRACT_INSTALL_SOURCE" install
+    if [[ -n "${EXTRACT_BOOT_PATH:-}" ]]; then
+      cp "$EXTRACT_BOOT_PATH" boot.img
+    fi
+    if [[ -n "${EXTRACT_ROOT_PATH:-}" ]]; then
+      cp "$EXTRACT_ROOT_PATH" root.img
+    fi
+  else
+    echo "Nothing to extract"
+    return 1
+  fi
+
+  if [[ -n "${EXTRACT_BOOT_TRUNCATE:-}" && -f boot.img ]]; then
+    truncate -s"$EXTRACT_BOOT_TRUNCATE" boot.img
+  fi
+
+  if [[ -n "${AUTOINST_DISK_SIZE:-}" ]]; then
+    autoinst_prep "$AUTOINST_DISK_SIZE"
+  fi
+}
+
 # extract installation files for the selected distro
 retro_extract() {
   if [[ ! -d $EXTRACTDIR ]]; then
     retro_download
-    if [[ -f "$CONFDIR/extract.sh" ]]; then
-      mkdir -p $EXTRACTDIR
-      pushd $EXTRACTDIR > /dev/null
-      source "$CONFDIR/extract.sh"
-      popd > /dev/null
+    mkdir -p $EXTRACTDIR
+    pushd $EXTRACTDIR > /dev/null
+    if declare -F custom_extract > /dev/null; then
+      custom_extract
     else
-      echo "Nothing to extract"
+      generic_extract
     fi
+    popd > /dev/null
   else
     echo "Using extracted files"
   fi
@@ -409,29 +500,8 @@ retro_boot() {
   retro_extract
   mkdir -p $QEMUDIR
 
-  # default configuration
-  QEMU_SYSTEM="qemu-system-i386"
-  QEMU_MACHINE="type=isapc"
-  QEMU_SMP="1"
-  QEMU_RAM="16M"
-  QEMU_HD_SIZE="500M"
-  QEMU_HD_FORMAT="qcow2"
-  QEMU_NET_DEVICE="ne2k_isa"
-  QEMU_ATTACH_ROOT_FDB="0"
-  QEMU_FDTYPE_A="144"
-  QEMU_FDTYPE_B="144"
-  QEMU_INTERNET="" # disabled
-  QEMU_RETRONET="
-    -netdev socket,id=retronet,connect=:1234
-    -device $QEMU_NET_DEVICE,netdev=retronet"
-  QEMU_EXTRA=""
   if [[ $COMMAND == "floppy" ]]; then
     QEMU_EXTRA="$QEMU_EXTRA -boot order=a"
-  fi
-
-  # Allow overriding default configuration
-  if [[ -f $CONFDIR/qemu.sh ]]; then
-    source $CONFDIR/qemu.sh
   fi
 
   pushd $QEMUDIR > /dev/null
@@ -501,6 +571,10 @@ retro_boot() {
     QEMU_GLOBALS="$QEMU_GLOBALS -global isa-fdc.fdtypeB=$QEMU_FDTYPE_B"
   fi
 
+  QEMU_RETRONET="${QEMU_RETRONET:-
+    -netdev socket,id=retronet,connect=:1234
+    -device $QEMU_NET_DEVICE,netdev=retronet}"
+
   # Run QEMU
   QEMU_COMMAND="
     $QEMU_SYSTEM 
@@ -508,6 +582,7 @@ retro_boot() {
       -smp $QEMU_SMP
       -m $QEMU_RAM
       -serial mon:stdio
+      ${QEMU_VGA:+-vga $QEMU_VGA}
       $QEMU_INTERNET
       $QEMU_RETRONET
       $QEMU_GLOBALS
@@ -527,7 +602,6 @@ retro_boot() {
 
 # generate bat file for running QEMU on windows
 retro_package() {
-  echo $@
   if [[ $# -ge 1 && $1 == "--hda" ]]; then
     FILES="hda.img retro.bat retro.sh"
     shift
@@ -543,8 +617,11 @@ retro_package() {
   echo $QEMU_COMMAND >> "$QEMUDIR/retro.sh"
   chmod +x "$QEMUDIR/retro.sh"
   TARNAME=$(echo $CONFNAME | tr / -)
-  (cd $QEMUDIR; tar cvfz ../$TARNAME.tar.gz $FILES --dereference --transform "s|^|$TARNAME/|")
-  ls -lh $TARNAME.tar.gz
+  rm -rf "$TEMPDIR/$TARNAME"
+  mkdir -p "$TEMPDIR/$TARNAME"
+  (cd $QEMUDIR; cp -R -L $FILES "$TEMPDIR/$TARNAME/")
+  tar cvfz "$CONFDIR/$TARNAME.tar.gz" -C "$TEMPDIR" "$TARNAME"
+  ls -lh "$CONFDIR/$TARNAME.tar.gz"
 }
 
 retro_reset() {
@@ -619,6 +696,11 @@ SLACKBASE=$ORIGDIR
 DEBIANBASE=$ORIGDIR
 EXTRACTDIR=$CONFDIR/.extract
 QEMUDIR=$CONFDIR/.qemu
+
+qemu_defaults
+if [[ -f "$CONFDIR/config.sh" ]]; then
+  source "$CONFDIR/config.sh"
+fi
 
 # output configuration details
 cat <<EOF

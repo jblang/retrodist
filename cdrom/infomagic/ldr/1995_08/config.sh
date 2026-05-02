@@ -1,0 +1,6 @@
+# Download configuration for this CD-ROM helper tree
+DOWNLOAD_LIST="disc1.iso https://archive.org/download/LDR08951/LDR_0895_1.iso
+disc2.iso https://archive.org/download/LDR08952/LDR_0895_2.iso
+disc3.iso https://archive.org/download/LDR08953/LDR_0895_3.iso
+disc4.iso https://archive.org/download/LDR08954/LDR_0895_4.iso
+"

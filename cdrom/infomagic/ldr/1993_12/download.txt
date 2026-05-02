@@ -1,1 +1,0 @@
-disc1.iso https://archive.org/download/cdrom-infomagiclinuxcdromdecember1993/infomagiclinuxcdromdecember1993.iso

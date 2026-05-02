@@ -1,1 +1,0 @@
-slackware.zip https://archive.org/compress/slackware-101/formats=ZIP&file=/slackware-101.zip

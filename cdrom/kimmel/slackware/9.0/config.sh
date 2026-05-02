@@ -1,0 +1,6 @@
+# Download configuration for this CD-ROM helper tree
+DOWNLOAD_LIST="disc1.iso https://archive.org/download/slackware-9.0_release/slackware-9.0-install.iso
+disc2.iso https://archive.org/download/slackware-9.0_release/slackware-9.0-disk2of4.iso
+disc3.iso https://archive.org/download/slackware-9.0_release/slackware-9.0-disk3of4.iso
+disc4.iso https://archive.org/download/slackware-9.0_release/slackware-9.0-disk4of4.iso
+"
