@@ -1,0 +1,523 @@
+
+Wed Feb 16 19:29:08 PST 1994
+
+I managed to put the wrong tty12.gz up... I hope you 5.25" users will be 
+patient with me. I've replaced it with a copy I believe works. I'm doing some
+tests on it right now to double check.
+
+Wed Feb 16 14:09:36 PST 1994
+
+I've replaced hdsetup.tgz, color144.gz, and root144.gz. This fixes a bug
+where the gateway address for NFS install is not configured. If you do not
+use NFS installation, these fixes won't affect you.
+
+Tue Feb 15 12:12:53 PST 1994
+
+This is the promised big upgrade that fixes most of the reported problems
+with the new version of Slackware. Note that there is no longer a color12
+disk - there wasn't enough room. I may eliminate some of the features and
+bring it back in the future. For instance, it would be easy to make a color12
+without international keyboard support. (I know that wouldn't make everyone
+happy, but...) Another option is to make some more bootdisks that allow you
+to boot a 3.5" disk in the second floppy drive. Again, not everyone has a 
+1.44MB drive. But, rest assured that I'll do what I can.
+
+Anyway, these are the files that comprise the latest upgrade. If you downloaded
+soon after the initial 1.1.2 release, you should check the filesizes of your 
+other disks as well and upgrade anything that needs it. (Including the disk??
+maketag, and other seemingly insignificant files)
+
+NEW FEATURE: Support for the UMSDOS filesystem. That's right - if you have 8
+megabytes or more of RAM, you can try Linux out on your DOS partition with
+*no repartitioning required*! You can install anything from a 12 megabyte
+minimal system to the full 140+ megabyte release. You can also make swapfiles
+on the UMSDOS partition once the system is running.
+
+I hope this will be a stable release. I've given it about 2 days testing, and
+it seems greatly improved, especially the new networking utilities. My thanks
+to everyone involved, especially Florian  La Roche, Alan Cox, and (of course)
+Linus.
+
+Enjoy -
+
+Patrick Volkerding <volkerdi@ftp.cdrom.com>
+
+-rw-rw-r--    1 volkerdi      232 Feb 15 12:10 u_README
+./a1:
+-rw-r--r--    1 volkerdi    55475 Feb 15 12:04 etc.tgz (added a couple bins)
+-rw-r--r--    1 volkerdi    79197 Feb 15 12:04 hdsetup.tgz (bugfixes)
+-rw-r--r--    1 volkerdi    25457 Feb 14 16:38 sysvinit.tgz (slight change)
+./a2:
+-rw-r--r--    1 volkerdi   554450 Feb 14 23:52 bin.tgz (removed dups)
+-rw-r--r--    1 volkerdi   276670 Feb 14 16:39 util.tgz 
+./a3:
+-rw-r--r--    1 volkerdi     4932 Feb 15 12:04 diska3
+-rw-r--r--    1 volkerdi    83064 Feb 15 12:04 keytbls.tgz (0.83 -> 0.84)
+-rw-r--r--    1 volkerdi    50030 Feb 14 16:40 lpr.tgz (from new net stuff)
+-rw-r--r--    1 volkerdi    82324 Feb 14 04:56 shellutl.tgz (+GNU su)
+./ap1:
+-rw-r--r--    1 volkerdi     1820 Feb 14 17:52 diskap1
+-rw-r--r--    1 volkerdi     1913 Feb 14 16:41 maketag
+-rw-r--r--    1 volkerdi    44369 Feb 14 18:37 manpgs.tgz (1.0 -> 1.2)
+-rw-r--r--    1 volkerdi     2773 Feb 14 18:16 tagfile
+-rw-r--r--    1 volkerdi     2773 Feb 14 18:16 tagfile.org
+-rw-r--r--    1 volkerdi      208 Feb 14 18:16 tagfile.pat
+-rw-r--r--    1 volkerdi    41175 Feb 14 16:41 termbin.tgz (1.11 -> 1.12)
+-rw-r--r--    1 volkerdi    96248 Feb 14 16:41 termsrc.tgz (1.11 -> 1.12)
+./bootdisk/1_44meg:
+-rw-r--r--    1 volkerdi   547130 Feb 15 12:04 color144.gz (bugfixes)
+./bootdisk/umsdos:
+-rw-r--r--    1 volkerdi     1574 Feb 14 20:51 README.UMS
+-rw-r--r--    1 volkerdi   541472 Feb 13 19:53 umsboot.12.gz
+-rw-r--r--    1 volkerdi   542624 Feb 13 19:23 umsboot.144.gz
+-rw-r--r--    1 volkerdi   542529 Feb 15 12:05 umsroot.144.gz
+./d1:
+-rw-r--r--    1 volkerdi      268 Feb 14 17:54 tagfile.pat
+./d2:
+-rw-r--r--    1 volkerdi     1883 Feb 14 17:55 diskd2
+-rw-r--r--    1 volkerdi   134286 Feb 14 17:55 man2.tgz (1.0 -> 1.2)
+./d5:
+-rw-r--r--    1 volkerdi   196428 Feb 14 21:49 ncurses.tgz (new links)
+./d6:
+-rw-r--r--    1 volkerdi     1346 Feb 14 17:56 diskd6
+-rw-r--r--    1 volkerdi   151740 Feb 14 17:56 man3.tgz (1.0 -> 1.2)
+./n1:
+-rw-r--r--    1 volkerdi    32003 Feb 14 18:13 dip.tgz (3.34a -> 3.3.7n2debug)
+-rw-r--r--    1 volkerdi     2464 Feb 14 18:13 diskn1
+-rw-r--r--    1 volkerdi     1637 Feb 14 21:50 maketag
+-rw-r--r--    1 volkerdi     6335 Feb 14 23:16 netcfg.tgz
+-rw-r--r--    1 volkerdi     2558 Feb 14 18:13 tagfile
+-rw-r--r--    1 volkerdi     2558 Feb 14 18:13 tagfile.org
+-rw-r--r--    1 volkerdi      156 Feb 14 18:13 tagfile.pat
+-rw-r--r--    1 volkerdi   642276 Feb 14 18:13 tcpip.tgz (NEW! net2debugged)
+./n3:
+-rw-r--r--    1 volkerdi      945 Feb 14 18:14 diskn3
+-rw-r--r--    1 volkerdi   114372 Feb 14 23:55 ppp.tgz (NEW)
+./t1: (New LaTeX2e distribution from Sunsite)
+-rw-r--r--    1 volkerdi      124 Feb 14 20:06 diskt1
+-rw-r--r--    1 volkerdi     1144 Feb 14 20:04 maketag
+-rw-r--r--    1 volkerdi     7153 Feb 12 10:05 manifest.gz
+-rw-r--r--    1 volkerdi     2738 Feb 12 10:04 readme.tex
+-rw-r--r--    1 volkerdi      129 Feb 14 20:19 tagfile
+-rw-r--r--    1 volkerdi      129 Feb 14 20:19 tagfile.org
+-rw-r--r--    1 volkerdi      129 Feb 14 20:19 tagfile.pat
+-rw-r--r--    1 volkerdi   954152 Feb 14 19:03 texbin.tgz
+./t2:
+-rw-r--r--    1 volkerdi      154 Feb 14 20:07 diskt2
+-rw-r--r--    1 volkerdi  1061354 Feb 14 19:34 texlibmc.tgz
+./t3:
+-rw-r--r--    1 volkerdi      371 Feb 14 20:10 diskt3
+-rw-r--r--    1 volkerdi   692601 Feb 14 19:24 texcmpk.tgz
+-rw-r--r--    1 volkerdi    80611 Feb 14 19:26 texdoc.tgz
+-rw-r--r--    1 volkerdi   432212 Feb 14 19:43 texnfss2.tgz
+./t4:
+-rw-r--r--    1 volkerdi      395 Feb 14 20:12 diskt4
+-rw-r--r--    1 volkerdi   165314 Feb 14 19:22 texcm.tgz
+-rw-r--r--    1 volkerdi   441104 Feb 14 19:31 texlibib.tgz
+-rw-r--r--    1 volkerdi   519891 Feb 14 19:39 texlibms.tgz
+./t5:
+-rw-r--r--    1 volkerdi      237 Feb 14 20:17 diskt5
+-rw-r--r--    1 volkerdi        4 Feb 14 20:04 install.end
+-rw-r--r--    1 volkerdi   397715 Feb 14 19:00 texams.tgz
+-rw-r--r--    1 volkerdi   795531 Feb 14 19:28 texfont.tgz
+./u1: (New UMSDOS support - allows installation on DOS partitions)
+-rw-r--r--    1 volkerdi      557 Feb 14 15:45 disku1
+-rw-r--r--    1 volkerdi      279 Feb 14 18:32 readme.now
+-rw-r--r--    1 volkerdi       51 Feb 14 18:33 tagfile
+-rw-r--r--    1 volkerdi     2928 Feb 14 15:46 umsfix.tgz
+-rw-r--r--    1 volkerdi     5919 Feb 13 20:05 umskern.log
+-rw-r--r--    1 volkerdi   305617 Feb 13 19:58 umskern.tgz
+-rw-r--r--    1 volkerdi    81066 Feb 14 18:40 umsprogs.tgz
+./u2:
+-rw-r--r--    1 volkerdi      329 Feb 13 20:08 disku2
+-rw-r--r--    1 volkerdi       16 Feb 13 20:08 install.end
+-rw-r--r--    1 volkerdi  1297282 Feb 11 23:19 kernel.tgz
+
+----------------
+
+Sat Feb 12 16:49:00 PST 1994
+
+Replaced:
+slackware/a2/ldso.tgz (added /usr/openwin/lib to ld.so.conf)
+slackware/d6/libgxx.tgz (Fixed release)
+
+... more to come! :^)
+
+----------------
+
+Fri Feb 11 15:26:23 PST 1994
+
+Added a new bootdisk with *only* scsi drivers.
+Removed the Mitsumi driver from scsiboot (scsi+net).
+
+Since this site can do gzip on-the-fly, I've removed the compressed versions
+of the bootdisks. This is also to benefit mirror sites that are running low 
+on disk space. I'm considering compressing them all and adding GZIP.EXE to
+the bootdisk directory. If you think that's a bad plan, I'm open to 
+suggestions.
+
+---------------
+
+Thu Feb 10 17:29:04 PST 1994
+
+Replaced: slackware/a1/etc.tgz
+Added a couple missing files, fixed problems with 'last' and 'finger'.
+
+----------------
+
+Wed Feb  9 23:20:45 PST 1994
+
+Replaced:
+
+slackware/a1/sysvinit.tgz
+Changed rc.M so that it no longer deletes /etc/ld.so.cache now that the
+ld.so bug has been fixed.
+
+slackware/a2/ldso.tgz: Upgraded from 1.4 to 1.4.3.
+slackware/a2/diska2: Bumped ld.so version number in the text description.
+
+slackware/n1/netcfg.tgz: Fixed netconfig script to produce the changed
+version of rc.M.
+
+---------------
+
+Wed Feb  9 11:42:49 PST 1994
+
+Replaced:
+slackware/d1/maketag
+
+Wrong version numbers given.
+
+----------------
+
+Tue Feb  8 16:10:13 PST 1994
+
+Replaced:
+slackware/a1/sysvinit.tgz
+slackware/libc444/a1/sysvinit.tgz
+slackware/n1/netcfg.tgz
+Execution of ldconfig moved to rc.M, after mounting of remote filesystems.
+Also, /etc/ld.so.cache is deleted after ldconfig is run. This is a temporary
+fix for an ld.so problem that should be repaired correctly soon.
+
+---------------
+
+Tue Feb  8 01:50:03 PST 1994
+
+Replaced (again):
+slackware/bootdisk/1_44meg/color144.gz and color144
+slackware/bootdisk/1_2meg/color12.gz and color12
+The NFS install had bugs.
+
+slackware/a1/hdsetup.tgz
+slackware/libc444/a1/hdsetup.tgz
+Same problem.
+
+slackware/a2/bin.tgz
+slackware/libc444/a2/bin.tgz
+Fixed problem of no color-ls after su.
+
+slackware/a2/util.tgz
+slackware/libc444/a2/bin.tgz
+Fixed problem of no su.
+
+I inadvertently left many of my own tagfiles in place as the default. 
+tagfile and tagfile.org were replaced in these directories:
+
+slackware/ap1, slackware/n1, slackware/xap1, slackware/xd1, slackware/xv1
+slackware/y1, slackware/libc444/d1
+
+---------------
+
+Mon Feb  7 23:13:06 PST 1994
+
+Replaced:
+slackware/a1/hdsetup.tgz
+slackware/libc444/a1/hdsetup.tgz 
+(added CD-ROM setup by default)
+
+slackware/ap1/maketag (updated quota version #)
+
+slackware/ap4/diskap4 (updated quota info)
+slackware/ap4/quota.tgz (new version 1.3 for pl15)
+
+slackware/xap1/workman.tgz (upgraded from version 1.1 to 1.2)
+
+---------------
+
+Mon Feb  7 17:34:56 PST 1994
+
+Replaced:
+slackware/bootdisk/1_44meg/color144.gz and color144
+slackware/bootdisk/1_2meg/color12.gz and color12
+
+There was a dialog box that was empty when installing to multiple Linux
+partitions. It meant to say 'here's what went to your /etc/fstab, do you
+want to add more Linux partition?' but it didn't quite work out that way. ;^)
+
+Also, the setup program did not detect the absence of Linux native partitions.
+This condition will now print an error screen.
+
+---------------
+
+Sun Feb  6 18:53:26 PST 1994
+
+There have been a couple of last minute fixes to Slackware 1.1.2:
+
+This upgrades bash to 1.13.5. It replaces slackware/a1/base.tgz.
+-rwxr-xr-x    1 volkerdi   252852 Feb  6 17:11 base.tgz  (disk a1)
+
+These next two files replace the ones under slackware/bootdisk/1_44meg and
+slackware/bootdisk/1_2meg. They fix a bug which wrote /etc/rc.d/rc.local
+improperly so that keymaps would not load properly.
+-rw-r--r--    1 volkerdi   465392 Feb  6 16:35 color12.gz
+-rw-r--r--    1 volkerdi   539929 Feb  6 16:32 color144.gz
+
+This package addresses the same bug, and replaces slackware/a1/hdsetup.tgz
+and slackware/libc444/a1/hdsetup.tgz.
+-rwxr-xr-x    1 volkerdi    71152 Feb  6 16:36 hdsetup.tgz
+
+This replaces slackware/f1/maketag and rewords the message a little (as well
+as fixing a typo) :
+-rwxr-xr-x    1 volkerdi      291 Feb  6 17:45 maketag
+
+This adds a few new man pages. It replaces slackware/ap1/man.tgz
+-rwxr-xr-x    1 volkerdi   403715 Feb  6 17:08 man.tgz
+
+---------------------
+
+Sat Feb  5 01:20:58 PST 1994
+
+Slackware 1.1.2 is released, with a totally insufficient log of changes since
+1.1.1 ;^)
+
+---------------------
+
+Mon Jan 17 17:58:36 PST 1994
+A1: devs.tgz edited. I removed the /dev/printer -> /tmp/.printer link
+    which was confusing LILO. I don't even remember what it was supposed
+    to fix, to be honest.
+
+---------------------
+
+Sat Jan  1 19:03:16 PST 1994
+On disk a2, in bootutls.tgz, 'mkfs' now works as expected.
+
+Sat Jan  1 10:49:07 PST 1994
+
+Happy new year, everyone!
+
+Changed files:
+DISK A1:
+-rw-r--r--  1 volkerdi     6351 Dec 31 16:33 devs.tgz
+(added /dev/arp)
+-rw-r--r--  1 volkerdi    22867 Dec 31 16:33 etc.tgz
+(Some modifications to inittab)
+-rw-r--r--  1 volkerdi    26525 Dec 31 16:34 sysvinit.tgz
+(Better init scripts)
+
+DISK A2:
+-rw-r--r--  1 volkerdi    43349 Jan  1 11:01 bootutls.tgz
+(New mount/umount, fsck frontend)
+-rw-r--r--  1 volkerdi     1818 Jan  1 12:48 diska2
+-rw-r--r--  1 volkerdi   187066 Jan  1 11:17 util.tgz
+(Upgraded to util-linux-1.1)
+
+DISK A3:
+-rw-r--r--  1 volkerdi    16192 Jan  1 11:22 syslogd.tgz
+(Added a comment to syslogd.conf, explaining that you have to use TABS
+for your whitespace or the config file will not parse correctly)
+
+--------------
+
+Sat Dec 18 20:52:18 PST 1993
+
+A1:  passwd.tgz: moved 'su' into bin so single-user could start properly.
+/shadowpwd: shadwpwd.tgz: moved 'su' into /bin.
+
+--------------
+
+Sat Dec 18 11:38:02 PST 1993
+
+D1:  Fixed 'make/gmake' typo in tagfile and tagfile.org
+
+--------------
+
+Thu Dec 16 22:59:15 PST 1993
+
+D5:  ncurses.tgz replaced. The previous version worked, but always
+     produced trace output (tons of it).
+
+--------------
+
+Thu Dec 16 18:00:09 PST 1993
+
+A1:  lilo.tgz replaced to fix some bugs in the 'liloconfig' script.
+N1:  netcfg.tgz replaced to add more error checking on input.
+
+---------------
+
+Thu Dec 16 01:29:18 PST 1993
+
+XAP2: Obsolete 'linux.cf' template removed.
+      (rm /usr/X11/lib/X11/config/linux.cf)
+
+---------------
+
+Mon Dec 13 23:20:42 PST 1993
+
+XAP1: seyon replaced to get rid of the -O2 bug. Hint: If you recompile
+      seyon yourself some day, don't use optimization. At least not with
+      libc.so.4.4.4.
+X2:   xf_cfg replaced (made /dev/modem the default seyon device)
+XV2:  xvmenus replaced (made /dev/modem the default seyon device)
+
+---------------
+
+Mon Dec 13 18:00:31 PST 1993
+XAP2: xgames and x3270 replaced.
+
+---------------
+
+Sun Dec 12 23:42:56 CST 1993
+Slackware Linux 1.1.1 released.
+
+---------------
+
+[ This part of the file lists the changes since the first 1.1.1 beta 
+release until the official 1.1.1 release. ]
+
+Sun Dec 12 23:40:18 CST 1993
+
+Disk F1 brought up to date. Documentation rewritten to reflect changes.
+
+
+---------------
+
+Sun Dec 12 03:15:08 PST 1993
+
+This should do it for changes prior to the real release (now, how many times 
+have I said that? ;^)
+
+The files below were added, and xrest.tgz (XAP2) was deleted.
+The files listed below are also present in new.tar, found in this 
+directory, so if you get that, delete xrest.tgz, and untar it in your
+slackware directory you'll be up to date.
+
+Also, two new pieces of source were added, and these are not 
+in the new.tar file:
+/pub/linux/slackware_source/drivers/ftape-0.9.8.tar.gz
+/pub/linux/slackware_source/a/syslogd/syslogdk1.0.tar.gz
+
+./
+a3/
+a3/syslogd.tgz
+a3/diska3
+a3/ksh.tgz
+n1/
+n1/tcpip.tgz
+n1/netcfg.tgz
+a1/
+a1/passwd.tgz
+a1/sysvinit.tgz
+xap1/
+xap1/tagfile
+xap1/tagfile.org
+xap1/tagfile.pat
+xap2/
+xap2/diskxap2
+xap2/ghstview.tgz
+xap2/x3270.tgz
+xap2/xgames.tgz
+xap2/xspread.tgz
+xap2/xxgdb.tgz
+a2/
+a2/bin.tgz
+oi1/
+oi1/oilib.tgz
+--------------
+
+Sat Dec 11 04:20:51 PST 1993
+
+a1/
+a1/sysvinit.tgz : fixed getty format in inittab
+a2/
+a2/getty.tgz    : recompiled getty/uugetty, added docs.
+n1/
+n1/tcpip.tgz    : fixed 'dip'.
+d3/
+d3/extralib.tgz : libg.a -> libc.a link taken care of.
+q1/
+q1/diskq1       : 0.99pl14c added, 0.99pl14a removed.
+q1/ide_14c.log
+q1/ide_14c.tgz
+q1/scsi_14c.log
+q1/scsi_14c.tgz
+q3/
+q3/diskq3
+q3/lx99p14c.tgz
+
+----------
+Fri Dec 10 02:09:03 PST 1993
+These files have changed in what may be the last round of updates prior
+to the official release. (heh, heh, yeah, right! ;^)
+
+bootdisk/scripts/pkgtool
+bootdisk/1_44meg/uniboot.gz
+bootdisk/1_2meg/root12m.gz
+bootdisk/1_44meg/root144m.gz
+bootdisk/scripts/setup
+n1/
+n1/diskn1
+n1/netcfg.tgz
+n1/tagfile
+n1/tagfile.org
+n1/tagfile.pat
+n1/tcpip.tgz
+a1/
+a1/devs.tgz
+a1/lilo.tgz
+a1/tagfile
+a1/tagfile.org
+a1/tagfile.pat
+a2/
+a2/bin.tgz
+a2/diska2
+a2/ps.tgz
+a2/util.tgz
+a3/
+a3/ksh.tgz
+a3/select.tgz
+a3/zoneinfo.tgz
+ap1/
+ap1/tagfile
+ap1/tagfile.org
+ap1/tagfile.pat
+ap4/
+ap4/diskap4
+ap4/quota.tgz
+ap4/workbone.tgz
+d4/
+d4/diskd4
+q3/lx99pl14a.tgz
+x2/
+x2/xf_cfg.tgz
+xap1/
+xap1/vgaset.tgz
+xap2/
+xap2/xrest.tgz
+shadowpwd/
+shadowpwd/shadwpwd.tgz
+shadowpwd/README
+
+Mon Dec  6 02:58:00 CST 1993
+These bugs were reported (and fixed) in the beta so far:
+
+1. The route works for dip, but not ethernet.
+    [solution]: Use the old route. I replaced /sbin/route with the one I
+    was using before and renamed the new one /sbin/route.dip.
+    [affected package]: /n1/tcpip.tgz
+
+2.  The install script in bin.tgz makes a bad link that wipes out
+    /usr/bin/chsh. This has also been fixed.
+    [affected package]: /a2/bin.tgz

@@ -40,7 +40,7 @@ MOUSETYPE=PS/2
 # network configuration
 HOSTNAME="darkstar"
 DOMAINNAME="frop.org"
-IPADDR="10.0.2.123"
+IPADDR="10.0.2.22"
 NETMASK="255.255.255.0"
 NETWORK="10.0.2.0"
 BROADCAST="10.0.2.255"

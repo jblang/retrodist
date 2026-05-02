@@ -1,0 +1,5 @@
+Wed Jul  3 14:48:46 PDT 1996
+
+Slackware96 (v. 3.1.0) is released.  New features include the 2.0.0 Linux
+kernel, gcc-2.7.2, and the 5.3.12 C library.  Lots of packages were upgraded
+to work correctly with the new kernel.

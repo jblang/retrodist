@@ -1,0 +1,2890 @@
+Mon May 17 20:17:35 CDT 1999
+(* Slackware 4.0.0-stable is released *)
+----------------------------
+Mon May 10 15:18:39 CDT 1999
+slakware/n4/netatalk.tgz:  Added -DSHADOWPW to Makefile.
+----------------------------
+Mon May 10 08:07:22 CDT 1999
+slakware/a3/bin.tgz:  Chmod 751 /var/spool/cron/  (fixes 'crontab -e' for
+                      non-root users)
+----------------------------
+Sun May  9 20:22:38 CDT 1999
+slakware/a3/bin.tgz:  Removed obsolete symlinks to xfsck and mkxfs.
+slakware/d1/egcs.tgz:  Removed bad libstdc++.so.27 and libg++.so.27 symlinks.
+                       Removed /usr/ix86-linux/lib/libiberty.a.
+slakware/d1/gcc.tgz:  Only install gcc info files in /usr/info if egcs is not
+                      installed, otherwise put them in /usr/info/gcc2723.
+                      Use man pages from egcs by default.
+slakware/n8/tcpip1.tgz:  Run in.identd as nobody.
+----------------------------
+Fri May  7 21:30:13 CDT 1999
+contrib/afterstep.tgz:  Added AfterStep 1.0.
+----------------------------
+Thu May  6 12:35:48 CDT 1999
+bootdsks.144/.eltorito/eltorito.img:  Added parallel disk devices.
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Added parallel disk devices.
+slakware/xap1/qt_1_44.tgz:  Fixed broken /usr/bin/moc symlink.
+----------------------------
+Wed May  5 17:32:06 CDT 1999
+Contents of A and N package directories sorted.  Now all A directories fit on
+floppy disks (1.2 or 1.44 MB), and all N directories except the last one (which
+can be skipped until later in a floppy installation) will fit on 1.44 MB disks.
+----------------------------
+Tue May  4 22:38:04 CDT 1999
+bootdsks.12/net.i, bootdsks.12/scsinet.s, bootdsks.144/net.i, 
+bootdsks.144/scsinet.s:  The AMD PCnet32/PCnetPCI network driver was causing
+         problems with many floppy controllers, especially on older machines,
+         so it's been removed from these bootdisks.  It can still be loaded
+         as a module if needed.
+----------------------------
+Tue May  4 14:51:50 CDT 1999
+Slackware 4.0.0-beta3 is released, (* Code freeze declared *)
+slakware/n1/apache.tgz:  Recompiled with Dynamic Shared Object (DSO) support.
+slakware/n8/tcpip1.tgz:  Fixes to /usr/sbin/in.rexecd.
+slakware/xap1/gnuplot.tgz:  Relinked against gd-1.3.
+----------------------------
+Mon May  3 22:15:11 CDT 1999
+bootdsks.144/.eltorito/eltorito.img:  Fixed misaligned fields when
+             displaying swapfile information in ADDSWAP menu.
+rootdsks/color.gz, pcmcia.gz, umsdos.gz:  Fixed misaligned fields when
+             displaying swapfile information in ADDSWAP menu.
+slakware/n4/ppp.tgz:  Upgraded to ppp-2.3.7.  Changed pppsetup to add some
+                      comments to /etc/ppp/options.
+slakware/x1/xfnts.tgz:  Added linux8x8 and linux8x16 fonts.  (These look nice
+                        with KDE's konsole app)
+slakware/xap1/kde.tgz:  Upgraded to KDE-1.1.1.  (Thanks, KDE team! :)
+----------------------------
+Sat May  1 12:38:49 CDT 1999
+slakware/ap1/ispell.tgz:  Removed obsolete ispell.el and ispell.elc since better
+                          versions of these files are already provided by emacs.
+----------------------------
+Fri Apr 30 16:31:47 CDT 1999
+contrib/amp.tgz:  Added amp-0.7.6.
+----------------------------
+Fri Apr 30 14:36:59 CDT 1999
+slakware/a13/util.tgz:  Upgraded to net-tools-1.52.
+slakware/n8/tcpip1.tgz:  Upgraded to net-tools-1.52.
+----------------------------
+Thu Apr 29 00:47:27 CDT 1999
+The following module packages were recompiled using a kernel tree set up for
+socket filtering.  This fixes some OOPses that were occuring when loading the
+old modules against the latest batch of kernels.
+slakware/a9/modules.tgz:  Recompiled.
+slakware/a10/fsmods.tgz:  Recompiled.
+slakware/a10/scsimods.tgz:  Recompiled.
+slakware/n4/netmods.tgz:  Recompiled.
+----------------------------
+Tue Apr 27 22:00:16 CDT 1999
+bootdsks.12/, bootdsks.144/, bootdsks.144/.eltorito/eltorito.img, kernels/:
+    Recompiled with socket filter and magic sysrq key support.
+slakware/a7/ide.tgz:  Added socket filter and magic sysrq key support.
+slakware/a11/scsi.tgz:  Added socket filter and magic sysrq key support.
+----------------------------
+Sat Apr 24 17:24:25 CDT 1999
+bootdsks.144/.eltorito/eltorito.img:  Added 2GB-capable mkswap.
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Added 2GB-capable mkswap.
+----------------------------
+Sat Apr 24 14:36:20 CDT 1999
+rootdsks/text.gz:  Patched to create an /etc/fstab file with correct syntax.
+slakware/a13/util.tgz:  Put the nfs.5.gz manpage in the correct directory.
+slakware/ap1/manpages.tgz:  Upgraded to man-pages-1.23.
+slakware/n1/apache.tgz:  Fixed symlinks for ab and apachectl manpages.
+slakware/tcl1/tix.tgz:  Fixed manpage for tixwish.
+----------------------------
+Wed Apr 21 21:50:01 CDT 1999
+slakware/a5/hdsetup.tgz:  Fixed some bugs in /sbin/upgradepkg.  It now
+                          handles differences in symbolic links between old
+                          and new versions of a package better, and doesn't
+                          loop if a package to be upgraded doesn't match any
+                          installed package name.
+----------------------------
+Wed Apr 21 01:16:20 CDT 1999
+Slackware 4.0.0-beta2 is released:
+bootdsks.12/:  Upgraded bootdisks to use Linux 2.2.6.
+bootdsks.144/:  Upgraded bootdisks to use Linux 2.2.6.
+bootdsks.144/.eltorito/eltorito.img:  Upgraded to use Linux 2.2.6.
+rootdsks/pcmcia.gz:  Rebuilt for linux-2.2.6.
+slakware/a2/devs.tgz:  Added System V/Unix98 PTY support.
+                       Added /dev/fb* framebuffer devices.
+slakware/a4/elflibs.tgz:  Added /usr/lib/libintl.so.1.0.0.
+slakware/a7/ibcs2.tgz:  Recompiled for linux-2.2.6.
+slakware/a7/ide.tgz:  Upgraded to linux-2.2.6.
+slakware/a9/modules.tgz:  Upgraded to modules from linux-2.2.6.
+slakware/a10/fsmods.tgz:  Added linux-2.2.6 filesystem modules package.
+slakware/a10/pcmcia.tgz:  Recompiled for linux-2.2.6.
+slakware/a10/scsimods.tgz:  Upgraded to SCSI, RAID, and CD-ROM modules
+                            from linux-2.2.6.
+slakware/a11/scsi.tgz:  Upgraded to linux-2.2.6.
+slakware/d1/gettext.tgz:  Added shared libintl.so.1.0.0.
+slakware/d1/linuxinc.tgz:  Upgraded to kernel include files from linux-2.2.6.
+slakware/k1/linuxinc.tgz:  Upgraded to kernel include files from linux-2.2.6.
+slakware/k1/lx226.tgz:  Upgraded kernel source package to linux-2.2.6.
+slakware/n4/netmods.tgz:  Upgraded to kernel modules from linux-2.2.6.
+slakware/n8/tcpip1.tgz:  Activate IP forwarding by default in
+                         /etc/rc.d/rc.inet2.
+slakware/xap1/gimp.tgz:  Recompiled against shared libintl.  Moved from
+                         /usr/X11R6 to /usr (not an ideal location, but read
+                         the rationale for this directory placement in
+                         source/xap/gimp/BUILD_AND_INSTALL_ALL)
+slakware/xap1/kde.tgz:  Patched kreversi, recompiled against Qt 1.44, and
+                        modified gimp.kdelnk to point to gimp's new location.
+slakware/xap1/qt_1_44.tgz:  Upgraded to Qt 1.44.
+----------------------------
+Sat Apr 17 02:33:40 CDT 1999
+slakware/xap1/gimp.tgz:  Added libmpeg-1.2 library and header file.
+                         Changed aalib --prefix to /usr/X11R6.
+                         Upgraded to glib-1.2.2.
+                         Upgraded to gtk+-1.2.2.
+                         Recompiled gimp.
+----------------------------
+Fri Apr 16 00:41:50 CDT 1999
+slakware/d1/gdb.tgz:  Upgraded to gdb-4.18.
+----------------------------
+Wed Apr 14 19:40:15 CDT 1999
+slakware/a3/bin.tgz:  Removed elvis-1.8pl3.
+slakware/a3/elvis.tgz:  Added elvis-2.1.
+----------------------------
+Tue Apr 13 14:39:23 CDT 1999
+slakware/a9/modules.tgz:  Edited /etc/rc.d/rc.modules adding improved comments
+                          and examples.
+----------------------------
+Mon Apr 12 23:54:43 CDT 1999
+contrib/xcdroast.tgz:  Added xcdroast-0.96e.
+slakware/a2/devs.tgz:  Add /dev/sr* and /dev/sg{0,1,2,...} devices now
+                       specified in the Linux-2.2 devices.txt file, and
+                       required by xcdroast.
+slakware/tcl1/tix.tgz:  Added Tix4.1.0.006.
+----------------------------
+Mon Apr 12 14:31:55 CDT 1999
+slakware/a8/pciutils.tgz:  Added missing /usr/share/pci.ids file.
+----------------------------
+Sun Apr 11 22:50:04 CDT 1999
+slakware/d1/gettext.tgz:  Added GNU gettext-0.10.35.
+----------------------------
+Sat Apr 10 22:25:09 CDT 1999
+contrib/xemacs/xemacs.tgz:  Added xemacs-20.4.
+contrib/xemacs/xemule.tgz:  Added xemacs-20.4 with MULE (MULtilingual
+                            Extensions).
+contrib/xemacs/intlfonts/:  Added the GNU intlfonts-1.1 collection of
+                            international fonts suitable for use with the MULE
+                            version of XEmacs.
+----------------------------
+Sat Apr 10 11:34:31 CDT 1999
+slakware/n8/tcpip.tgz:  Added section to /etc/rc.d/rc.inet2 to start yppasswd.
+slakware/x1/xbin.tgz:  Man pages put in correct location (/usr/X11R6/man/man1).
+----------------------------
+Sat Apr 10 02:40:14 CDT 1999
+contrib/java/:  Upgraded to jdk_1.1.7-v1a-libc5-x86.
+slakware/a2/etc.tgz:  Added /etc/nsswitch.conf set up for NIS.
+slakware/a5/glibc1.tgz:  Removed /etc/nsswitch.conf.
+slakware/n9/tcpip2.tgz:  Upgraded to yp-tools-2.2, ypbind-3.3, and
+                         ypserv-1.3.6.
+slakware/xap1/gimp.tgz:  Moved .m4 files from /usr/X11R6/share/aclocal/ to
+                         /usr/share/aclocal/.
+----------------------------
+Fri Apr  9 20:46:59 CDT 1999
+slakware/a2/grep.tgz:  fgrep and egrep links replaced with actual binaries,
+      since it seems this trick no longer works with grep-2.3.  NOTE:  This
+      was a fairly major bug, and was impacting all sorts of things in subtle
+      (but bad) ways, so if you've encountered problems with libtool, configure
+      scripts, or get weird "missing prototypes" errors when you compile things,
+      this could be the cause.  Anyone who installed the previous grep package
+      in the week that it was out has a broken system, and should upgrade to
+      this package immediately.  Since 'installpkg' itself uses grep, install
+      the package twice to ensure everything goes into place properly.
+slakware/a5/hdsetup.tgz:  Fixed menu size bug when installing packages from NFS.
+----------------------------
+Thu Apr  8 01:29:03 CDT 1999
+slakware/a5/glibc1.tgz:  Fix installation script so that installing/removing
+                         the package doesn't reset the machine to the Factory
+                         timezone.
+slakware/n6/rsync.tgz:  Upgraded to rsync-2.3.1.  (security fix:  Old version
+                        could cause changes to the permissions of the remote
+                        $HOME directory, in rare circumstances)
+slakware/n8/tcpip1.tgz:  For improved security, in /etc/rc.d/rc.inet2, show
+                         named -u daemon -g daemon (example, commented out).
+slakware/x1/xbin.tgz:  Upgraded to rxvt-2.4.11.
+slakware/xap1/imagick.tgz:  Added ImageMagick-4.2.2.
+----------------------------
+Wed Apr  7 03:37:00 CDT 1999
+slakware/a4/elflibs.tgz:  Upgraded to /usr/lib/libz.so.1.1.3.
+slakware/a8/procps.tgz:  Upgraded to procps-2.0.2.
+slakware/ap1/texinfo.tgz:  Needed to be recompiled against the new libz.
+slakware/d1/autoconf.tgz:  Some improvements to the installation script.
+slakware/d1/automake.tgz:  Some improvements to the installation script.
+slakware/d1/libtool.tgz:  Added GNU libtool-1.2.
+slakware/n2/smailcfg.tgz:  Recompiled along with the new procmail.
+slakware/n4/lynx.tgz:  Recompiled against the new libz.
+slakware/n5/procmail.tgz:  Upgraded to procmail-3.13.1.  (security fix:
+            apparently a couple more buffer overflows were patched)
+slakware/n5/sendmail.tgz:  Recompiled along with the new procmail.
+slakware/xap1/libgr.tgz:  Upgraded to libpng-1.0.3 and zlib-1.1.3.
+----------------------------
+Tue Apr  6 03:23:48 CDT 1999
+slakware/a13/zoneinfo.tgz:  Fixed some missing timezones.
+slakware/d1/perl.tgz:  Simplified some of the paths under /usr/lib/perl5/.
+slakware/xap1/gimp.tgz:  Upgraded to gimp-1.0.4.
+----------------------------
+Mon Apr  5 18:09:39 CDT 1999
+slakware/a1/bsdlpr.tgz:  Changed default printer in /etc/printcap from
+                         /dev/lp1 to /dev/lp0.
+slakware/a3/bin.tgz:  Changed install script to not replace 
+                      /var/spool/cron/crontabs/root if it already exists.
+                      Changed crond tmpfile spool dir to /var/spool/cron/.
+slakware/n2/smailcfg.tgz:  Recompiled along with the new procmail.
+slakware/n5/procmail.tgz:  Upgraded to procmail-3.13. (security fix)
+slakware/n5/sendmail.tgz:  Recompiled along with the new procmail.
+slakware/n7/samba.tgz:  Recompiled against linux-2.2.5 headers.  Do not link
+                        against -lshadow (libc has compatible functions already)
+                        Added comment about security= to the smb.conf-sample.
+----------------------------
+Sat Apr  3 00:29:13 CST 1999
+bootdsks.144/sgivis.s:  Added bootdisk that supports the SGI Visual Workstation
+                        models 320 and 540.  The kernel also supports Adaptec
+                        aic7xxx SCSI cards, multiple CPUs, and the SGI DBE
+                        video frame buffer graphics console.
+slakware/d1/lthreads.tgz:  Leave spare copies of pthread.h and sched.h in
+                           /usr/include.
+slakware/xap1/gimp.tgz:  Upgraded to gimp-1.0.3, with glib-1.2.1 (thread
+                         support enabled), gtk+-1.2.1, and aalib-1.2.  Also
+                         includes gimp-data-extras-1.0.0.
+----------------------------
+Fri Apr  2 17:46:50 CST 1999
+slakware/a1/aaa_base.tgz:  Upgraded to zip-2.2 and unzip-5.40.
+slakware/a2/grep.tgz:  Upgraded to grep-2.3.
+slakware/a3/gzip.tgz:  Upgraded to gzip-1.2.4a.  (this new version didn't change
+                       a single line of C code :)
+slakware/d1/bison.tgz:  Upgraded to bison-1.27.
+slakware/n4/lynx.tgz:  Upgraded to lynx-2.8.1.
+slakware/tcl1/expect.tgz:  Added expect-5.28.
+----------------------------
+Thu Apr  1 16:21:13 CST 1999  
+slakware/f1/howto.tgz:  Updated Linux HOWTOs.
+slakware/f1/mini.tgz:  Updated Linux mini-HOWTOs.
+slakware/n1/apache.tgz:  Upgraded to apache-1.3.6.
+slakware/n9/tcpip2.tgz:  Added ipmasqadm-0.4.2, upgraded to ipchains-1.3.8 and
+                         ipchains-scripts-1.1.1.
+----------------------------
+Wed Mar 31 21:47:02 CST 1999
+rootdsks/color.gz, pcmcia.gz, umsdos.gz:  Set $COLOR=on for some sub-menus.
+                           Make sure to use 'rdev -r vmlinuz 0' on the
+                           kernel we install on the system.
+slakware/a1/aaa_base.tgz:  Revised initial system email for root, changed
+                           the originating address to volkerdi@slackware.com,
+                           made sure the helpful hints were all correct. :)
+slakware/ap1/apsfilt.tgz:  Added apsfilter-5.0.1.
+slakware/ap1/enscript.tgz:  Added missing enscript.cfg and enscript.st.
+slakware/ap1/ghostscr.tgz:  Upgraded to ghostscript-5.10, with patches to
+                            support some additional HP printers (HP670,
+                            HP690, HP850, HP855, HP870, HP890, HP1100,
+                            and HP1600)
+slakware/ap1/gsfonts.tgz:  Upgraded to ghostscript-fonts-other-5.10.tar.gz
+                           and ghostscript-fonts-std-5.10.tar.gz.
+slakware/d1/perl.tgz:  Upgraded to perl5.005_03.
+slakware/xap1/gs_x11.tgz:  Upgraded to X11-supporting ghostscript-5.10 binary.
+----------------------------
+Tue Mar 30 20:35:06 CST 1999
+Slackware 4.0.0-beta is released:
+bootdsks.12/:  Upgraded bootdisks to use Linux 2.2.5.
+bootdsks.144/:  Upgraded bootdisks to use Linux 2.2.5.
+bootdsks.144/.eltorito/eltorito.img:  Upgraded to use Linux 2.2.5.
+contrib/blackbox.tgz:  Added blackbox-0.50.2 window manager.
+contrib/icewm.tgz:  Added icewm-0.8.9 window manager.
+contrib/wmaker.tgz:  Added WindowMaker-0.51.2 window manager.
+                     (includes required libPropList-0.8.3 library)
+rootdsks/pcmcia.gz:  Rebuilt for linux-2.2.5.
+slakware/a5/hdsetup.tgz:  Optimized 'makepkg' utility.
+slakware/a7/ibcs2.tgz:  Recompiled for linux-2.2.5.
+slakware/a7/ide.tgz:  Upgraded to linux-2.2.5.
+slakware/a9/modules.tgz:  Upgraded to modules from linux-2.2.5.
+slakware/a10/fsmods.tgz:  Added linux-2.2.5 filesystem modules package.
+slakware/a10/pcmcia.tgz:  Recompiled for linux-2.2.5.
+slakware/a10/scsimods.tgz:  Upgraded to SCSI, RAID, and CD-ROM modules
+                            from linux-2.2.5.
+slakware/a11/scsi.tgz:  Upgraded to linux-2.2.5.
+slakware/d1/linuxinc.tgz:  Upgraded to kernel include files from linux-2.2.5.
+slakware/k1/lx225.tgz:  Upgraded kernel source package to linux-2.2.5.
+slakware/k1/linuxinc.tgz:  Upgraded to kernel include files from linux-2.2.5.
+slakware/n4/netmods.tgz:  Upgraded to kernel modules from linux-2.2.5.
+----------------------------
+Mon Mar 29 10:01:38 CST 1999
+rootdsks/color.gz, pcmcia.gz, umsdos.gz:  Fix installing from a hard drive.
+slakware/a13/util.tgz:  Modified /etc/rc.d/rc.serial to use ttyS* devices.
+----------------------------
+Sun Mar 28 19:00:43 CST 1999
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Run /sbin/rpc.portmap for
+                       NFS installs.
+slakware/a7/lilo.tgz:  Modified liloconfig to handle the case where the system
+                       has only SCSI hard drives, with an ATAPI CD-ROM drive on
+                       /dev/hda.
+slakware/a9/modules.tgz:  Made some changes to /etc/rc.d/rc.modules, mostly
+                          so that people who wish to continue running 2.0.36
+                          won't run into problems.
+slakware/n9/tcpip2.tgz:  Upgraded to dhcp-2.0b1pl18.
+                         Added dhcpcd-1.3.17-pl5.
+                         Patched netwatch to compile on 2.2.x machines.
+                         Patched sliplogin to compile on 2.2.x machines.
+slakware/xv1/xvol32.tgz:  Renamed /usr/openwin/bin/msgfmt to
+                          /usr/openwin/bin/msgfmt-openlook so various
+                          ./configure scripts stop mistaking this for GNU
+                          msgfmt.
+kernels/net.i/*:  Recompiled including original ARCnet driver.
+bootdsks.{12,144}/net.i:  Rebuilt from new ARCnet enabled kernel.
+----------------------------
+Sun Mar 28 01:18:06 CST 1999
+slakware/a4/elflibs.tgz:  Move libc and libm into place in a way that shouldn't
+                          confuse the new implementation of UMSDOS quite as
+                          much.  (Doesn't seem like the UMSDOS implementation
+                          in 2.2.x has completely stabilized, IMHO; but we
+                          can work around the problems, at least during the
+                          installation process)
+slakware/d1/libc.tgz:  Similar anti-UMSDOS-confusion changes.
+slakware/n4/ppp.tgz:  Fixed broken /usr/man/man8/pppd.8.gz symlink.
+slakware/xap1/gchess.tgz:  Upgraded to gnuchess-4.0.pl79 and xboard-4.0.2.
+                           Added menu link to KDE.
+----------------------------
+Sat Mar 27 17:46:30 CST 1999
+contrib/emacspeak-9.0.tgz:  Upgraded emacspeak to version 9.0.
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Use /tmp space on the
+         target partition whenever possible.  This prevents the installation
+         system from running out of /tmp space from large tagfiles or
+         installation scripts.  On the UMSDOS rootdisk, umssync in /mnt in
+         addition to /mnt/linux.  (but in /mnt, don't recurse).  This is
+         required to prevent the 2.2.x kernel from complaining if the
+         permissions on the /mnt/linux/ directory itself are changed.  
+bootdsks.144/.eltorito/eltorito.img:  Merged changes from new color.gz.
+slakware/a7/lilo.tgz:  Enabled text-mode configuration menus from text.gz,
+                       Added liloconfig.tty script to start liloconfig in
+                       text mode.
+slakware/a12/shadow.tgz:  Upgraded to shadow-19990307.  Fixed non-Y2K date
+                          entry in /usr/sbin/adduser.  (It still worked the
+                          other way, but wasn't politically correct :)
+slakware/y1/bsdgames.tgz:  Removed extra '%' from beginning of 
+                           /usr/games/lib/fortunes/linuxcookie, rebuilt the
+                           linuxcookie.dat file.
+----------------------------
+Fri Mar 26 20:07:41 CST 1999
+slakware/n7/samba.tgz:  Added /usr/lib/samba/private/mksmbpasswd.sh to help
+                        set up the SMB password file.  Also put a README file
+                        in there with a pointer to information on enabling
+                        plain text password authentication with Win95 and Win98
+                        clients.
+----------------------------
+Thu Mar 25 23:26:59 CST 1999
+slakware/n4/netatalk.tgz:  Upgraded to netatalk-1.4b2+asun2.1.3.
+----------------------------
+Thu Mar 25 20:53:09 CST 1999
+slakware/a3/bin.tgz:  Removed support for XIAFS, since it's no longer supported
+                      in Linux 2.2.x.
+                      Patched 'eject' to compile under 2.2.x.
+                      Upgraded to hdparm-3.5.
+slakware/a5/hdsetup.tgz:  Patched 'removepkg' to use $ROOT variable for
+                          removing packages from filesystems other than /.
+slakware/a5/pnp.tgz:  Upgraded to isapnptools-1.18.
+slakware/a7/ibcs2.tgz:  SMP iBCS module moved into /lib/modules/2.2.3/smp/,
+                        where 'depmod -a' won't complain about it at boot time
+                        on non-SMP machines.  If SMP is detected, the SMP
+                        module will be loaded from the new location.
+slakware/a8/procps.tgz:  Upgraded to procps-2.0.1.
+slakware/a10/sysvinit.tgz:  Added section to rc.S for comfiguring ISA 
+                            Plug-and-Play devices.
+slakware/a13/util.tgz:  Upgraded to util-linux-2.9i.
+                        Removed /bin/kill, since there's now a better one
+                        included in the procps package.
+slakware/n4/ppp.tgz:  Upgraded to ppp-2.3.6.
+----------------------------
+Wed Mar 24 20:00:19 CST 1999
+slakware/a4/elflibs.tgz:  Added /usr/lib/libz.so.1.0.4.
+slakware/d1/autoconf.tgz:  Added GNU autoconf-2.13.
+slakware/d1/automake.tgz:  Added GNU automake-1.4.
+slakware/d1/lthreads.tgz:  Added linuxthreads-0.71.
+slakware/n8/tcpip1.tgz:  Fixed idecrypt.8.gz man page.
+slakware/tcl1/tcl.tgz:  Upgraded to tcl-8.0.5.
+slakware/tcl1/tk.tgz:  Upgraded to tk-8.0.5.
+slakware/tcl1/tclx.tgz:  Upgraded to tclX-8.0.4.
+slakware/xap1/kde.tgz:  chmod 4711 /opt/kde/bin/kvt.
+Thanks to Jan Rafaj for contributing the source code build scripts for autoconf,
+automake, and linuxthreads (as well as finding some other bugs :)
+----------------------------
+Mon Mar 22 23:17:01 CST 1999
+Slackware 4.0.0-pre-beta is released:
+bootdsks.12/:  Upgraded bootdisks to use Linux 2.2.3.
+bootdsks.144/:  Upgraded bootdisks to use Linux 2.2.3.
+                Added the following new SCSI bootdisks:
+                acard.s:  Supports the ACARD 870U/W SCSI host adapter.
+                aic7xxx.s:  Supports Adaptec AIC7XXX SCSI chipset-based cards.
+                            (This bootdisk replaces aha2x4x.s)
+                initio.s:  Supports Initio SCSI cards.
+                megaraid.s:  Supports AMI MegaRAID 428 and 438 (and maybe 466)
+                             SCSI host adapters.
+                n53c4xx.s:  Supports NCR 53c406a and Symbios Logic sym53c416
+                            SCSI host adapters.
+                pci2000.s:  Supports the PCI2000I, PCI2220i, and PSI240i EIDE
+                            interface cards.  (These act like SCSI controllers)
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Changed version to 4.0.0.
+                         Added a menu to 'setup' to set the root password.
+                         Upgraded pcmcia.gz to use pcmcia-cs-3.0.9 with
+                         modules compiled for Linux 2.2.3.
+rootdsks/rescue.gz:  Updated lilo, mke2fs, e2fsck, and other binaries.
+slakware/a1/aaa_base.tgz:  Added /usr/include/linux and /usr/include/asm
+                           symbolic links.
+slakware/a1/joystick.tgz:  Obsolete, removed.  (joystick modules are included
+                           with Linux 2.2.3)
+slakware/a2/e2fsbn.tgz:  Upgraded to e2fsprogs-1.14.
+slakware/a2/etc.tgz:  Now that netscape is in /usr/lib/netscape, MOZILLA_HOME
+                      needs to be set for Java to work properly.  So, this is
+                      now defined in /etc/profile:
+                      export MOZILLA_HOME=/usr/lib/netscape
+                      Similarly, this is now defined in /etc/csh.login:
+                      setenv MOZILLA_HOME /usr/lib/netscape
+slakware/a4/elflibs.tgz:  Added libg++.so.27.1.4 and libstdc++.so.27.1.4 for
+                      proper compatibility with binaries that require these.
+                      Added libvga.so.1.3.1 and libvgagl.so.1.3.1.
+slakware/a7/ibcs2.tgz:  Upgraded to ibcs-2.1-981105, recompiled for 2.2.3.
+                        Added automatic detection of and support for SMP.
+slakware/a7/ide.tgz:  Upgraded to linux-2.2.3.
+slakware/a8/pciutils.tgz:  Added Linux PCI utilities (pciutils-1.10).
+slakware/a9/modules.tgz:  Upgraded to modules from linux-2.2.3.  Updated
+                          /etc/rc.d/rc.modules.
+slakware/a10/fsmods.tgz:  Added linux-2.2.3 filesystem modules package.
+slakware/a10/pcmcia.tgz:  Upgraded to pcmcia-cs-3.0.9.
+slakware/a10/scsimods.tgz:  Upgraded to SCSI, RAID, and CD-ROM modules
+                            from linux-2.2.3.
+slakware/a11/scsi.tgz:  Upgraded to linux-2.2.3.
+slakware/a13/util.tgz:  Added support for hidden FAT32 partitions (type 1b)
+                        to fdisk and cfdisk.
+slakware/d1/flex.tgz:  Upgraded to flex-2.5.4a.
+slakware/d1/linuxinc.tgz:  Upgraded kernel include files to linux-2.2.3.
+slakware/d1/svgalib.tgz:  Upgraded to svgalib-1.3.1.
+slakware/k1/lx223.tgz:  Upgraded kernel source package to linux-2.2.3.
+slakware/k1/linuxinc.tgz:  Upgraded kernel include files to linux-2.2.3.
+slakware/n4/netmods.tgz:  Upgraded to kernel modules from linux-2.2.3.
+slakware/n8/tcpip1.tgz:  Added default netmask of 255.255.255.0 in netconfig
+                         script.  Added a blank line to the end of /etc/hosts.
+                         (apparently the last line isn't parsed correctly
+                         without it)
+----------------------------
+Wed Mar 17 10:36:15 CST 1999
+slakware/a4/elflibs.tgz:  Added /usr/lib/libstdc++.so.2.9.0 from egcs-1.1.2.
+slakware/a5/hdsetup.tgz:  Added 'upgradepkg' utility.
+                          Changed version numbers to 4.0.0.
+slakware/d1/egcs.tgz:  Upgraded to egcs-1.1.2.
+slakware/d1/egcs_g77.tgz:  Upgraded to egcs-1.1.2.
+slakware/d1/egcsobjc.tgz:  Upgraded to egcs-1.1.2.
+slakware/xap1/kde.tgz:  Recompiled against new libstdc++.so.2.9, Qt libs.
+slakware/xap1/qt_1_42.tgz:  Recompiled against /usr/lib/libstdc++.so.2.9.0.
+----------------------------
+Tue Mar 16 20:00:31 CST 1999
+contrib/bash-2.03.tgz:  Upgraded to bash-2.03.
+slakware/a4/elflibs.tgz:  Added /usr/lib/libstdc++.so.2.9.0 from egcs-1.1.1.
+slakware/a13/zoneinfo.tgz:  Rearranged timeconfig menu to put US timezones at
+                        the top of the menu.
+slakware/n8/tcpip1.tgz:  Upgraded /usr/sbin/wu.ftpd to wu-ftpd-2.4.2-vr16.
+slakware/xap1/kde.tgz:  Recompiled against libstdc++.so.2.9 from egcs-1.1.1.
+                        Added KDE menu entry for xfig.
+slakware/xap1/netscape.tgz:  Upgraded to Netscape
+                             communicator-v451-export.x86-unknown-linux2.0.
+----------------------------
+Mon Mar 15 15:38:10 CST 1999
+slakware/n1/apache.tgz:  Upgraded to apache_1.3.4.  Moved htdocs directory to
+                         /var/lib/apache/htdocs/.
+----------------------------
+Sun Mar 14 20:32:17 CST 1999
+slakware/a8/minicom.tgz:  Upgraded to minicom-1.82-3.
+slakware/a13/util.tgz:  Patched swapon.c to not complain about the default
+                        device permissions.
+slakware/ap1/diff.tgz:  Fixed diff's -l option to use /usr/bin/pr instead
+                        of /bin/pr.
+slakware/x1/x3dl.tgz, x8514.tgz, xagx.tgz, xbin.tgz, xdoc.tgz, xfb.tgz,
+            xfsrv.tgz, xhtml.tgz, xi128.tgz, xjdoc.tgz, xjset.tgz, xlib.tgz,
+            xma32.tgz, xma64.tgz, xma8.tgz, xman.tgz, xmono.tgz, xnest.tgz,
+            xp9k.tgz, xprog.tgz, xprt.tgz, xps.tgz, xs3.tgz, xs3v.tgz, 
+            xset.tgz, xsvga.tgz, xvfb.tgz, xvg16.tgz, xw32.tgz: 
+                Upgraded to XFree86 3.3.3.1.
+----------------------------
+Sun Mar 14 02:16:06 CST 1999
+contrib/ircd.tgz:  Upgraded to the Undernet IRCD ircu2.10.05.9.  Special thanks
+                   to David Cantrell for downloading this, getting it running,
+                   and doing most of the work on the build scripts (on a laptop
+                   while we were at LinuxWorld, no less :)
+slakware/d1/binutils.tgz:  Upgraded to binutils-2.9.1.0.19a.
+slakware/d1/egcs.tgz:  Added libg++.so.27 and libstdc++.so.27 symlinks to
+                   libstdc++.so.2.8.  (These make Netscape happy)
+----------------------------
+Sat Mar 13 01:04:00 CST 1999
+slakware/d1/egcs.tgz:  Upgraded to egcs-1.1.1.
+slakware/d1/egcs_g77.tgz:  Upgraded to egcs-1.1.1.
+slakware/d1/egcsobjc.tgz:  Upgraded to egcs-1.1.1.
+----------------------------
+Fri Mar 12 20:02:59 CST 1999
+slakware/n7/samba.tgz:  Upgraded to samba-2.0.3.
+            [NOTE: This package has grown quite a bit, and no longer fits on a
+             floppy.  As a result, I'm considering collapsing the N series into
+             a single directory and letting the packages grow larger than a
+             floppy disk.  I know this creates problems for people who still use
+             floppy installation, but splitting up packages into floppy sized
+             chunks creates problems for everyone else, and is a major 
+             maintenance hassle. ]
+slakware/xap1/libgr.tgz:  .soname for JPEG library v6b changed from
+             libjpeg.so.6.0.1 to libjpeg.so.62.0.0 to avoid a conflict with
+             the v6a libjpeg.so.6.0.1 supplied by KDE.
+slakware/xap1/gimp.tgz:  Recompiled against the fixed libgr.tgz -- loading
+             JPEGs in GIMP under KDE now works correctly.
+----------------------------
+Thu Mar 11 23:37:15 CST 1999
+slakware/a10/sysvinit.tgz:  Edited /etc/rc.d/rc.6 to use the -p option with
+                            halt.  This enables APM shutdown with 2.2.x kernels.
+----------------------------
+Thu Mar 11 01:08:25 CST 1999
+slakware/t1/tetex.tgz:    Upgraded TeX to tetex-0.9-990309.
+slakware/t1/tex_bin.tgz:  Binaries upgraded to tetex-0.9-990309.
+slakware/t1/tex_doc.tgz:  Documentation for tetex-0.9-990309.
+slakware/t1/transfig.tgz: Upgraded to transfig-3.2.1.
+slakware/t1/xfig.tgz:     Upgraded to xfig-3.2.2.
+----------------------------
+Tue Mar  9 22:12:13 CST 1999
+slakware/a5/hdsetup.tgz, rootdsks/{color,text,pcmcia,umsdos}.gz:  Modified
+            installation scripts to empty /var/log/mount in a safer fashion.
+            Changed version file in /usr/lib/setup/ to slack-version-3.6.9.
+----------------------------
+Tue Mar  9 20:46:35 CST 1999
+slakware/xap1/gnuplot.tgz:  Upgraded to gnuplot-3.7.
+----------------------------
+Wed Feb 24 12:47:24 CST 1999
+slakware/ap1/enscript.tgz:  Added GNU enscript-1.6.1, a text to .ps utility.
+----------------------------
+Tue Feb 23 14:52:01 CST 1999
+slakware/a2/devs.tgz:  Removed obsolete devices in /dev/ (arp icmp inet ip
+                       socket tcp udp unix)
+----------------------------
+Mon Feb 22 20:29:48 CST 1999
+slakware/a2/etc.tgz:  Patched /usr/bin/filesize to work on filenames containing
+                      whitespace.  Thanks to René Seindal for pointing out 
+                      this bug. :)
+--- /usr/bin/filesize   Fri Jan  6 21:54:21 1995
++++ filesize    Mon Feb 22 20:27:27 1999
+@@ -2,5 +2,5 @@
+ #
+ # Print the size of a file, in bytes.
+ #
+-SIZE=`ls -l -d -G $1 | cut -b23-32`
++SIZE=`ls -l -d -G "$1" | cut -b23-32`
+ echo -n $SIZE
+----------------------------
+Mon Feb 22 19:10:08 CST 1999
+slakware/n8/tcpip1.tgz:  Upgraded to wu-ftpd-2.4.2-beta-18-vr14.
+     [The last rebuild of this package was compiled using the header files from
+      Linux-2.2.1.  For some reason, this caused wu-ftpd-2.4.2-beta-18-vr12 to
+      hangup the FTP session as soon as the 'ls' command was used.  Upgrading to
+      wu-ftpd-2.4.2-beta-18-vr14 fixed the problem. ]
+----------------------------
+Wed Feb 10 22:27:48 CST 1999
+slakware/xap1/kde.tgz:  Upgraded to KDE-1.1.  Thanks to everyone on the KDE team
+                        for another great release! :)
+----------------------------
+Wed Feb 10 14:15:11 CST 1999
+slakware/n8/tcpip1.tgz:  Upgraded to pop3d-1.006d.  Changed POP spool directory
+                  from /var/tmp/.pop to /var/spool/tmp (I couldn't think of any
+                  good reason to be hiding it in /var/tmp)  Prevent a local POP
+                  DoS by changing POP spool permissions from 1777 to 1775.
+                  Added /usr/sbin/flushpop.sh to remove stale POP files from
+                  /var/spool/pop -  run it from root's crontab every 15 minutes.
+----------------------------
+Mon Feb  8 17:59:08 CST 1999
+slakware/n3/imapd.tgz:  Upgraded to version from Pine 4.10.
+slakware/n6/pine.tgz:  Upgraded to Pine 4.10, with a patch to escape
+                       backquotes sent as script parameters.  This fixes a
+                       security problem reported on BugTraq.
+----------------------------
+Sun Feb  7 18:15:56 CST 1999
+rootdsks/color.gz, pcmcia.gz, text.gz, umsdos.gz:  Various 2.2.x-related
+                           patches and fixes.
+slakware/a1/aaa_base.tgz:  Recompiled fdutils (recommended for Linux 2.2.x)
+slakware/a5/hdsetup.tgz:  Changed modem and mouse devices from /dev/cua*
+                          devices to /dev/ttyS* devices, as is the standard
+                          for Linux 2.2.x.
+slakware/a10/sysvinit.tgz:  Upgraded to sysvinit-2.76-3.  Various bugfixes and
+                            adjustments to the init scripts in /etc/rc.d/.
+slakware/n1/netpipes.tgz:  Added missing getsockname -> getpeername link.
+slakware/n4/ppp.tgz:  Changed /usr/sbin/pppd link to point to 
+                      /usr/sbin/pppd-2.3, the correct version for Linux 2.2.x.
+                      (don't install this update unless you are running 2.2.x)
+                      Patched pppsetup to change all occurances of 'cua' to
+                      'ttyS'.  Renamed fix-cua to fix-ttyS and patched to
+                      change all 'cua' to 'ttyS'.
+slakware/n8/tcpip1.tgz:  Upgraded to net-tools-1.50.
+                         Upgraded to netkit-telnet-0.12.
+                         Upgraded to nfs-server-2.2beta40.
+----------------------------
+Sat Feb  6 18:49:39 CST 1999
+slakware/n2/smailcfg.tgz:  Upgraded to sendmail-8.9.3.
+slakware/n5/procmail.tgz:  Recompiled along with sendmail.
+slakware/n5/sendmail.tgz:  Upgraded to sendmail-8.9.3.
+----------------------------
+Sat Feb  6 17:48:17 CST 1999
+slakware/a5/hdsetup.tgz:  /sbin/setup.tty modified for slightly different
+                          output from the new util-linux fdisk.
+slakware/a12/sh_utils.tgz:  Added chroot, which is no longer in util-linux.
+slakware/a13/util.tgz:  Upgraded to util-linux-2.9h.
+                        Upgraded to hostname from net-tools-1.50.
+                        Upgraded to setserial-2.14.
+slakware/a13/zoneinfo.tgz:  Upgraded to tzcode1999b and tzdata1999b.
+----------------------------
+Fri Feb  5 22:04:57 CST 1999
+slakware/y1/bsdgames.tgz:  Fixed default fortune database path and added a
+                           database of Linux-related fortunes.
+----------------------------
+Tue Feb  2 21:27:23 CST 1999
+slakware/a8/sysklogd.tgz:  Upgraded to sysklogd-1.3-31.
+----------------------------
+Tue Feb  2 02:22:25 CST 1999
+slakware/a8/procps.tgz:  Changed MINOR_VERSION in procps Makefile from 7 to 9.
+                         Upgraded to psmisc-18.
+                         Merged in procinfo-16.
+----------------------------
+Mon Feb  1 02:52:03 CST 1999
+slakware/n8/tcpip1.tgz:  Slight adjustment to /etc/rc.d/rc.inet2 to not say
+                         "not mounted anything" if NFS partitions are listed
+                         in /etc/fstab with the "noauto" option.
+----------------------------
+Mon Feb  1 00:17:08 CST 1999
+slakware/a10/sysvinit.tgz:  /etc/rc.d/rc.S:  Show name of root partition
+                            when remounting it.
+slakware/n8/tcpip1.tgz:  /usr/sbin/rpc.portmap moved to /sbin/rpc.portmap.
+                         /etc/rc.d/rc.inet2 modified to run rpc.portmap before
+                         mounting remote NFS filesystems.  (needed for 2.2.x)
+                         Also, show names of remote NFS partitions when
+                         mounting them.
+----------------------------
+Sat Jan 30 11:18:13 CST 1999
+rootdsks/text.gz:  Added missing addkernel.tty and loadgzkeys shell scripts.
+slakware/n1/netpipes.tgz:  Upgraded to netpipes-4.2-export.
+----------------------------
+Thu Jan 28 14:17:12 CST 1999
+slakware/n9/wget.tgz:  Added wget-1.5.3.
+----------------------------
+Thu Jan 28 01:41:19 CST 1999
+slakware/a5/pnp.tgz:  Upgraded to isapnptools-1.17.
+slakware/n9/tcpip2.tgz:  Added autofs-3.1.3.
+                         Added dhcp-2.0b1pl6.
+----------------------------
+Wed Jan 27 22:12:32 CST 1999
+slakware/a10/sysvinit.tgz:  Default domain changed to 'example.net'.
+slakware/a2/etc.tgz:  Default domain changed to 'example.net'.
+slakware/n2/elm.tgz:  Default domain changed to 'example.net'.
+slakware/n8/tcpip1.tgz:  Default domain changed to 'example.net'.
+                         FTP daemon upgraded to wu-ftpd-beta18-vr12.
+                         Updated 'netconfig' scripts to not set up eth0
+                         route when using linux-2.1 or higher.
+----------------------------
+Mon Jan 25 21:57:21 CST 1999
+slakware/a3/bin.tgz:  Increased array size in rpmoffset to fix problems with
+                      some larger RPMs.
+                      Fixed build script for 'compress'.
+----------------------------
+Sun Jan 10 23:33:33 CST 1999
+slakware/a2/etc.tgz:  'operator' user (gid 0) replaced in default passwd and
+                      shadow files.
+                      '.' replaced in $PATH for users other than root.
+slakware/n5/sendmail.tgz:  'operator' removed from /etc/aliases.
+----------------------------
+Tue Jan  5 14:04:59 CST 1999
+slakware/a2/etc.tgz:  Removed obsolete /etc/ttys.
+                      Edited /etc/profile and /etc/csh.login to remove '.' from
+                      the default $PATH.
+                      Changed /etc/securetty to allow only console logins.
+----------------------------
+Mon Dec 21 18:29:28 CST 1998
+slakware/a2/etc.tgz:  Removed passwd/shadow accounts for 'postmaster' and
+                      'operator' -- these are better handled through aliases.
+slakware/n5/sendmail.tgz:  Patched installation script to add /etc/aliases.
+----------------------------
+Tue Dec  8 02:00:54 CST 1998
+slakware/n6/rsync.tgz:  New rsync-2.2.1 package added.
+slakware/n8/tcpip1.tgz:  In /etc/inetd.conf:  commented out the systat and
+                         netstat services, and tightened fingerd security (it
+                         now rejects requests of the form ``finger @host'').
+slakware/n9/uucp.tgz:  Permissions on /var/spool/uucp* tightened to drwxrwxr-x.
+----------------------------
+Sun Dec  6 19:33:46 CST 1998
+slakware/xap1/qt_1_42.tgz:  This qt-1.42 source+binary package replaces
+                            qt_1_41.tgz.  QTDIR changed from /usr/local/qt
+                            to /usr/lib/qt.
+----------------------------
+Sat Dec  5 17:39:02 CST 1998
+slakware/a3/bin.tgz:  Added /usr/include/apm.h from the apmd package,
+                      modified rpmoffset (part of rpm2tgz) to work with
+                      newer RPMs.
+----------------------------
+Tue Dec  1 00:21:45 CST 1998
+bootdsks.144/:  Upgraded bootdisk images to use Linux 2.0.36.
+bootdsks.12/:  Upgraded bootdisk images to use Linux 2.0.36.
+kernels/:  Upgraded precompiled kernels to Linux 2.0.36.
+rootdsks/pcmcia.gz:  Rootdisk upgraded to pcmcia-cs-2.0.6 for Linux 2.0.36.
+slakware/a1/joystick.tgz:  Recompiled for 2.0.36.
+slakware/a7/ibcs2.tgz:  Upgraded to ibcs-2.0-981105, recompiled for 2.0.36.
+slakware/a7/a7/ide.tgz:  New generic IDE Linux 2.0.36 kernel.
+slakware/a9/modules.tgz:  Kernel modules upgraded to 2.0.36.
+slakware/a10/pcmcia.tgz:  Upgraded to pcmcia-cs-2.0.6 for Linux 2.0.36.
+slakware/a10/scsimods.tgz:  SCSI Kernel modules upgraded to 2.0.36.
+slakware/a11/scsi.tgz:  New generic SCSI/IDE Linux 2.0.36 kernel.
+slakware/k1/linuxinc.tgz:  Include files upgraded to Linux 2.0.36.
+slakware/k1/lx2036.tgz:  Kernel source upgraded to Linux 2.0.36.
+slakware/n4/netmods.tgz:  Network Kernel modules upgraded to 2.0.36.
+----------------------------
+Sun Nov 29 19:54:27 CST 1998
+slakware/xd1:  Upgraded to XFree86 3.3.3 link kit.
+----------------------------
+Sun Nov 29 02:26:31 CST 1998
+Upgraded X package series to XFree86 3.3.3:
+slakware/x1/diskx1, maketag, maketag.ez, tagfile, tagfile.org: edited.
+slakware/x1/x3dl.tgz, x8514.tgz, xagx.tgz, xbin.tgz, xcfg.tgz, xdoc.tgz,
+    xf100.tgz, xfb.tgz, xfcyr.tgz, xfnon.tgz, xfnts.tgz, xfscl.tgz, xfsrv.tgz,
+    xhtml.tgz, xi128.tgz, xjdoc.tgz, xjset.tgz, xlib.tgz, xma32.tgz,
+    xma64.tgz, xma8.tgz, xman.tgz, xmono.tgz, xnest.tgz, xp9k.tgz, xprog.tgz,
+    xprt.tgz, xps.tgz, xs3.tgz, xs3v.tgz, xset.tgz, xsvga.tgz, xvfb.tgz,
+    xvg16.tgz, xw32.tgz:  New packages for XFree86 3.3.3.
+slakware/x1/xaw3d.tgz:  Upgraded to version Xaw3d-1.5.
+slakware/x1/xlock.tgz:  Upgraded to xlockmore-4.12, added KDE menu links.
+slakware/xap1/diskxap1, maketag, maketag.ez, tagfile, tagfile.org: edited
+slakware/xap1/kde.tgz:  Added KDE package.  (KDE is a network transparent
+    contemporary desktop environment for UNIX workstations)  Note that use of
+    KDE-1.0 may open up some local security holes.  BugTraq recently reported
+    one with the KDE screensaver, for example.  Still, KDE is pretty nice. :)
+    These security problems will likely be gone in the next KDE release.
+----------------------------
+****** branched slackware-current development tree here ******
+----------------------------
+Sat Nov 28 17:28:23 CST 1998
+bootdsks.144/pportide.i:  (bugfix)  The pportide.i bootdisk did not contain
+             the parallel-port IDE drivers.  Fix:  added missing support for
+             parallel-port IDE devices.
+kernels/pportide.i/bzImage:  (bugfix)  Added missing parallel-port IDE drivers.
+----------------------------
+Wed Oct 28 04:20:01 CST 1998
+Slackware 3.6.0 is released.
+slakware/a5/hdsetup.tgz:  Patches to CD/DVD installation script.
+----------------------------
+Tue Oct 27 15:46:48 CST 1998
+slakware/a1/aaa_base.tgz:  Add directories for package scripts.
+slakware/a3/bin.tgz:  Added apmd_3.0beta3-2 and asapm-2.2.
+slakware/a10/sysvinit.tgz:  Patched /etc/rc.d/rc.M to start apmd on laptops.
+slakware/ap1/ghostscr.tgz:  Added support for HP HP670, HP690, HP850, HP855,
+         HP870, HP890, HP1100 and HP1600 color printers.
+slakware/xap1/fvwm95.tgz:  Added a sample system.fvwm95rc-apm-battery in
+         /var/X11R6/lib/fvwm95/.  This version adds a power meter to the
+         fvwm95 button bar.
+slakware/xap1/gs_x11.tgz:  Added support for HP HP670, HP690, HP850, HP855,
+         HP870, HP890, HP1100 and HP1600 color printers.
+slakware/n5/trn.tgz:  Changed some permissions in /usr/lib/trn to allow scripts
+         to work for root group users.
+contrib/cvs-1.10.tgz:  Upgraded CVS to version 1.10.
+----------------------------
+Mon Oct 26 03:22:25 CST 1998
+slakware/ap1/manpages.tgz:  Rebuilt /usr/man/whatis.
+slakware/x1/x332man.tgz:  Rebuilt /usr/X11R6/man/whatis.
+slakware/xap1/gimp.tgz:  Upgraded to gtk+-1.0.6 and gimp-1.0.2.
+----------------------------
+Sun Oct 25 18:55:45 CST 1998
+Package directories in A and N package series sorted to allow A directories
+to fit on 1.2MB or 1.44MB floppies, and N directories to fit on 1.44MB floppies.
+slakware/a1/aaa_base.tgz:  Pine requires that /var/spool/mail be chmod 1777 for
+            correct mailbox locking.  While I have some reservations about
+            allowing yet another place for users to hide huge files, I've made
+            the change as there are good technical reasons behind it -- the
+            previous more restrictive permissions could result in lost mail.
+slakware/a3/bin.tgz:  Upgraded /usr/sbin/makewhatis to version 1.0h.
+slakware/a4/less.tgz:  /usr/bin/lesspipe.sh edited to use new '-y' option for
+            viewing bzip2 decompressed tar files.
+slakware/a5/hdsetup.tgz:  In /usr/lib/setup/cpkgtool, "disk sets" renamed to
+            "package series" in a few places.  SeTconfig now sets mail spool
+            permissions to 1777.
+slakware/ap1/manpages.tgz:  Upgraded to man-pages-1.21.
+slakware/x1/x332prog.tgz:  In /var/X11R6/lib/config, the files Imake.tmpl,
+            Motif.tmpl, and Motif.rules are all the Lesstif versions now, as
+            these are the ones most commonly used with Linux.  Commercial
+            versions of Motif should install their own Motif.tmpl and 
+            Motif.rules, but we retain the OSF versions that ship with XFree86
+            just in case (with a .osf extension). 
+rootdsks/color.gz, pcmcia.gz, umsdos.gz:  Changed "setup" to create the mail
+            spool directory with correct permissions for file locking.
+----------------------------
+Sun Oct 25 00:54:08 CDT 1998
+slakware/a4/glibc1.tgz:  Runtime support libraries from glibc-2.0.7pre6.
+slakware/a4/glibc2.tgz:  Internationalization support files for glibc.
+slakware/a4/hdsetup.tgz:  Patches to /var/log/setup/setup.cdrom.
+slakware/a5/ide.tgz:  Upgraded generic IDE Linux kernel to 2.0.35.
+slakware/a5/ide.cfg:  .config file to produce generic 2.0.35 IDE kernel.
+slakware/a8/procps.tgz:  Upgraded to procps-1.2.9.  No longer includes psupdate
+                         or xcpustate (both pretty useless, IMHO).
+slakware/a8/scsi.tgz:  Upgraded generic SCSI Linux kernel to 2.0.35.
+slakware/a8/scsi.cfg:  .config file to produce generic 2.0.35 SCSI kernel.
+slakware/a10/sysvinit.tgz:  Patches to /etc/rc.d/rc.cdrom.
+slakware/n7/tcpip1.tgz:  /etc/rpc updated from glibc-2.0.7pre6.
+----------------------------
+Sat Oct 24 00:02:51 CDT 1998
+slakware/x1/fvwm2.tgz:  system.fvwm2rc updated to call gv, not ghostview.
+slakware/xap1/fvwm95.tgz:  system.fvwm95rc updated to call gv, not ghostview.
+slakware/xap1/ghstview.tgz:  Retired in favor of gv-3.5.8.
+slakware/xap1/gv.tgz:  New gv-3.5.8 package.
+----------------------------
+Fri Oct 23 20:15:08 CDT 1998
+slakware/ap1/cdutils.tgz:  Upgraded cdrecord to version 1.6.1.  It should now
+                        support some parallel-port CD-R/RW drives (with an EPP
+                        port 2x might work, and 1x should be pretty reliable)
+slakware/n5/samba.tgz:  Removed smbmount/smbumount man pages (these versions
+                        won't be used until 2.2.x is the default kernel).
+slakware/n6/tcpip2.tgz:  Upgraded to fetchmail-4.6.3 and ipchains-1.3.5.
+slakware/x1/x3328514.tgz, x332agx.tgz, x332bin.tgz, x332i128.tgz,
+  x332lib.tgz, x332ma32.tgz, x332ma64.tgz, x332ma8.tgz, x332mono.tgz,
+  x332nest.tgz, x332p9k.tgz, x332prog.tgz, x332prt.tgz, x332s3.tgz,
+  x332s3v.tgz, x332svga.tgz, x332vfb.tgz, x332vg16.tgz, 
+  x332w32.tgz:  Upgraded to XFree86 3.3.2 + patch 3.
+slakware/xd1/x332lkit.tgz:  Upgraded to XFree86 3.3.2 + patch 3.
+slakware/x1/x332bin.tgz:  Recompiled 'makedepend' to look for include files in
+         the gcc-2.7.2.3 include directory instead of the default gcc-2.7.2.1
+         include directory.
+contrib/extra-X-servers/:  Added binary-only (even though I'm disappointed to
+                see that) X servers for Intel i740 AGP and NeoMagic chipsets.
+----------------------------
+Thu Oct 22 17:11:12 CDT 1998
+slakware/a1/aaa_base.tgz:  Updated new root email for Slackware 3.6.
+----------------------------
+Wed Oct 21 20:34:11 CDT 1998
+slakware/a2/devs.tgz:  Added parallel-port devices in /dev:  pda*, pdb*, pdc*,
+                       pdd*, pcd*, pf*, pt*, npt*, pg*.
+slakware/a4/hdsetup.tgz:  Updated version numbers, improved CD-ROM scanning.
+slakware/a10/sysvinit.tgz:  Updated /etc/rc.d/rc.cdrom to better detect ATAPI
+                       CD-ROM and DVD-ROM drives.
+slakware/f1/manyfaqs.tgz:  Updated Linux FAQs.
+slakware/f1/howto.tgz:  Updated Linux HOWTOs.
+slakware/f1/mini.tgz:  Updated Linux mini-HOWTOs.
+----------------------------
+Mon Oct 19 22:29:20 CDT 1998
+slakware/a9/shadow.tgz:  Upgraded to shadow-980724.
+slakware/ap1/ash.tgz:  Recompiled.
+slakware/ap1/jove.tgz:  Recompiled.
+slakware/ap1/sc.tgz:  Recompiled.
+slakware/d1/p2c.tgz:  Recompiled.
+slakware/d1/python.tgz:  Upgraded to python-1.5.1.
+slakware/d1/rcs.tgz:  Recompiled.
+slakware/n2/cnews.tgz:  Recompiled.
+slakware/n8/uucp.tgz:  Recompiled.
+slackware/x1/x332prog.tgz:  Patched /usr/X11R6/include/X11/Xlib.h:
+--- Xlib.h.orig Tue Oct 20 00:04:15 1998
++++ Xlib.h      Tue Oct 20 00:33:43 1998
+@@ -76,7 +76,7 @@
+ #include <stdlib.h>
+ #else
+ /* replace this with #include or typedef appropriate for your system */
+-typedef unsigned long wchar_t;
++#include <stddef.h>
+ #endif
+ #endif
+slakware/xap1/ghstview.tgz:  Recompiled.
+slakware/xap1/xspread.tgz:  Recompiled.
+slakware/xap1/xxgdb.tgz:  Recompiled.
+slakware/xv1/workman.tgz:  Recompiled.
+----------------------------
+Sun Oct 18 21:50:39 CDT 1998
+contrib/java:  Upgraded to jdk_1.1.6.
+slakware/d1/gcc.tgz:  Added C++ support. (requires the egcs.tgz package for C++
+            include files and libstdc++)
+slakware/n4/pine.tgz:  Upgraded to pine 4.05.
+slakware/n4/imapd.tgz:  New package with imapd/ipop3d from pine 4.05.
+slakware/n7/tcpip1.tgz:  Upgraded to pidentd-2.8.3.
+----------------------------
+Sun Oct 18 16:09:40 CDT 1998
+slakware/d1/perl.tgz:  Upgraded to perl-5.005_02.
+----------------------------
+Fri Oct 16 23:18:57 CDT 1998
+slakware/xap1/netscape.tgz:  Upgraded to
+              communicator-v407-export.x86-unknown-linux2.0_libc5.
+----------------------------
+Thu Oct 15 22:36:57 CDT 1998
+slakware/a2/e2fsbn.tgz:  Upgraded to e2fsprogs-1.12.
+slakware/a2/diska2:  edited.
+----------------------------
+Wed Oct 14 20:58:36 CDT 1998
+kernels/lodln16a.zip:  Upgraded to loadlin-1.6a (needed for kernels newer
+            than 2.1.22)
+slakware/a5/loadlin.tgz:  Upgraded to loadlin-1.6a.
+slakware/e1/elisp.tgz, emac_nox.tgz, emacinfo.tgz, emacmisc.tgz, emacsbin.tgz:
+            Upgraded to emacs-20.3.
+----------------------------
+Wed Oct 14 03:30:07 CDT 1998
+slakware/n6/sendmail.tgz:  Added webmaster alias in /etc/aliases.new.
+----------------------------
+Mon Oct 12 19:32:15 CDT 1998
+slakware/k1/lx2035.tgz:  Upgraded to linux-2.0.35.
+slakware/k1/linuxinc.tgz:  Upgraded to header files from linux-2.0.35.
+slakware/d1/linuxinc.tgz:  Upgraded to header files from linux-2.0.35.
+----------------------------
+Sun Oct 11 18:33:51 CDT 1998
+rootdsks/pcmcia.gz:  Upgraded to pcmcia-3.0.5 for linux-2.0.35.
+slakware/a1/joystick.tgz:  Recompiled for linux-2.0.35.
+slakware/a5/ibcs2.tgz:  Upgraded to ibcs-2.0-980822.
+slakware/a6/modutils.tgz:  Upgraded to modutils-2.1.121.
+slakware/a6/pcmcia.tgz:  Upgraded to pcmcia-3.0.5.
+slakware/a7/modules.tgz:  New modules for linux-2.0.35.
+slakware/a9/modules.tgz:  New modules for linux-2.0.35.
+slakware/ap1/ispell.tgz:  Compressed info file.
+slakware/d1/egcs.tgz:  Changed the filenames and links in /usr/bin to allow a
+         more peaceful coexistence with gcc-2.7.2.3.  'gcc' and 'g++' are now
+         links to a longer filename including the compiler's version number.
+slakware/d1/gcc.tgz:  Added gcc-2.7.2.3.  Although I never encountered any
+         problems with egcs (well, other than the annoying string.h warnings :)
+         many of the kernel developers feel that compiling the kernel with a
+         gcc-2.7.x compiler is better tested and possibly more reliable.  As a
+         result, gcc-2.7.2.3 is now provided as an alternative to egcs-1.0.3.
+         When this package is installed in addition to egcs-1.0.3, then by
+         default C code will be compiled with gcc-2.7.2.3, while C++, 
+         objective C, and Fortran-77 will be compiled with egcs-1.0.3.  If you
+         need to change this, aim the 'gcc' and 'g++' links at the compilers
+         you want to use, or set the compiler name in your Makefile to the
+         compiler you want, such as: GCC=gcc-egcs-1.0.3
+slakware/d1/svgalib.tgz:  Upgraded to svgalib-1.3.0.
+slakware/n1/apache.tgz:  Upgraded to apache-1.3.3.  Changed server root 
+            directory from /var/lib/httpd to /var/lib/apache.
+slakware/n4/smailcfg.tgz:  Upgraded to sendmail-8.9.1.
+slakware/n4/procmail.tgz:  Upgraded to procmail-3.11pre7.
+slakware/n5/samba.tgz:  Upgraded to samba-1.9.18p10.
+slakware/n6/sendmail.tgz:  Upgraded to sendmail-8.9.1.
+slakware/n8/netmods.tgz:  Added networking kernel modules package.
+----------------------------
+Sat Oct 10 22:59:23 CDT 1998
+ Some old ELF binaries don't work well when run against libc-5.4.46,
+ so they're getting recompiled and/or upgraded:
+slakware/ap1/diff.tgz:  Recompiled.
+slakware/ap1/ispell.tgz:  Recompiled.
+slakware/ap1/quota.tgz:  Upgraded to quota-1.70.
+slakware/d1/byacc.tgz:  Recompiled.
+slakware/d1/m4.tgz:  Recompiled.
+slakware/d1/pmake.tgz:  Recompiled.
+slakware/n2/elm.tgz:  Recompiled.
+slakware/xap1/gnuplot.tgz:  Recompiled.
+----------------------------
+Sat Oct 10 18:28:12 CDT 1998
+rootdsks/color.gz, pcmcia.gz, umsdos.gz:  Rebuilt for Slackware 3.6.
+***** Slackware 3.6 development tree branches off here *****
+----------------------------
+Wed Oct  7 16:28:29 CDT 1998
+slakware/ap1/texinfo.tgz:  Inserted missing info.1.gz manpage.
+                           (hey, you could have just done "info info" ;^)
+slakware/tcl1/tclx.tgz:  Fixed a couple of manpages/symlinks in /usr/man/man1.
+----------------------------
+Tue Oct  6 23:04:56 CDT 1998
+slakware/ap1/jpeg6.tgz:  Upgraded to use jpegsrc.v6b.
+slakware/ap1/diskap1:  edited.
+slakware/xap1/libgr.tgz:  Upgraded to use libraries in libgr-2.0.13, plus
+                          more recent versions of libjpeg, libpng, libtiff,
+                          and libz.
+slakware/xap1/diskxap1:  edited.
+----------------------------
+Tue Oct  6 15:19:12 CDT 1998
+slakware/d1/libc.tgz:  Use uio.h in the kernel instead of the libc5 version:
+                       /usr/include/sys/uio.h -> /usr/include/linux/uio.h
+----------------------------
+Mon Oct  5 19:45:13 CDT 1998
+slakware/a2/elflibs.tgz:  Upgraded to libc-5.4.46.
+slakware/d1/libc.tgz:  Upgraded to libc-5.4.46.  (Since this is the final
+                       release of libc5, I'd like to take this opportunity
+                       to thank H.J. Lu for his years of work on the project,
+                       and to wish him well in all future endeavors! :)
+slakware/d1/diskd1:  edited.
+----------------------------
+Sun Oct  4 23:49:37 CDT 1998
+slakware/xap1/qt_1_41.tgz:  Upgraded Qt to version 1.41.
+slakware/xap1/diskxap1: edited.
+slakware/xap1/maketag, maketag.ez: edited.
+slakware/xap1/tagfile, tagfile.org: edited.
+----------------------------
+Sat Oct  3 18:15:40 CDT 1998
+slakware/a3/bin.tgz:  Patched rpm2targz so that the converted .tar.gz files
+        do not produce a "decompression OK, trailing garbage ignored" error.
+        Added "rpm2tgz" mode to produce output files with a .tgz extension.
+----------------------------
+Fri Oct  2 16:51:32 CDT 1998
+slakware/a8/sysvinit.tgz: Moved to directory a10.
+slakware/a8/diska8: edited.
+slakware/a10/sysvinit.tgz: Moved here from directory a8.
+        /sbin/init has been recompiled as a static binary.  This avoids problems
+        with the root partition not getting unmounted correctly at reboot time
+        with the latest development kernels.  (The problem was caused by init
+        mmap()ing /etc/ld.so.cache before the file is deleted and then rebuilt.
+        This leaves init holding a file descriptor to a deleted file at 
+        shutdown, preventing it from being unmounted, and leaving the filesystem
+        in an inconsistent state.
+slakware/a10/diska10: edited.
+----------------------------
+Thu Oct  1 10:25:50 CDT 1998
+slakware/a1/bzip2.tgz:  Upgraded to bzip2-0.9.0b.
+slakware/a1/diska1:  edited.
+slakware/a4/gpm.tgz:  Fixed a typo in the comments added to /etc/rc.d/rc.local.
+slakware/a10/tar.tgz:  The option for bzip2 compression with tar has been
+                       changed from -I to -y.  (The long-form options, --bzip2
+                       and --bunzip2, will remain the same)
+----------------------------
+Wed Sep 30 13:54:22 CDT 1998
+slakware/n7/tcpip1.tgz:  It appears a new denial-of-service attack against
+                         the NFS daemon rpc.mountd has surfaced.  This package
+                         upgrades the NFS daemons to nfs-server-2.2beta37,
+                         which should fix the problem.
+slakware/n7/diskn7: edited.
+----------------------------
+Tue Sep 22 22:20:25 CDT 1998
+contrib/glibc-devel-2.0.5c.tgz:  Added missing /usr/include/gnu/stubs.h.
+----------------------------
+Fri Sep 18 14:14:39 CDT 1998
+slakware/a2/elflibs.tgz: Fixed /lib/libgdbm.so.1.7.3 that was missing
+                         some symbols.
+----------------------------
+Thu Sep  3 22:02:34 CDT 1998
+rootdsks/color.gz, umsdos.gz, pcmcia.gz:  Patched setup program to mount
+         mount source partitions as read-only when using NFS or a hard-drive
+         partition as the installation source.
+slakware/a4/hdsetup.tgz: Make setup mount all source partitions read-only.
+----------------------------
+Thu Sep  3 20:27:12 CDT 1998
+slakware/a4/gpm.tgz: Upgraded to gpm-1.14.  In addition, the gpm setup
+            script no longer adds the '-R' option to the gpm command line
+            in /etc/rc.d/rc.local -- too many people had trouble with this.
+            Instead, it adds a commented out example of how to use '-R' with X.
+slakware/a4/diska4: edited.
+----------------------------
+Tue Sep  1 20:11:47 CDT 1998
+slakware/a6/diska6: edited.
+slakware/a6/minicom.tgz: Upgraded from minicom-1.80.1 to minicom-1.81.1.
+                         Minicom changed from setuid root to setgid uucp.
+                         (the /dev/cua* devices are rw for group uucp)
+slakware/a8/sysvinit.tgz: /etc/rc.d/rc.M edited to start netatalk after
+                          initializing TCP/IP.
+slakware/a11/util.tgz: Upgraded to use /bin/hostname from net-tools-1.45.
+slakware/n7/tcpip.tgz: Patched NFS (rpc.mountd and rpc.nfsd) against security
+                       holes reported on BugTraq.
+                       Upgraded net-tools-1.432 to net-tools-1.45.
+                       Upgraded netkit-routed-0.10 to netkit-routed-0.12.
+----------------------------
+Fri Aug 21 22:26:57 CDT 1998
+slakware/y1/bsdgames.tgz:  Renamed a couple of files:
+        cd /usr/games/lib/fortunes
+        mv limerick limerick-o
+        mv limerick.dat limerick-o.dat
+        'limerick' was a new fortune database with the last update of this 
+        package.  Many of them could be considered offensive, but in spite of
+        the rot13 encryption present in the file, fortune doesn't realize it's
+        a potentially offensive database without the '-o' suffix, so people
+        were getting these at random, especially if some of the larger 
+        alternate databases (like fortunes2) were removed.  Anyway, sorry.
+        Hope nobody was too terribly shocked. :^)
+----------------------------
+Wed Aug 19 17:08:06 CDT 1998
+slakware/n7/tcpip1.tgz:  /usr/sbin/rpc.pcnfsd:  Security patches merged in.
+                           This daemon is not enabled by default, but if you've
+                           enabled it in /etc/rc.d/rc.inet2 then you will need
+                           this new version.
+                         /usr/sbin/rpc.portmap:  Host access control added.
+----------------------------
+Mon Aug 17 13:47:18 CDT 1998
+contrib/glibc-devel-2.0.5c.tgz:  Added missing header files in /usr/include.
+----------------------------
+Sun Aug 16 15:02:58 CDT 1998
+slakware/a2/find.tgz:  Directory ownership on /var/spool/locate changed to
+                       user nobody, group bin.  This fixes the updatedb cron
+                       job that runs as user nobody.
+                       (chown nobody.bin /var/spool/locate)
+----------------------------
+Sat Aug 15 17:41:34 CDT 1998
+rootdsks/color.gz, umsdos.gz, pcmcia.gz:  Fixed a bug in 'setup' that can
+       result in lost files on a DOS/Windows partition if you use it as the
+       source (with the "install from a hard drive partition" option), enter
+       an incorrect directory path to the packages, and then attempt to 
+       reselect the source within the same run of setup.
+slakware/a4/hdsetup.tgz:  Although there doesn't seem to be any way for the
+       above bug to occur from with the hard-drive version of setup (where
+       a source DOS/Win partition will already be mounted within the 
+       directory structure), it's been patched in hdsetup.tgz anyway.
+----------------------------
+Thu Jul 30 14:29:41 CDT 1998
+slakware/tcl1/tcl.tgz: Man pages fixed.  (man.macros needed to be included
+                       for correct formatting)
+slakware/tcl1/tk.tgz: Man pages fixed.
+----------------------------
+Thu Jul 16 14:26:13 CDT 1998
+rootdsks/color.gz, pcmcia.gz, umsdos.gz: Patched to fix a possible problem
+         when installing from a hard drive partition or pre-mounted directory.
+slakware/a4/hdsetup.tgz: Patched the same problem in the hard drive version of
+                         "setup" although it's not likely to affect an 
+                         installed system anyway.
+slakware/f1/maketag, maketag.ez: Changed menu choice from incorrect "howto1"
+                         to "howto".
+----------------------------
+Tue Jul 14 11:42:57 CDT 1998
+slakware/a2/elflibs.tgz: Removed bogus declarations of snprintf() and
+                         vsnprintf() from libdb.so.1.85.4.  (these could 
+                         interfere with the secure versions in libc.so
+                         depending on the link order used at compile time)
+slakware/d1/libc.tgz: Removed bogus declarations of snprintf() and vsnprintf()
+                      from libdb.so.1.85.4 and libdb.a.
+----------------------------
+Thu Jun 25 15:38:02 CDT 1998
+slakware/a4/hdsetup.tgz: Fixed 'lilo' bootdisk creation in /sbin/makebootdisk.
+slakware/n3/mailx.tgz: Applied buffer-overflow patch from BugTraq.
+                       (source/n/mailx/mailx-overflow.diff.gz)
+----------------------------
+Tue Jun  9 13:38:16 PDT 1998
+***** Slackware 3.5.0-stable is released *****
+----------------------------
+Tue Jun  9 13:07:19 PDT 1998
+slakware/ap1/vim.tgz: This actually needs to be compiled on a system with no
+                      X libraries or it links with X and Motif even if you
+                      specify --disable-gui and --disable-x.  Bad.
+----------------------------
+Mon Jun  8 14:30:30 PDT 1998
+slakware/ap1/vim.tgz: /usr/bin/vi -> vim link removed.
+----------------------------
+Sat Jun  6 16:09:20 PDT 1998
+slakware/x1/lesstif.tgz: Static libraries for lesstif-0.85 removed.
+slakware/x1/ltstatic.tgz: Static libs for lesstif-0.85 added.
+slakware/x1/diskx1: edited.
+----------------------------
+Fri Jun  5 12:23:59 PDT 1998
+bootdsks.144/*: Upgraded to linux-2.0.34.
+bootdsks.12/*: Upgraded to linux-2.0.34.
+rootdsks/pcmcia.gz: Updated for linux-2.0.34.
+slakware/a1/joystick.tgz: Recompiled for linux-2.0.34.
+slakware/a1/maketag*: edited.
+slakware/a5/ibcs2.tgz: Recompiled for linux-2.0.34.
+slakware/a5/ide.tgz: Upgraded to linux-2.0.34.
+slakware/a5/diska5: edited.
+slakware/a6/modutils.tgz: Fixed /sbin/ksyms.
+slakware/a6/pcmcia.tgz: Recompiled for linux-2.0.34.
+slakware/a7/modules.tgz: Upgraded to linux-2.0.34.
+slakware/a7/diska7: edited.
+slakware/a8/scsi.tgz: Upgraded to linux-2.0.34.
+slakware/a8/diska8: edited.
+slakware/a9/scsimods.tgz: Upgraded to linux-2.0.34.
+slakware/a9/diska9: edited.
+slakware/ap1/mc.tgz: Upgraded to mc-4.1.35.
+slakware/ap1/vim.tgz: Upgraded to vim-5.1.
+slakware/ap1/diskap1: edited.
+slakware/d1/gdb.tgz: Upgraded to gdb-4.17.
+slakware/d1/linuxinc.tgz: Upgraded to linux-2.0.34.
+slakware/d1/diskd1: edited.
+slakware/k1/lx2034.tgz: Upgraded to linux-2.0.34.
+slakware/k1/linuxinc.tgz: Upgraded to linux-2.0.34.
+slakware/k1/diskk1: edited.
+slakware/x1/lesstif.tgz: Upgraded to lesstif-0.85.
+slakware/x1/diskx1: edited.
+----------------------------
+Thu Jun  4 18:03:01 PDT 1998
+slakware/n4/ppp.tgz: Upgraded to ppp-2.3.5.
+slakware/n4/diskn4: edited.
+slakware/y1/koules.tgz: Upgraded to version 1.4.
+slakware/y1/disky1: edited.
+----------------------------
+Mon Jun  1 00:17:53 CDT 1998
+rootdsks/pcmcia.gz: Some fixes to rc.pcmcia (mostly cosmetic)
+----------------------------
+Sun May 31 02:56:35 CDT 1998
+contrib/neomagic.tgz: Added X server with support for NeoMagic chipsets used
+                      by many laptops.
+----------------------------
+Sun May 31 01:46:01 CDT 1998
+slakware/a4/ldso.tgz: Install script fixed to make correct symlinks.
+----------------------------
+Sun May 31 00:38:43 CDT 1998
+slakware/a4/ldso.tgz: Upgraded to ld.so-1.9.9.
+slakware/a4/diska4: edited.
+----------------------------
+Sat May 30 22:14:21 CDT 1998
+slakware/n2/inn.tgz: chown news.news /var/news/etc/active
+                     chmod 644 /var/news/etc/active
+----------------------------
+Sat May 30 19:51:37 CDT 1998
+slakware/ap1/cdutils.tgz: Added cdrecord-1.6.
+slakware/ap1/diskap1: edited.
+----------------------------
+Sat May 30 17:28:48 CDT 1998
+slakware/a9/shadow.tgz: Upgraded to shadow-980529.tar.gz
+slakware/a9/diska9: edited.
+----------------------------
+Sat May 30 16:11:19 CDT 1998
+slakware/a8/procps.tgz: Upgraded to version 1.2.7.
+slakware/a8/diska8: edited.
+----------------------------
+Fri May 29 15:33:40 CDT 1998
+***** Slackware 3.5.0-beta is released *****
+slakware/contrib/glibc-runtime-2.0.5c.tgz:  A package which provides the
+                 support files needed to run glibc-linked software.
+slakware/contrib/glibc-devel-2.0.5c.tgz:  A package which provides the
+                 support files needed to compile and run glibc-linked software.
+----------------------------
+Fri May 29 01:59:07 CDT 1998
+slakware/n5/samba.tgz:    Upgraded to samba-1.9.18p7.
+slakware/x1/x332bin.tgz:  Upgraded to XFree86-3.3.2.2. (3.3.2-patch2)
+slakware/x1/x332lib.tgz:  Upgraded to XFree86-3.3.2.2. (3.3.2-patch2)
+slakware/x1/x332prog.tgz: Upgraded to XFree86-3.3.2.2. (3.3.2-patch2)
+----------------------------
+Thu May 28 12:46:54 CDT 1998
+slakware/xap1/fvwm95.tgz: Minor colormap allocation bugfix to system.fvwm95rc.
+----------------------------
+Wed May 27 18:33:51 CDT 1998
+slakware/ap1/ghostscr.tgz: Upgraded to ghostscript-4.03.
+slakware/ap1/gsfonts.tgz: Rebuilt from ghostscript-fonts-other-4.03.tar.gz
+                          and ghostscript-fonts-std-4.03.tar.gz.
+slakware/xap1/gs_x11.tgz: Upgraded to ghostscript-4.03.
+----------------------------
+Tue May 26 19:37:39 CDT 1998
+slakware/a4/etc.tgz: Removed obsolete .less, .lessrc.
+slakware/a5/less.tgz: Permissions on /root changed to 710.
+slakware/a5/loadlin.tgz: Permissions on /root changed to 710.
+slakware/a8/sysvinit.tgz: Init scripts made more UMSDOS friendly.
+slakware/xap1/seyon.tgz: Permissions on /root changed to 710.
+slakware/xv1/xvmenus.tgz: Permissions on /root changed to 710.
+----------------------------
+Tue May 26 01:39:55 CDT 1998
+slakware/a6/pnp.tgz: Upgraded to isapnptools-1.15.
+----------------------------
+Mon May 25 15:53:11 CDT 1998
+slakware/a1/aaa_base.tgz: Permissions on /root changed to 710.
+slakware/a7/sysklogd.tgz: Comment added to /etc/syslog.conf explaining why
+                          *.warn level messages are not logged by default.
+----------------------------
+Sat May 23 13:54:56 CDT 1998
+slakware/n1/bind.tgz: Upgraded to BIND-8.1.2-REL.
+contrib/bind-4.tgz: Upgraded to bind-4.9.7-REL.
+slakware/xap1/gimp.tgz: Upgraded gtk+ libraries to version 1.0.2.
+----------------------------
+Fri May 22 19:16:36 CDT 1998
+slakware/n4/procmail.tgz: Recompiled along with sendmail.
+slakware/n4/smailcfg.tgz: Upgraded to sendmail-8.9.0.
+slakware/n6/sendmail.tgz: Upgraded to sendmail-8.9.0.
+----------------------------
+Wed May 20 15:54:55 CDT 1998
+slakware/a8/sysvinit.tgz: Changed rc.K to use 'telinit -t 1 1' (again).
+----------------------------
+Wed May 20 13:45:11 CDT 1998
+slakware/n7/tcpip.tgz: Edited /etc/rc.d/rc.inet2 to start ypbind before 
+                       rpc.nfsd and rpc.mountd.
+----------------------------
+Mon May 18 21:42:20 CDT 1998
+slakware/a1/bsdlpr.tgz: Changed install script to not install a printcap if
+                        one already exists.  (the previous script moved any 
+                        existing /etc/printcap to printcap.old and installed
+                        a new one)
+----------------------------
+Sun May 17 20:50:34 CDT 1998
+slakware/a5/lilo.tgz: Fixes to /sbin/liloconfig utility.
+----------------------------
+Sat May 16 23:12:50 CDT 1998
+slakware/a4/hdsetup.tgz: Patched SeTkeymap to not write on /dev/tty4 (only
+                         needed on the install disks).
+----------------------------
+slakware/a5/lilo.tgz: Added a simple/automatic configuration option to the
+                      /sbin/liloconfig utility.  Upgraded to lilo-20.
+----------------------------
+Fri May 15 19:50:58 CDT 1998
+slakware/a1/bsdlpr.tgz: Merged in the working patches from lpr-5.9-26.
+slakware/a8/sysvinit.tgz: Changed rc.K to use 'telinit -t 1 S'.
+slakware/d1/egcs.tgz: Upgraded to version egcs-1.0.3.
+slakware/d1/egcs_g77.tgz: Upgraded to version egcs-1.0.3.
+slakware/d1/egcsobjc.tgz: Upgraded to version egcs-1.0.3.
+slakware/x1/xlock.tgz: Upgraded to xlockmore-4.09.
+----------------------------
+Wed May 13 01:58:02 CDT 1998
+slakware/n6/tcpip2.tgz: Added netwatch-0.7a.
+----------------------------
+Tue May 12 16:28:58 CDT 1998
+slakware/a4/hdsetup.tgz: Updated to new prompting mode names used on the
+                         installation rootdisk.
+----------------------------
+Tue May 12 01:41:28 CDT 1998
+slakware/xap1/xgames.tgz: Run mkfontdir in /usr/X11R6/lib/fonts/misc.
+----------------------------
+Mon May 11 17:01:35 CDT 1998
+slakware/a8/sysvinit.tgz: Added a one second delay between each attempt to
+                          mount a CD-ROM.
+----------------------------
+Mon May 11 02:55:05 CDT 1998
+slakware/a4/gpm.tgz: Added patches to support PS/2 Intellimouse.
+slakware/a4/hdsetup.tgz: Updates to the install scripts in /usr/lib/setup.
+----------------------------
+Sat May  9 04:46:08 CDT 1998
+contrib/gcc-2.8.1.tgz: Added gcc-2.8.1 as an alternate compiler for Slackware.
+slakware/a3/bin.tgz: Removed usr/bin/showaudio (now part of metamail.tgz).
+slakware/a4/etc.tgz: Removed etc/fdprm (now part of util.tgz).
+----------------------------
+Fri May  8 18:38:52 CDT 1998
+slakware/a6/kbd.tgz: Edited fontconfig menu.
+slakware/n1/tcpip1.tgz: Edited netconfig.color script.
+slakware/n: Expanded ./n1 into ./n1 - ./n8 floppy disk sized directories.
+slakware/xap1/fvwm95.tgz: Added fvwm95-menu.xpm pixmap for Start menu.
+slakware/xap1/qt_1_33.tgz: Added qt-1.33 source/binary package.  This is
+              installed in /usr/local/qt (this is the only Slackware package to
+              install in /usr/local/) for maximum compatibility.  IMPORTANT:
+              This full version of Qt is licensed for non-commercial purposes
+              (i.e. free software) only.  See the Qt license for more info.
+slakware/xap1/xfm.tgz: Prevent old icons in xfm from getting copied on top
+              of nice new icons needed by fvwm95 and fvwm2.
+slakware/xap1/tkdesk.tgz: Added missing bits of tcl7.6 and tk4.2 needed by
+              TkDesk.
+----------------------------
+Thu May  7 21:48:02 CDT 1998
+slakware/ap1/sudo.tgz: Upgraded to sudo-1.5.4.
+----------------------------
+Thu May  7 05:50:28 CDT 1998
+slakware/a2/devs.tgz: Added /dev/ttyI* /dev/cui* /dev/isdn*.
+----------------------------
+Thu May  7 00:02:25 CDT 1998
+contrib/bash-2.02.tgz: Upgraded to bash-2.02.
+slakware/a1/aaa_base.tgz: Edited welcome email.
+slakware/a4/etc.tgz: In /etc/profile, don't try to use biff unless it exists.
+slakware/a4/hdsetup.tgz: Fixes to CD-ROM setup menu.
+slakware/a9/shadow.tgz: Removed buggy adduser2 script.
+slakware/ap1/seejpeg.tgz: Added seejpeg-1.6.1 package.
+slakware/xap1/tkdesk.tgz: TkDesk file manager moved from tcl1/, since it's
+                          statically linked with Tcl/Tk, and putting it here
+                          makes it easier to find.
+slakware/y1/lizards.tgz: lizardshi no longer setuid.
+----------------------------
+Wed May  6 15:56:49 CDT 1998
+slakware/a6/kbd.tgz: Edited fontconfig menu.
+slakware/a6/pcmcia.tgz: Edited rc.pcmcia to suppress warnings when probing for
+                        PCMCIA controllers.
+slakware/n1/dip.tgz: Changed permissions on dip to 755.
+slakware/n1/tcpip1.tgz: Edited netconfig menu.
+slakware/xap1/xgames.tgz: Added xsnow.
+----------------------------
+Tue May  5 21:31:40 CDT 1998
+slakware/a7/modules.tgz: Edited /etc/rc.d/rc.modules to probe for PS/2 mouse
+                         devices by default.
+slakware/a8/zoneinfo.tgz: Upgraded to tzcode1998c and tzdata1998c.
+slakware/x1/x332bin.tgz: Replaced xterm and libXaw.so.6.1 with 3.3.2-patch1
+                         versions.  This fixes the xterm program and Xaw library
+                         security vulnerability.
+slakware/x1/x332prog.tgz: Replaced libXaw.a with patched 3.3.2-patch1 version.
+----------------------------
+Tue May  5 02:18:48 CDT 1998
+slakware/a4/etc.tgz: Added ftp-data entries to etc/services for diald.
+----------------------------
+Thu Apr 30 13:46:49 CDT 1998
+slakware/a4/hdsetup.tgz: Added warning when scanning for a CD-ROM drive that a
+                         disc must be present in the drive.
+slakware/a8/zoneinfo.tgz: Edited install script.
+slakware/n1/procmail.tgz: Recompiled.
+slakware/n1/sendmail.tgz: Edited install script to use color menus and safe tmp
+                          directory.
+slakware/n1/smailcfg.tgz: Rebuilt.
+slakware/x1/xaw3d.tgz: Added Xaw3d-1.4.
+----------------------------
+Thu Apr 30 00:03:19 CDT 1998
+slakware/n1/tcpip1.tgz: If /sbin/netconfig.color is called from 'setup', see if
+                        we're using NFS installation.  If so, use the values
+                        previously entered as defaults in each inputbox.
+----------------------------
+Wed Apr 29 20:55:24 CDT 1998
+slakware/n1/mailx.tgz: Upgraded to mailx-8.1.1-9.
+----------------------------
+Sat Apr 18 02:44:44 CDT 1998
+slakware/a1/aaa_base.tgz: Removed obsolete /usr/X386 symbolic link.
+slakware/x1/x332bin.tgz: Removed obsolete /usr/X386 symbolic link.
+----------------------------
+Fri Apr 17 19:11:07 CDT 1998
+slakware/a1/etc.tgz: Removed obsolete /etc/inet symbolic link.
+----------------------------
+Tue Apr 14 16:57:30 CDT 1998
+bootdsks.144/advansys.s: Upgraded to use Advansys Linux SCSI driver v3.1D.
+                         Kernel source patch for Advansys v3.1D added in
+                         source/kernel-source/v2.0/.
+----------------------------
+Fri Apr 10 17:53:05 CDT 1998
+rootdsks/rescue.img: Updated ELF rescue rootdisk.
+slakware/a3/elflibs.tgz: Added libg++.so.27 and libstdc++.so.27 symlinks
+                         needed by some programs.
+slakware/a4/gzip.tgz: Recompiled.
+slakware/a5/ldso.tgz: Added /usr/ix86-linux/lib to /etc/ld.so.conf.
+slakware/xap1/netscape.tgz: Upgraded to v405-export.x86-unknown-linux2.0.
+----------------------------
+Thu Apr  9 17:17:56 CDT 1998
+slakware/a2/bin.tgz: Patched xiafspgm to version 0.8.2.
+slakware/a3/gpm.tgz: Added missing info page, patched installation script
+                     to not use /tmp.
+slakware/a4/hdsetup.tgz: Removed obsolete a.out fdformat binary.
+slakware/a5/lilo.tgz: liloconfig script patched to not use /tmp.
+slakware/ap1/texinfo.tgz: Upgraded to texinfo-3.12.
+slakware/ap1/workbone.tgz: Upgraded to workbone-2.31.
+slakware/a5/lilo.tgz: Removed obsolete a.out lilo binary.
+----------------------------
+Thu Apr  9 05:14:37 CDT 1998
+slakware/n1/bind.tgz: Upgraded to BIND-8.1.2-T3B.
+contrib/bind-4.tgz: Upgraded to bind-4.9.7-T1B.
+----------------------------
+Wed Apr  8 15:35:11 CDT 1998
+slakware/a2/devs.tgz: /dev/pf? /dev/pcd? added (parallel ATAPI for 2.1.x/2.2.x)
+slakware/d1/libc.tgz: Recompiled libgdbm.
+slakware/n1/bind.tgz: Added /usr/sbin/named-bootconf.pl script to convert a 
+                      BIND-4 config file to BIND-8 format.
+----------------------------
+Tue Apr  7 18:47:46 CDT 1998
+slakware/a1/etc.tgz: Added etc/networks-incoming and etc/hosts-incoming, used as
+                     defaults if those files do not exist.
+slakware/n*: After consulting with some #linpeople, I've decided to make sure
+             the N series can still be installed from floppy disks.  This will
+             allow people to install a basic networked Linux system from about
+             20 floppy disks (boot+root+A+N).  Once online, the rest of the
+             distribution can be downloaded and installed easily.
+----------------------------
+Tue Apr  7 01:43:06 CDT 1998
+slakware/n1/nn_nntp.tgz: Upgraded to nn-6.5.0.b3.
+slakware/n1/trn.tgz: Removed.
+slakware/n1/trn.tgz: Renamed from trn_nntp.tgz.
+----------------------------
+Sat Apr  4 22:54:52 CST 1998
+slakware/a4/hdsetup.tgz: Upgraded to dialog-0.9a.
+slakware/a4/ibcs2.tgz: Recompiled for linux-2.0.33.
+slakware/a4/ide.tgz: Upgraded to linux-2.0.33.
+slakware/a4/ide.cfg: /usr/src/linux/.config for ide.tgz kernel.
+slakware/a7/scsi.tgz: Upgraded to linux-2.0.33.
+slakware/a7/scsi.cfg: /usr/src/linux/.config for ide.tgz kernel.
+slakware/ap1/sox.tgz: Patches to /usr/bin/sox shell script.
+slakware/d1/python.tgz: Added python-1.5, an interactive, object-oriented
+                        programming language.
+slakware/n1/ppp.tgz: Many fixes to pppsetup-1.98.
+slakware/xap1/fvwm95.tgz: Upgraded to fvwm95_2.0.43b.
+slakware/xap1/xpdf.tgz: Added PDF viewer.
+----------------------------
+Fri Apr  3 22:42:04 CST 1998
+slakware/a5/minicom.tgz: Upgraded to minicom-1.80.1.
+slakware/a5/pcmcia.tgz: Upgraded to pcmcia-cs-3.0.0.
+slakware/x1/lesstif.tgz: /var/X11R6/lib/config/Imake.tmpl from LessTif breaks
+                         imake, so it's been replaced with the version from
+                         XFree86 3.3.2, with the addition of these lines:
+                            #include <Motif.tmpl>
+                            #include <Motif.rules>
+slakware/x1/xpm.tgz: Upgraded to xpm-3.4k.
+----------------------------
+Fri Apr  3 19:55:06 CST 1998
+contrib/ircd21002.tgz: Added ircd_2.10.02 IRC daemon.
+contrib/ircii-4.4.tgz: Added package containing both the standard ircii_4.4
+                       and the enhanced BitchX IRC clients.
+slakware/x1/x332bin.tgz: Added rxvt-2.4.5 (a lower memory xterm replacement).
+----------------------------
+Thu Apr  2 18:50:18 CST 1998
+slakware/ap1/cdutils.tgz: Added new CD-R mastering and burning utilities
+                          package comprised of cdwrite-2.0, mkhybrid-1.11.1,
+                          and mkisofs-1.11.2.
+slakware/ap1/md.tgz: Added md-0.35, multiple devices (RAID) utilities.
+slakware/n1/tcpip.tgz: Upgraded to fetchmail-4.4.1.
+slakware/x1/lesstif.tgz: Added LessTif-0.83, a free Motif-1.2 clone.
+slakware/x1/ltstatic.tgz: Static libraries for LessTif-0.83.
+----------------------------
+Thu Apr  2 02:22:26 CST 1998
+slakware/a2/bin.tgz: Removed fileutils-3.12 and color-ls-3.12.0.3.
+                     Upgraded to file-3.24.  Removed setuid bit from splitvt.
+slakware/a2/fileutls.tgz: Added fileutils-3.16 with superior dircolors from
+                     color-ls-3.12.0.3, re-wrote manpages.
+----------------------------
+Wed Apr  1 16:44:30 CST 1998
+slakware/a1/aaa_base.tgz: Removed dangling /usr/bin/lz symlink.
+slakware/a1/etc.tgz: Added /etc/termcap-BSD.
+slakware/a2/bin.tgz: Remove /sbin/dosfsck.  IMHO, it's unwise to defragment DOS
+                     partitions from Linux, when perfectly good tools (which
+                     are FAT32 aware, etc) exist under DOS.
+slakware/a2/devs.tgz: Added /dev/md? block devices for RAID support.
+slakware/ap1/sox.tgz: Added sox-11gamma-cb3 sound file utility.
+slakware/x1/xlock.tgz: Upgraded to xlockmore-4.08.2.
+contrib/a.out-compilers/: This directory will hold compilers for the (mostly
+                          obsolete) Linux a.out binary format.
+----------------------------
+Tue Mar 31 17:09:34 CST 1998
+slakware/a2/devs.tgz: Upgraded to MAKEDEV-2.3.1, MAKEDEV-C-1.6.1.
+slakware/a6/procps.tgz: Renamed from ps.tgz (procps-1.2.6).
+----------------------------
+Tue Mar 31 01:37:23 CST 1998
+slakware/a5/kbd.tgz: Upgraded to kbd-0.95.
+slakware/e1/elisp.tgz: Upgraded to emacs-20.2.
+slakware/e1/emac_nox.tgz: Upgraded to emacs-20.2.
+slakware/e1/emacinfo.tgz: Upgraded to emacs-20.2.
+slakware/e1/emacmisc.tgz: Upgraded to emacs-20.2.
+slakware/e1/emacsbin.tgz: Upgraded to emacs-20.2.
+slakware/t1/*.tgz: Packages with '-' in the filename changed to '_' for
+                   ISO9660 conformance.
+slakware/t1/td_ltex.tgz: Merged from td-ltex1.tgz and td-ltex2.tgz.
+slakware/t1/te_base.tgz: Merged from te-base1.tgz and te-base2.tgz.
+slakware/t1/te_bin.tgz: Merged from te-bin1.tgz and te-bin2.tgz.
+slakware/xap1/xfract.tgz: Upgraded to xfractint-3.04.
+----------------------------
+Mon Mar 30 20:42:50 CST 1998
+slakware/a1/aaa_base.tgz: Added more info about setting up printing to
+                          /var/spool/mail/root.new.
+slakware/a5/ldso.tgz: Upgraded to ld.so-1.9.7.
+contrib/aps-4.91.tgz: Modified to be installed directly with installpkg.
+contrib/pdksh-2.1.13.tgz: Upgraded to pdksh-2.1.13.
+contrib/qv-utils.tgz: Added Casio digital camera utilities.
+----------------------------
+Sun Mar 29 16:01:29 CST 1998
+contrib/nvi-1.79.tgz: Upgraded to version 1.79.
+slakware/a3/gpm.tgz: /var/adm/ path changed to /var/log/.
+slakware/a4/hdsetup.tgz: setup.cdrom script edited to look for setup files in
+                         /var/lib/setup/tmp/.
+slakware/a5/kbd.tgz: /var/adm/ path changed to /var/log/.
+slakware/a5/lilo.tgz: /var/adm/ path changed to /var/log/.
+slakware/a5/pnp.tgz: Upgraded to isapnptools-1.13.
+slakware/a6/sysklogd.tgz: Upgraded to sysklogd-1.3-25.
+slakware/n1/apache.tgz: Upgraded to apache-1.2.6.
+slakware/n1/inn.tgz: Upgraded to inn-1.7.2.
+slakware/n1/lynx.tgz: Upgraded to lynx-2.8, compiled with ncurses color support.
+slakware/n1/rdist.tgz: Upgraded to version 6.1.3.
+slakware/xap1/netscape.tgz: Added communicator-v404-export_x86-unknown-linux2_0.
+                            Special thanks go out to Netscape Communications 
+                            Corporation for their new (and Linux-friendly :)
+                            distribution policy.  
+----------------------------
+Sun Mar 29 03:44:12 CST 1998
+slakware/xap1/arena.tgz: Upgraded to Arena beta-3b.
+----------------------------
+Sat Mar 28 12:11:07 CST 1998
+slakware/a1/groff.tgz: Recompiled to use libstdc++.so.2.8.0.
+slakware/ap1/gsfonts.tgz: Upgraded to ghostscript-fonts-5.10.tar.gz.
+slakware/ap1/manpages.tgz: Upgraded to man-pages-1.18.
+slakware/ap1/mc.tgz: Upgraded to mc-4.1.21.
+slakware/ap1/zsh.tgz: Upgraded to zsh-3.0.5.
+slakware/d1/man2.tgz: Removed. (these man pages are now in manpages.tgz)
+slakware/d1/man3.tgz: Removed. (these man pages are also now in manpages.tgz)
+slakware/xd1/x332lkit.tgz: Upgraded to XFree86 3.3.2 link kit.
+----------------------------
+Fri Mar 27 18:36:45 CST 1998
+slakware/a4/hdsetup.tgz: In SeTconfig, don't create uucp/uucppublic spool dirs.
+slakware/n1/ppp.tgz: Fix to installation script -- mv /etc/ppp/options.dist to
+                     /etc/ppp/options only if /etc/ppp/options doesn't already
+                     exist.
+----------------------------
+Thu Mar 26 22:37:53 CST 1998
+slakware/a2/bin.tgz: rpm2targz updated to use $TMPDIR variable.
+slakware/ap1/gsfonts.tgz: Merged from gsfonts1.tgz, gsfonts2.tgz, and 
+                          gsfonts3.tgz.
+slakware/n1/tcpip.tgz: /etc/rc.d/rc.inet2 looks for /usr/local/sbin/sshd
+                       and /usr/sbin/sshd, and starts the first one it finds.
+----------------------------
+Wed Mar 25 00:53:34 CST 1998
+slakware/a1/aaa_base.tgz: Reverted to mtools-3.8, since mformat in version
+                          3.9 seems to be having a few problems.
+slakware/n1/tcpip.tgz: Upgraded to ncftp-2.4.3.
+----------------------------
+Mon Mar 23 15:26:58 CST 1998
+slakware/a5/ldso.tgz: /etc/ld.so.conf: /usr/i486-linuxaout/lib changed to
+                      /usr/ix86-linuxaout/lib.
+slakware/d1/gccaout.tgz: Removed. (a.out C compiler)
+                         These a.out binary format utilities (which are, for
+                         the most part, obsolete and of historical interest 
+                         only) will be moved to the /contrib area.
+slakware/d1/gxxaout.tgz: Removed. (a.out C++ compiler)
+slakware/d1/objcaout.tgz: Removed. (a.out Objective-C compiler)
+slakware/d1/libaout.tgz: Removed. (a.out development libraries)
+slakware/d1/tools.tgz: Removed. (tools for building a.out libraries)
+slakware/d1/gcc2723.tgz: Removed. (replaced with the egcs version of gcc)
+slakware/d1/gxx2723.tgz: Removed. (replaced with the egcs version of g++)
+slakware/d1/objc2723.tgz: Removed. (replaced with egcs's Objective-C)
+slakware/d1/g77.tgz: Removed. (replaced with the egcs version of g77)
+slakware/d1/libgxx.tgz: Removed. (since a version of GNU libstdc++-2.8.0 is
+                        included with the egcs C++ compiler)
+slakware/d1/egcs.tgz: Added. gcc/g++/libstdc++ from egcs-1.0.2.
+slakware/d1/egcsobjc.tgz: Added. Objective-C from egcs-1.0.2.
+slakware/d1/egcs_g77.tgz: Added. g77 (Fortran-77) from egcs-1.0.2.
+slakware/x1/oldlibs5.tgz: Lib path changed from /usr/i486-linuxaout/lib to
+                          /usr/ix86-linuxaout/lib.
+slakware/x1/oldlibs6.tgz: Lib path changed from /usr/i486-linuxaout/lib to
+                          /usr/ix86-linuxaout/lib.
+slakware/n1/bind.tgz: Added /etc/named.conf-sample. (this will be renamed to
+                      /etc/named.conf if such a file does not already exist)
+slakware/y1/disky1: edited.
+slakware/y1/bsdgames.tgz: Upgraded to bsdgames-2.0.
+----------------------------
+Sun Mar 22 14:15:29 CST 1998
+Change to structure of /slakware: Other than the A series, all other Slackware
+  software series have been merged into single directories.  This has been done
+  to accomodate software packages larger will fit on a 1.44 megabyte floppy
+  disk.  So, the Slackware A series can still be installed for floppy disks, but
+  not the rest of it.  Sorry to those still generating 100+ installation
+  floppies (are there any? :^) but fragmenting the distribution for 
+  complete installation from floppy disks really isn't practical anymore.
+  As part of this update, most of the tagfiles, index files (diskap1, diskd1,
+  diske1, etc) and maketag/maketag.ez scripts were edited.
+slakware/a1/aoutlibs.tgz: /usr/i486-linuxaout/ directory changed to the more
+                          generic /usr/ix86-linuxaout/ structure used by the
+                          Linux GCC team.
+slakware/a2/bin.tgz: .so manpage link added for 'awk'.
+slakware/a3/elflibs.tgz: Upgraded to libc.so.5.4.44 and libstdc++.so.2.8.0.
+slakware/a5/ldso.tgz: Linker directories changed to /usr/ix86-linux/ and
+                      /usr/ix86-linuxaout/.
+slakware/d1/libc.tgz: Upgraded to libc-5.4.44.
+slakware/d1/perl.tgz: Upgraded to perl5.004_04, merged into a single package.
+slakware/k1/diskk1: edited.
+slakware/k1/maketag, maketag.ez: edited.
+slakware/k1/tagfile, tagfile.org: edited.
+slakware/k1/lx2033.tgz: Merged together all Linux 2.0.33 source into a single
+                        package.
+slakware/k1/linuxinc.tgz: Added redundant Linux 2.0.33 include files package.
+slakware/n1/nn_nntp.tgz: Name changed from nn-nntp.tgz, since dashes are not
+                         legal on ISO9660 filesystems, and Slackware package
+                         names (at least within the /slakware area) follow 
+                         this standard.  Package recompiled.
+slakware/n1/nn_spool.tgz: Name changed from nn-spool.tgz.  Missing manual pages
+                          added.  Package recompiled.
+slakware/n1/trn_nntp.tgz: Name changed from trn-nntp.tgz.  Package recompiled.
+slakware/n1/trn.tgz: Package recompiled.
+----------------------------
+Sat Mar 21 17:41:03 CST 1998
+slakware/a4/hdsetup.tgz: Various fixes and /tmp-attack patches to the Slackware
+                         package management tools.  (setup, pkgtool, installpkg,
+                         removepkg, makepkg, explodepkg)
+----------------------------
+Fri Mar 20 18:04:13 CST 1998
+slakware/n1/mailx.tgz: Incorporated Olaf Kirch's anti-/tmp-attack patches.
+slakware/tcl1/tagfile, tagfile.org: edited.
+slakware/tcl1/maketag, maketag.ez: edited.
+slakware/tcl1/disktcl1: edited.
+slakware/tcl1/hfsutils.tgz: hfsutils-3.1 (for using Macintosh HFS volumes)
+----------------------------
+Wed Mar 18 16:52:55 CST 1998
+slakware/a8/shadow.tgz: If /var/log/sulog doesn't exist, make it with mode 640.
+                        This prevents lusers from trying to make it mode 666,
+                        and covering their tracks after attempting to guess
+                        your root password. (which, if it's any good, should be
+                        a pointless waste of time anyway)
+----------------------------
+Fri Mar 13 00:13:19 CST 1998
+slakware/a1/diska1: edited.
+slakware/a1/aaa_base.tgz: Upgraded to mtools-3.9.
+----------------------------
+Sun Mar  8 17:04:26 CST 1998
+slakware/a8/diska8: edited.
+slakware/a8/shadow.tgz: Upgraded to shadow-980130.
+----------------------------
+Sat Mar  7 18:37:45 CST 1998
+slakware/n6/tcpip.tgz: Upgraded fetchmail to version 4.3.9.
+----------------------------
+Wed Mar  4 14:07:46 CST 1998
+contrib/aps-4.91.tar.gz: Added precompiled Linux binaries of a2ps and
+                         rewindstdin, and patched SETUP to use them.  This
+                         allows apsfilter to be set up on machines that don't
+                         have an installed C compiler.
+slakware/a1/aaa_base.tgz: Added additional information to the initial email
+                          (/var/spool/mail/root.new) about setting up a Linux
+                          printer using APSfilter.
+slakware/n3/diskn3: edited.
+slakware/n3/ppp.tgz: Added ppp-2.3.3 in addition to ppp-2.2.0f.  (Using ppp-2.3
+                     requires a kernel that supports it)  Also upgraded pppsetup
+                     to version 1.98.
+slakware/n4/diskn4: edited.
+slakware/n4/tin.tgz: Upgraded to tin pre-1.4 release 980226.
+----------------------------
+Mon Mar  2 16:54:13 CST 1998
+slakware/a2/bin.tgz: Moved updatedb cron job from root's crontab to nobody's.
+slakware/a9/util.tgz: /sbin/fdisk patched to fix a coredump occuring when using
+                      "fdisk -l" on machines with IDE CD-ROM drives.
+slakware/tcl1/disktcl1: edited.
+slakware/tcl1/tcl.tgz: Upgraded to tcl8.0p2.
+slakware/tcl1/tk.tgz: Upgraded to tcl8.0p2.
+slakware/tcl2/disktcl2: edited.
+slakware/tcl2/tclx.tgz: Upgraded to tclX8.0.2.
+----------------------------
+Thu Feb 26 02:02:27 CST 1998
+slakware/a3/diska3: edited.
+slakware/a3/getty.tgz: Upgraded to getty_ps-2.0.7j.
+----------------------------
+Mon Feb 23 14:28:17 CST 1998
+slakware/a1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/a1/maketag, maketag.ez: edited.
+slakware/a2/diska2: edited.
+slakware/a2/bin.tgz: Removed modules-2.0.0, since modutils is now a 
+                     seperate package, and upgraded to man-1.5b.
+slakware/a3/diska3: edited.
+slakware/a3/elflibs.tgz: Upgraded libc to version 5.4.38.  Removed old gdbm and
+                         db libs.  Upgraded ncurses libs to version 1.9.9g.
+slakware/a6/diska6: edited.
+slakware/a6/modutils.tgz: Module utilities upgraded to modutils-2.1.85, new 
+                          package -- no longer part of bin.tgz.
+slakware/a6/sysvinit.tgz: Upgraded to sysvinit-2.73, patched /etc/rc.d/rc.M to
+                          add support for netatalk.
+slakware/a9/util.tgz: Merged smbmount and smbumount from smbfs-2.0.2, 
+                      mount-2.7l, and hostname from net-tools-1.432.
+slakware/a4/grep.tgz: grep-2.1 patched to return "No such file or directory"
+                      error when attempting to grep a non-existant file or 
+                      directory.
+slakware/d13/diskd13: edited.
+slakware/d13/svgalib.tgz: Upgraded to svgalib-1.2.13.
+slakware/n3/procmail.tgz: recompiled.
+slakware/n4/smailcfg.tgz: Upgraded to config files for sendmail-8.8.8.
+slakware/n5/diskn5: edited.
+slakware/n5/sendmail.tgz: Upgraded to sendmail-8.8.8.
+----------------------------
+Mon Feb 23 01:39:44 CST 1998
+slakware/n1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/n1/maketag, maketag.ez: edited.
+slakware/n3/diskn3: edited.
+slakware/n3/netatalk.tgz: netatalk-1.4b2 (Apple Mac print/file server) package
+                          added.
+----------------------------
+Fri Feb 20 15:45:38 CST 1998
+slakware/a1/maketag, maketag.ez: edited.
+slakware/a1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/a2/devs.tgz: /dev/js0 and /dev/js1 joystick devices added.
+slakware/a4/diska4: edited.
+slakware/a4/joystick.tgz: New joystick-0.8.0 package.
+slakware/a6/diska6: edited.
+slakware/a6/modules.tgz: Upgraded to linux-2.0.33 kernel modules, enhancements
+                         to /etc/rc.d/rc.modules.
+slakware/a7/diska7: edited.
+slakware/a7/scsimods.tgz: Upgraded to linux-2.0.33 kernel modules.
+slakware/d1/diskd1: edited.
+slakware/d1/binutils.tgz: Upgraded to binutils-2.8.1.0.15; added COFF support.
+slakware/d7/diskd7: edited.
+slakware/d7/linuxinc.tgz: Upgraded to kernel headers from linux-2.0.33.
+slakware/k1/tagfile, tagfile.org: edited.
+slakware/k1/maketag, maketag.ez: edited.
+slakware/k1-6/lx2033_?.tgz: Linux kernel packages upgraded to Linux 2.0.33,
+                            patched with fat32_joliet_nls_patch-0.2.8, and with
+                            linux/joystick.h header file added.
+----------------------------
+Thu Feb 19 16:00:07 CST 1998
+slakware/n1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/n1/maketag, maketag.ez: edited.
+slakware/n6/samba.tgz: samba-1.9.18p3 merged into the N series.
+slakware/n6/diskn6: edited.
+----------------------------
+Wed Feb 18 01:01:54 CST 1998
+slakware/a4/hdsetup.tgz: Moved terminfo files into /usr/share/terminfo, added
+                         /usr/lib/terminfo link, bumped version number to 3.5.0.
+slakware/a4/less.tgz: Added support for .bz2 and .tar.bz2 files.
+slakware/a4/diska4: edited.
+slakware/a6/ps.tgz: Upgraded to procps-1.2.6, patched ps to not complain about
+                    '-' in command line arguments.
+slakware/a6/diska6: edited.
+slakware/a8/tar.tgz: Patched to add bzip2 support.  bzip2 options added to
+                     tar manpage.
+slakware/a8/diska8: edited.
+slakware/d10/ncurses.tgz: Upgraded to version 1.9.9g.  Added symlinks in
+                          /usr/include and /usr/lib to allow ncurses to be
+                          picked up by auto-configure scripts as the default
+                          curses library.
+slakware/d10/diskd10: edited.
+slakware/a2/bin.tgz: Merged rpm2targz utility that used to be a contrib/ pkg.
+                     Added color-ls support for .rpm, .bz2.
+                     Added default /etc/conf.modules, with these entries:
+                        alias net-pf-4 off
+                        alias net-pf-5 off
+slakware/d5/terminfo.tgz: Upgraded to ncurses-1.9.9g terminfo database.
+                          Terminfo database moved from /usr/lib/terminfo to
+                          /usr/share/terminfo.
+slakware/d5/diskd5: edited.
+----------------------------
+Sat Feb 14 12:43:17 CST 1998
+contrib/bind-4.9.6.tgz: BIND-4 package added.
+slakware/maketag: edited.
+slakware/a1/aaa_base.tgz: Upgraded to mtools-3.8, unzip531.  Bumped version
+                          number in welcome email to Slackware 3.5.
+slakware/a1/etc.tgz: Added /etc/issue.net -> /etc/issue symlink.
+slakware/a1/diska1: edited.
+slakware/a2/bin.tgz: Upgraded to mkdosfs-0.4 (adds FAT32 support).
+slakware/a2/diska2: edited.
+slakware/a3/gpm.tgz: Upgraded to gpm-1.13.
+slakware/a3/diska3: edited.
+slakware/a4/grep.tgz: Upgraded to grep-2.1.
+slakware/a4/diska4: edited.
+slakware/a6/sysklogd.tgz: Edited /etc/syslog.conf, since spaces are now ok.
+slakware/ap5/texinfo.tgz: Recompiled to use ncurses.
+slakware/d8/libc.tgz: Upgraded to libc-5.4.38.  Depricated curses, placing the
+                      old /usr/include/curses.h in /usr/include/oldcurses, and
+                      libcurses.so and libcurses.a in /usr/lib/oldcurses.  
+                      These new locations should keep automated configure
+                      scripts from spotting these and using them, when they'd
+                      probably be better off using ncurses.
+slakware/n4/tin.tgz: Recompiled to use ncurses.
+slakware/n6/tcpip.tgz: Removed obsolete /etc/named.boot, added default
+                       "news.my_news_server.com" in /etc/nntpserver (gives a
+                       little better idea of what goes in there :^), fixed some
+                       other typos in comments, upgraded to nfs-server-beta31.
+
+***** Slackware 3.5 development tree branches off here *****
+
+----------------------------
+Fri Feb  6 22:38:07 CST 1998
+slakware/n4/pine.tgz: patched to fix a core dump with imapd/ipop3d when
+                      given a nonexistant username.
+----------------------------
+Sat Jan 24 20:20:26 CST 1998
+slakware/n5/metamail.tgz: Added a small patch to shownonascii() to tell it
+                          where to find the Hebrew fonts which are now standard
+                          in XFree86.  (Thanks to Ronald Cole)
+----------------------------
+Fri Jan  9 11:45:53 CST 1998
+slakware/a7/scsimods.tgz: Replaced with modules for 2.0.30.
+----------------------------
+Sun Jan  4 15:31:46 CST 1998
+slakware/a4/hdsetup: /sbin/makebootdisk rewritten to look for an installed
+                     kernel in more places, and to not try to put the whole
+                     contents of /boot on the floppy, since some people use
+                     this as an old kernel repository.
+----------------------------
+Sat Dec 20 15:14:20 CST 1997
+slakware/a1/maketag, maketag.ez: edited (for bzip2).
+slakware/a1/tagfile*: edited (for bzip2).
+slakware/a9/bzip2.tgz: Added new bzip2 (v 0.1pl2) file compressor package.
+slakware/a9/diska9: edited (for bzip2).
+----------------------------
+Thu Dec 18 13:57:03 CST 1997
+slakware/a2/bin.tgz: Missing man pages (sync.8, module utils) replaced.
+slakware/n3/ppp.tgz: Added pppstats.8 man page.
+----------------------------
+Mon Dec 15 21:34:08 CST 1997
+slakware/ap6/vim.tgz: vim recompiled so that it's not linked with the X libs.
+                      It should work now on all Linux machines, with or 
+                      without X.
+----------------------------
+Fri Dec 12 01:08:44 CST 1997
+slakware/n1/bind.tgz: Updated man pages for bind-8.1.1.
+----------------------------
+Tue Dec  9 23:37:45 CST 1997
+slakware/a8/shadow.tgz: /usr/include/shadow/pwauth.h header file added.
+slakware/n3/ppp.tgz: Support for 230kbps and 460kbps connections added.
+                     Easy to use "pppsetup" utility added.
+slakware/n3/diskn3: edited.
+----------------------------
+Mon Dec  8 14:21:55 CST 1997
+slakware/a2/bin.tgz: Buffer overflow patched in dcron22.
+----------------------------
+Sun Nov 30 22:06:10 CST 1997
+slakware/a6/zoneinfo.tgz: Fixed a bug in timeconfig that could leave a newly
+            configured system set to GMT instead of the local time zone.
+----------------------------
+Tue Nov 11 20:33:35 CST 1997
+slakware/n6/tcpip.tgz: Upgraded to use pop3d-1.005l, fetchmail-4.3.2,
+                       netkit-rusers-0.11, net-tools-1.432,
+                       wu-ftpd-2.4.2-beta-15.
+rootdsks/umsdos.gz: Fixed a bug where the rootdisk would hang after mounting.
+----------------------------
+Mon Nov  3 21:38:35 CST 1997
+slakware/a6/ps.tgz: Upgraded to procps-1.2.2.
+slakware/a6/diska6: edited.
+----------------------------
+Fri Oct 31 22:37:18 CST 1997
+slakware/a8/shadow.tgz: Upgraded to shadow-971001.tar.gz.
+----------------------------
+Tue Oct 14 19:32:02 PDT 1997
+Slackware 3.4.0 is released.
+****************************
+Tue Oct 14 16:38:44 PDT 1997
+slakware/n1/apache.tgz: Upgraded to apache-1.2.4.
+slakware/n1/diskn1: edited.
+slakware/n6/tcpip.tgz: Upgraded to tcp-wrappers-7.6.  
+                       Switched to a working version of ytalk.
+                       Switched to slattach-1.2.0.
+----------------------------
+Mon Oct  6 00:56:55 CDT 1997
+slakware/n1/bind.tgz: Upgraded to bind-8.1.1.
+slakware/n1/diskn1: edited.
+slakware/n6/tcpip.tgz: Patched inetd.conf.  Comments added about potential
+                       problems when running sendmail from inetd, and sections
+                       that run Samba commented out.
+----------------------------
+Sun Oct  5 21:02:00 CDT 1997
+slakware/a1/aaa_base.tgz: edited welcome email message.
+slakware/a4/hdsetup.tgz: Fixed installpkg bug when using $ROOT variable.
+                         Updated version numbers for Slackware 3.4.
+slakware/a4/diska4: edited.
+slakware/a6/sysklogd.tgz: Edited /etc/syslog.conf, changing level for a 
+                          message to be logged in /var/log/syslog from *.warn
+                          to *.err.  This change is important for news servers
+                          to prevent a syslog entry (and disk access) for each
+                          news article processed.
+slakware/a6/sysvinit.tgz: Edited /etc/rc.d/rc.M to start /etc/rc.d/rc.samba, if
+                          it exists and is executable.
+slakware/d1/tagfile, tagfile.org: edited.
+slakware/d1/maketag, maketag.ez: edited.
+slakware/d2/g77.tgz: Upgraded to g77-0.5.21.
+slakware/d2/gmake.tgz: Upgraded to make-3.76.1.
+slakware/d2/diskd2: edited.
+slakware/d3/gcc2723.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d3/gccaout.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d3/diskd3: edited.
+slakware/d5/gxx2723.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d5/diskd5: edited.
+slakware/d6/gxxaout.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d6/libgxx.tgz: Upgraded to libg++-2.7.2.8.
+slakware/d6/diskd6: edited.
+slakware/d9/libcinfo.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d9/objc2723.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d9/diskd9: edited.
+slakware/d11/objcaout.tgz: Upgraded to gcc-2.7.2.3.
+slakware/d11/diskd11: edited.
+----------------------------
+Sun Oct  5 16:50:34 CDT 1997
+slakware/k5/lx2030_5.tgz: New 3c59x.c (adds 3c900/3c905 support, fixes bugs)
+----------------------------
+Fri Oct  3 13:47:36 CDT 1997
+bootdsks.144/net.i: Recompiled including a new patch for 3c59x ethernet cards.
+                    (with updated support for 3c900/3c905)
+bootdsks.144/scsinet.s: Recompiled including a new patch for 3c59x ethernet 
+                        cards.  (with updated support for 3c900/3c905)
+patches/gcc+g77.tgz: Added 'protoize', 'unprotoize'.  Edited /usr/bin/cpp to
+        look in the right place. (/usr/lib/gcc-lib/i*linux*/*/cpp)
+        Added /usr/lib/gcc-lib/i486-unknown-linux-gnulibc1/2.7.2.3/SYSCALLS.c.X
+----------------------------
+Wed Oct  1 14:58:52 CDT 1997
+contrib/samba-1.9.17p2.tgz: New version of samba (an SMB client and server).
+                            This version fixes a serious security hole present
+                            in all previous versions of Samba.  If you use
+                            Samba on your machine, upgrading to this package
+                            is highly recommended.
+----------------------------
+Mon Sep 29 11:14:46 CDT 1997
+slakware/a6/zoneinfo.tgz: Upgraded to use tzcode1997g.tar.gz and 
+                          tzdata1997h.tar.gz.
+----------------------------
+Thu Sep 25 19:41:17 CDT 1997
+slakware/x1-x26/: Upgraded to XFree86 3.3.1.
+slakware/xd1-xd3/: Upgraded to XFree86 3.3.1.
+patches/x331upd.tgz: Package to upgrade Slackware 3.3 systems to XFree86 3.3.1.
+----------------------------
+Mon Sep 22 20:58:32 CDT 1997
+contrib/glibc-2.0.4.tgz: Fixed specs file for gcc-2.7.2.2.
+patches/gcc+g77.tgz: Optional upgrade package for gcc-2.7.2.3/g77-0.5.21.
+slakware/d3/gcc2722.tgz: specs file patched:
+
+--- usr/lib/gcc-lib/i486-linux/2.7.2.2/specs.orig       Mon Sep 22 21:01:59 1997
++++ usr/lib/gcc-lib/i486-linux/2.7.2.2/specs    Mon Sep 22 21:02:13 1997
+@@ -23,7 +23,7 @@
+ %{!shared: %{mieee-fp:-lieee} %{p:-lgmon} %{pg:-lgmon}      %{!ggdb:-lc} %{ggdb:-lg}}
+
+ *libgcc:
+-%{!shared:-lgcc}
++-lgcc
+
+ *startfile:
+ %{!shared:      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}   crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}
+
+slakware/d6/libgxx.tgz: Recompiled with fixed specs file.  If you run into
+                        problems with a missing symbol "__register_exceptions",
+                        install this replacement package.
+----------------------------
+Mon Sep 15 00:02:39 CDT 1997
+slakware/d11/perl3.tgz: Upgraded to perl5.004_03.
+slakware/d11/diskd11: edited.
+slakware/d12/perl1.tgz: Upgraded to perl5.004_03.
+slakware/d12/diskd12: edited.
+slakware/d13/perl2.tgz: Upgraded to perl5.004_03.
+slakware/d13/diskd13: edited.
+----------------------------
+Sun Sep 14 19:50:54 CDT 1997
+slakware/contrib/noweb-2.8a.tgz: Upgraded to version noweb-2.8a.
+slakware/contrib/package_descriptions: Edited with new noweb info.
+----------------------------
+Sat Sep  6 01:32:32 CDT 1997
+slakware/ap2/groff.tgz: Upgraded to version 1.11.
+slakware/ap2/diskap2: edited.
+----------------------------
+Wed Sep  3 20:11:32 CDT 1997
+slakware/d4/gcl.tgz: Upgraded to gcl-2.2.2.
+slakware/d4/diskd4: edited.
+----------------------------
+Tue Sep  2 18:01:07 CDT 1997
+contrib/samba-1.9.17.tgz: New version of samba (an SMB client and server).
+----------------------------
+Wed Aug 27 15:38:50 CDT 1997
+slakware/n6/tcpip.tgz: Upgraded to net-tools-1.421, nfs-server-2.2beta29.
+----------------------------
+Tue Aug 26 15:21:55 CDT 1997
+slakware/a1/bsdlpr.tgz: Added patch to fix lprm.
+----------------------------
+Sat Aug 23 17:52:11 CDT 1997
+slakware/a2/bin.tgz: Added "sync" from GNU fileutils (removed from util-linux)
+slakware/a6/sysvinit.tgz: Removed /etc/rc.d/rc.serial (now part of the util.tgz
+                          package, from setserial-2.12)
+slakware/a8/shadow.tgz: Moved sulogin from /bin to /sbin.
+slakware/a9/util.tgz: Upgraded to util-linux-2.7.1 (added setserial-2.12 and
+                      other utilities that are no longer officially part of
+                      util-linux)
+slakware/a9/diska9: edited.
+----------------------------
+Wed Aug 20 22:28:36 CDT 1997
+slakware/n2/inn.tgz: Missing /var/log/news/OLD directory added.
+----------------------------
+Wed Aug 20 16:48:31 CDT 1997
+slakware/n2/inn.tgz: Upgraded to inn-1.5.1sec2, with innd from 1.5.1.  Paths
+                     changed to those recommended in the INN sources (/var/news
+                     for config files, news spool in /var/spool/news, scripts 
+                     and binaries under /usr/news)
+slakware/n2/diskn2: edited.
+slakware/n2/metamail.tgz: Moved to disk n5.
+slakware/n5/metamail.tgz: Moved from disk n2.
+slakware/n5/diskn5: edited.
+slakware/n6/tcpip.tgz: fetchmail upgraded to version 4.1.1.
+----------------------------
+Sat Aug 16 13:20:06 CDT 1997
+slakware/a9/util.tgz: Upgraded to mount version 2.7f.
+----------------------------
+Thu Aug 14 16:55:44 CDT 1997
+bootdsks.144/no_pci.i: If you're having problems with a hang during PCI 
+                       probing, try this IDE-supporting bootdisk without PCI
+                       BIOS support.  (some old PCI motherboards have BIOS 
+                       bugs and may crash if "PCI bios support" is enabled, 
+                       but they run fine without this option).
+bootdsks.144/no_pci.s: A version of the above bootdisk with full SCSI support.
+----------------------------
+Mon Aug 11 14:50:22 CDT 1997
+bootdsks.144/net.i: Recompiled including a patch for 3c59x ethernet cards.
+bootdsks.144/scsinet.s: Recompiled including a patch for 3c59x ethernet cards.
+----------------------------
+Sun Aug 10 22:05:52 CDT 1997
+slakware/n4/smailcfg.tgz: Upgraded to version 8.8.7.
+slakware/n5/sendmail.tgz: Upgraded to version 8.8.7.
+slakware/n5/diskn5: edited.
+----------------------------
+Sat Aug  9 00:15:04 CDT 1997
+slakware/a5/ldso.tgz: Upgraded to version 1.9.5.
+slakware/a5/diska5: edited.
+----------------------------
+Sat Jul 26 00:35:39 CDT 1997
+slakware/n6/tcpip.tgz: /var/tmp/.pop/ directory (mode 1777) added for in.pop3d.
+----------------------------
+Sun Jul 20 16:21:56 PDT 1997
+rootdsks/pcmcia.gz: More inodes added.
+----------------------------
+Fri Jul 18 20:01:28 PDT 1997
+slakware/a1/etc.tgz: "pop-2", "pop-3" typo in /etc/services fixed.
+----------------------------
+Fri Jul 11 00:17:00 CDT 1997
+Slackware 3.3.0 is released.
+----------------------------
+Thu Jul 10 13:56:45 CDT 1997
+slakware/a1/etc.tgz: Comment added to /etc/termcap telling users where they
+                     can find a bigger termcap if they need it.
+----------------------------
+Wed Jul  9 23:34:54 CDT 1997
+slakware/a6/sysvinit.tgz: /etc/rc.d/rc.cdrom: order of CD-ROM probing changed
+                          to first try SCSI devices, then IDE, then others.
+slakware/ap6/vim.tgz: Added vi -> vim symbolic link.
+----------------------------
+Tue Jul  8 20:46:30 CDT 1997
+slakware/a4/hdsetup.tgz: Fixed /sbin/removepkg bug.
+slakware/d8/libc.tgz: Added /usr/include/scsi -> /usr/src/linux/include/scsi 
+                      symbolic link.
+----------------------------
+Mon Jul  7 16:09:27 CDT 1997
+slakware/a2/bin.tgz: Time for updatedb cron job changed from 7:40am to 4:40am.
+slakware/x1/fvwm.tgz: xt*tr*s menu option removed.
+slakware/xap1/fvwm95.tgz: xt*tr*s menu option removed.
+slakware/xap4/diskxap4: edited.
+slakware/xap4/xgames.tgz: T*tr*s-related games removed for copyright reasons.
+slakware/y1/disky1: edited.
+slakware/y1/t#tr#s.tgz: T*tr*s-related games removed for copyright reasons.
+slakware/y1/maketag*: edited.
+slakware/y1/tagfile*: edited.
+----------------------------
+Wed Jul  2 23:31:55 CDT 1997
+slakware/d3/gcc2722.tgz:  Fixed broken float.h header.
+----------------------------
+Wed Jun 25 23:52:12 CDT 1997
+slakware/a, ap, d, n, xap series:  Files sorted to make each a* directory
+             contain 1200K or less, and each ap*, d*, n*, and xap* directory
+             contain 1440K or less.  This ensures they'll fit on DOS floppy 
+             disks if a floppy-based installation is used.
+----------------------------
+Wed Jun 25 13:58:54 CDT 1997
+slakware/a2/bin.tgz: Upgraded to patch-2.1b.
+slakware/a2/diska2: edited.
+slakware/a7/pcmcia.tgz: Upgraded to pcmcia-2.9.6.
+slakware/a7/diska7: edited.
+slakware/a9/util.tgz: Upgraded to mount-2.7.
+slakware/n5/tcpip.tgz: /usr/bin/write changed to root.tty with 2755 perms.
+----------------------------
+Tue Jun 24 13:03:03 CDT 1997
+slakware/a1/maketag*: edited.
+slakware/a1/devs.tgz: PS/2 MCA ESDI hard disk devices added (/dev/ed*).
+slakware/a4/ide.cfg: '.config' file for kernel in ide.tgz package.  (same
+                     kernel as 'bare.i' bootdisk)
+slakware/a4/ide.tgz: Upgraded to linux-2.0.30.
+slakware/a4/diska4: edited.
+slakware/a7/sysvinit.tgz: rc.M patched to use -q15m for sendmail, not -q 15m.
+slakware/a7/scsi.cfg: '.config' file for kernel in scsi.tgz package.  (same
+                     kernel as 'scsi.s' bootdisk)
+slakware/a7/scsi.tgz: Upgraded to linux-2.0.30.
+slakware/a7/diska7: edited.
+slakware/f1/tagfile*: edited.
+slakware/f1/maketag*: edited.
+slakware/f1/howto1.tgz: Upgraded to the latest HOWTOs.
+slakware/f1/diskf1: edited.
+slakware/f3/howto2.tgz: Upgraded to the latest HOWTOs.
+slakware/f3/diskf1: edited.
+----------------------------
+Mon Jun 23 21:12:09 CDT 1997
+slakware/a1/maketag*: edited.
+slakware/a1/tagfile*: edited.
+slakware/a3/e2fsbn.tgz: Upgraded to version 1.10.
+slakware/a3/elflibs.tgz: Upgraded to libc.so.5.4.33, libm.so.5.0.9.
+slakware/a3/diska3: edited.
+slakware/a4/ibcs2.tgz: Upgraded to ibcs-2.0.970513, compiled for linux-2.0.30.
+slakware/a4/kbd.tgz: Renamed from 'keytbls.tgz', upgraded to kbd-0.94.
+slakware/a4/diska4: edited.
+slakware/a6/modules.tgz: Upgraded to linux-2.0.30.
+slakware/a6/diska6: edited.
+slakware/a8/scsimods.tgz: Upgraded to linux-2.0.30.
+slakware/a8/diska8: edited.
+slakware/d7/linuxinc.tgz: Upgraded to include files from linux-2.0.30.
+slakware/d7/diskd7: edited.
+slakware/d8/libc.tgz: Upgraded to libc-5.4.33.
+slakware/k1-k6: Upgraded to linux-2.0.30.
+----------------------------
+Sun Jun 22 21:29:06 CDT 1997
+slakware/a5/bsdlpr.tgz: Now preserves any existing printcap as 'printcap.old'.
+slakware/a7/sysvinit.tgz: rc.M not run for runlevel 6 in /etc/inittab.
+slakware/n5/tcpip.tgz: Now preserves any existing configuration files in /etc,
+                       so you can safely install it on an existing system if 
+                       you use single-user mode (telinit 1).
+                       net-tools upgraded to version 1.41.
+                       pop3d upgraded to version 1.005h.
+                       fetchmail upgraded to version 3.9.8.
+                       md5 shadow password support patched into wu-ftpd, pop3d, 
+                       ttysnoop, bwnfsd, pcnsfd, rexecd.
+                       A whole bunch of upgrades from David A. Holland:
+                         biff+comsat-0.10, netkit-rsh-0.10, bsd-finger-0.10,
+                         netkit-rusers-0.10, linux-ftpd-0.10, netkit-rwall-0.10,
+                         netkit-base-0.10, netkit-rwho-0.10, 
+                         netkit-bootparamd-0.10, netkit-telnet-0.10,
+                         netkit-ftp-0.10, netkit-tftp-0.10, netkit-ntalk-0.10, 
+                         netkit-timed-0.10, netkit-routed-0.10, netwrite-0.10.
+----------------------------
+Sat Jun 21 20:52:08 CDT 1997
+slakware/a2/bin.tgz: Backed down to modules-2.0.0, since its 2.0.x compatibility
+                     mode doesn't seem to be working too well.  Added a
+                     modutils-2.1.34 package in contrib/ for those who need it.
+slakware/a2/diska2: edited.
+----------------------------
+Fri Jun 20 12:44:26 CDT 1997
+slakware/a1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/a1/maketag, maketag.ez: edited.
+slakware/a2/bin.tgz: Upgrades: gawk-3.0.3, man-1.4i, modutils-2.1.34.
+slakware/a2/diska2: edited.
+slakware/a5/lprng.tgz: Moved to contrib/ directory.
+slakware/a5/bsdlpr.tgz: Added as new default print spooler.
+slakware/a5/pnp.tgz: Upgraded to isapnptools-1.10.
+slakware/a5/diska5: edited.
+slakware/a9/util.tgz: mount updated to version 2.6h.
+slakware/ap1/tagfile, tagfile.org, tagfile.pat: edited.
+slakware/ap1/maketag, maketag.ez: edited.
+slakware/ap1/ghostscr.tgz: Upgraded to version 3.33.
+slakware/ap1/gsfonts1.tgz: New fonts for version 3.33, part one.
+slakware/ap1/diskap1: edited.
+slakware/ap3/gsfonts2.tgz: New fonts for version 3.33, part two.
+slakware/ap3/gsfonts3.tgz: New fonts for version 3.33, part three.
+slakware/ap3/diskap3: edited.
+slakware/ap4/manpgs.tgz: Upgraded to man-pages-1.16.
+slakware/ap4/diskap4: edited.
+slakware/d4/man2.tgz: Upgraded to man-pages-1.16.
+slakware/d4/diskd4: edited.
+slakware/d8/man3.tgz: Upgraded to man-pages-1.16.
+slakware/d8/diskd8: edited.
+slakware/x14/x33man.tgz:  Added man pages that were missing from the XFree86
+                          X33man.tgz package.
+slakware/xap1/gchess.tgz: Upgraded to gnuchess-4.0.pl77, xboard-3.6.1.
+slakware/xap1/gs_x11.tgz: Upgraded to version 3.33.
+slakware/xap1/diskxap1: edited.
+----------------------------
+Thu Jun 19 23:02:46 CDT 1997
+slakware/a5/ldso.tgz: Upgraded to version 1.9.2.
+slakware/a5/diska5: edited.
+slakware/ap4/mc.tgz: Upgraded to version 4.0.
+slakware/ap4/diskap4: edited.
+slakware/ap5/vim.tgz: Upgraded to version 4.6.
+slakware/ap5/diskap5: edited.
+slakware/x6/xlock.tgz: Upgraded to version 4.02.1.  Added MD5 passwd support.
+slakware/x6/diskx6: edited.
+slakware/xap1/maketag: edited.
+slakware/xap1/maketag.ez: edited.
+slakware/xap2/libgr.tgz: Upgraded to version 2.0.12.
+slakware/xap2/xpaint.tgz: Upgraded to version 2.4.9.
+slakware/xap2/diskxap2: edited.
+slakware/contrib/seejpeg.tgz: Upgraded to version 1.6.1.
+----------------------------
+Tue Jun 17 22:20:02 CDT 1997
+slakware/x1-x23: Upgraded to XFree86 3.3.
+slakware/xd1-xd4: Upgraded to XFree86 3.3.
+----------------------------
+Mon Jun 16 12:31:41 CDT 1997
+slakware/a7/sysvinit.tgz:  Removal of /var/run/*.pid moved after mount -a.
+slakware/a8/shadow.tgz:  Upgraded to shadow_970616.
+slakware/d1/tagfile: edited.
+slakware/d1/tagfile.org: edited.
+slakware/d1/maketag: edited.
+slakware/d1/maketag.ez: edited.
+slakware/d12/perl1.tgz: Upgraded to version 5.004.
+slakware/d12/diskd12: edited.
+slakware/d13/perl2.tgz: Upgraded to version 5.004.
+slakware/d13/perl3.tgz: Upgraded to version 5.004.
+slakware/d13/diskd13: edited.
+slakware/tcl2/tkdesk.tgz:  Upgraded to version 1.0b4.
+slakware/tcl2/disktcl2: edited.
+----------------------------
+Sun Jun 15 13:42:39 CDT 1997
+slakware/a1/maketag: edited
+slakware/a1/aaa_base.tgz: Upgraded to fdutils-5.2, mtools-3.7.
+slakware/a1/diska1: edited.
+slakware/a4/less.tgz: Upgraded to version 332.
+slakware/a4/diska4: edited.
+slakware/a7/sh_utils.tgz: Upgraded to version 1.16.
+slakware/a7/sysvinit.tgz: rc.K patched to fix single-user mode.
+slakware/a7/diska7: edited.
+slakware/a8/tar.tgz: Upgraded to version 1.12.
+slakware/a8/diska8: edited.
+slakware/ap1/bc.tgz: Upgraded to version 1.04.
+slakware/ap1/diskap1: edited.
+slakware/ap5/zsh.tgz: Upgraded to version 3.0.3.
+slakware/ap5/diskap5: edited.
+slakware/d1/maketag: edited.
+slakware/d1/maketag.ez: edited.
+slakware/d1/tagfile: edited.
+slakware/d1/tagfile.org: edited.
+slakware/d1/binutils.tgz: Upgraded to version 2.8.1.0.1.
+slakware/d1/diskd1: edited.
+slakware/d2/g77.tgz: Upgraded to version 0.5.20.
+slakware/d2/diskd2: edited.
+slakware/d3/gcc2722.tgz: GCC version 2.7.2.2, replaces gcc2721.tgz.
+slakware/d3/gccaout.tgz: Upgraded to version 2.7.2.2.
+slakware/d3/diskd3: edited.
+slakware/d5/gxx2722.tgz: G++ version 2.7.2.2, replaces gxx2721.tgz.
+slakware/d5/diskd5: edited.
+slakware/d6/gxxaout.tgz: Upgraded to version 2.7.2.2.
+slakware/d6/diskd6: edited.
+slakware/d9/libcinfo.tgz: Upgraded to version 2.7.2.2.
+slakware/d9/objc2722.tgz: Objective-C version 2.7.2.2, replaces objc2721.tgz.
+slakware/d9/diskd9: edited.
+slakware/d11/objcaout.tgz: Upgraded to version 2.7.2.2.
+slakware/d11/diskd11: edited.
+slakware/n1/apache.tgz: Upgraded to version 1.2.0.
+slakware/n1/diskn1: edited.
+----------------------------
+Sun Jun 15 00:24:57 CDT 1997
+slakware/n3/smailcfg.tgz: Upgraded to version 8.8.6.
+slakware/n4/diskn4: edited.
+slakware/n4/sendmail.tgz: Upgraded to version 8.8.6.
+----------------------------
+Tue Jun 10 22:29:01 CDT 1997
+slakware/a3/hdsetup.tgz: New options added to 'removepkg'.
+----------------------------
+Tue May 27 17:32:30 CDT 1997
+slakware/a1/etc.tgz: "root of all evil" default root name removed. :^)
+----------------------------
+Fri May 23 01:11:45 CDT 1997
+slakware/a5/umsprogs.tgz: Upgraded to version 0.9.
+slakware/a5/diska5: edited.
+slakware/d1/binutils.tgz: Upgraded to version 2.8.0.3.  Installation script now
+                          looks for and removes any existing /usr/bin/encaps as
+                          specified in the release notes.
+slakware/d1/diskd1: edited.
+----------------------------
+Fri May  9 14:53:57 CDT 1997
+slakware/a1/devs.tgz: /etc/MAKEDEV patched to make correct Cyclades devices.
+----------------------------
+Fri May  9 14:04:28 CDT 1997
+contrib/bsdlpr.tgz: A port of BSD lpr-5.9, with security problems fixed.
+
+        NOTE: A *lot* of people out there have been reporting problems with
+        LPRng (the default print spooler in Slackware 3.2), that it doesn't 
+        like their printcap, or text prints out with stair-stepping, or that
+        it just plain isn't working.  While most of these problems are caused
+        by incorrect network configuration or other configuration errors (LPRng
+        works fine for me), it's clear that the old BSD lpr (used in earlier
+        Slackware releases) wasn't as picky about things and was easier to get
+        working, in general.  So, now that the security holes in BSD lpr are 
+        supposed to be fixed, I'm providing it here as a replacement package.
+        Considering the number of complaints regarding LPRng, BSD lpr may
+        become the default print spooler again when the next Slackware release
+        comes around. :^)
+----------------------------
+Tue Apr 29 17:19:17 CDT 1997
+slakware/a1/devs.tgz: Fixed major numbers for: pcaudio pcmixer pcsp pcsp16
+slakware/a3/getty.tgz: Fixed /usr/doc/getty_ps/Examples directory permissions.
+slakware/e8/emacsbin.tgz: Fixed /usr/doc/emacs-19.31 directory.
+slakware/n5/tcpip.tgz: YP clients upgraded to version 2.2-970318.
+slakware/x1/diskx1: edited.
+slakware/x1/xlock.tgz: Upgraded to version 4.02.  IMPORTANT:  Everyone with
+                       xlock installed on a Slackware 3.2 machine should
+                       install the new xlock package immediately -- a major
+                       security hole exists in the previous version that allows
+                       anyone on your machine to become root!
+slakware/x6/x32cfg.tgz: Added new xlock modes to system.fvwmrc.
+slakware/x7/x32bin.tgz: SuperProbe chmoded 711.
+slakware/xap3/fvwm95.tgz: Added new xlock modes to system.fvwm2rc95.
+----------------------------
+Sun Apr 27 18:03:40 CDT 1997
+slakware/n5/tcpip.tgz: ttysnoop patched to work with shadow passwords.
+----------------------------
+Sun Apr 20 15:33:47 CDT 1997
+slakware/a7/sysvinit.tgz:  Starting of /usr/sbin/crond in /etc/rc.d/rc.M moved
+                           to after the network initialization, in case /usr is
+                           being mounted via NFS.
+----------------------------
+Thu Apr 17 19:01:18 CDT 1997
+slakware/n5/tcpip.tgz:  'talk' was formatting text on the screen incorrectly; 
+                        recompiling with -I/usr/include/ncurses fixed it.
+----------------------------
+Thu Apr 17 12:26:37 CDT 1997
+slakware/a8/shadow.tgz:  YAAD (Yet Another adduser Adjustment :), the script
+                         was not adding a user shell in /etc/passwd unless one
+                         was specified.  This resulted in users who could log
+                         in just fine, but couldn't change their default
+                         shell.
+----------------------------
+Wed Apr 16 13:58:55 CDT 1997
+slakware/a8/shadow.tgz:  Another adjustment to /usr/bin/adduser -- this time
+                         merely cosmetic.  A bad -z test in the script caused
+                         an error message on the screen, but didn't affect the
+                         script's function.
+----------------------------
+Mon Apr 14 12:34:28 CDT 1997
+slakware/a8/shadow.tgz:  Bug in /usr/sbin/adduser fixed -- new users were being
+                         placed in the 'bin' group instead of 'users'.
+----------------------------
+Sat Apr 12 14:42:02 CDT 1997
+slakware/a1/aaa_base.tgz:  Mtools upgraded to version 3.4, mtools docs updated.
+slakware/a1/diska1: edited.
+----------------------------
+Thu Apr 10 23:24:40 CDT 1997
+slakware/xap3/xfract.tgz: xfractint upgraded to version 3.02.
+slakware/xap3/diskxap3: edited.
+----------------------------
+Wed Apr  9 15:09:23 CDT 1997
+slakware/a7/sysvinit.tgz: Starting of kerneld moved back where it was.  Seems
+                          kerneld might be needed to mount certain types of
+                          filesystems. :^)
+----------------------------
+Mon Apr  7 23:33:07 CDT 1997
+slakware/a7/sysvinit.tgz: Starting of kerneld moved further down in 
+                          /etc/rc.d/rc.S, after the filesystems have been
+                          checked and mounted.
+----------------------------
+Mon Apr  7 23:12:37 CDT 1997
+slakware/a8/shadow.tgz: Improved /usr/sbin/adduser script added, 
+                        old one moved to /usr/sbin/adduser2.
+----------------------------
+Mon Apr  7 22:34:23 CDT 1997
+slakware/a7/pcmcia.tgz: Upgraded to version 2.9.2.
+slakware/a7/diska7: edited.
+rootdsks/pcmcia.gz: Upgraded to version 2.9.2.
+----------------------------
+Mon Apr  7 21:26:46 CDT 1997
+slakware/a2/bin.tgz: /sbin/rmmod, /sbin/ksyms fixed.
+----------------------------
+Fri Apr  4 16:03:28 CST 1997
+slakware/a1/cpio.tgz: Upgraded to version 2.4.2.
+slakware/a1/diska1: edited.
+----------------------------
+Mon Mar 31 14:19:22 CST 1997
+slakware/a1/bash.tgz:  Downgraded from bash-2.0 to bash-1.14.7.  Seems a lot
+                       of people are encountering funny problems with scripts
+                       using bash-2.0, so I'm replacing it with the earlier
+                       stable version.  If you want to use bash 2.0 anyway,
+                       there will be a bash-2.0.tgz package in the contrib/
+                       directory.
+slakware/a1/diska1: edited.
+slakware/a1/maketag: edited.
+slakware/a1/maketag.ez: edited.
+slakware/n5/tcpip.tgz: /var/log/ftpd directory added.
+----------------------------
+Wed Mar 26 13:10:15 CST 1997
+slakware/ap1/sudo.tgz: shadow support patches added.
+----------------------------
+Tue Mar 25 15:05:22 CST 1997
+slakware/n5/tcpip.tgz: YP clients patched to version 2.2-970127.
+----------------------------
+Mon Mar 17 13:17:24 CST 1997
+slakware/a9/util.tgz: swapon.8 man page fixed.
+----------------------------
+Sun Mar 16 11:24:52 CST 1997
+slakware/a9/util.tgz: 'mount' upgraded from 2.6a to 2.6d.  'more' crash fixed.
+----------------------------
+Sun Mar 16 02:07:25 CST 1997
+slakware/a5/ldso.tgz: Upgraded to ldso-1.8.10.
+slakware/a5/diska5: edited.
+----------------------------
+Sat Mar 15 18:24:30 CST 1997
+slakware/n4/pine.tgz: imapd and ipop3d patched to fix a security hole.
+--- imap/ANSI/c-client/log_lnx.c.orig   Sat Mar 15 17:50:14 1997
++++ imap/ANSI/c-client/log_lnx.c        Sat Mar 15 18:20:57 1997
+@@ -53,7 +53,10 @@
+   struct spwd *spw;
+   struct passwd *pw = getpwnam (user);
+                                /* allow case-independent match */
+-  if (!pw) pw = getpwnam (lcase (strcpy (tmp,user)));
++  if (!pw) {
++    strncpy(tmp, user, MAILTMPLEN - 1);
++    pw = getpwnam(lcase(tmp));
++  }
+                                /* no entry for this user or root */
+ /*  if (!(pw && pw->pw_uid)) return NIL; */
+   if(!(spw = getspnam (pw->pw_name))) return NIL;
+----------------------------
+Thu Mar 13 21:15:48 CST 1997
+slakware/a8/shadow.tgz: 'adduser' script added.
+----------------------------
+Thu Mar 13 02:04:25 CST 1997
+slakware/n2/inn.tgz: 'parsecontrol' security hole patched. (CERT CA-97.08.innd)
+----------------------------
+Thu Mar 13 01:24:19 CST 1997
+slakware/n4/pine.tgz: Upgraded to version 3.96.
+slakware/n4/diskn4: edited.
+----------------------------
+Wed Mar 12 18:49:01 CST 1997
+slakware/n5/tcpip.tgz: /sbin/netconfig.* scripts patched to fix this bug:
+--- etc/rc.d/rc.inet1.orig      Wed Mar 12 18:32:58 1997
++++ etc/rc.d/rc.inet1   Wed Mar 12 18:33:12 1997
+@@ -45,7 +45,7 @@
+
+ # Uncomment these to set up your IP routing table.
+ /sbin/route add -net ${NETWORK} netmask ${NETMASK} eth0
+-if [ ! "" = "" ]; then
++if [ ! "$GATEWAY" = "" ]; then
+  /sbin/route add default gw ${GATEWAY} netmask 0.0.0.0 metric 1
+ fi
+----------------------------
+Mon Feb 17 15:05:24 CST 1997
+Slackware 3.2.0 is released:
+slakware/a1/etc.tgz: Removed 'adduser'.
+slakware/a2/bash.tgz: Upgraded to bash 2.0.
+slakware/a2/bin.tgz: Software upgrades.
+slakware/a3/e2fsbn.tgz: Upgraded to v. 1.06.
+slakware/a3/elflibs.tgz: Upgraded to libc 5.4.17.
+slakware/a3/getty.tgz: Lock files moved to /var/lock.
+slakware/a3/hdsetup.tgz: Upgraded dialog, misc fixes.
+slakware/a4/ibcs2.tgz: Recompiled to use Linux 2.0.29.
+slakware/a4/ide.tgz: Linux 2.0.29 kernel.
+slakware/a4/keytbls.tgz: Upgraded to version 0.92.
+slakware/a4/less.tgz: Upgraded to version 3.2.1.
+slakware/a5/ldso.tgz: Upgraded to version 1.8.8.
+slakware/a5/lprng.tgz: Upgraded to version 3.1.3.
+slakware/a5/pnp.tgz: Plug'n'Play configuration tool.
+slakware/a6/minicom.tgz: Upgraded to version 1.75.
+slakware/a6/modules.tgz: New modules for Linux 2.0.29.
+slakware/a7/pcmcia.tgz: Recompiled for Linux 2.0.29.
+slakware/a7/scsi.tgz: Linux 2.0.29 kernel.
+slakware/a7/sh_utils.tgz: Recompiled.
+slakware/a7/sysvinit.tgz: Upgraded to version 2.69.
+slakware/a8/scsimods.tgz: SCSI modules for Linux 2.0.29.
+slakware/a8/shadow.tgz: Industry-standard shadow password support.
+slakware/a8/tar.tgz: Remote tar patch.
+slakware/a8/tcsh.tgz: Upgraded to version 6.07.
+slakware/a9/txtutils.tgz: Upgraded to version 1.22.
+slakware/a9/util.tgz: Upgraded to version 2.6.
+slakware/ap1/joe.tgz: Upgraded to joe-2.8.
+slakware/ap2/jpeg.tgz: Recompiled.
+slakware/ap4/manpgs.tgz: Upgraded to man-pages-1.15.
+slakware/ap4/mc.tgz: Upgraded to mc-3.2.11.
+slakware/ap5/texinfo.tgz: Upgraded to version 3.9.
+slakware/d1/binutils.tgz: Upgraded to version 2.7.0.3.
+slakware/d1/bison.tgz: Upgraded to version 1.25.
+slakware/d1/flex.tgz: Upgraded to flex-2.5.4.
+slakware/d2/g77.tgz: Upgraded to version 0.5.19.1.
+slakware/d3/gcc2721.tgz: Upgraded to version 2.7.2.1.
+slakware/d3/gccaout.tgz: Upgraded to version 2.7.2.1.
+slakware/d4/man2.tgz: Upgraded to man-pages-1.15.
+slakware/d5/gxx2721.tgz: Upgraded to version 2.7.2.1.
+slakware/d6/gxxaout.tgz: Upgraded to version 2.7.2.1.
+slakware/d6/libgxx.tgz: Upgraded to version 2.7.2.1.
+slakware/d7/linuxinc.tgz: Upgraded to include files from Linux 2.0.29.
+slakware/d8/libc.tgz: Upgraded to version 5.4.17.
+slakware/d8/man3.tgz: Upgraded to man-pages-1.15.
+slakware/d9/objc2721.tgz: Upgraded to version 2.7.2.1.
+slakware/d11/objcaout.tgz: Upgraded to version 2.7.2.1.
+slakware/e*: Upgraded to emacs-19.34b.
+slakware/f1/howto.tgz: Updated from sunsite.unc.edu Feb 13 1997.
+slakware/f3/mini.tgz: Mini-HOWTOs, Feb 13 1997.
+slakware/k*: Linux 2.0.29 kernel source.
+slakware/n1/apache.tgz: Upgraded to Apache-1.1.3.
+slakware/n1/bind.tgz: Upgraded to bind-4.9.5-P1.
+slakware/n2/pine.tgz: IMAP shadow support added.
+slakware/n3/lynx.tgz: Upgraded to lynx-2.6.
+slakware/n3/ppp.tgz: DHCP support added.
+slakware/n3/procmail.tgz: Recompiled.
+slakware/n4/sendmail.tgz: Upgraded to version 8.8.5.
+slakware/n4/smailcfg.tgz: Upgraded to version 8.8.5.
+slakware/n5/tcpip.tgz: Networking utilities upgraded from the latest sources.
+slakware/x1/xlock.tgz: Shadow password support added.
+slakware/x14/x32man.tgz: Rebuilt whatis database.
+slakware/x19/x32setup.tgz: Added VGA16 server.
+slakware/x6/x32cfg.tgz: Edited config files for shadow password support.
+slakware/xap3/fvwm95.tgz: Edited menus.
+----------------------------
+Mon Jan 27 17:05:02 CST 1997
+slakware/a1/aaa_base.tgz: Removed some symlinks from the tar archive, and
+                          added code to the install script to add them.
+slakware/a3/elflibs.tgz: Changed libncurses.so library and symlink names.
+slakware/a3/gpm.tgz: Upgraded to version 1.10.
+slakware/a3/hdsetup.tgz: Patches to installpkg and pkgtool should allow many
+                         more packages to be safely reinstalled on a running
+                         system in single-user mode.
+slakware/a3/diska3: edited.
+slakware/a4/ldso.tgz: Upgraded to 1.8.5.
+slakware/a4/diska4: edited.
+slakware/a4/ibcs2.tgz: Moved to slakware/a8.
+slakware/a5/ps.tgz: Upgraded to version 1.01.
+slakware/a5/diska5: edited.
+slakware/a8/ibcs2.tgz: Moved here from slakware/a4.
+slakware/a8/diska8: edited.
+slakware/d11/ncurses.tgz: Shared library symlinks rearranged to prevent
+                          warnings from ldconfig.
+----------------------------
+Mon Jan 20 21:30:07 CST 1997
+slakware/a3/hdsetup.tgz: Fixed dialog man page.
+----------------------------
+Mon Jan 20 19:05:34 CST 1997
+slakware/a1/aaa_base.tgz: Man pages for zip added.
+----------------------------
+Thu Jan 16 18:08:50 CST 1997
+slakware/a1/devs.tgz: cua*, ttyC*, and ttyS* devices chmoded 660.
+                      audio and dsp devices chmoded 662 (to prevent
+                      unauthorized users from listening through the microphone).
+----------------------------
+Thu Jan 16 02:05:32 CST 1997
+slakware/a7/tar.tgz: patched to fix remote tar.
+----------------------------
+Mon Jan 13 13:44:51 CST 1997
+bootdsks.144/: Upgraded to Linux kernel 2.0.27.
+bootdsks.12/: Upgraded to Linux kernel 2.0.27.
+rootdsks/pcmcia.gz: Upgraded to allow installation from any supported PCMCIA 
+                    device, and to use dialog menus like the color.gz disk.
+slakware/a1/maketag, maketag.ez: edited.
+slakware/a3/hdsetup.tgz: Fixed bug in CD install.
+slakware/a4/ide.tgz: Upgraded to Linux kernel 2.0.27.
+slakware/a4/ide.cfg: Replaced.
+slakware/a4/diska4: edited.
+slakware/a5/pcmcia.tgz: Upgraded to version 2.9.1, compiled for Linux 2.0.27.
+slakware/a5/diska5: edited.
+slakware/a6/modules.tgz: New modules for 2.0.27.
+slakware/a6/diska6: edited.
+slakware/a7/scsi.tgz: Upgraded to Linux kernel 2.0.27.
+slakware/a7/scsi.cfg: Replaced.
+slakware/ap1/maketag, maketag.ez: edited.
+slakware/a7/diska7: edited.
+slakware/d1/maketag, maketag.ez: edited.
+slakware/d7/linuxinc.tgz: Upgraded to include files for Linux 2.0.27.
+slakware/d7/diskd7: edited.
+slakware/e1/maketag, maketag.ez: edited.
+slakware/f1/maketag, maketag.ez: edited.
+slakware/k1-6: Upgraded to Linux kernel 2.0.27.
+slakware/n1/maketag, maketag.ez: edited.
+slakware/n1/tagfile*: edited.
+slakware/n6/apache.tgz: Fixed ServerRoot directory in sample startup files.
+slakware/n6/diskn6: edited.
+slakware/t1/maketag, maketag.ez: edited.
+slakware/tcl1/maketag, maketag.ez: edited.
+slakware/x1/maketag, maketag.ez: edited.
+slakware/xap1/maketag, maketag.ez: edited.
+slakware/xd1/maketag, maketag.ez: edited.
+slakware/xv1/maketag, maketag.ez: edited.
+slakware/y1/maketag, maketag.ez: edited.
+----------------------------
+Sun Jan 12 16:54:52 CST 1997
+slakware/n1/procmail.tgz:  Recompiled.
+slakware/n3/smailcfg.tgz:  Upgraded from 8.8.3 to 8.8.4.
+slakware/n4/diskn4: edited.
+slakware/n4/sendmail.tgz:  Upgraded from sendmail 8.8.3 to sendmail 8.8.4.
+----------------------------
+Tue Jan  7 20:27:42 CST 1997
+slakware/a2/bin.tgz: lha-1.00 added.
+slakware/a4/ibcs2.tgz: Recompiled for use with Linux 2.0.27.
+slakware/a6/diska6: edited.
+----------------------------
+Sat Jan  4 18:40:54 CST 1997
+patches/wu-ftpd.tgz: Replaces /usr/sbin/wu.ftpd with a version built using the
+                     security patch from Bugtraq.
+----------------------------
+Tue Dec  3 15:14:34 CST 1996
+slakware/d4/diskd4: edited.
+slakware/d4/gcl.tgz: Upgraded to version 2.2.1.
+----------------------------
+Mon Dec  2 17:31:48 CST 1996
+slakware/a5/lilo.tgz:  ramdisk=0 option removed from lilo.conf files.
+----------------------------
+Sun Dec  1 12:08:38 CST 1996
+contrib/f2c.tgz:  Switched from built-in malloc to Linux libc malloc.  Patched
+                  f77 with a fix provided by Jonathan Quick -- this should
+                  improve f2c's behavior when using makefiles.
+----------------------------
+Fri Nov 29 22:28:25 CST 1996
+slakware/a1/devs.tgz:  /dev/lp* devices chmoded 660 to give write access to
+                       group daemon (used by LPRng).
+patches/lprng.tgz:  LPRng print spooler.  If you run lpd on your machine, use
+                    installpkg to upgrade to LPRng with this patch.  This will
+                    fix a security problem.
+patches/lprng-src.tar.gz:  Archive containing the source files, patches, and
+                           SlackBuild script used to generate the lprng.tgz
+                           package.
+----------------------------
+Fri Nov 29 18:42:37 CST 1996
+slakware/n1/procmail.tgz:  Recompiled.
+slakware/n3/smailcfg.tgz:  Upgraded from 8.8.2 to 8.8.3.
+slakware/n4/diskn4: edited.
+slakware/n4/sendmail.tgz:  Upgraded from sendmail 8.8.2 to sendmail 8.8.3.
+                           Fixes the "HUP to smtpd" root shell vulnerability in
+                           8.8.2, as well as many other less serious problems.
+----------------------------
+Wed Nov 27 15:44:26 CST 1996
+slakware/x5/x328514.tgz, slakware/x6/x32agx.tgz, slakware/x8/x32ma8.tgz,
+slakware/x11/x32ma32.tgz, slakware/x13/x32ma64.tgz, slakware/x13/x32mono.tgz,
+slakware/x15/x32p9k.tgz, slakware/x16/x32s3.tgz, slakware/x19/x32svga.tgz,
+slakware/x21/x32vg16.tgz, slakware/x21/x32w32.tgz, slakware/x11/x32i128.tgz,
+slakware/x18/x32s3v.tgz:   X servers are now chmoded 4711.
+----------------------------
+Sun Nov  3 23:23:44 CST 1996
+slakware/a4/diska4: edited.
+slakware/a4/ldso.tgz: Upgraded to version 1.8.2.  Added another sln link
+                      in the install script to fix installation on a
+                      running system.
+----------------------------
+Sun Nov  3 17:17:13 CST 1996
+slakware/x1/diskx1: edited.
+slakware/x1/xlock.tgz: Upgraded to xlockmore-3.11.
+slakware/x6/x32cfg.tgz: Added the new modes for xlockmore-3.11 to the fvwm
+                        menu.
+slakware/xap3/diskxap3: edited, to remove a reference to a web page that seems
+                        to no longer exist.
+slakware/xap3/fvwm95.tgz: Added the new modes for xlockmore-3.11 to the fvwm95
+                          menu.
+----------------------------
+Thu Oct 31 19:12:10 CST 1996
+slakware/x?, x1?, x2?, xd?:  X and XD series replaced with new XFree86 3.2
+                             versions.
+----------------------------
+Tue Oct 29 20:39:46 CST 1996
+slakware/n1/procmail.tgz: recompiled along with sendmail.  No changes...
+slakware/n3/smailcfg.tgz: New configuration files for sendmail 8.8.2.
+slakware/n4/diskn4: edited.
+slakware/n4/sendmail.tgz: Upgraded to version 8.8.2.  If you're using the
+                          previous sendmail package, please install this one
+                          instead.  Sendmail 8.8.0 has a serious security hole.
+----------------------------
+Fri Oct 25 01:31:50 CDT 1996
+contrib/xgrabsc.tgz: Updated to xgrabsc 2.41.
+----------------------------
+Fri Oct 25 00:59:04 CDT 1996
+slakware/a5/sysvinit.tgz: Moved PCMCIA init in rc.S back where it was, since
+                          the new location caused some problems since /var isn't
+                          read-write at that point.  Anyway, it appears that 
+                          there's really not a good reason to have the PCMCIA 
+                          init that early -- those devices really shouldn't be
+                          in the /etc/fstab, but added by options in the scripts
+                          found in /etc/pcmcia.
+----------------------------
+Thu Oct 17 17:32:55 CDT 1996
+slakware/n6/apache.tgz:  Moved init file to /etc/rc.d.
+slakware/a5/sysvinit.tgz: Added rc.httpd to rc.M.
+                          Added kerneld init to rc.S.
+                          Moved PCMCIA init earlier in rc.S, before drive
+                          checking.
+                          Changed default permissions on rc.cdrom, since most
+                          people (including myself :^) really don't like that
+                          startup script.
+bootdsks.12/: All 1.2 MB bootdisks replaced.  I was finally able to reproduce
+              the problems people have reported with these disks, and tracked
+              it down to a bad BIOS in the machine used to generate the disks.
+              The old versions seemed only to boot on a few select machines 
+              (like, unfortunately the ones used for testing) but these should
+              work in more machines.  If you still run into problems, check
+              these things:  1>  Is the floppy cable hooked up right?
+                             2>  Is DOS formatting the disks to the right
+                                 capacity?  Sometimes it'll try to do 1.44 MB.
+                                 If that happens to you, you could try using the
+                                 1.44 MB boot images.
+                             3>  Is the floppy drive order switched in BIOS?
+                                 This doesn't seem to work for LILO/Linux.
+slakware/f1/manyfaqs.tgz: Updated Linux FAQ.
+slakware/f2/howto.tgz: Updated HOWTOs.
+----------------------------
+Wed Oct 16 19:24:45 CDT 1996
+slakware/d11/ncurses.tgz: eti.h header file missing from official ncurses
+                          binary distribution added.
+----------------------------
+Mon Oct  7 13:32:17 CDT 1996
+slakware/n3/pine.tgz: Upgraded to version 3.95.
+slakware/n3/diskn3: edited.
+----------------------------
+Sat Oct  5 21:20:18 CDT 1996
+slakware/xap4/xv.tgz: Patched to version 3.10a.
+slakware/xap4/diskxap4: edited.
+----------------------------
+Thu Oct  3 21:26:47 CDT 1996
+slakware/ap5/texinfo.tgz: Upgraded to version 3.7, moved texinfo.tex into
+        /usr/lib/teTeX/texmf/tex/texinfo for compatability with the newly 
+        added teTeX distribution.
+slakware/ap5/diskap5: edited.
+slakware/t{1,2,3,4,5,6,7,8,9}: REPLACED, with directories containing a new TeX
+        system based on Thomas Esser's teTeX distribution (version 0.4), with 
+        xfig and transfig added.  To upgrade an existing Slackware system to use
+        the new version of TeX, follow these simple instructions:
+          1. Remove the old TeX distribution:
+               cd /var/log/packages
+               removepkg nt?-*
+          2. Remove the old /usr/lib/texmf directory tree:
+               cd /usr/lib
+               rm -r texmf
+          3. Clean out any old temporary fonts:
+               cd /var/texfonts
+               rm -r *
+          4. Install the new teTeX distribution.  Either 
+             install all the packages with installpkg:
+               installpkg t?/*.tgz
+             Or, use setup to reinstall the new T series.
+          5. Log out, and then back in.  This will add
+             /usr/lib/teTeX/bin to your $PATH.  Then, you
+             can run texconfig to set your local preferences.
+----------------------------
+Thu Oct  3 14:39:08 CDT 1996
+slakware/d11/ncurses.tgz: Added header files missing from the official
+                          Linux ncurses binary distribution:
+                          form.h, menu.h, panel.h.
+----------------------------
+Wed Oct  2 16:49:34 CDT 1996
+slakware/a8/util.tgz: Mount updated to 2.5m.  
+                      New version of sbin/update.
+----------------------------
+Tue Oct  1 18:54:31 CDT 1996
+slakware/a4/sysklogd.tgz: Patched to fix a core dump if the system domainname
+                          is not set.
+----------------------------
+Sun Sep 29 17:36:08 CDT 1996
+slakware/n1/procmail.tgz: recompiled.
+slakware/n3/smailcfg.tgz: Upgraded to sendmail 8.8.0.
+slakware/n4/sendmail.tgz: Upgraded to sendmail 8.8.0.
+slakware/n4/diskn4: edited.
+----------------------------
+Wed Sep 11 15:50:36 CDT 1996
+slakware/d8/libc.tgz: Added libdbm.so -> libgdbm.so.1 link.
+                      Added libndbm.so -> libgdbm.so.1 link.
+----------------------------
+Tue Sep 10 22:05:10 CDT 1996
+slakware/d5/gdb.tgz: Upgraded to GDB 4.16.
+slakware/d5/diskd5: edited.
+----------------------------
+Tue Sep 10 16:46:42 CDT 1996
+rootdsks/umsdos.gz: Swapfile setup needed a "sync" before "swapon".
+----------------------------
+Tue Sep 10 13:38:03 CDT 1996
+slakware/a1/maketag: edited.
+slakware/a1/diska1: edited.
+slakware/a1/bash.tgz: Upgraded to bash-1.14.7.
+----------------------------
+Mon Sep  9 18:41:16 CDT 1996
+slakware/a4/ldso.tgz: Missing dlfcn.h header added in /usr/include.
+----------------------------
+Mon Sep  9 17:20:17 CDT 1996
+slakware/a3/hdsetup.tgz: "installpkg -m" now excludes the output file from
+                         the package contents.
+----------------------------
+Mon Sep  9 15:05:20 CDT 1996
+rootdsks/color.gz: keyboard remapping bug fixed.
+rootdsks/umsdos.gz: keyboard remapping bug fixed.
+rootdsks/text.gz: keyboard remapping bug fixed,
+                  logical partition formatting bug fixed.
+rootdsks/tape.gz: logical partition formatting bug fixed.
+rootdsks/pcmcia.gz: logical partition formatting bug fixed.
+slakware/a3/hdsetup.tgz: MouseMan mouse setup bug fixed.
+slakware/a4/ldso.tgz: Missing libdl.so -> libdl.so.1 link added.
+slakware/d8/libc.tgz: libdbm.a link removed.
+                      GDBM-compat headers added: dbm.h, ndbm.h.
+----------------------------
+Sat Sep  7 16:53:29 CDT 1996
+slakware/a8/util.tgz: Upgraded to mount-2.5k.
+----------------------------
+Fri Sep  6 18:38:00 CDT 1996
+slakware/a5/pcmcia.tgz: Added ATA/IDE fixed device module (fixed_cs.o)
+----------------------------
+Fri Sep  6 12:18:39 CDT 1996
+slakware/a1/devs.tgz: /dev/zero chmoded 666.
+----------------------------
+Thu Sep  5 13:07:36 CDT 1996
+rootdsks/umsdos.gz: Swapfile setup bug fixed.
+----------------------------
+Tue Sep  3 16:27:59 CDT 1996
+slakware/a1/devs.tgz: Cyclades multiport serial devices updated.
+----------------------------
+Wed Aug 28 15:32:35 CDT 1996
+slakware/a3/hdsetup.tgz: Possible security hole in /usr/lib/setup/cpkgtool
+                         fixed.  This bug affects any system that does
+                         not already have a /tmp/PKGTOOL.REMOVED file, if
+                         root runs pkgtool.  Using "installpkg hdsetup.tgz"
+                         will safely upgrade on a running system.
+rootdsks/tape.gz: setup bug fixed.
+----------------------------
+Tue Aug 27 15:10:21 CDT 1996
+slakware/makeflop: Bug fixes and Solaris compatability.
+----------------------------
+Wed Aug 21 17:32:59 CDT 1996
+slakware/a1/devs.tgz: Changes to avoid error messages during installation.
+----------------------------
+Mon Aug 19 22:13:12 CDT 1996
+slakware/n3/ppp.tgz: pppd symlink fixed.
+slakware/n5/tcpip.tgz: Several utilities upgraded.  (If you've already
+                       installed Linux, installing the NetKit patch
+                       file in the patches directory instead of the new
+                       tcpip.tgz will upgrade the same utilities while 
+                       preserving your existing configuration files)
+slakware/n5/diskn5: edited.
+patches/NetKit-B-0.07A-update.README
+patches/NetKit-B-0.07A-update.tgz: Provides same upgrades as new tcpip.tgz.
+----------------------------
+Sun Aug 18 21:51:39 CDT 1996
+slakware/t7/ntm-ltx2.tgz: AMS latex updated.
+slakware/t7/diskt7: edited.
+slakware/t7/ntm-ltx4.tgz: moved to slakware/t9.
+slakware/t9/ntm-ltx4.tgz: moved here from slakware/t7.
+slakware/t9/diskt9: edited.
+----------------------------
+Sun Aug 18 19:56:32 CDT 1996
+slakware/a1/devs.tgz: device type of tty10-tty63 changed.  tty perms fixed.
+----------------------------
+Sat Aug 17 17:13:31 CDT 1996
+slakware/n3/ppp.tgz: Version 2.1 removed.  pppd shell script replaced
+                     with a symlink to pppd-2.2.
+slakware/n3/diskn3: edited.
+----------------------------
+Fri Aug 16 14:34:31 CDT 1996
+slakware/a1/devs.tgz: Install script adjusted to fix permissions in /dev
+                      when installed on a running system.
+slakware/n1/mailx.tgz: Cleans up /tmp files now. 
+----------------------------
+Fri Aug 16 00:50:49 CDT 1996
+rootdsks/pcmcia.gz: config file fixed.
+----------------------------
+Thu Aug 15 14:50:43 CDT 1996
+slakware/a1/devs.tgz: permission fixes.
+----------------------------
+Wed Aug 14 15:12:09 CDT 1996
+slakware/a2/bin.tgz: request-route.sh patched.
+slakware/a3/hdsetup.tgz: skip kernel install option fixed.
+slakware/n1/dip.tgz: Upgraded to dip337o-uri.
+slakware/n1/diskn1: edited.
+slakware/n1/mailx.tgz: Security hole patched.
+slakware/t2/ntb-dps.tgz: dvips core dump fixed.
+slakware/x7/x312bin.tgz: suid bit removed from rxvt.
+slakware/rootdsks/color.gz: skip kernel install option fixed.
+slakware/rootdsks/umsdos.gz: skip kernel install option fixed.
+----------------------------
+Tue Aug 13 20:50:33 CDT 1996
+TeX fonts replaced with approved versions:
+slakware/t1/ntf-cms.tgz
+slakware/t5/ntm-amst.tgz
+slakware/t6/ntm-etex.tgz
+slakware/t8/ntm-ltx1.tgz
+slakware/t8/ntm-plft.tgz
+slakware/t8/ntm-turk.tgz
+slakware/t9/ntm-tex.tgz
+----------------------------
+Sat Aug 10 16:34:32 CDT 1996
+bootdsks.144/hpfs.i: New kernel with HPFS support added.
+----------------------------
+Wed Jul  3 14:48:46 PDT 1996
+Slackware96 (v. 3.1.0) is released.  New features include the 2.0.0 Linux
+kernel, gcc-2.7.2, and the 5.3.12 C library.  Lots of packages were upgraded
+to work correctly with the new kernel.

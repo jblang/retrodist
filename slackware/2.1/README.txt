@@ -1,14 +1,11 @@
-This is Slackware Linux 2.0.1.
+This is Slackware Linux 2.1.0.
 
-This version contains libc 4.5.26, Linux kernel 1.0.9 and 1.1.18 (plus source
-for many other versions in the source tree, including version 0.01 :^), and
-XFree86 2.1.1.  I've decided to stick with the 1.1.18 kernel as the newest in
-Slackware for now, since more recent kernels haven't worked perfectly with
-my floppy drives. 
+This version contains libc 4.5.26, Linux kernel 1.1.59 (plus source for many
+other versions in the source tree, including version 0.01 :^), and XFree86 3.1.
 
-I'm still (nearly always :^) behind in my mail, but feel free to report any
-problems you find. I can't promise a response but I *do* appreciate the help
-people offer me in fixing problems.
+Mail here _pours_ in at high volume, but feel free to report any problems you
+find. I can't promise a response but I *do* appreciate the help people offer
+me in fixing problems.
 
 This is what you'll find in the subdirectories below (or in the case of the 
 installation disks, in the ./slakware subdirectory):
@@ -19,9 +16,9 @@ installation disks, in the ./slakware subdirectory):
                 software. See the README files in these directories for more 
                 information.
 
-./a1 - ./a3     The base system. Enough to get up and running and have elvis
-                and comm programs available. Based around the 1.0.9 Linux
-                kernel, and concepts from the new filesystem standard (FSSTND). 
+./a1 - ./a4     The base system. Enough to get up and running and have elvis
+                and comm programs available. Based around the 1.1.59 Linux
+                kernel, and concepts from the Linux filesystem standard. 
                 
                 These disks are known to fit on 1.2M disks, although the rest 
                 of Slackware won't. If you have only a 1.2M floppy, you can 
@@ -35,10 +32,10 @@ installation disks, in the ./slakware subdirectory):
 
 ./d1 - ./d7     Program development. GCC/G++/Objective C 2.5.8, make (GNU and
                 BSD), byacc and GNU bison, flex, the 4.5.26 C libraries, gdb,
-                kernel source for Linux 1.0.9. SVGAlib, ncurses, clisp, f2c, 
+                kernel source for Linux 1.1.59. SVGAlib, ncurses, clisp, f2c, 
                 p2c, m4, perl, rcs, dll tools.
 
-./e1 - ./e5     GNU Emacs 19.26.
+./e1 - ./e5     GNU Emacs 19.27.
 
 ./f1            A collection of FAQs and other documentation.
 
@@ -50,15 +47,12 @@ installation disks, in the ./slakware subdirectory):
 ./oop1          Object Oriented Programming. GNU Smalltalk 1.1.1, and the
                 Smalltalk Interface to X. (STIX)
 
-./q1 - ./q3     This series contains extra kernels and kernel source. I would
-                imagine that most people will want to use a kernel from this 
-                series. It contains source for Linux 1.1.18 with the UMSDOS 
-                filesystem already built in, as well as PPP support. There are
-                several precompiled kernels provided as well.  All of these 
-                were built from the 1.1.18 source provided, and contain UMSDOS,
-                PPP, drivers for SCSI, IFS, networking cards, and the following
-                non-SCSI CD-ROMs: Mitsumi, Sony cdu31/33a, Sound Blaster 
-                Pro/Lasermate/Panasonic, and Sony 535/531.
+./q1 - ./q4     This series contains extra kernels. I would imagine that most
+                people will want to use a kernel from this series. These kernels
+                contain drivers such as UMSDOS, PPP, drivers for SCSI,
+                networking cards, and the following non-SCSI CD-ROMs: Mitsumi,
+                Sony cdu31/33a, Sound Blaster Pro/Lasermate/Panasonic, NEC260,
+                and Sony 535/531.
 
 		NOTE: With the exception of the PS/2 mouse driver (and the 
                 similar C&T 82C710 mouse (as on TI Travelmate) driver, there
@@ -75,6 +69,7 @@ installation disks, in the ./slakware subdirectory):
 
 ./tcl1 - ./tcl2 Tcl, Tk, TclX, blt, itcl. David Engel's port of the major
                 Tcl packages to Linux, including shared library support.
+                These have been completely recompiled for XFree86 3.1.
 
 ./u1            This disk is required when installing Linux with the UMSDOS
                 filesystem, and should only be installed when using UMSDOS for
@@ -101,40 +96,26 @@ installation disks, in the ./slakware subdirectory):
 
 --------- Disks for the X window system:
 
-./x1 - ./x9     The base XFree86 2.1.1 system, with libXpm, fvwm 1.23b, and 
-                xlock added. Also includes a beta version of an Xconfig-writing
-                program - just tell it your video card, mouse, and monitor, and
-                it will create your Xconfig file for you!
+./x1 - ./x13    The base XFree86 3.1 system, with libXpm, fvwm 1.23b, and 
+                xlock added. Also includes a beta version of an XF86Config-
+                writing program - just tell it your video card, mouse, and
+                monitor, and it will create your XF86Config file for you!
 
 ./xap1 - ./xap3 X applications: X11 ghostscript, libgr13 (newly compiled with
                 working shared stubs), seyon, workman, xfilemanager, xv 3.01, 
-                GNU chess and xboard, xfm 1.3, xgrabsc, ghostview, gnuplot,
-                xpaint, xfractint, and various X games. (No, Xfig isn't gone.
-                It has been moved to the T (TeX) series, and the app-defaults
-                bug has been fixed.)
+                GNU chess and xboard, xfm 1.3, ghostview, gnuplot, xpaint, 
+                xfractint, and various X games. (No, Xfig isn't gone.  It has
+                been moved to the T (TeX) series, and the app-defaults bug has
+                been fixed.)  This disk set has been completely recompiled for
+                XFree86 3.1.
 
-./xd1 - ./xd3   X11 server linkkit, PEX support, and X11 programming man pages.
+./xd1 - ./xd3   X11 server linkkit, static libraries, and PEX support.
 
-./xv1 - ./xv2   Xview 3.2 release 5. XView libraries, and the Open Look 
-                virtual and non-virtual window managers.
+./xv1 - ./xv3   xview3.2p1-X11R6. XView libraries, and the Open Look 
+                virtual and non-virtual window managers for XFree86 3.1.
 
-./iv1 - ./iv2   InterViews libraries, include files, 'doc', 'idraw', and other
-                applications and utilities from the InterViews 3.1 distribution.
-                Now uses shared libraries.
-
-./oi1 - ./oi3   ParcPlace's Object Builder 2.0 and Object Interface Library
-                4.0, generously made available for Linux developers according
-                to the terms in the "copying" notice found in these
-                directories. 
-
-		NOTE: These haven't worked since we stopped using libc.so.4.4.4,
-		so they've been placed in the oipatches directory in the source
-                tree. You can either try applying the patches in that directory
-                to attempt to use OI with recent libs (this didn't work for me),
-                or downgrade your libraries to 4.4.4 if you *really* want to use
-                OI. There is a libc-4.4.4 downgrade package in the libc-4.4.4
-                directory. I don't suggest using it, but it does work.
-
+./iv1           InterViews libraries, 'doc', 'idraw', and other applications
+                and utilities from the InterViews 3.1 distribution.
 
 Enjoy!
 ---
