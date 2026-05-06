@@ -1,0 +1,363 @@
+#!/bin/sh
+#
+# Copyright 1993,1994 Patrick Volkerding, Moorhead, Minnesota USA
+# All rights reserved.
+#
+# Redistribution and use of this script, with or without modification, is 
+# permitted provided that the following conditions are met:
+#
+# 1. Redistributions of this script must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+#  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+#  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO
+#  EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+#  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+#  OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+#  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+#  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+#  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# As always, bug reports, suggestions, etc: volkerdi@mhd1.moorhead.msus.edu
+# or bf703@cleveland.freenet.edu, or (if you absolutely must) (218) 233-4349.
+# 
+#
+reset
+rm -f /tmp/SeT*
+echo "on" > /tmp/SeTcolor # turn on color menus
+PATH="$PATH:/usr/lib/setup"
+export PATH;
+PARTLIST="`fdisk -l | fgrep "Linux native" 2> /dev/null`"
+if [ "$PARTLIST" = "" ]; then
+ SeTnopart
+ exit
+fi
+echo "$PARTLIST" > /tmp/SeTplist
+T_PX="/mnt"
+echo "$T_PX" > /tmp/SeTT_PX
+#DISTRIBUTION_SOURCE="/var/adm/mount"
+#echo "$DISTRIBUTION_SOURCE" > /tmp/SeTDS
+#SOURCE_DEVICE="/dev/fd0"
+# We may want to force the issue...
+# echo "$SOURCE_DEVICE" > /tmp/SeTsource
+ROOT_DEVICE="`mount | fgrep "on / " | cut -b-10`"
+echo "$ROOT_DEVICE" > /tmp/SeTrootdev
+if mount | fgrep /var/adm/mount 1> /dev/null 2> /dev/null ; then # clear source
+ umount /var/adm/mount                                           # location
+fi
+rm -f /var/adm/mount 2> /dev/null
+rmdir /var/adm/mount 2> /dev/null
+mkdir /var/adm/mount 2> /dev/null
+
+while [ 0 ]; do
+
+ if [ -r /tmp/SeTQUICK ]; then
+  QUICK="QUICK"
+ else
+  QUICK="VERBOSE"
+ fi
+ dialog --title "Slackware Linux Setup (version FD-2.3.0)" \
+--menu \
+"Welcome to Slackware Linux Setup.\n\
+Select an option below using the UP/DOWN keys and SPACE or ENTER.\n\
+Alternate keys may also be used: '+', '-', and TAB." 20 72 11 \
+"HELP" "Read the Slackware Setup HELP file" \
+"KEYMAP" "Remap your keyboard if you're not using a US one" \
+"QUICK" "Choose quick or verbose install mode [now: $QUICK]" \
+"MAKE TAGS" "Experts may customize tagfiles to preselect packages" \
+"ADDSWAP" "Set up your swap partition(s)" \
+"TARGET" "Set up your target partitions" \
+"SOURCE" "Select source media" \
+"DISK SETS" "Decide which disk sets you wish to install" \
+"INSTALL" "Install selected disk sets" \
+"CONFIGURE" "Reconfigure your Linux system" \
+"EXIT" "Exit Slackware Linux Setup" 2> /tmp/hdset
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/hdset /tmp/SeT*
+  reset
+  exit
+ fi
+ MAINSELECT="`cat /tmp/hdset`"
+ rm /tmp/hdset
+
+ # Start checking what to do. Some modules may reset MAINSELECT to run the
+ # next item in line.
+
+ if [ "$MAINSELECT" = "HELP" ]; then
+  SeTfdHELP
+ fi
+
+ if [ "$MAINSELECT" = "QUICK" ]; then
+  SeTquick
+ fi
+ 
+ if [ "$MAINSELECT" = "KEYMAP" ]; then
+  SeTkeymap
+  if [ -r /tmp/SeTkeymap ]; then
+   dialog --yesno "We're done with the KEYMAP section, would you like to \
+set up your swap space?" 9 40
+   if [ $? = 0 ]; then
+    MAINSELECT="ADDSWAP" 
+   fi
+  fi
+ fi
+ 
+ if [ "$MAINSELECT" = "MAKE TAGS" ]; then
+  SeTmaketag
+ fi
+ 
+ if [ "$MAINSELECT" = "ADDSWAP" ]; then
+  SeTswap
+  if [ -r /tmp/SeTswap ]; then
+   dialog --title "CONTINUE WITH INSTALLATION?" --yesno "Now that you've set \
+up your swap space, you may continue on with the installation. Otherwise, \
+you'll be returned to the main menu. Would you like to continue the \
+installation and set up your TARGET drive(s)?" 9 60
+   if [ $? = 0 ]; then
+    MAINSELECT="TARGET"
+   fi
+  fi
+ fi
+
+ if [ "$MAINSELECT" = "TARGET" ]; then
+  SeTpartitions
+  SeTDOS
+  if [ -r /tmp/SeTnative ]; then
+   dialog --title "CONTINUE?" --yesno "Now that you've set up your target \
+partitions, would you like to go on to the SOURCE section and select your \
+installation media?" 7 60
+   if [ $? = 0 ]; then
+    MAINSELECT="SOURCE"
+   fi
+  fi
+ fi
+
+ if [ "$MAINSELECT" = "SOURCE" ]; then
+  SeTmedia 
+  if [ -r /tmp/SeTsource ]; then
+   dialog --title "CONTINUE?" --yesno "Would you like to go on to the \
+DISK SETS section and select which catagories of software to install?" 6 60
+   if [ $? = 0 ]; then
+    MAINSELECT="DISK SETS"
+   fi
+  fi
+ fi
+
+ if [ "$MAINSELECT" = "DISK SETS" ]; then
+  SeTPKG
+  if [ -r /tmp/SeTSERIES ]; then
+   dialog --title "CONTINUE?" --yesno "Now that you've decided what you want to install you may \
+begin the installation process by moving to the INSTALL section. Please note \
+that if you have not completed all the prerequisites you will be informed of \
+this and returned to the main menu. Would you like to go on to the INSTALL \
+section?" 11 60
+   if [ $? = 0 ]; then
+    MAINSELECT="INSTALL"
+   fi
+  fi
+ fi
+
+ if [ "$MAINSELECT" = "INSTALL" ]; then
+  if [ ! -r /tmp/SeTSERIES -o ! -r /tmp/SeTsource -o ! /tmp/SeTnative ]; then
+   dialog --title "CANNOT INSTALL SOFTWARE YET" --msgbox "\
+\n\
+Before you can install software, complete the following tasks:\n\
+\n\
+1. Select your source media.\n\
+2. Set up your target Linux partition(s).\n\
+3. Select which disk sets to install.\n\
+\n\
+You may also optionally remap your keyboard and set up your\n\
+swap partition(s). \n\
+\n\
+Press ENTER to return to the main menu." 16 68
+   continue
+  fi
+  SERIES="-sets `cat /tmp/SeTSERIES`"
+  SOURCE_DEVICE="`cat /tmp/SeTsource`"
+  IGNORE_TAGFILES=""
+  while [ 0 ]; do
+   if [ -r /tmp/SeTQUICK ]; then
+    MODE="Normal"
+    break;
+   fi
+   dialog --title "SELECT PROMPTING MODE" --menu "\
+\n\
+Now you must select which type of prompting you would like to\n\
+use while installing your software packages. If you're not\n\
+sure which mode to use, read the help file.\n\n\
+Which type of prompting would you like to use?\
+" 17 70 5 \
+"Normal" "Use the default tagfiles" \
+"Custom" "Use custom tagfiles in the package directories" \
+"Path" "Use tagfiles in the subdirectories of a custom path" \
+"None" "Use no tagfiles - install everything" \
+"HELP" "Read the prompt mode help file" 2> /tmp/SeTpmode
+   if [ $? = 1 -o $? = 255 ]; then
+    rm -f /tmp/SeTpmode
+    exit
+   fi
+   MODE="`cat /tmp/SeTpmode`"
+   rm -f /tmp/SeTtagext
+
+   if [ "$MODE" = "HELP" ]; then
+    dialog --title "PROMPT MODE HELP" --textbox "/usr/lib/setup/PROMPThelp" 19 65
+   fi
+
+   if [ "$MODE" = "Path" ]; then
+    dialog --title "PROVIDE A CUSTOM PATH TO YOUR TAGFILES" --inputbox "If \
+you're installing from CD-ROM, it's impossible to edit the tagfiles that are \
+in the package directories. In this case, you might want to provide a path to \
+your custom tagfiles. As an example, you could create a /tagfiles directory \
+and mount a floppy disk containing the tagfiles on that directory. Then you'd \
+enter '/tagfiles' at the prompt below. The setup program will look for your \
+tagfile in SUBDIRECTORIES of the path you provide, such as /tagfiles/a1, \
+/tagfiles/ap1, /tagfiles/d1, and so on. You only need to provide a \
+subdirectory and tagfile for the first disk of each series to be installed. \
+If a custom tagfile is not found at the path you provide, setup will revert to \
+the default tagfiles. Please enter the path to your custom tagfiles:" \
+20 70 2> /tmp/SeTtagpath
+    if [ $? = 1 -o $? = 255 ]; then
+     continue
+    fi
+    if [ -r /tmp/SeTtagpath ]; then
+     if [ "`cat /tmp/SeTtagpath`" = "" ]; then
+      rm -f /tmp/SeTtagpath
+     fi
+    fi
+    break;
+   fi
+
+   if [ "$MODE" = "Normal" ]; then 
+    break;
+   fi 
+
+   if [ "$MODE" = "Custom" ]; then
+    dialog --title "ENTER CUSTOM EXTENSION" --inputbox "Now, enter the custom \
+extension you have used for your tagfiles. This must be a valid MS-DOS format \
+file extension consisting of a period followed by three characters. For \
+example, I use '.pat'. You might see my tagfiles on your disks. :^)" \
+13 60 2> /tmp/SeTtagext
+    if [ $? = 1 -o $? = 255 ]; then
+     continue
+    fi
+    if [ -r /tmp/SeTtagext ]; then
+     if [ "`cat /tmp/SeTtagext`" = "" ]; then
+      rm -f /tmp/SeTtagext
+     fi
+    fi
+    break;
+   fi
+
+   if [ "$MODE" = "None" ]; then
+    dialog --title "WARNING" --yesno "You should be advised that installing \
+*everything* is often a bad plan. If you're just putting the base system in \
+place and planning to install things like X and Emacs a little more \
+selectively from your hard drive later, then there's no problem. Otherwise, \
+if you try to install the whole thing without prompts you will not get as \
+optimal an installation as you might like. Are you sure you want to install \
+without prompts?" 13 60
+    if [ ! $? = 0 ]; then
+     continue
+    fi
+    IGNORE_TAGFILES="-ignore_tagfiles"
+    break;
+   fi
+
+  done
+
+  if [ "$IGNORE_TAGFILES" = "" ]; then
+   if [ "$QUICK" = "QUICK" ]; then
+    dialog --infobox "QUICK mode selected. Using menus for individual \
+package selection." 4 50
+   else 
+    dialog --infobox "PROMPT mode selected. Using prompting defaults \
+found in tagfiles along the way." 4 50
+   fi
+   sleep 3
+  else
+   IGNORE_TAGFILES="-ignore_tagfiles"
+   dialog --infobox "PROMPT mode not selected. Installing all the packages \
+on the selected disk sets." 4 50
+   sleep 3
+  fi
+  SOURCE_MOUNTED="`cat /tmp/SeTmount`"
+  DISTRIBUTION_SOURCE="`cat /tmp/SeTDS`"
+  if [ "$DISTRIBUTION_SOURCE" != "" ]; then
+   cpkgtool $SOURCE_MOUNTED $IGNORE_TAGFILES -source_device $SOURCE_DEVICE -source_dir $DISTRIBUTION_SOURCE -target_dir $T_PX $SERIES
+  else
+   cpkgtool $SOURCE_MOUNTED $IGNORE_TAGFILES -source_device $SOURCE_DEVICE -target_dir $T_PX $SERIES
+  fi
+  MAINSELECT="CONFIGURE"
+ fi
+
+ if [ "$MAINSELECT" = "CONFIGURE" ]; then
+  SeTconfig
+  if [ -r /tmp/SeTnative ]; then
+   if [ -r /mnt/etc/fstab ]; then
+    dialog --title "REPLACE /etc/fstab?" --yesno "You already have an \
+/etc/fstab on your install partition. If you were just adding software, \
+you should probably keep your old /etc/fstab. If you've changed your \
+partitioning scheme, you should use the new /etc/fstab. Do you want \
+to replace your old /etc/fstab with the new one?" 10 60
+    if [ $? = 0 ]; then
+     cat /dev/null > /mnt/etc/fstab
+     if [ -r /tmp/SeTswap ]; then
+      cat /tmp/SeTswap > /mnt/etc/fstab
+     fi
+     cat /tmp/SeTnative >> /mnt/etc/fstab
+     # Mount up the CD-ROM if it exists...
+     if [ -r /tmp/SeTcdfstab ]; then
+      mkdir -p /mnt/cdrom
+      cat /tmp/SeTcdfstab >> /tmp/SeTDOS
+     fi
+     if [ -r /tmp/SeTDOS ]; then
+      cat /tmp/SeTDOS >> /mnt/etc/fstab
+     fi
+     echo "none             /proc    proc        defaults   1   1" >> /mnt/etc/fstab
+    fi
+   else # /mnt/etc/fstab not found
+    cat /dev/null > /mnt/etc/fstab
+    if [ -r /tmp/SeTswap ]; then
+     cat /tmp/SeTswap > /mnt/etc/fstab
+    fi
+    cat /tmp/SeTnative >> /mnt/etc/fstab
+    # Mount up the CD-ROM if it exists...
+    if [ -r /tmp/SeTcdfstab ]; then
+     mkdir -p /mnt/cdrom
+     cat /tmp/SeTcdfstab >> /tmp/SeTDOS
+    fi
+    if [ -r /tmp/SeTDOS ]; then
+     cat /tmp/SeTDOS >> /mnt/etc/fstab
+    fi
+    echo "none             /proc    proc        defaults   1   1" >> /mnt/etc/fstab
+   fi
+   dialog --title "SETUP COMPLETE" --msgbox "System configuration \
+is complete. You may EXIT setup and reboot your machine with \
+ctrl-alt-delete." 6 60
+  fi
+ fi
+
+ if [ "$MAINSELECT" = "EXIT" ]; then
+  reset
+  break
+ fi
+
+done # end of main loop
+ 
+sync
+if mount | fgrep /var/adm/mount 1> /dev/null 2> /dev/null ; then
+ umount /var/adm/mount 
+fi
+rm -f /var/adm/mount 2> /dev/null
+rmdir /var/adm/mount 2> /dev/null
+mkdir /var/adm/mount 2> /dev/null
+chmod 755 /var/adm/mount
+chmod 755 $T_PX
+if [ -d $T_PX/tmp ]; then
+ chmod 1777 $T_PX/tmp
+fi
+rm -f /tmp/tagfile /tmp/SeT*
+# end slackware setup script

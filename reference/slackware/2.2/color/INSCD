@@ -1,0 +1,200 @@
+#!/bin/sh
+T_PX="`cat /tmp/SeTT_PX`"
+rm -f /tmp/SeTmount /tmp/SeTDS /tmp/SeTCDdev
+dialog --title "Install from the Slackware CD-ROM" \
+--menu "\
+You should be able to install directly from the Slackware \
+CD-ROM if you have one of the drive types listed below.  (If\
+this doesn't work for some reason, you can still install by\
+copying the a1...y1 directories to your hard drive and \
+installing from there, or by making floppy disks under DOS) \
+What type of CD-ROM drive do you have?" \
+19 70 7 \
+"1" "SCSI (/dev/scd0 or /dev/scd1)" \
+"2" "Sony CDU31A (/dev/sonycd)" \
+"3" "Sony 531/535 (/dev/cdu535)" \
+"4" "Mitsumi (/dev/mcd)" \
+"5" "Sound Blaster Pro/Panasonic (/dev/sbpcd)" \
+"6" "Aztech/Orchid/Okano/Wearnes with interface card" \
+"7" "Most IDE-interface CD drives" 2> /tmp/cdtype
+if [ $? = 1 -o $? = 255 ]; then
+ rm -f /tmp/tmpmsg /tmp/cdtype
+ exit
+fi
+CD_ROM_TYPE="`cat /tmp/cdtype`"
+rm -f /tmp/tmpmsg /tmp/cdtype
+if [ "$CD_ROM_TYPE" = "1" ]; then
+ dialog --title "SELECT SCSI DEVICE" --menu "\
+Which SCSI CD-ROM are you using? (If you're not sure, \n\
+select /dev/scd0)" 10 60 2 \
+"/dev/scd0" "SCSI CD 0" \
+"/dev/scd1" "SCSI CD 1" 2> /tmp/whichscsi
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/tmpmsg /tmp/cdtype /tmp/whichscsi
+  exit
+ fi
+ CD_DEVICE="`cat /tmp/whichscsi`"
+ rm -f /tmp/whichscsi
+elif [ "$CD_ROM_TYPE" = "2" ]; then
+ CD_DEVICE="/dev/sonycd"
+elif [ "$CD_ROM_TYPE" = "3" ]; then
+ CD_DEVICE="/dev/cdu535"
+elif [ "$CD_ROM_TYPE" = "4" ]; then
+ CD_DEVICE="/dev/mcd"
+elif [ "$CD_ROM_TYPE" = "5" ]; then
+ CD_DEVICE="/dev/sbpcd"
+elif [ "$CD_ROM_TYPE" = "6" ]; then
+ CD_DEVICE="/dev/aztcd"
+elif [ "$CD_ROM_TYPE" = "7" ]; then
+ dialog --title "SELECT IDE DEVICE" --menu \
+"Which IDE device is your CD-ROM drive connected to? \
+Devices hda and hdb are the possible drives on the \
+primary IDE interface, and hd1a and hd1b are the drives \
+on the secondary IDE interface. If you're not sure, we can try to \
+scan for your drive." \
+16 70 5 \
+"scan" "Try to scan for your drive" \
+"/dev/hda" "Primary IDE drive 1 (unlikely)" \
+"/dev/hdb" "Primary IDE drive 2 (common)" \
+"/dev/hd1a" "Secondary IDE drive 1 (not uncommon)" \
+"/dev/hd1b" "Secondary IDE drive 2" 2> /tmp/idecd
+ if [ ! "`cat /tmp/idecd`" = "scan" ]; then
+  CD_DEVICE="`cat /tmp/idecd`"
+ else
+  for device in /dev/hda /dev/hdb /dev/hd1a /dev/hd1b ; do
+   dialog --infobox "Scanning $device..." 3 30
+   mount -o ro -t iso9660 $device /var/adm/mount 1> /dev/null 2> /dev/null
+   if [ $? = 0 ]; then
+    DRIVE_FOUND=$device
+    break
+   fi
+  done
+  umount /var/adm/mount 1> /dev/null 2> /dev/null
+  if [ "$DRIVE_FOUND" = "" ]; then
+   dialog --title "DRIVE NOT FOUND" --msgbox \
+"An IDE CD-ROM drive could not be found on any of the devices that were \
+scanned.  Please consult the BOOTING file for more information on \
+forcing the detection of your drive, and then reattempt installation. \
+If all else fails, see the SLAKWARE.FAQ for information about copying \
+parts of this CD to your DOS partition to allow you to install." \
+12 55
+  else
+   dialog --title "IDE CD-ROM DRIVE DETECTED SUCCESSFULLY" --msgbox \
+"An IDE CD-ROM drive was found on device $DRIVE_FOUND." 5 65
+   CD_DEVICE="$DRIVE_FOUND"
+  fi
+ fi
+fi
+# The CD will be mounted automatically later on:
+echo "$CD_DEVICE       /cdrom        iso9660       ro   1   1" > /tmp/SeTcdfstab
+
+while [ 0 ] ; do
+ dialog --title "Pick your installation method" --menu "\
+ You can run most of the system from the Slackware CD-ROM \
+ if you're short of drive space or if you just want to test Linux without \
+ going through a complete installation. \
+ If you're new to this, PLEASE read \
+ the help file before you make your selection. \
+ Which option would you like?" 16 74 5 \
+ "help" "Read the installation method help file" \
+ "slakware" "Normal installation to hard drive" \
+ "link2cd" "Link all files in /usr to the CD (upgradable but BIG)" \
+ "slaktest" "Link /usr -> /cdrom/usr (small, fast install, no upgrade)" \
+ "custom" "Install from a custom directory" \
+ 2> /tmp/SeTreturn
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/cdtype /tmp/SeTreturn
+  exit
+ fi
+ if [ "`cat /tmp/SeTreturn`" = "help" ]; then
+  dialog --title "INSTALLATION METHOD HELP" --textbox /usr/lib/setup/IMhelp \
+  20 74
+  continue
+ fi
+ break
+done
+
+SLACK_SOURCE_LOCATION="`cat /tmp/SeTreturn`"
+
+if [ "$SLACK_SOURCE_LOCATION" = "custom" ]; then
+ dialog --title "SELECT CUSTOM SOURCE DIRECTORY" --inputbox "Now we need \
+ to know \
+ which directory on the CD contains the Slackware sources.  This location \
+ may vary depending on the CD you have. You may omit the leading '/' if \
+ you like.  What directory are the Slackware sources in?" 11 67 \
+ 2> /tmp/slacksource
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/cdtype /tmp/slacksource
+  exit
+ fi
+ rm -f /tmp/tmpmsg
+ SLACK_SOURCE_LOCATION="`cat /tmp/slacksource`"
+ rm -f /tmp/slacksource
+fi
+
+if [ -r /tmp/CDdebug ]; then # we're testing an image here @ Slackware labs,
+                             # and must do our own mount.
+echo
+echo "Source location -> $SLACK_SOURCE_LOCATION"
+echo
+echo "Shelling out to let you do your own mount. The command that would have"
+echo "been used here is:"
+echo
+echo "mount -o ro -t iso9660 $CD_DEVICE /var/adm/mount"
+echo
+echo "To test correctly, be sure to mount read-only ( -o ro )."
+echo
+echo "It addition, this line will be in /tmp/SeTcdfstab so the disk is"
+echo "mounted at boot time:"
+echo
+echo "$CD_DEVICE       /cdrom        iso9660       ro   1   1"
+echo
+echo "You might want to echo your own to there for testing."
+echo
+echo "When done, type 'exit' to return to the setup program."
+echo
+/bin/sh
+else 
+ while [ 0 ]; do
+  mount -o ro -t iso9660 $CD_DEVICE /var/adm/mount 1> /dev/null 2> /dev/null
+  if [ ! $? = 0 ]; then
+   dialog --title "MOUNT ERROR" --menu "There was an error attempting to mount the CD-ROM device." \
+11 60 3 \
+"1" "Abort CD installation" \
+"2" "Attempt to mount the CD-ROM device again" \
+"3" "Ignore the error and continue" 2> /tmp/errordo
+   if [ $? = 1 -o $? = 255 ]; then
+    rm -f /tmp/SeTDS /tmp/SeTmount /tmp/SeTCDdev /tmp/errordo
+    exit;
+   fi
+   DOWHAT="`cat /tmp/errordo`"
+   rm -f /tmp/errordo
+   if [ $DOWHAT = 1 ]; then
+    rm -f /tmp/SeTDS /tmp/SeTmount /tmp/SeTCDdev
+    exit;
+   elif [ $DOWHAT = 3 ]; then
+    break;
+   fi
+  else
+   if [ ! -d /var/adm/mount/$SLACK_SOURCE_LOCATION ]; then
+    dialog --title "ERROR: DIRECTORY NOT FOUND" --msgbox "The Slackware source directory could not be found. You'll \
+have to reconfigure your source media before you can install." 8 60
+    rm -f /tmp/SeTmount /tmp/SeTDS /tmp/SeTCDdev   
+    exit
+   fi
+   break;
+  fi
+ done
+fi # debug
+
+# since we've mounted successfully, let's refresh the link:
+if [ ! -d $T_PX/dev ]; then
+ mkdir $T_PX/dev
+ chown root.root $T_PX/dev
+ chmod 755 $T_PX/dev
+fi
+( cd $T_PX/dev ; ln -sf $CD_DEVICE cdrom )
+echo "/var/adm/mount/$SLACK_SOURCE_LOCATION" > /tmp/SeTDS
+echo "-source_mounted" > /tmp/SeTmount
+echo "$CD_DEVICE" > /tmp/SeTCDdev
+echo "/dev/null" > /tmp/SeTsource

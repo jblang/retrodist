@@ -1,0 +1,197 @@
+#!/bin/sh
+while [ 0 ]; do
+rm -f /tmp/SeTDS /tmp/SeTmount
+
+ cat << EOF > /tmp/tmpmsg
+
+WARNING! Installing via NFS can be a real time-saver if you're
+good with TCP/IP, but is a tricky installation choice for the
+beginner. Some of the things you may have to do to get this
+option to work include:
+
+-- Setting up an /etc/networks file on the bootdisk
+-- Mandatory: getting the source directory exported from 
+   your NFS server
+
+Are you sure you want to try to install via NFS?
+EOF
+ dialog --title "INSTALLATION THROUGH NFS" --yesno "`cat /tmp/tmpmsg`" 16 68
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/tmpmsg
+  exit
+ fi
+ rm -f /tmp/tmpmsg
+ T_PX="`cat /tmp/SeTT_PX`"
+ UPNRUN=1
+ if [ "$T_PX" = "/" ]; then
+  cat << EOF > /tmp/tmpmsg
+
+You're running off the hard drive filesystem. Is this machine
+currently running on the network you plan to install from? If
+so, we won't try to reconfigure your ethernet card.
+
+Are you up-and-running on the network?
+EOF
+  dialog --title "NFS INSTALLATION" --yesno "`cat /tmp/tmpmsg`" 11 68
+  UPNRUN=$?
+ fi
+ if [ $UPNRUN = 1 ]; then
+  cat << EOF > /tmp/tmpmsg
+
+You will need to enter the IP address you wish to
+assign to this machine. Example: 111.112.113.114
+
+What is your IP address?
+EOF
+  dialog --title "ASSIGN IP ADDRESS" --inputbox "`cat /tmp/tmpmsg`" 13 65 2> /tmp/local
+  if [ $? = 1 -o $? = 255 ]; then
+   rm -f /tmp/tmpmsg /tmp/local
+   exit
+  fi
+  LOCAL_IPADDR="`cat /tmp/local`"
+  rm -f /tmp/local
+  cat << EOF > /tmp/tmpmsg
+
+Now we need to know your netmask.
+Typically this will be 255.255.255.0
+but this can be different depending on
+your local setup.
+
+What is your netmask?
+EOF
+  dialog --title "ASSIGN NETMASK" --inputbox "`cat /tmp/tmpmsg`" 15 65 2> /tmp/mask
+  if [ $? = 1 -o $? = 255 ]; then
+   rm -f /tmp/tmpmsg /tmp/mask
+   exit
+  fi
+  LOCAL_NETMASK="`cat /tmp/mask`"
+  rm /tmp/mask
+#  cat << EOF > /tmp/tmpmsg
+#
+#Typically your broadcast address will be the same as
+#your IP address with 255 replacing the final value.
+#Example: 111.112.113.255
+#
+#What is your broadcast address?
+#EOF
+#  dialog --title "ASSIGN BROADCAST ADDRESS" --inputbox "`cat /tmp/tmpmsg`" 14 65 2> /tmp/broadc
+#  if [ $? = 1 -o $? = 255 ]; then
+#   rm -f /tmp/tmpmsg /tmp/broadc
+#   exit
+#  fi
+#  LOCAL_BROADCAST="`cat /tmp/broadc`"
+#  rm /tmp/broadc
+#  cat << EOF > /tmp/tmpmsg
+#
+#Now we need your network address.
+#
+#Your network address will usually be the same as your IP
+#address, with the last value replaced by 0.
+#For example: 111.112.113.0
+#
+#What is your network address? 
+#EOF
+#  dialog --title "ASSIGN NETWORK ADDRESS" --inputbox "`cat /tmp/tmpmsg`" 16 65 2> /tmp/netw
+#  if [ $? = 1 -o $? = 255 ]; then
+#   rm -f /tmp/tmpmsg /tmp/netw
+#   exit
+#  fi
+#  LOCAL_NETWORK="`cat /tmp/netw`"
+#  rm /tmp/netw
+LOCAL_BROADCAST=`ipmask $LOCAL_NETMASK $LOCAL_IPADDR | cut -f 1 -d ' '`
+LOCAL_NETWORK=`ipmask $LOCAL_NETMASK $LOCAL_IPADDR | cut -f 2 -d ' '`
+  dialog --yesno "Do you have a gateway?" 6 30
+  HAVE_GATEWAY=$?
+  if [ "$HAVE_GATEWAY" = "0" ]; then
+   dialog --title "ASSIGN GATEWAY ADDRESS" --inputbox "\nWhat is your gateway address?" 10 65 2> /tmp/gw
+   if [ $? = 1 -o $? = 255 ]; then
+    rm -f /tmp/tmpmsg /tmp/gw
+    exit
+   fi
+   LOCAL_GATEWAY="`cat /tmp/gw`"
+   rm -f /tmp/gw
+  fi
+ fi # ! UPNRUN
+
+ cat << EOF > /tmp/tmpmsg
+
+Good! We're all set on the local end, but now we need to know
+where to find the software packages to install. First, we need
+the IP address of the machine where the Slackware sources are
+stored.
+
+EOF
+ if [ "$UPNRUN" = "0" ]; then
+  cat << EOF >> /tmp/tmpmsg
+Since you're already running on the network, you should be able
+to use the hostname instead of an IP address if you wish.
+
+EOF
+ fi
+ echo "What is the IP address of your NFS server? " >> /tmp/tmpmsg
+ dialog --title "ENTER IP ADDRESS OF NFS SERVER" --inputbox \
+ "`cat /tmp/tmpmsg`" 17 70 2> /tmp/remote
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/tmpmsg /tmp/remote
+  exit
+ fi
+ REMOTE_IPADDR="`cat /tmp/remote`"
+ rm /tmp/remote
+ if [ ! "$UPNRUN" = "0" ]; then
+   ENET_DEVICE="eth0" 
+ fi # ! UPNRUN
+
+ cat << EOF > /tmp/tmpmsg
+
+ There must be a directory on the server with the Slackware
+ sources for each disk in subdirectories beneath it.
+
+ The installation script needs to know the name of the 
+ directory on your server that contains the disk 
+ subdirectories. For example, if your A3 disk is found at 
+ /slackware/a3, then you would respond: /slackware
+ 
+ What is the Slackware source directory?
+EOF
+ dialog --title "SELECT SOURCE DIRECTORY" --inputbox "`cat /tmp/tmpmsg`" 17 65 2> /tmp/slacksrc
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f /tmp/tmpmsg /tmp/slacksrc
+  exit
+ fi
+ REMOTE_PATH="`cat /tmp/slacksrc`"
+ rm /tmp/slacksrc
+ echo
+ echo 
+ echo
+ echo "We'll switch into text mode here so you can see if you have any errors."
+ echo
+ if [ ! "$UPNRUN" = "0" ]; then
+  echo
+  echo "We'll switch into text mode here so you can see if you have any errors."
+  echo
+  echo "Configuring ethernet card..."
+  ifconfig $ENET_DEVICE $LOCAL_IPADDR netmask $LOCAL_NETMASK broadcast $LOCAL_BROADCAST
+  route add -net $LOCAL_NETWORK
+  if [ "$HAVE_GATEWAY" = "0" ]; then
+   echo "Configuring your gateway..."
+   route add default gw $LOCAL_GATEWAY metric 1
+  fi
+ fi
+ echo "Mounting NFS..."
+ mount -t nfs $REMOTE_IPADDR:$REMOTE_PATH /var/adm/mount
+ echo "/var/adm/mount" > /tmp/SeTDS
+ echo "-source_mounted" > /tmp/SeTmount
+ echo "/dev/null" > /tmp/SeTsource
+ echo
+ echo "Current mount table:"
+ mount
+ echo -n "Do you think you need to try this again ([y]es, [n]o)? "
+ read TRY_AGAIN;
+ if [ "$TRY_AGAIN" = "n" ]; then
+  exit
+ fi
+ if [ "$UPNRUN" = "1" ]; then
+  route del $LOCAL_NETWORK
+  ifconfig $ENET_DEVICE down 
+ fi
+done

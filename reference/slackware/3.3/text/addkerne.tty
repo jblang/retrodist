@@ -1,0 +1,171 @@
+while [ 0 ]; do
+ cat << EOF
+
+INSTALLING A LINUX KERNEL
+
+Now you should verify that a Linux kernel is installed to your new Linux
+system.  If you've already installed a generic Linux kernel from the A series,
+then you can skip this step.  Be advised, however, that your best option is
+probably to install the kernel from your installation bootdisk.  If it got
+you this far without problems, you know it will work.  If additional driver
+support is required after installation, it can be added in the form of loadable
+kernel modules by editing your /etc/rc.d/rc.modules file.
+
+1 - Install the kernel from the installation bootdisk.
+2 - Install a ZIMAGE, BZIMAGE, or VMLINUZ kernel image from an MS-DOS
+    formatted floppy disk.
+3 - Install a kernel from the Slackware CD-ROM.
+4 - Skip this step -- do not install a Linux kernel.  (NOTE: A Linux kernel
+    must have already been installed, or you'll have to use your installation
+    bootdisk or LOADLIN to start your system)
+
+EOF
+ echo -n "Which option would you like (1/2/3/4)? "
+ read REPLY;
+ echo
+ if [ "$REPLY" = 1 ]; then
+  echo
+  echo "INSERT INSTALLATION BOOTDISK"
+  echo
+  echo -n "Please insert your installation bootdisk in /dev/fd0 and press ENTER:"
+  read junk;
+  echo
+  echo
+  mount /dev/fd0 /floppy -t minix
+  if [ -r /floppy/vmlinuz ]; then
+   echo "COPYING:  Copying kernel from bootdisk to /vmlinuz on your new system..."
+   cp /floppy/vmlinuz $T_PX/vmlinuz
+   chmod 400 $T_PX/vmlinuz
+   rdev -R $T_PX/vmlinuz 1
+   rdev $T_PX/vmlinuz $ROOT_DEVICE
+   umount /floppy
+   break;
+  else
+   umount /floppy
+   cat << EOF
+ERROR:  Sorry, but a Linux kernel could not be installed since no file named
+/vmlinuz could be found on the floppy.  Did you insert the installation
+EOF
+   echo -n "bootdisk?  Please hit ENTER to return to the kernel installation menu."
+   read junk;
+   echo
+   continue;
+  fi
+ elif [ "$REPLY" = 2 ]; then
+  cat << EOF
+
+INSERT DISK
+
+Now we will install a Linux kernel from floppy disk.
+
+Please insert an MSDOS formatted floppy disk containing a kernel file named
+EOF
+  echo -n "ZIMAGE, BZIMAGE, or VMLINUZ and press ENTER to continue."
+  read junk;
+  echo
+  echo
+  mount /dev/fd0 /floppy -t msdos
+  if [ -r /floppy/zimage ]; then
+   echo "COPYING:  Copying kernel from floppy disk to /vmlinuz on your new system..."
+   cp /floppy/zimage $T_PX/vmlinuz
+   chmod 400 $T_PX/vmlinuz
+   rdev -R $T_PX/vmlinuz 1
+   rdev $T_PX/vmlinuz $ROOT_DEVICE
+   umount /floppy
+   break;
+  elif [ -r /floppy/bzimage ]; then
+   echo "COPYING:  Copying kernel from floppy disk to /vmlinuz on your new system..."
+   cp /floppy/bzimage $T_PX/vmlinuz
+   chmod 400 $T_PX/vmlinuz
+   rdev -R $T_PX/vmlinuz 1
+   rdev $T_PX/vmlinuz $ROOT_DEVICE
+   umount /floppy
+   break;
+  elif [ -r /floppy/vmlinuz ]; then
+   echo "COPYING:  Copying kernel from floppy disk to /vmlinuz on your new system..."
+   cp /floppy/vmlinuz $T_PX/vmlinuz
+   chmod 400 $T_PX/vmlinuz
+   rdev -R $T_PX/vmlinuz 1
+   rdev $T_PX/vmlinuz $ROOT_DEVICE
+   umount /floppy
+   break;
+  else
+   umount /floppy
+   cat << EOF
+ERROR:  Sorry, but a Linux kernel could not be installed since no file named
+/ZIMAGE, /BZIMAGE, or /VMLINUZ could be found on the floppy.  Did you insert an
+MSDOS formatted floppy disk containing such a file?  Please hit ENTER to return
+EOF
+  echo -n "to the kernel installation menu."
+  read junk;
+  echo
+  continue;
+  fi
+ elif [ "$REPLY" = 3 ]; then
+  if [ ! -d /cdrom/kernels ]; then
+   echo
+   echo "ERROR: NO /cdrom/kernels DIRECTORY FOUND"
+   echo
+   echo "Sorry, but we can't install a kernel from the Slackware CD-ROM, because"
+   echo "the Slackware CD-ROM doesn't seem to be mounted under /cdrom.  If you're"
+   echo "not installing from CD-ROM, you'll have to install a kernel from a floppy"
+   echo "disk, a bootdisk, or the A series.  You can also try mounting the CD-ROM"
+   echo "yourself on a different virtual console and then try this option again."
+   echo
+   echo -n "Please hit ENTER to return to the kernel installation menu."
+   read junk;
+   echo
+   continue;
+  else
+   echo
+   echo "SELECT KERNEL FROM CDROM"
+   echo
+   echo "Which of the following directories would you like to install a Linux"
+   echo "kernel from? NOTE: If you have a SCSI controller, choose a kernel that"
+   echo "supports that.  You can support your CDROM drive and network card later"
+   echo "with installable kernel modules." 
+   echo
+   ( cd /cdrom/kernels ;
+     NUM=0
+     for dir in * ; do
+      if [ -d $dir ]; then
+       if [ ! $NUM = 0 ]; then
+        echo -n ", "
+       fi
+       NUM=`expr $NUM + 1`
+       echo -n "$dir"
+      fi
+     done
+     echo "." )
+   echo
+   echo "Please enter the name of the kernel directory you'd like to"
+   echo -n "install your kernel from:"
+   read KERN
+   echo
+   if [ ! -d /cdrom/kernels/$KERN ]; then
+    echo
+    echo "ERROR: Sorry, but there doesn't seem to be a /cdrom/kernels/$KERN"
+    echo "directory, so we can't install a kernel from there.  Please press"
+    echo -n "ENTER to continue."
+    read junk;
+    echo
+    continue;
+   else
+    echo
+    echo "Copying kernel from /cdrom/kernels/$KERN to /vmlinuz on "
+    echo "your new system..." 
+    if [ -r /cdrom/kernels/$KERN/zImage ]; then
+     cp /cdrom/kernels/$KERN/zImage $T_PX/vmlinuz
+    elif [ -r /cdrom/kernels/$KERN/bzImage ]; then
+     cp /cdrom/kernels/$KERN/bzImage $T_PX/vmlinuz
+    fi
+    chmod 400 $T_PX/vmlinuz
+    rdev -R $T_PX/vmlinuz 1
+    rdev $T_PX/vmlinuz $ROOT_DEVICE
+    break;
+   fi
+  fi
+ elif [ "$REPLY" = 4 ]; then
+  break;
+ fi
+done

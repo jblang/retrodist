@@ -1,0 +1,81 @@
+#!/bin/sh
+# Copyright 1993, Patrick Volkerding, Moorhead, MN.
+# Use and redistribution covered by the same terms as the "setup" script.
+if [ ! -d /usr/lib/kbd/keytables ]; then
+ dialog --title "Required files are missing" --msgbox "You cannot remap your keyboard until you install the \
+package 'keymaps.tgz' on disk A3. It contains the keyboard map files \
+required to proceed." 9 40
+ exit
+fi
+ls /usr/lib/kbd/keytables/*.gz 1> /dev/null 2> /dev/null
+if [ $? = 0 ]; then
+ SUFFIX=gz
+else
+ SUFFIX=map
+fi
+
+cat << EOF > /tmp/keyscript
+dialog --title "KEYBOARD MAP SELECTION" --menu "
+You may select one of the following keyboard maps. 
+You may use the UP/DOWN arrow keys to scroll through
+the whole list of choices.
+" 20 68 9 \\
+EOF
+for mapname in /usr/lib/kbd/keytables/*$SUFFIX; do
+ echo "\"$mapname\" \"\" \\" >> /tmp/keyscript
+done
+echo "2> /tmp/keymp" >> /tmp/keyscript
+echo 'ERROR=$?' >> /tmp/keyscript
+echo 'if [ $ERROR = 1 -o $ERROR = 255 ]; then' >> /tmp/keyscript
+echo '  exit 1;' >> /tmp/keyscript
+echo 'fi' >> /tmp/keyscript
+
+while [ 0 ]; do
+ sh /tmp/keyscript
+ if [ $? = 1 ]; then
+  rm -f /tmp/keymp /tmp/keyscript
+  exit;
+ fi
+ MAPNAME="`cat /tmp/keymp`"
+ SHORTMAP="`basename $MAPNAME`"
+ echo "$SHORTMAP" > /tmp/SeTkeymap
+ rm /tmp/keymp
+ cp $MAPNAME /tmp
+ MAPNAME=$SHORTMAP
+
+ if [ $SUFFIX = gz ]; then
+  echo "$SHORTMAP" > /tmp/SeTkeymaz
+  REALNAME="`gzip -l /tmp/$SHORTMAP | cut -b28- | sed -n '$ p'`"
+  REALNAME="`basename $REALNAME`"
+  gzip -df /tmp/$SHORTMAP
+  echo "$REALNAME" > /tmp/SeTkeymap
+  MAPNAME=$REALNAME
+ fi
+
+ loadkeys /tmp/$MAPNAME 1> /dev/null 2> /dev/null
+
+ while [ 0 ]; do
+  dialog --title "KEYBOARD TEST" --inputbox \
+"\n\
+OK, the new map is now installed. You may now test it by typing\n\
+anything you want. To quit testing the keyboard, enter [y] on a\n\
+line by itself to accept the map and go on, or [n] on a line by\n\
+itself to reject the current keyboard map and select a new one. " 13 70 2> /tmp/keytest
+  if [ $? = 1 ]; then
+   REPLY="n"
+   break;
+  fi
+  REPLY="`cat /tmp/keytest`"
+  rm -f /tmp/keytest
+  if [ "$REPLY" = "n" -o "$REPLY" = "y" ]; then
+   break;
+  fi
+ done
+ if [ "$REPLY" = "y" ]; then
+  break;
+ else
+  rm -f /tmp/`cat /tmp/SeTkeymap`
+  rm -f /tmp/SeTkeym*
+  continue;
+ fi
+done

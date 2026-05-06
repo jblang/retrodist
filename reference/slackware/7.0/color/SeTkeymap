@@ -1,0 +1,89 @@
+#!/bin/sh
+# Copyright 1993, 1999 Patrick Volkerding, Moorhead, MN.
+# Use and redistribution covered by the same terms as the "setup" script.
+TMP=/var/log/setup/tmp
+RDIR=/dev/tty4
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+while [ 0 ]; do
+dialog --title "KEYBOARD MAP SELECTION" --menu "You may select one \
+of the following keyboard maps. If you do not select a keyboard \
+map, 'us.map' (the US keyboard map) is the default. Use the UP/DOWN \
+arrow keys to scroll \
+through the whole list of choices." \
+20 55 9 \
+"us.map" "" \
+"uk.map" "" \
+"azerty.map" "" \
+"be-latin1.map" "" \
+"cf.map" "" \
+"de-latin1-nodeadkeys.map" "" \
+"de-latin1.map" "" \
+"de.map" "" \
+"defkeymap.map" "" \
+"defkeymap_V1.0.map" "" \
+"dk-latin1.map" "" \
+"dk.map" "" \
+"dvorak.map" "" \
+"emacs.map" "" \
+"emacs2.map" "" \
+"es.map" "" \
+"fi-latin1.map" "" \
+"fi.map" "" \
+"fr-latin1.map" "" \
+"fr.map" "" \
+"fr_CH-latin1.map" "" \
+"fr_CH.map" "" \
+"gr-pc.map" "" \
+"gr.map" "" \
+"hebrew.map" "" \
+"it-ibm.map" "" \
+"it.map" "" \
+"no-latin1.map" "" \
+"no.map" "" \
+"pl.map" "" \
+"ru.map" "" \
+"ru1.map" "" \
+"ru2.map" "" \
+"sg-latin1-lk450.map" "" \
+"sg-latin1.map" "" \
+"sg.map" "" \
+"slovene.map" "" \
+"uk.map" "" \
+"us.map" "" \
+ 2> $TMP/SeTkeymap
+ if [ ! $? = 0 ]; then
+  rm -f $TMP/SeTkeymap
+  exit
+ fi
+
+ MAPNAME="`cat $TMP/SeTkeymap`"
+ zcat /usr/lib/kbd/keytables/${MAPNAME}.gz > $TMP/$MAPNAME
+ loadkeys $TMP/$MAPNAME 1> $RDIR 2> $RDIR
+
+ while [ 0 ]; do
+  dialog --title "KEYBOARD TEST" --inputbox \
+  "OK, the new map is now installed. You may now test it by typing \
+  anything you want. To quit testing the keyboard, enter 1 on a \
+  line by itself to accept the map and go on, or 2 on a line by \
+  itself to reject the current keyboard map and select a new one." \
+  11 70 2> $TMP/keytest
+  if [ $? = 1 ]; then
+   REPLY="n"
+   break;
+  fi
+  REPLY="`cat $TMP/keytest`"
+  rm -f $TMP/keytest
+  if [ "$REPLY" = "1" -o "$REPLY" = "2" ]; then
+   break;
+  fi
+ done
+ if [ "$REPLY" = "1" ]; then
+  break;
+ else
+  rm -f $TMP/$MAPNAME
+  rm -f $TMP/SeTkeymap
+  continue;
+ fi
+done

@@ -1,0 +1,62 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+T_PX="`cat $TMP/SeTT_PX`"
+rm -f $TMP/SeTSERIES
+#if [ "$T_PX" = "/" ]; then
+# BASE=off
+#else
+# BASE=on
+#fi
+#cruft?
+#"CUS" "Also prompt for CUSTOM disk sets" off \
+dialog --title "SOFTWARE SERIES SELECTION" --checklist \
+"Now it's time to select which general catagories of software \
+to install on your system. \
+Use the spacebar to select or unselect the software you wish to \
+install. \
+You can use the up and down arrows to see all the possible choices. \
+Recommended choices have been preselected. \
+Press the ENTER key when you are finished." \
+20 75 9 \
+"A" "Base Linux system" on \
+"AP" "Various Applications that do not need X" on \
+"D" "Program Development (C, C++, Lisp, Perl, etc.)" on \
+"E" "GNU Emacs" on \
+"F" "FAQ lists, HOWTO documentation" on \
+"K" "Linux kernel source" on \
+"N" "Networking (TCP/IP, UUCP, Mail, News)" on \
+"T" "TeX typesetting software" on \
+"TCL" "Tcl/Tk script languages" on \
+"X" "XFree86 X Window System" on \
+"XAP" "X Applications" on \
+"XD" "X Server development kit" off \
+"XV" "XView (OpenLook Window Manager, apps)" on \
+"Y" "Games (that do not require X)" on 2> $TMP/series
+if [ $? = 1 -o $? = 255 ]; then
+ rm -f $TMP/series
+ exit
+fi
+INSTSETS="`cat $TMP/series | tr -d " "`"
+INSTSETS="`echo $INSTSETS | tr "\042" "#" `"
+INSTSETS="`echo $INSTSETS | tr "," "#" `"
+rm -f $TMP/series
+TEST="`echo $INSTSETS | cut -b1-5`"
+if [ "$TEST" = "#CUS#" ]; then
+ INSTSETS="`echo $INSTSETS | cut -b5-`"
+ dialog --title "CUSTOM DISK SETS" --inputbox "\n\
+Please enter the names (such as X, Y, Z) of\n\
+the custom disk sets that you would also\n\
+like to install. Please do not re-enter the\n\
+names of sets you have previously selected.\n" 13 55 2> $TMP/custom
+ if [ $? = 1 -o $? = 255 ]; then
+  rm -f $TMP/custom
+  exit
+ fi
+ CUSTSETS="`cat $TMP/custom | tr " " "#" | tr "," "#"`"
+ rm -f $TMP/custom
+ INSTSETS="`echo $INSTSETS``echo $CUSTSETS`"
+fi
+echo "$INSTSETS" > $TMP/SeTSERIES

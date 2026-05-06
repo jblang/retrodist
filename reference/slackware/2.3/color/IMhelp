@@ -1,0 +1,17 @@
+
+Here's a description of the installation options you have:
+
+slakware:  This option installs package files to your hard drive.
+           This uses a lot of drive space, but offers the best 
+           performance.
+
+slaktest:  This is the most basic test installation, and uses the
+           absolute minimum drive space.  (less than 10 megabytes)
+           It simply makes a link from your /usr to /cdrom/live/usr
+           and lets everything run right off the CD-ROM.  Since
+           most configuration files are in /etc or /var you can 
+           still configure your machine completely.  If you decide
+           later that you want to run Linux from your hard drive,
+           you'll have to reinstall, though.
+
+-- end of installation method help.

@@ -1,0 +1,807 @@
+#!/bin/sh
+#
+# Copyright 1993 Patrick Volkerding, Moorhead, Minnesota USA
+# All rights reserved.
+#
+# Redistribution and use of this script, with or without modification, is 
+# permitted provided that the following conditions are met:
+#
+# 1. Redistributions of this script must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+#  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+#  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO
+#  EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+#  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+#  OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+#  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+#  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+#  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+SOURCE_DIR=/var/adm/mount
+umask 000
+ASK="tagfiles"
+
+remove_packages() {
+ for package_name in $* 
+ do
+  if [ -r /var/adm/packages/$package_name ]; then
+   dialog --title "PACKAGE REMOVAL IN PROGRESS" --infobox "Removing \
+package $package_name. Since each file must be checked \
+against the contents of every other installed package to avoid wiping out \
+areas of overlap, this process can take quite some time. If you'd like to \
+watch the progress, flip over to another virtual console and type 'tail -f \
+/tmp/PKGTOOL.REMOVED'." 9 60
+   echo "Removing package $package_name:" >> /tmp/PKGTOOL.REMOVED
+   LINENUM=1
+   if cat /var/adm/packages/$package_name | fgrep "./" 1> /dev/null 2> /dev/null; then
+    TRIGGER="./"
+   else
+    TRIGGER="FILE LIST:"
+   fi
+   while [ 0 ]; do
+    CURRENT_LINE="`cat /var/adm/packages/$package_name | sed -n "$LINENUM p"`"
+    if [ "$CURRENT_LINE" = "$TRIGGER" -o "$CURRENT_LINE" = "" ]; then
+     break;
+    fi
+    LINENUM=`expr $LINENUM + 1`
+   done
+   LINENUM=`expr $LINENUM + 1`
+   echo "Removing files:" >> /tmp/PKGTOOL.REMOVED
+   cat /var/adm/packages/$package_name | sed -n "$LINENUM,$ p" > /tmp/delete_list
+   if [ ! -d /var/adm/removed_packages ]; then
+    mkdir -p /var/adm/removed_packages
+    chmod 755 /var/adm/removed_packages
+   fi
+   if [ ! -d /var/adm/removed_scripts ]; then
+    mkdir -p /var/adm/removed_scripts
+    chmod 755 /var/adm/removed_scripts
+   fi
+   mv /var/adm/packages/$package_name /var/adm/removed_packages 1> /dev/null 2> /dev/null
+   mv /var/adm/scripts/$package_name /var/adm/removed_scripts 1> /dev/null 2> /dev/null
+   LINENUM=1
+   while [ 0 ]; do
+    CURRENT_LINE="`cat /tmp/delete_list | sed -n "$LINENUM p"`"
+    if [ "$CURRENT_LINE" = "" ]; then
+     break;
+    fi
+    if [ -f /$CURRENT_LINE ]; then
+     if fgrep $CURRENT_LINE /var/adm/packages/* 1> /dev/null 2> /dev/null ; then
+      echo "  --> $CURRENT_LINE was found in another package. Skipping." >> /tmp/PKGTOOL.REMOVED
+     else
+      echo "  --> Deleting $CURRENT_LINE" >> /tmp/PKGTOOL.REMOVED
+      rm -f /$CURRENT_LINE
+     fi
+    fi
+    LINENUM=`expr $LINENUM + 1`
+   done
+   rm -f /tmp/delete_list
+  else
+   echo "No such package: $package_name. Can't remove." >> /tmp/PKGTOOL.REMOVED
+  fi
+ done
+}
+# Here, we read the list of arguments passed to the pkgtool script.
+if [ $# -gt 0 ]; then # there are arguments to the command
+ while [ $# -gt 0 ]; do 
+  if [ "$1" = "-sets" ]; then
+   DISK_SETS=`echo $2 | tr "[A-Z]" "[a-z]"`
+   shift 2;
+  fi
+  if [ "$1" = "-source_mounted" ]; then
+   SOURCE_MOUNTED="always"
+   shift 1; 
+  fi
+  if [ "$1" = "-ignore_tagfiles" ]; then
+   ASK="never"
+   shift 1;
+  fi
+  if [ "$1" = "-source_dir" ]; then
+   SOURCE_DIR=$2
+   shift 2;
+  fi
+  if [ "$1" = "-target_dir" ]; then
+   TARGET_DIR=$2
+   shift 2;
+  fi
+  if [ "$1" = "-source_device" ]; then
+   SOURCE_DEVICE=$2
+   shift 2;
+  fi
+ done   
+else  # there were no arguments, so we'll get the needed information from the
+      # user and then go on.
+ CMD_START="true"
+ rm -f /tmp/SeT*
+ while [ 0 ]; do
+  dialog --title "Slackware Package Tool (pkgtool version 1.1.2)" \
+--menu "\nWelcome to the Slackware package tool.\n\
+\nWhich option would you like?\n" 17 74 6 \
+"Current" "Install packages from the current directory" \
+"Other" "Install packages from some other directory" \
+"Floppy" "Install packages from floppy disks" \
+"Remove" "Remove packages that are currently installed" \
+"View" "View the list of files contained in a package" \
+"Exit" "Exit Pkgtool" 2> /tmp/reply
+  if [ $? = 1 -o $? = 255 ]; then
+   rm -f /tmp/reply
+   reset
+   exit
+  fi
+  REPLY="`cat /tmp/reply`"
+  rm -f /tmp/reply
+  if [ "$REPLY" = "Exit" ]; then
+   reset
+   exit
+  fi
+  if [ "$REPLY" = "View" ]; then
+   dialog --title "SCANNING" --infobox "Please wait while \
+Pkgtool scans your system to determine which packages you have \
+installed and prepares a list for you. This will take \
+1.`date +"%S"`E+`date +"%M"` BogoMipSeconds." 7 40
+   cat << EOF > /tmp/viewscr
+   dialog --menu "Please select the package you wish to view." 15 55 8 \\
+EOF
+   for pkgs in /var/adm/packages/* ; do
+    NAME="`basename $pkgs`"
+    echo " \"$NAME\" \"\" \\" >> /tmp/viewscr
+   done
+   echo "2> /tmp/return" >> /tmp/viewscr
+   chmod 700 /tmp/viewscr
+   while [ 0 ]; do
+    /tmp/viewscr
+    if [ ! "`cat /tmp/return`" = "" ]; then
+     dialog --title "CONTENTS OF PACKAGE: `cat /tmp/return`" --textbox "$TARGET_DIR/var/adm/packages/`cat /tmp/return`" \
+     22 74 2> /dev/null
+    else
+     break 
+    fi
+   done
+   rm -f /tmp/return /tmp/viewscr /tmp/tmpmsg
+   chmod 755 /
+   chmod 1777 /tmp
+   continue
+  fi  
+  if [ "$REPLY" = "Remove" ]; then
+   dialog --title "SCANNING" --infobox "Please wait while Pkgtool scans \
+your system to determine  which packages you have installed and prepares \
+a list for you. This will take 3.`date +"%S"`E+`date +"%M"` \
+BogoMipSeconds." 7 40
+   echo "#!/bin/sh" > /tmp/rmscript
+   cat << EOF >> /tmp/rmscript
+dialog --title "SELECT PACKAGES TO REMOVE" --checklist "Please select the \
+packages you wish to Remove. Use the \
+spacebar to select packages to delete, and the UP/DOWN arrow keys to \
+scroll up and down through the entire list." 22 75 12 \\
+EOF
+   for pkgs in /var/adm/packages/* ; do
+    NAME="`basename $pkgs`"
+    BASE="`basename $pkgs`:"
+    BLURB="`cat $pkgs | fgrep $BASE | sed -n '1 p' | tr -d "\042" | cut -b10-60 2> /dev/null`"
+    echo " \"$NAME\" \"$BLURB\" off \\" >> /tmp/rmscript
+   done 
+   echo "2> /tmp/return" >> /tmp/rmscript
+   chmod 700 /tmp/rmscript
+   cat /dev/null > /tmp/PKGTOOL.REMOVED
+   /tmp/rmscript
+   remove_packages `cat /tmp/return | tr -d "\042"`
+   dialog --title "PACKAGE REMOVAL COMPLETE" --msgbox "The packages have been \
+removed. A complete log of the files that were removed has been created \
+in /tmp: PKGTOOL.REMOVED. Pkgtool does not remove empty directories, so you may \
+want to do that yourself." 8 60
+   rm -f /tmp/rmscript /tmp/return /tmp/tmpmsg /tmp/SeT*
+   chmod 755 /
+   chmod 1777 /tmp
+   dialog --clear
+   exit
+  elif [ "$REPLY" = "Floppy" ]; then
+   dialog --title "SELECT FLOPPY DRIVE" --menu "Which floppy drive would \
+you like to install from?" \
+11 70 4 \
+"/dev/fd0H1440" "1.44 MB first floppy drive" \
+"/dev/fd1H1440" "1.44 MB second floppy drive" \
+"/dev/fd0h1200" "1.2 MB first floppy drive" \
+"/dev/fd1h1200" "1.2 MB second floppy drive" 2> /tmp/wdrive
+   if [ $? = 1 ]; then
+    dialog --clear
+    exit
+   fi
+   SOURCE_DEVICE="`cat /tmp/wdrive`"
+   rm -f /tmp/wdrive 
+   TARGET_DIR="/"
+   cat << EOF > /tmp/tmpmsg
+
+Enter the names of any disk sets you would like to install.
+Seperate the sets with a space, like this: a b oi x
+
+To install packages from one disk, hit [enter] without typing
+anything.
+
+EOF
+   dialog --title "SOFTWARE SELECTION" --inputbox "`cat /tmp/tmpmsg`" 13 70 2> /tmp/sets 
+   DISK_SETS="`cat /tmp/sets`"
+   rm -f /tmp/sets
+   if [ "$DISK_SETS" = "" ]; then
+    DISK_SETS="disk"
+   else
+    DISK_SETS=`echo $DISK_SETS | sed 's/ /#/g'`
+   fi
+   break;
+  elif [ "$REPLY" = "Other" ]; then
+   dialog --title "SELECT SOURCE DIRECTORY" --inputbox "Please enter the name of the directory that you wish to \
+install packages from:" 10 50 2> /tmp/pkgdir
+   if [ $? = 1 ]; then
+    rm -f /tmp/pkgdir /tmp/SeT*
+    reset
+    exit
+   fi 
+   SOURCE_DIR="`cat /tmp/pkgdir`"
+   SOURCE_MOUNTED="always"
+   TARGET_DIR="/"
+   DISK_SETS="disk" 
+   chmod 755 $TARGET_DIR
+   chmod 1777 $TARGET_DIR/tmp
+   rm -f /tmp/pkgdir
+   if [ ! -d $SOURCE_DIR ]; then
+    dialog --title "DIRECTORY NOT FOUND" --msgbox "The directory you want to \
+install from ($SOURCE_DIR) \
+does not seem to exist. Please check the directory and then try again." \
+10 50
+    reset
+    exit
+   fi
+   break;
+  else # installing from current directory
+   SOURCE_MOUNTED="always"
+   SOURCE_DIR="$PWD"
+   TARGET_DIR="/"
+   DISK_SETS="disk" 
+   chmod 755 $TARGET_DIR
+   chmod 1777 $TARGET_DIR/tmp
+   break;
+  fi 
+ done
+fi
+if [ "$DISK_SETS" = "disk" ]; then
+ ASK="always"
+fi
+if [ ! -d $TARGET_DIR/var/adm ]; then
+ mkdir -p $TARGET_DIR/var/adm
+ chmod 755 $TARGET_DIR/var/adm
+fi
+if [ ! -d $TARGET_DIR/var/adm/packages ]; then
+ mkdir -p $TARGET_DIR/var/adm/packages
+ chmod 755 $TARGET_DIR/var/adm/packages
+fi
+if [ ! -d $TARGET_DIR/var/adm/mount -a ! -L $TARGET_DIR/var/adm/mount ]; then
+ mkdir -p $TARGET_DIR/var/adm/mount
+ chmod 755 $TARGET_DIR/var/adm/mount
+fi
+if [ ! -d $TARGET_DIR/var/adm/scripts ]; then
+ mkdir -p $TARGET_DIR/var/adm/scripts
+ chmod 755 $TARGET_DIR/var/adm/scripts
+fi
+if [ ! -d $TARGET_DIR/var/adm/disk_contents ]; then
+ mkdir -p $TARGET_DIR/var/adm/disk_contents
+ chmod 755 $TARGET_DIR/var/adm/disk_contents
+fi
+mount_the_source() {
+ # is the source supposed to be mounted already?
+ if [ "$SOURCE_MOUNTED" = "always" ]; then
+  # The source should already be mounted, so we test it
+  if [ ! -d $SOURCE_DIR ]; then # the directory is missing
+   cat << EOF > /tmp/tmpmsg
+
+Your source device cannot be accessed properly.
+
+Please be sure that it is mounted on /var/adm/mount,
+and that the Slackware disks are found in subdirectories 
+of $SOURCE_DIR like specified.
+
+EOF
+   dialog --title "MOUNT ERROR" --msgbox "`cat /tmp/tmpmsg`" 11 67
+   rm -f /tmp/tmpmsg
+   exit 1;
+  fi
+  return 0;
+ fi
+ dialog --title "INSERT DISK" --menu "Please insert disk $1 and \
+press ENTER to continue." \
+11 50 3 \
+"Continue" "Continue with the installation" \
+"Skip" "Skip the current disk series" \
+"Quit" "Abort the installation process" 2> /tmp/reply
+ if [ $? = 1 -o $? = 255 ]; then
+  REPLY="Quit"
+ else
+  REPLY="`cat /tmp/reply`"
+ fi
+ rm -f /tmp/reply
+ if [ "$REPLY" = "Skip" ]; then
+  return 1;
+ fi
+ if [ "$REPLY" = "Quit" ]; then
+   dialog --title "ABORTING" --msgbox "Aborting software installation." 5 50
+   chmod 755 $TARGET_DIR
+   chmod 1777 $TARGET_DIR/tmp
+   exit 1;
+ fi;
+ # Old line:
+ # mount -r -t msdos $SOURCE_DEVICE $SOURCE_DIR
+ # New ones: (thanks to Andy Schwierskott!)
+ go_on=y
+ not_successfull_mounted=1
+ while [ "$go_on" = y -a "$not_successfull_mounted" = 1 ]; do
+  mount -r -t msdos $SOURCE_DEVICE $SOURCE_DIR
+  not_successfull_mounted=$?
+  if [ "$not_successfull_mounted" = 1 ]; then
+   mount_answer=x
+   while [ "$mount_answer" != "y" -a "$mount_answer" != "q" ] ; do
+    dialog --title "MOUNT PROBLEM" --menu "Media was not successfully \
+mounted! Do you want to \
+retry, or quit?" 10 60 2 \
+"Yes" "Try to mount the disk again" \
+"No" "No, abort." 2> /tmp/mntans
+    mount_answer="`cat /tmp/mntans`"
+    rm -f /tmp/mntans
+    if [ "$mount_answer" = "Yes" ]; then
+     mount_answer="y"
+    else
+     mount_answer="q"
+    fi
+   done
+   go_on=$mount_answer
+  fi
+ done
+ test $not_successfull_mounted = 0
+}
+umount_the_source() {
+ if [ ! "$SOURCE_MOUNTED" = "always" ]; then
+  umount $SOURCE_DEVICE 1> /dev/null 2>&1
+ fi;
+}
+# The function below installs the package with the name $CURRENT_PACKAGE_NAME
+# and with the DOS file extension .tgz
+install_the_current_package() {
+ rm -f /var/adm/removed_packages/$CURRENT_PACKAGE_NAME
+ rm -f /var/adm/removed_scripts/$CURRENT_PACKAGE_NAME
+ echo "PACKAGE NAME:     $CURRENT_PACKAGE_NAME" > $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ KSIZE=`expr $PACKAGE_SIZE / 1024`
+ echo "PACKAGE SIZE:     $KSIZE K" >> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ DNAME=`ls $PACKAGE_DIR/disk*`
+ BASE_DISK_NAME=`basename $DNAME`
+ echo "PACKAGE LOCATION: $BASE_DISK_NAME" >> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ echo "PACKAGE DESCRIPTION:" >> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ fgrep "$CURRENT_PACKAGE_NAME:" $PACKAGE_DIR/disk* 1>> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME 2> /dev/null
+ echo "FILE LIST:" >> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+# echo "Installing package $CURRENT_PACKAGE_NAME... "
+ (cd $TARGET_DIR; gzip -cd | tar -xlpvf - ) < $PACKAGE_DIR/$CURRENT_PACKAGE_NAME.tgz >> $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ chmod 644 $TARGET_DIR/var/adm/packages/$CURRENT_PACKAGE_NAME
+ if [ -f $TARGET_DIR/install/doinst.sh ]; then
+#  echo "Executing installation script for package $CURRENT_PACKAGE_NAME... "
+  (cd $TARGET_DIR; sh $TARGET_DIR/install/doinst.sh -install; )
+  cp $TARGET_DIR/install/doinst.sh $TARGET_DIR/var/adm/scripts/$CURRENT_PACKAGE_NAME
+  chmod 755 $TARGET_DIR/var/adm/scripts/$CURRENT_PACKAGE_NAME
+  # Clean up the mess...
+  if [ -d $TARGET_DIR/install ]; then
+   (cd $TARGET_DIR/install ; rm -r -f doin* 1> /dev/null 2> /dev/null )
+   rmdir $TARGET_DIR/install 1> /dev/null 2> /dev/null
+  fi
+ fi
+ # Now we reload the shell hash table in case we've added something useful
+ # to the command path:
+ hash -r
+# echo "Done installing package $CURRENT_PACKAGE_NAME."
+}
+install_disk() {
+ mount_the_source $1
+ if [ $? = 1 ]; then
+  umount_the_source;
+  return 1;
+ fi
+ CURRENT_DISK_NAME="$1"
+ if [ ! "$SOURCE_MOUNTED" = "always" ]; then
+  PACKAGE_DIR=$SOURCE_DIR
+ else
+  if [ "$DISK_SETS" = "disk" ]; then
+   PACKAGE_DIR=$SOURCE_DIR
+  else
+   PACKAGE_DIR=$SOURCE_DIR/$1
+  fi
+ fi
+ if [ ! "$DISK_SETS" = "disk" ]; then
+  if [ -r /tmp/SeTtagext ]; then
+   if [ -r $PACKAGE_DIR/tagfile`cat /tmp/SeTtagext` ]; then
+    cat $PACKAGE_DIR/tagfile`cat /tmp/SeTtagext` >> /tmp/tagfile
+   else
+    if [ -r $PACKAGE_DIR/tagfile ]; then
+     cat $PACKAGE_DIR/tagfile >> /tmp/tagfile
+    fi
+   fi
+  elif [ -r $PACKAGE_DIR/tagfile ]; then
+   cat $PACKAGE_DIR/tagfile >> /tmp/tagfile
+  fi
+#
+# TEST CODE:
+#
+  if [ -r /tmp/SeTQUICK -a -r $PACKAGE_DIR/maketag ]; then
+   sh $PACKAGE_DIR/maketag
+   if [ -r /tmp/SeTnewtag ]; then
+    mv /tmp/SeTnewtag /tmp/tagfile
+   fi
+  fi
+#
+# end test code
+  if [ -r /tmp/tagfile ]; then
+   chmod 600 /tmp/tagfile
+  fi
+ fi
+ if [ "$1" = "single_disk" -o -r $PACKAGE_DIR/disk$1 ]; then
+  CATALOG_FILE=`basename $PACKAGE_DIR/disk*`;
+  if [ -r $PACKAGE_DIR/$CATALOG_FILE ]; then
+   if fgrep CONTENTS: $PACKAGE_DIR/$CATALOG_FILE 1> /dev/null 2> /dev/null ; then
+    # First we check for missing packages...
+    for PKGTEST in `fgrep CONTENTS: $PACKAGE_DIR/$CATALOG_FILE | cut -b10- 2> /dev/null` ; do
+     if [ ! -r $PACKAGE_DIR/$PKGTEST.tgz ]; then
+      cat << EOF > /tmp/tmpmsg
+
+WARNING!!!
+
+While looking through your index file ($CATALOG_FILE), I 
+noticed that you might be missing a package ($PKGTEST.tgz) 
+that is supposed to be on this disk (disk $1). You may go
+on with the installation if you wish, but if this is a 
+crucial file I'm making no promises that your machine will
+boot.
+
+EOF
+      dialog --title "FILE MISSING FROM YOUR DISK" --msgbox \
+"`cat /tmp/tmpmsg`" 15 68
+     fi
+    done # checking for missing packages
+    # Now we test for extra packages
+    ALLOWED="`fgrep CONTENTS: $PACKAGE_DIR/$CATALOG_FILE | cut -b10- 2> /dev/null`" 
+    for PACKAGE_FILENAME in $PACKAGE_DIR/*.tgz; do
+     BASE="`basename $PACKAGE_FILENAME .tgz`"
+     if echo $ALLOWED | fgrep $BASE 1> /dev/null 2> /dev/null ; then
+      GOOD="yup yup"
+     else
+      cat << EOF > /tmp/tmpmsg
+
+WARNING!!!
+
+While looking through your index file ($CATALOG_FILE), I 
+noticed that you have this extra package ($BASE.tgz) that
+I don't recongnize. Please be sure this package is really
+supposed to be here, and is not left over from an old 
+version of Slackware. Sometimes this can happen at the 
+archive sites.
+
+EOF
+      dialog --title "EXTRA FILE FOUND ON YOUR DISK" \
+--msgbox "`cat /tmp/tmpmsg`" 15 67 
+      rm -f /tmp/tmpmsg
+     fi
+    done 
+   fi
+   cat $PACKAGE_DIR/$CATALOG_FILE > $TARGET_DIR/var/adm/disk_contents/$CATALOG_FILE
+   chmod 644 $TARGET_DIR/var/adm/disk_contents/$CATALOG_FILE
+  fi
+  for PACKAGE_FILENAME in $PACKAGE_DIR/*.tgz; do
+   if [ "$PACKAGE_FILENAME" = "$PACKAGE_DIR/*.tgz" ]; then
+    continue;
+   fi
+   CURRENT_PACKAGE_NAME=`basename $PACKAGE_FILENAME .tgz`
+   AddKey=""
+   SkipKey=""
+   if [ "$ASK" = "tagfiles" ]; then # -a ! "$DISK_SETS" = "disk" ]; then
+    if fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep ADD 1> /dev/null 2> /dev/null ; then
+     AddKey="ADD"
+    fi
+    if fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep SKP 1> /dev/null 2> /dev/null ; then
+     SkipKey="SKIP"
+    fi
+   elif [ "$ASK" = "never" ]; then
+    AddKey="ADD"
+   else # ASK must equal always
+    ASK="always"
+    fi  
+   if [ ! "$DISK_SETS" = "disk" ]; then
+    if fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep ADD > /dev/null 2> /dev/null ; then
+     PRIORITY="[required]"
+    elif fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep REC > /dev/null 2> /dev/null ; then
+     PRIORITY="[recommended]"
+    elif fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep OPT > /dev/null 2> /dev/null ; then
+     PRIORITY="[optional]"
+    elif fgrep "$CURRENT_PACKAGE_NAME:" /tmp/tagfile | sed -n '$ p' | fgrep SKP > /dev/null 2> /dev/null ; then
+     PRIORITY="[skip]"
+    else
+     PRIORITY="[unknown]"
+    fi
+   fi
+   PACKAGE_SIZE=`filesize $PACKAGE_FILENAME`
+   if [ "$AddKey" = "ADD" ]; then
+    # echo "Auto-installing package ==>$CURRENT_PACKAGE_NAME<==  Priority: $PRIORITY" > /tmp/tmpmsg
+    echo > /tmp/tmpmsg
+    # Print out the description text:
+    fgrep "$CURRENT_PACKAGE_NAME:" $PACKAGE_DIR/disk* | cut -b11- 1>> /tmp/tmpmsg 2> /dev/null ;
+    COMPBYTES="`gzip -l $PACKAGE_DIR/$CURRENT_PACKAGE_NAME.tgz | sed -n '$ p' | cut -b1-9`"
+    UNCOMPBYTES="`gzip -l $PACKAGE_DIR/$CURRENT_PACKAGE_NAME.tgz | sed -n '$ p' | cut -b10-19`"
+    COMPRESSED="`expr $COMPBYTES / 1024`K"
+    UNCOMPRESSED="`expr $UNCOMPBYTES / 1024`K"
+    echo "Size: Compressed: $COMPRESSED, uncompressed: $UNCOMPRESSED." >> /tmp/tmpmsg
+    if [ ! "$PRIORITY" = "" ]; then
+     PMSG="  Priority: $PRIORITY"
+    else
+     PMSG=""
+    fi
+    dialog --title "Auto-installing package ==>$CURRENT_PACKAGE_NAME<==$PMSG" --infobox "`cat /tmp/tmpmsg`" 15 75
+    rm -f /tmp/tmpmsg
+    install_the_current_package;
+   elif [ "$SkipKey" != "SKIP" ]; then
+    # echo "Package Name: ==>$CURRENT_PACKAGE_NAME<==  Priority: $PRIORITY" > /tmp/tmpmsg
+    echo > /tmp/tmpmsg
+    fgrep "$CURRENT_PACKAGE_NAME:" $PACKAGE_DIR/disk* | cut -b11- 1>> /tmp/tmpmsg 2> /dev/null ;
+    COMPBYTES="`gzip -l $PACKAGE_DIR/$CURRENT_PACKAGE_NAME.tgz | sed -n '$ p' | cut -b1-9`"
+    UNCOMPBYTES="`gzip -l $PACKAGE_DIR/$CURRENT_PACKAGE_NAME.tgz | sed -n '$ p' | cut -b10-19`"
+    COMPRESSED="`expr $COMPBYTES / 1024`K"
+    UNCOMPRESSED="`expr $UNCOMPBYTES / 1024`K"
+    echo "Size: Compressed: $COMPRESSED, uncompressed: $UNCOMPRESSED." >> /tmp/tmpmsg
+    echo >> /tmp/tmpmsg
+    echo "Install package $CURRENT_PACKAGE_NAME? " >> /tmp/tmpmsg
+    if [ ! "$PRIORITY" = "" ]; then
+     PMSG="  Priority: $PRIORITY"
+    else
+     PMSG=""
+    fi
+    dialog --title "Package Name: ==>$CURRENT_PACKAGE_NAME<==$PMSG" --menu "`cat /tmp/tmpmsg`" 22 75 1 \
+"Yes" "Install package $CURRENT_PACKAGE_NAME" \
+"No" "Do not install package $CURRENT_PACKAGE_NAME" \
+"Quit" "Abort software installation completely" 2> /tmp/reply
+    if [ $? = 1 -o $? = 255 ]; then
+     echo "No  " > /tmp/reply
+    fi
+    REPLY="`cat /tmp/reply`"
+    rm -f /tmp/reply /tmp/tmpmsg
+    if [ "$REPLY" = "Yes" ]; then
+     dialog --title "INSTALLING" --infobox "Installing package $CURRENT_PACKAGE_NAME" 3 50
+     install_the_current_package;
+    elif [ "$REPLY" = "Quit" ]; then
+     umount_the_source;
+     chmod 755 $TARGET_DIR
+     chmod 1777 $TARGET_DIR/tmp
+     exit 1;
+    elif [ "$REPLY" = "No" ]; then
+     dialog --title "SKIPPING PACKAGE" --infobox "Skipping package $CURRENT_PACKAGE_NAME" 3 50
+    fi
+   fi
+  done
+  OUTTAHERE="false"
+  if [ -r $PACKAGE_DIR/install.end ]; then
+   OUTTAHERE="true"
+  fi
+  umount_the_source;
+  if [ "$OUTTAHERE" = "true" ]; then
+   return 1;
+  fi
+ else
+  umount_the_source;
+  if [ ! "$SOURCE_MOUNTED" = "always" ]; then
+   cat << EOF > /tmp/tmpmsg
+
+This does not look like the correct disk. You may either check to
+see if you've got the right disk in there ($1) and try again, or 
+you may skip the current disk series.
+
+EOF
+   dialog --title "INCORRECT DISK INSERTED" --menu "`cat /tmp/tmpmsg`" 15 70 2 \
+"Retry" "Try to mount disk $1 again" \
+"Skip" "Skip this disk series" 2> /tmp/reply
+   if [ $? = 1 -o $? = 255 ]; then
+    rm -f /tmp/reply /tmp/tmpmsg
+    exit
+   fi
+   REPLY="`cat /tmp/reply`"
+   rm -f /tmp/reply /tmp/tmpmsg
+   if [ "$REPLY" = "Skip" ]; then
+    return 1;
+   else
+    install_disk $1;
+   fi
+  else
+   cat << EOF > /tmp/tmpmsg
+WARNING:
+
+Can't find a disk series $SERIES_NAME in the source directory.
+Skipping it...
+
+EOF
+   dialog --title "SELECTED SERIES NOT PRESENT" --msgbox "`cat /tmp/tmpmsg`" 10 65
+   rm -f /tmp/tmpmsg
+   return 1; 
+  fi 
+ fi;
+}
+install_disk_set() { # accepts one argument: the series name in lowercase.
+ SERIES_NAME=$1
+ CURRENT_DISK_NUMBER="1";
+ while [ 0 ]; do
+  install_disk $SERIES_NAME$CURRENT_DISK_NUMBER;
+  if [ $? = 1 -o $? = 255 ]; then # install.end was found, or the user chose
+        # to quit installing packages.
+   return 0;
+  fi
+  CURRENT_DISK_NUMBER=`expr $CURRENT_DISK_NUMBER + 1`
+ done;
+}
+if [ "$DISK_SETS" = "disk" ]; then
+ install_disk single_disk;
+ ASK="always"
+else
+ touch /tmp/tagfile
+ chmod 600 /tmp/tagfile
+ if echo $DISK_SETS | fgrep "#x#" 1> /dev/null 2> /dev/null; then
+  X_IS_NEEDED="true"
+ else
+  X_IS_NEEDED="false"
+ fi
+ if echo $DISK_SETS | fgrep "#a#" 1> /dev/null 2> /dev/null; then
+  A_IS_NEEDED="true"
+ else
+  A_IS_NEEDED="false"
+ fi
+ while [ 0 ];
+ do
+  while [ 0 ]; # strip leading '#'s
+  do
+   if [ "`echo $DISK_SETS | cut -b1`" = "#" ]; then
+    DISK_SETS="`echo $DISK_SETS | cut -b2-`"
+   else
+    break;
+   fi
+  done
+  if [ "$A_IS_NEEDED" = "true" ]; then
+   if [ "$TARGET_DIR" = "/" ]; then
+    cat << EOF > /tmp/tmpmsg
+
+*** WARNING!
+  Reinstalling your A series to a running system is not (yet)
+  a good idea. It is suggested that you do not do this.
+
+EOF
+    dialog --title "WARNING: BIG TROUBLE DETECTED" --menu "`cat /tmp/tmpmsg`" 18 70 3 \
+"Abort" "Abort software installation." \
+"Ignore" "Ignore warning and reinstall the A series anyway." \
+"Skip" "Skip the A series, but continue installing software." 2> /tmp/skip
+    if [ $? = 1 -o $? = 255 ]; then
+     exit
+    fi
+    WHATDO="`cat /tmp/skip`" 
+    rm -f /tmp/tmpmsg /tmp/skip
+    if [ "$WHATDO" = "Abort" ]; then
+     dialog --msgbox "Aborting..." 5 30
+     A_IS_NEEDED="false"
+     DISK_SETS=""
+     continue;
+    elif [ "$WHATDO" = "Skip" ]; then
+     dialog --msgbox "Skipping A series..." 5 30
+     A_IS_NEEDED="false"
+     continue;
+    else
+     continue; # unknown response
+    fi
+   fi
+   cat << EOF > /tmp/tmpmsg
+
+--- Installing disk series ==>a<==
+
+EOF
+   dialog --infobox "`cat /tmp/tmpmsg`" 5 45
+   sleep 1
+   rm -f /tmp/tmpmsg
+   install_disk_set a;
+   A_IS_NEEDED="false"
+  fi
+  if [ "$X_IS_NEEDED" = "true" ]; then
+   cat << EOF > /tmp/tmpmsg
+
+--- Installing disk series ==>x<==
+
+EOF
+   dialog --infobox "`cat /tmp/tmpmsg`" 5 45
+   sleep 1
+   rm -f /tmp/tmpmsg
+   install_disk_set x;
+   X_IS_NEEDED="false"
+  fi
+  count="1"
+  if [ "`echo $DISK_SETS | cut -b$count`" = "" ]; then
+   break; # we be done here :^)
+  else
+   count="2"
+   while [ 0 ]; do
+    if [ "`echo $DISK_SETS | cut -b$count`" = "" -o "`echo $DISK_SETS | cut -b$count`" = "#" ]; then
+     count="`expr $count - 1`"
+     break;
+    else
+     count="`expr $count + 1`"
+    fi 
+   done
+  fi 
+  diskset="`echo $DISK_SETS | cut -b1-$count`"
+  count="`expr $count + 1`"
+  DISK_SETS="`echo $DISK_SETS | cut -b$count-`"
+  if [ "$diskset" = "a" ]; then
+   continue; # we expect this to be done elsewhere
+  elif [ "$diskset" = "x" ]; then
+   continue; # same here
+  elif [ "$diskset" = "t" -o "$diskset" = "iv" -o "$diskset" = "oi" -o "$diskset" = "xap" -o "$diskset" = "xd" -o "$diskset" = "xv" ]; then
+   if [ ! -L $TARGET_DIR/usr/X386/bin/X ]; then
+    cat << EOF > /tmp/tmpmsg
+
+***WARNING!
+  You have requested that disk series ==>$diskset<== be installed,
+  however this series requires that the X window system be installed
+  first.
+
+  You have three options here: You can install series X (which will
+  be followed by the installation of disk series $diskset), you can
+  ignore this error and attempt to install series $diskset anyway
+  (probably a bad plan), or you can just skip series $diskset and get
+  on with the rest of your installation.
+
+EOF
+    dialog --title "X REQUIRED FOR THIS SERIES" --menu "`cat /tmp/tmpmsg`" 22 75 3 \
+"Skip" "Skip disk series $diskset" \
+"Ignore" "Ignore this warning and take your chances" \
+"X" "Install the base X series, and then series $diskset" 2> /tmp/dowhat
+    if [ $? = 1 -o $? = 255 ]; then
+     exit
+    fi
+    SKIPFLAG="`cat /tmp/dowhat`"
+    rm -f /tmp/tmpmsg /tmp/dowhat 
+    if [ "$SKIPFLAG" = "X" ]; then
+     cat << EOF > /tmp/tmpmsg
+
+Installing disk series ==>X<==
+
+EOF
+     dialog --infobox "`cat /tmp/tmpmsg`" 5 45
+     sleep 1
+     rm -f /tmp/tmpmsg
+     install_disk_set x;
+     X_IS_ADDED="true"
+    elif [ "$SKIPFLAG" = "Skip" ]; then
+     cat << EOF > /tmp/tmpmsg
+
+Skipping series $diskset...
+
+EOF
+     dialog --msgbox "`cat /tmp/tmpmsg`" 7 45
+     rm -f /tmp/tmpmsg  
+     continue;
+    fi 
+   fi
+  fi
+  cat << EOF > /tmp/tmpmsg
+
+Installing disk series ==>$diskset<==
+
+EOF
+  dialog --infobox "`cat /tmp/tmpmsg`" 5 45
+  sleep 1
+  rm -f /tmp/tmpmsg
+  install_disk_set $diskset; 
+ done
+fi
+
+if [ "$DISK_SETS" = "disk" -o "$CMD_START" = "true" ]; then
+ if [ -r /tmp/tagfile ]; then
+  rm /tmp/tagfile
+ fi
+ reset
+fi
+chmod 755 $TARGET_DIR $TARGET_DIR/var $TARGET_DIR/usr
+chmod 1777 $TARGET_DIR/tmp

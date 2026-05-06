@@ -1,0 +1,13 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+if [ ! -r $T_PX/vmlinuz ]; then
+ if [ -r /cdrom/kernels/scsi.s/bzImage ]; then
+  cp /cdrom/kernels/scsi.s/bzImage $T_PX/vmlinuz
+  chmod 400 $T_PX/vmlinuz
+  rdev -R $T_PX/vmlinuz 1
+  rdev $T_PX/vmlinuz $ROOT_DEVICE
+ fi
+fi

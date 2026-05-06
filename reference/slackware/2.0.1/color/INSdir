@@ -1,0 +1,45 @@
+#!/bin/sh
+while [ 0 ]; do
+rm -f /tmp/SeTDS /tmp/SeTmount
+cat << EOF > /tmp/tmpmsg
+
+OK, we will install from a directory within the current
+filesystem. If you have mounted this directory yourself,
+you should not use /mnt or /var/adm/mount as mount points,
+since Setup might need to use these directories.  You may
+install from any part of the current directory structure,
+no matter what the media is (including NFS). You will need
+to type in the name of the directory containing the 
+subdirectories for each source disk.
+
+Which directory would you like to install from?
+EOF
+dialog --title "INSTALL FROM THE CURRENT FILESYSTEM" \
+ --inputbox "`cat /tmp/tmpmsg`" 19 67 2> /tmp/sourcedir
+if [ $? = 1 -o $? = 255 ]; then
+ rm -f /tmp/sourcedir /tmp/tmpmsg
+ exit
+fi
+SOURCEDIR="`cat /tmp/sourcedir`"
+rm -f /tmp/sourcedir /tmp/tmpmsg
+rm -f /var/adm/mount 2> /dev/null
+rmdir /var/adm/mount 2> /dev/null
+ln -sf $SOURCEDIR /var/adm/mount
+if [ -d $SOURCEDIR ]; then
+ echo "/var/adm/mount" > /tmp/SeTDS
+ echo "-source_mounted" > /tmp/SeTmount
+ echo "/dev/null" > /tmp/SeTsource
+ exit
+else
+ cat << EOF > /tmp/tmpmsg
+
+Sorry - the directory you specified is not valid. Please 
+check the directory and try again.
+
+(Directory given: $SOURCEDIR)
+
+EOF
+ dialog --title "INVALID DIRECTORY ENTERED" --msgbox "`cat /tmp/tmpmsg`" 10 65
+ rm -f /tmp/SeTDS /tmp/SeTmount /tmp/sourcedir /tmp/tmpmsg
+fi
+done;
