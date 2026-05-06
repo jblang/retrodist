@@ -24,5 +24,3 @@ ln -sf ../base14-1.bin install/basedsk1.img
 ln -sf ../base14-2.bin install/basedsk2.img
 ln -sf ../base14-3.bin install/basedsk3.img
 ln -sf ../base14-4.bin install/basedsk4.img
-
-autoinst_prep 500M

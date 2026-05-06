@@ -1,0 +1,4 @@
+common/ttycfg.sh
+common/netcfg.sh
+common/mailcfg.sh
+common/xconfig.sh

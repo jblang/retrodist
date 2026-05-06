@@ -73,24 +73,25 @@ This table summarizes Slackware releases and major component versions. The data 
 
 For Slackware `1.0beta` and `1.01`, use the [Slackware 1.01](./1.01/README.md#automatic-installation)-specific instructions.
 
-For Slackware `1.1.1` through `3.4` in this repo, the install flow is mostly the same:
+For Slackware `1.1.1` through `7.1` in this repo, the install flow is mostly the same:
 
 1. Boot the VM normally.
-2. If the boot process asks for the root disk, switch `floppy0` to the staged `root.img` from the QEMU monitor by pressing `C-a c` in the terminal running qemu and entering:
+2. If the boot process asks for the root disk, press `C-a c` in the terminal running qemu and to enter the QEMU monitor, then type:
 
   ```text
   change floppy0 root.img
   ```
 
-3. If you had to swap the root disk, press `Enter` at the prompt, ignore the misleading floppy I/O error if it appears, and press `Enter` again until you reach a login prompt.
+3. If you had to swap the root disk, press `Enter` at the prompt, ignore the misleading floppy I/O error if it appears, and press `Enter` again if necessary to reach a login prompt.
 4. Log in as `root` when the system presents a login prompt.
 5. Ignore the stock installer prompts and run the staged autoinstall script from the DOS partition:
 
 ```sh
-mount -t msdos /dev/hdb1 /var/adm/mount
-/var/adm/mount/autoinst
+mkdir /retro
+mount -t msdos /dev/hdb1 /retro
+/retro/autoinst
 ```
 
 After the installer and post-install configuration finish, the VM will reboot into the installed system.
 
-If you want the original manual install flow instead, use the boot/root environment to partition the disk, initialize swap, format the root partition, and run the stock installer from the staged MSDOS partition on `/dev/hdb1`.
+If you want the original manual install flow instead, use the boot/root environment to partition the disk, initialize swap, format the root partition, and run the stock `setup` program.

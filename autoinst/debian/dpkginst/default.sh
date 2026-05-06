@@ -1,7 +1,7 @@
 echo "### Installing packages..."
 
 # install packages
-for FILE in `ls /mnt/packages/*.deb`; do
+for FILE in `ls "$INSTMOUNT"/packages/*.deb`; do
     # do this without dpkg to avoid interactive prompts
     # internally, dpkg is a script that runs `zcat | cpio -dim`
     PKG=$(basename $FILE .deb)

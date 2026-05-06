@@ -83,8 +83,17 @@ copy_autoinst_tree() {
   done
 }
 
+load_distro_config() {
+  if [[ -f "$CONFDIR/config.sh" ]]; then
+    source "$CONFDIR/config.sh"
+  fi
+}
+
 slackware_build_tagfiles() {
-  find install -mindepth 1 -maxdepth 1 -type d | while read -r SERIESDIR; do
+  local PKGROOT
+  PKGROOT=$(slackware_staged_pkg_root) || return
+
+  find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d | while read -r SERIESDIR; do
     basename "$SERIESDIR" | sed 's/[0-9][0-9]*$//'
   done | sort -u | while read -r SERIES; do
     if [[ -z "$SERIES" ]]; then
@@ -92,14 +101,14 @@ slackware_build_tagfiles() {
     fi
     local FIRSTDIR
     local SERIESPKG=$TEMPDIR/$SERIES.pkgs
-    FIRSTDIR=$(find install -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | sort | head -n 1)
+    FIRSTDIR=$(find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | sort | head -n 1)
     if [[ -z "$FIRSTDIR" ]]; then
       continue
     fi
-    find install -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | while read -r SERIESDIR; do
-      find "$SERIESDIR" -maxdepth 1 -type f -name '*.tgz'
+    find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | while read -r SERIESDIR; do
+      find "$SERIESDIR" -maxdepth 1 -type f \( -name '*.tgz' -o -name '*.tar' \)
     done | while read -r TGZ; do
-      basename "$TGZ" .tgz
+      basename "$TGZ" | sed 's/\.tgz$//' | sed 's/\.tar$//'
     done | sort -u > "$SERIESPKG"
     cat "$SERIESPKG" | while read -r PKG; do
       if [[ -n "$PKG" ]]; then
@@ -107,6 +116,63 @@ slackware_build_tagfiles() {
       fi
     done > "$FIRSTDIR/tagfile"
     cp "$FIRSTDIR/tagfile" "$FIRSTDIR/tagfile.new"
+  done
+}
+
+slackware_staged_pkg_root() {
+  local ROOT
+  for ROOT in install/slakware install/slackware install; do
+    if [[ -d "$ROOT" ]] && find "$ROOT" -mindepth 2 -maxdepth 2 -type f \( -name '*.tgz' -o -name '*.tar' \) 2>/dev/null | grep -q .; then
+      printf '%s\n' "$ROOT"
+      return 0
+    fi
+  done
+  return 1
+}
+
+slackware_iso_tag_root() {
+  local ISO=$1
+  local ROOT
+  for ROOT in slakware slackware; do
+    if 7z l "$ISO" "$ROOT/**/*.tgz" 2>/dev/null | grep -q '\.tgz$'; then
+      printf '%s\n' "$ROOT"
+      return 0
+    fi
+    if 7z l "$ISO" "$ROOT/**/*.tar" 2>/dev/null | grep -q '\.tar$'; then
+      printf '%s\n' "$ROOT"
+      return 0
+    fi
+  done
+  return 1
+}
+
+slackware_build_tagfiles_from_iso() {
+  local ISO=$1
+  local PATHROOT=$2
+  local TAGROOT=install/tagfiles
+  local PKGLIST=$TEMPDIR/slackware-iso-pkgs.txt
+
+  rm -rf "$TAGROOT"
+  mkdir -p "$TAGROOT"
+  : > "$PKGLIST"
+
+  7z l "$ISO" "$PATHROOT/**/*.tgz" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$PKGLIST"
+  7z l "$ISO" "$PATHROOT/**/*.tar" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$PKGLIST"
+  sort -u "$PKGLIST" -o "$PKGLIST"
+
+  awk -F/ 'NF >= 3 { print $2 }' "$PKGLIST" | sort -u | while read -r DISKDIR; do
+    local TAGDIR
+    [ -n "$DISKDIR" ] || continue
+    TAGDIR="$TAGROOT/$DISKDIR"
+    mkdir -p "$TAGDIR"
+    awk -F/ -v disk="$DISKDIR" '
+      $2 == disk {
+        pkg = $3
+        sub(/\.tgz$/, "", pkg)
+        sub(/\.tar$/, "", pkg)
+        print pkg ":     ADD"
+      }
+    ' "$PKGLIST" | sort -u > "$TAGDIR/tagfile"
   done
 }
 
@@ -134,11 +200,17 @@ slackware_apply_pkgskip() {
 }
 
 slackware_prepare_tagfiles() {
-  if ! find install -mindepth 2 -maxdepth 2 -type f -name '*.tgz' | grep -q .; then
+  local SOURCE_ISO="${QEMU_CDROM:-disc1.iso}"
+
+  if slackware_staged_pkg_root >/dev/null; then
+    slackware_build_tagfiles
+  elif [[ -f "$ORIGDIR/$SOURCE_ISO" ]]; then
+    local TAGROOT
+    TAGROOT=$(slackware_iso_tag_root "$ORIGDIR/$SOURCE_ISO") || return
+    slackware_build_tagfiles_from_iso "$ORIGDIR/$SOURCE_ISO" "$TAGROOT"
+  else
     return
   fi
-
-  slackware_build_tagfiles
 
   for PKG in idekern idenet x_svga x311svga; do
     slackware_set_tagfile_package "$PKG" ADD
@@ -391,10 +463,18 @@ mount_copy() {
 retro_extract() {
   if [[ ! -d $EXTRACTDIR ]]; then
     retro_download
-    if [[ -f "$CONFDIR/extract.sh" ]]; then
+    if [[ -f "$CONFDIR/extract.sh" || -f "$CONFDIR/autoinst.txt" ]]; then
       mkdir -p $EXTRACTDIR
+      load_distro_config
       pushd $EXTRACTDIR > /dev/null
-      source "$CONFDIR/extract.sh"
+      if [[ -f "$CONFDIR/extract.sh" ]]; then
+        source "$CONFDIR/extract.sh"
+      fi
+      if [[ -f "$CONFDIR/autoinst.txt" ]]; then
+        mkdir -p "$EXTRACTDIR/install"
+        load_qemu_config
+        autoinst_prep "$QEMU_HD_SIZE"
+      fi
       popd > /dev/null
     else
       echo "Nothing to extract"
@@ -404,18 +484,15 @@ retro_extract() {
   fi
 }
 
-# boot the selected distro in QEMU
-retro_boot() {
-  retro_extract
-  mkdir -p $QEMUDIR
-
-  # default configuration
+# default QEMU configuration
+qemu_defaults() {
   QEMU_SYSTEM="qemu-system-i386"
   QEMU_MACHINE="type=isapc"
   QEMU_SMP="1"
   QEMU_RAM="16M"
   QEMU_HD_SIZE="500M"
   QEMU_HD_FORMAT="qcow2"
+  QEMU_CDROM="disc1.iso"
   QEMU_NET_DEVICE="ne2k_isa"
   QEMU_ATTACH_ROOT_FDB="0"
   QEMU_FDTYPE_A="144"
@@ -428,11 +505,22 @@ retro_boot() {
   if [[ $COMMAND == "floppy" ]]; then
     QEMU_EXTRA="$QEMU_EXTRA -boot order=a"
   fi
+}
 
-  # Allow overriding default configuration
+load_qemu_config() {
+  qemu_defaults
   if [[ -f $CONFDIR/qemu.sh ]]; then
     source $CONFDIR/qemu.sh
   fi
+}
+
+# boot the selected distro in QEMU
+retro_boot() {
+  retro_extract
+  mkdir -p $QEMUDIR
+
+  load_distro_config
+  load_qemu_config
 
   pushd $QEMUDIR > /dev/null
 
@@ -449,7 +537,9 @@ retro_boot() {
   if [[ -f $EXTRACTDIR/root.img && $QEMU_ATTACH_ROOT_FDB == "1" && ! -f fdb.img ]]; then
     ln -s $EXTRACTDIR/root.img fdb.img
   fi
-  if [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
+  if [[ -n "${QEMU_CDROM:-}" && -f "$ORIGDIR/$QEMU_CDROM" && ! -f hdc.iso ]]; then
+    ln -s "$ORIGDIR/$QEMU_CDROM" hdc.iso
+  elif [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
     ln -s $ORIGDIR/disc1.iso hdc.iso
   fi
   if [[ -d $EXTRACTDIR/install && ! -d hdb ]]; then

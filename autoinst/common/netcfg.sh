@@ -83,6 +83,6 @@ fi
 # enable the NE2000 driver on versions of slackware with loadable modules
 if [ -f "$RCPATH/rc.modules" ]; then
     cp "$RCPATH/rc.modules" "$RCPATH/rc.modules.orig"
-    sed 's|^#/sbin/modprobe ne io=0xNNN$|/sbin/modprobe ne io=0x300|' \
+    sed 's|^#/sbin/modprobe ne io=0x\(NNN\|300\)\([[:space:]]*#.*\)\?$|/sbin/modprobe ne io=0x300\2|' \
         "$RCPATH/rc.modules.orig" > "$RCPATH/rc.modules"
 fi

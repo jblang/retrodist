@@ -8,4 +8,3 @@ gunzip *.gz
 mv bootdisk boot.img
 mv basedsk1 install/basedsk1.img
 mv basedsk2 install/basedsk2.img
-autoinst_prep 500M

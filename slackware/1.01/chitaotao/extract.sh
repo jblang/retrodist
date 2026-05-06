@@ -6,4 +6,3 @@ for IMG in $TEMPDIR/[atx]*.img; do
   7z x $IMG -oinstall/install/$DISK > /dev/null
 done
 cp install/install/a1/a1disk boot.img
-autoinst_prep 500M

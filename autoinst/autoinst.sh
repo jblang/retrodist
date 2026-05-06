@@ -1,16 +1,22 @@
 #!/bin/sh
 # Automatic installation for retro distros
 echo "### Beginning automatic installation..."
+PATH=$PATH:/usr/bin:/bin:/sbin:/usr/sbin:/usr/lib/setup
 
-# figure out the source and dest mount points
+# Derive the staged media mount point from the script location so installs
+# work no matter where the FAT disk is mounted.
+case "$0" in
+    */*) SCRIPTDIR=`echo "$0" | sed 's,/[^/]*$,,'` ;;
+    *) SCRIPTDIR=. ;;
+esac
+INSTMOUNT=`cd "$SCRIPTDIR" && pwd`
+
+# figure out the destination mount point
 if [ -d /target ]; then
-    INSTMOUNT=/mnt
     ROOTMOUNT=/target
 elif [ -d /var/adm/mount ]; then
-    INSTMOUNT=/var/adm/mount
     ROOTMOUNT=/mnt
 elif [ -d /root ]; then
-    INSTMOUNT=/mnt
     ROOTMOUNT=/root
 else
     echo "Unsupported installer layout; aborting."

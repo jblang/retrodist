@@ -2,10 +2,18 @@
 # Automatic configuration for retro distros
 echo "### Beginning automatic configuration..."
 PATH=$PATH:/usr/bin:/bin:/sbin:/usr/sbin
-SCRIPTNAME=$(cd $(dirname $0) && pwd)/$(basename $0)
-INSTMOUNT=/mnt
+SCRIPTDIR=`echo "$0" | sed 's,/[^/]*$,,'`
+if [ -z "$SCRIPTDIR" -o "$SCRIPTDIR" = "$0" ]; then
+    SCRIPTDIR=.
+fi
+SCRIPTBASE=`basename "$0"`
+SCRIPTNAME=`cd "$SCRIPTDIR" && pwd`/"$SCRIPTBASE"
+INSTMOUNT=/retro
 
-mount -t msdos /dev/hdb1 $INSTMOUNT
+if [ ! -d "$INSTMOUNT" ]; then
+    mkdir -p "$INSTMOUNT"
+fi
+mount -t msdos /dev/hdb1 "$INSTMOUNT"
 
 # make sure an install scripts directory exists
 if [ ! -d "$INSTMOUNT/autoinst.d" ]; then

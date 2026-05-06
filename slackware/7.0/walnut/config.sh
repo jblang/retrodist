@@ -10,25 +10,21 @@ ROOTFS=ext2
 # A   - Base Linux system
 # AP  - Various applications that do not need X
 # D   - Program Development (C, C++, Kernel source, Lisp, Perl, etc.)
+# DES - GNU libc crypt() add-on
 # E   - GNU Emacs
 # F   - FAQ lists
-# I   - Info pages.
-# IV  - Interviews: libraries, include files, Doc and Idraw apps for X
+# GTK - GTK+ and GNOME programs for X
+# K   - Linux kernel source
+# KDE - Qt and the K Desktop Environment for X
 # N   - Networking (TCP/IP, UUCP, Mail)
-# OOP - Object Oriented Programming (GNU Smalltalk)
-# Q   - Extra kernels with special drivers (needed for non-SCSI CD)
 # T   - TeX
 # TCL - Tcl/Tk/TclX, Tcl language, and Tk toolkit for developing X apps
-# X   - XFree-86 Base X Window System
-# XAP - X Windows Applications
-# XD  - XFree-86 X11 server development system
+# X   - XFree86 Base X Window System
+# XAP - X Window Applications
+# XD  - XFree86 X11 server development system
 # XV  - XView (OpenLook [virtual] Window Manager, apps)
 # Y   - Games (that do not require X)
-SETS="a ap d e f i iv n oop t tcl x xap xd xv y"
-
-# Slackware 2.2's IDE CD-ROM installer logic uses the older secondary IDE
-# device naming scheme, so the QEMU-attached CD appears as /dev/hd1a.
-CD_DEVICE=/dev/hd1a
+SETS="a ap d des e f gtk k kde n t tcl x xap xd xv y"
 
 # time zone
 TIMEZONE="US/Central"
@@ -44,7 +40,7 @@ MOUSETYPE=PS/2
 # network configuration
 HOSTNAME="darkstar"
 DOMAINNAME="frop.org"
-IPADDR="10.0.2.22"
+IPADDR="10.0.2.70"
 NETMASK="255.255.255.0"
 NETWORK="10.0.2.0"
 BROADCAST="10.0.2.255"

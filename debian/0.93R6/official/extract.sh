@@ -12,5 +12,3 @@ cp "$DISKDIR"/1440_base_floppy-* .
 ln -sf ../1440_base_floppy-1 install/basedsk1.img
 ln -sf ../1440_base_floppy-2 install/basedsk2.img
 ln -sf ../1440_base_floppy-3 install/basedsk3.img
-
-autoinst_prep 500M

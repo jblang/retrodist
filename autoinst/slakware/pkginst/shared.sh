@@ -4,6 +4,108 @@ normalize_sets() {
   SETS=`echo $SETS | sed 's/[ ;,]/#/g'`
 }
 
+setup_state_mkdir() {
+  for SETUPDIR in `setup_state_dirs`; do
+    if [ ! -d "$SETUPDIR" ]; then
+      mkdir -p "$SETUPDIR"
+    fi
+  done
+}
+
+setup_state_dirs() {
+  echo /tmp
+  echo /var/log/setup/tmp
+  if [ -n "$ROOTMOUNT" ]; then
+    echo "$ROOTMOUNT/var/log/setup/tmp"
+  fi
+}
+
+write_setup_state() {
+  STATEFILE=$1
+  STATEVALUE=$2
+  setup_state_mkdir
+  for SETUPDIR in `setup_state_dirs`; do
+    echo "$STATEVALUE" > "$SETUPDIR/$STATEFILE"
+  done
+}
+
+remove_setup_state() {
+  STATEFILE=$1
+  for SETUPDIR in `setup_state_dirs`; do
+    rm -f "$SETUPDIR/$STATEFILE"
+  done
+}
+
+find_cdrom_source_path() {
+  for SOURCE in slakware slackware ; do
+    if [ -d "$CD_MOUNT/$SOURCE" ]; then
+      echo "$CD_MOUNT/$SOURCE"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_staged_source_path() {
+  for SOURCE in \
+    "$INSTMOUNT/slakware" \
+    "$INSTMOUNT/slackware"
+  do
+    if [ -d "$SOURCE" ]; then
+      echo "$SOURCE"
+      return 0
+    fi
+  done
+  return 1
+}
+
+prepare_pkgtool_source() {
+  SLACK_PKG_SOURCE=`find_staged_source_path`
+  SLACK_PKG_TAG_MODE=custom_ext
+  SLACK_PKGTOOL_BIN="$SLACK_PKGTOOL_SOURCE"
+
+  if [ -x /usr/lib/setup/cpkgtool ]; then
+    SLACK_PKGTOOL_BIN=/usr/lib/setup/cpkgtool
+  fi
+
+  if [ -z "$SLACK_PKG_SOURCE" ]; then
+    CD_DEVICE=${CD_DEVICE:-/dev/hdc}
+    CD_MOUNT=${CD_MOUNT:-/var/adm/mount}
+    mkdir -p "$CD_MOUNT"
+    mount -o ro -t iso9660 "$CD_DEVICE" "$CD_MOUNT"
+    if [ ! $? = 0 ]; then
+      echo "Unable to mount CD-ROM source $CD_DEVICE on $CD_MOUNT."
+      exit 1
+    fi
+
+    SLACK_PKG_SOURCE=`find_cdrom_source_path`
+    if [ -z "$SLACK_PKG_SOURCE" ]; then
+      echo "Unable to find Slackware package tree on mounted CD-ROM."
+      umount "$CD_MOUNT"
+      exit 1
+    fi
+
+    SLACK_PKG_TAG_MODE=tagpath
+    if [ -d "$INSTMOUNT/tagfiles" ]; then
+      write_setup_state SeTtagpath "$INSTMOUNT/tagfiles"
+    fi
+    SLACK_CD_FSTAB_ENTRY="$CD_DEVICE    /cdrom    iso9660    ro   1   1"
+  fi
+}
+
+cleanup_pkgtool_source() {
+  remove_setup_state SeTtagext
+  rm -f /tmp/custom
+  if [ "$SLACK_PKG_TAG_MODE" = "tagpath" ]; then
+    if [ -d "$INSTMOUNT/tagfiles" ]; then
+      remove_setup_state SeTtagpath
+    fi
+    if mount | fgrep "on $CD_MOUNT " >/dev/null 2>&1; then
+      umount "$CD_MOUNT"
+    fi
+  fi
+}
+
 move_setup_hook() {
   if [ -f "$ROOTMOUNT/$1" ]; then
     if [ ! -d "$ROOTMOUNT/$SLACK_ADM_DIR/setup/install" ]; then
@@ -20,9 +122,13 @@ install_pkgtool_sets() {
     mkdir -p "$INSTMOUNT/tmp"
   fi
   rm -f "$INSTMOUNT/tmp/tagfile"
-  echo ".new" > /tmp/custom
-  "$SLACK_PKGTOOL_SOURCE" -source_mounted -source_dir $INSTMOUNT -target_dir $ROOTMOUNT -sets "#$SETS#"
-  rm -f /tmp/custom
+  prepare_pkgtool_source
+  if [ "$SLACK_PKG_TAG_MODE" = "custom_ext" ]; then
+    write_setup_state SeTtagext ".new"
+    echo ".new" > /tmp/custom
+  fi
+  "$SLACK_PKGTOOL_BIN" -source_mounted -source_dir "$SLACK_PKG_SOURCE" -target_dir "$ROOTMOUNT" -sets "#$SETS#"
+  cleanup_pkgtool_source
 }
 
 write_rootdev() {
@@ -41,10 +147,28 @@ install_fstab() {
     chmod 644 "$ROOTMOUNT/etc/fstab"
   fi
   if [ -r "$ROOTMOUNT/etc/fstab" ]; then
+    if [ -n "$SLACK_CD_FSTAB_ENTRY" ]; then
+      fgrep "/cdrom" "$ROOTMOUNT/etc/fstab" >/dev/null 2>&1
+      if [ ! $? = 0 ]; then
+        mkdir -p "$ROOTMOUNT/cdrom"
+        echo "$SLACK_CD_FSTAB_ENTRY" >> "$ROOTMOUNT/etc/fstab"
+      fi
+    fi
     fgrep "/proc" "$ROOTMOUNT/etc/fstab" >/dev/null 2>&1
     if [ ! $? = 0 ]; then
       echo "none        /proc        proc        defaults" >> "$ROOTMOUNT/etc/fstab"
       echo " " >> "$ROOTMOUNT/etc/fstab"
+    fi
+  fi
+}
+
+install_cdrom_link() {
+  if [ -n "$CD_DEVICE" ]; then
+    if [ ! -d "$ROOTMOUNT/dev" ]; then
+      mkdir -p "$ROOTMOUNT/dev"
+    fi
+    if [ ! -L "$ROOTMOUNT/dev/cdrom" -a ! -r "$ROOTMOUNT/dev/cdrom" ]; then
+      ( cd "$ROOTMOUNT/dev" ; ln -sf "$CD_DEVICE" cdrom )
     fi
   fi
 }
@@ -152,6 +276,7 @@ install_autoconf_hook() {
 install_pkgtool_sets
 write_rootdev
 install_fstab
+install_cdrom_link
 fix_permissions
 set_timezone
 install_lilo

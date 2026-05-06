@@ -1,6 +1,6 @@
 echo "### Installing packages..."
 
-find /mnt -iname '*.deb' | sort | while read FILE; do
+find "$INSTMOUNT" -iname '*.deb' | sort | while read FILE; do
     PKG=$(basename $FILE .deb)
     echo "installing $PKG..."
     (cd /; zcat $FILE 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null

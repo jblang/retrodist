@@ -1,9 +1,5 @@
-7z x $ORIGDIR/disc1.iso \
-    slakware \
+7z e $ORIGDIR/disc1.iso \
     slakinst/boot144/idecd \
-    slakinst/root144/tty144 > /dev/null
-mv slakware install
-mv slakinst/boot144/idecd boot.img
-mv slakinst/root144/tty144 root.img
-rm -rf slakinst
-autoinst_prep 2G
+    slakinst/root144/color144 > /dev/null
+mv idecd boot.img
+mv color144 root.img

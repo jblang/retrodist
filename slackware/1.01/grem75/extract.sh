@@ -29,4 +29,3 @@ for WRONG in $WRONGDISKS; do
 done
 
 # copy auto installation files
-autoinst_prep 500M
