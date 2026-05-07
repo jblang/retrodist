@@ -515,12 +515,17 @@ qemu_defaults() {
   QEMU_FDTYPE_A="144"
   QEMU_FDTYPE_B="144"
   QEMU_INTERNET="" # disabled
+  QEMU_BOOT_ORDER=""
   QEMU_RETRONET="
     -netdev socket,id=retronet,connect=:1234
     -device $QEMU_NET_DEVICE,netdev=retronet"
   QEMU_EXTRA=""
-  if [[ $COMMAND == "floppy" ]]; then
-    QEMU_EXTRA="$QEMU_EXTRA -boot order=a"
+  if [[ $COMMAND == "install" ]]; then
+    if [[ -f "$QEMUDIR/fda.img" ]]; then
+      QEMU_BOOT_ORDER="-boot order=a"
+    else
+      QEMU_BOOT_ORDER="-boot order=d"
+    fi
   fi
 }
 
@@ -619,6 +624,7 @@ retro_boot() {
       $QEMU_RETRONET
       $QEMU_GLOBALS
       $QEMU_DRIVES
+      $QEMU_BOOT_ORDER
       $QEMU_EXTRA
       $@"
   
@@ -626,7 +632,7 @@ retro_boot() {
   echo
   echo "QEMU command: $QEMU_COMMAND"
   echo
-  if [[ $COMMAND == "boot" || $COMMAND == "floppy" ]]; then
+  if [[ $COMMAND == "boot" || $COMMAND == "install" ]]; then
     $QEMU_COMMAND
   fi
   popd > /dev/null
@@ -674,7 +680,7 @@ Usage: $(basename $0) [COMMAND] [CONFIG] [OPTIONS]
 Commands:
   help      show this help text
   boot      boot the distro in QEMU; calls extract
-  floppy    boot the distro in QEMU, forcing boot from the floppy
+  install   boot the distro from install media in QEMU; use fda.img if present, otherwise hdc.iso
   extract   extract files for the distro; calls download
   download  download source files for the distro or CD-ROM
   patch     patch the boot/root disk for auto-installation.
@@ -695,7 +701,7 @@ exit 1
 COMMAND=help
 if [[ $# -ge 1 ]]; then
   case $1 in
-    help | boot | floppy | extract | download | reset | patch | package)
+    help | boot | install | extract | download | reset | patch | package)
       COMMAND=$1
       shift
       ;;
@@ -744,7 +750,7 @@ case $COMMAND in
   help) retro_usage;;
   download) retro_download;;
   extract) retro_extract;;
-  boot | floppy) retro_boot $@;;
+  boot | install) retro_boot $@;;
   package) retro_package $@;;
   reset) retro_reset;;
   patch) autoinst_patch;;
