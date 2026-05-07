@@ -27,7 +27,7 @@ This table summarizes Slackware releases and major component versions. The data 
 | [4.0](./4.0/README.txt) | [1999-05-17](./4.0/ChangeLog.txt) | 2.2.6 | 5.4.46 | egcs 1.1.2<br>gcc 2.7.2.3 | 3.3.3.1 |
 | [7.0](./7.0/README.txt) | [1999-10-25](./7.0/ChangeLog.txt) | 2.2.13 | glibc 2.1.2 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95 | 3.3.5 |
 | [7.1](./7.1/README.txt) | [2000-06-22](./7.1/ChangeLog.txt) | 2.2.16 | glibc 2.1.3 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95.2 | 3.3.6 |
-| 8.0 | 2001-07-01 | — | — | — | — |
+| [8.0](./8.0/README.txt) | [2001-06-28](./8.0/ChangeLog.txt) | 2.2.19 | glibc 2.2.3 | gcc 2.95.3<br>egcs 1.1.2 | 4.1.0 |
 | 8.1 | 2002-06-18 | — | — | — | — |
 | 9.0 | 2003-03-19 | — | — | — | — |
 | 9.1 | 2003-09-26 | — | — | — | — |
@@ -73,7 +73,7 @@ This table summarizes Slackware releases and major component versions. The data 
 
 For Slackware `1.0beta` and `1.01`, use the [Slackware 1.01](./1.01/README.md#automatic-installation)-specific instructions.
 
-For Slackware `1.1.1` through `7.1` in this repo, the install flow is mostly the same:
+For Slackware `1.1.1` through `8.0` in this repo, the install flow is mostly the same:
 
 1. Boot the VM normally.
 2. If the boot process asks for the root disk, press `C-a c` in the terminal running qemu and to enter the QEMU monitor, then type:

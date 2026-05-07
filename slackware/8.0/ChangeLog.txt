@@ -1,0 +1,2432 @@
+Sat Mar 29 14:16:19 PST 2003
+patches/packages/sendmail.tgz:  Patched sendmail 8.11.6 using the offical
+  security patches from sendmail (sendmail.8.11.6.security.cr.patch as
+  used before, and prescan.8.11.6.patch to fix a new vulnerability).
+  This update will also change the reported version string to "8.11.6p2".
+  (* Security fix *)
+patches/packages/smailcfg.tgz:  Regenerated config files.
++--------------------------+
+Tue Mar  4 14:22:38 PST 2003
+patches/packages/sendmail.tgz:  Patched sendmail 8.11.6 using the offical
+  security patch from sendmail (sendmail.8.11.6.security.cr.patch).
+  Fixes a remote buffer overflow in header parsing by dropping sender
+  and recipient header comments if the comments are too long.  Problem noted
+  by Mark Dowd of ISS X-Force.
+  (* Security fix *)
+patches/packages/smailcfg.tgz:  Regenerated config files.
+----------------------------
+Wed Sep 18 13:26:52 PDT 2002
+patches/packages/openssh.tgz:  Recompiled against openssl-0.9.6e.
+  This update fixes a problem where sshd fails to run that was introduced
+  with the last openssl update.
+----------------------------
+Wed Jul 31 13:31:35 PDT 2002
+patches/packages/openssl.tgz:  Upgraded to openssl-0.9.6e, which
+  fixes 4 potentially remotely exploitable bugs.  For details, see:
+    http://cve.mitre.org/cgi-bin/cvename.cgi?name=CAN-2002-0659
+  (* Security fix *)
+patches/packages/ossllibs.tgz:  Upgraded to openssl-0.9.6e,
+  which fixes 4 potentially remotely exploitable bugs.  For details, see:
+    http://cve.mitre.org/cgi-bin/cvename.cgi?name=CAN-2002-0659
+  (* Security fix *)
+----------------------------
+Wed Jun 26 12:09:16 PDT 2002
+patches/packages/openssh.tgz:  Upgraded to openssh-3.4p1.
+  This version enables privilege separation by default.  The README.privsep file
+  says this about it:
+
+     Privilege separation, or privsep, is method in OpenSSH by which operations
+     that require root privilege are performed by a separate privileged monitor
+     process.  Its purpose is to prevent privilege escalation by containing
+     corruption to an unprivileged process.  More information is available at:
+       http://www.citi.umich.edu/u/provos/ssh/privsep.html
+
+  Note that ISS has released an advisory on OpenSSH (OpenSSH Remote Challenge
+  Vulnerability).  Slackware is not affected by this issue, as we have never
+  included AUTH_BSD, S/KEY, or PAM.  Unless at least one of these options is
+  compiled into sshd, it is not vulnerable.  Further note that none of these
+  options are turned on in a default build from source code, so if you have
+  built sshd yourself you should not be vulnerable unless you've enabled one
+  of these options.
+
+  Regardless, the security provided by privsep is unquestionably better.
+  This time we (Slackware) were lucky, but next time we might not be.
+  Therefore we recommend that all sites running the OpenSSH daemon (sshd,
+  enabled by default in Slackware 8.0) upgrade to this new openssh package.
+  After upgrading the package, restart the daemon like this:
+
+  /etc/rc.d/rc.sshd restart
+
+  We would like to thank Theo and the rest of the OpenSSH team for
+  their quick handling of this issue, Niels Provos and Markus Friedl for
+  implementing privsep, and Solar Designer for working out issues with
+  privsep on 2.2 Linux kernels.
+----------------------------
+Wed Jun 19 19:48:30 PDT 2002
+patches/packages/apache.tgz:  Upgraded to apache-1.3.26.
+  This fixes the issue described in:
+  "CERT Advisory CA-2002-17 Apache Web Server Chunk Handling Vulnerability"
+  (* Security fix *)
+patches/packages/mod_ssl.tgz:  Upgraded to mod_ssl-2.8.9_1.3.26.
+----------------------------
+May  3 12:17:25 PDT 2002
+patches/packages/nautilus.tgz:  Patched to fix metadata security problems.
+  Nautilus was patched and recompiled to fix a problem which would allow a
+  malicious user to mount a symlink attack to overwrite another user's files.
+  Thanks to Joe Testa and Rapid 7, Inc. for finding this problem, and to
+  Havoc Pennington for sharing Red Hat's backport of the CVS fixes with us.
+  (* Security fix *)
+----------------------------
+Thu Apr 25 12:00:50 PDT 2002
+patches/packages/sudo.tgz:  Upgraded to sudo-1.6.6.
+  This version of sudo fixes a security problem whereby a local user may gain
+  root access through corruption of the heap (Off-By-Five).
+  This issue was discovered by Global InterSec LLC, and more information may
+  be found on their web site:
+  http://www.globalintersec.com/adv/sudo-2002041701.txt
+  The discussion on the site indicates that this problem may only be exploitable
+  on systems that use PAM, which Slackware does not use.  However, in the
+  absence of proof, it still seems prudent to upgrade sudo immediately.
+  (* Security fix *)
+----------------------------
+Thu Mar 14 17:35:52 PST 2002
+patches/packages/mod_php.tgz:  Rebuilt using a --with-png-dir= flag to build in
+  PNG support.  (thanks to christian laubscher for noticing it was missing)
+  Added standalone PHP binary.
+----------------------------
+Wed Mar 13 11:56:05 PST 2002
+patches/packages/cvs.tgz:  Fix dir perms: chmod 755 /usr/share/cvs/contrib/.
+patches/packages/rsync.tgz:  Upgraded to rsync-2.5.4 (fixes broken -z option).
+----------------------------
+Tue Mar 12 00:12:57 PST 2002
+patches/packages/cvs.tgz:  Gzipped the tmp diff so that it applies correctly.
+  Thanks to George Georgakis for pointing out the mistake.
+  (* Security fix *)
+----------------------------
+Mon Mar 11 17:54:12 PST 2002
+patches/packages/cvs.tgz:  Patched to link to the shared zlib on the system
+  instead of statically linking to the included zlib source.  Also, use mktemp
+  to create files in /tmp files more safely.
+  (* Security fix *)
+----------------------------
+Mon Mar 11 15:09:26 PST 2002
+patches/packages/rsync.tgz:  Upgraded to rsync-2.5.3.  This fixes two security
+  problems:
+
+  * Make sure that supplementary groups are removed from a server
+    process after changing uid and gid. (Ethan Benson) (Debian bug
+    #132272, CVE CAN-2002-0080)
+
+  * Fix zlib double-free bug.  (Owen Taylor, Mark J Cox) (CVE CAN-2002-0059)
+
+(* Security fix *)
+----------------------------
+Mon Mar 11 13:32:40 PST 2002
+patches/packages/zlib.tgz:  Upgraded to zlib-1.1.4.  This fixes a security
+  problem which may introduce vulnerabilities into any program that links with
+  zlib.  Quoting the advisory on zlib.org:
+
+  "Depending upon how and where the zlib routines are called from the given
+   program, the resulting vulnerability may have one or more of the following
+   impacts: denial of service, information leakage, or execution of arbitrary
+   code."
+
+Sites are urged to upgrade the zlib package immediately.
+
+The complete advisory may be found here:
+   http://www.zlib.org/advisory-2002-03-11.txt
+
+(* Security fix *)
+----------------------------
+Thu Mar  7 12:00:18 PST 2002
+patches/packages/openssh.tgz:  Upgraded to openssh-3.1p1.
+
+  This fixes a security problem in the openssh package.  All sites running
+  OpenSSH should upgrade immediately.
+
+  All versions of OpenSSH between 2.0 and 3.0.2 contain an off-by-one error
+  in the channel code.  OpenSSH 3.1 and later are not affected.  This bug can
+  be exploited locally by an authenticated user logging into a vulnerable
+  OpenSSH server or by a malicious SSH server attacking a vulnerable OpenSSH
+  client.  This bug was discovered by Joost Pol <joost@pine.nl>
+
+(* Security fix *)
+----------------------------
+Sat Mar  2 22:45:25 PST 2002
+patches/packages/mod_php.tgz:  Upgraded to PHP 4.1.2.
+
+  This fixes several security problems in the POST handling code used for
+  uploading files through forms.  All sites using PHP are urged to upgrade as
+  soon as possible.
+
+  A workaround for securing systems running PHP 4.0.3 or above (which includes
+  Slackware 8.0) is to add this directive to the php.ini:
+
+  file_uploads = Off
+
+(* Security fix *)
+----------------------------
+Fri Jan 25 14:25:51 PST 2002
+patches/packages/rsync.tgz:  Fixed a security hole by upgrading to
+  rsync-2.4.8pre1.  This is the relevant information from the rsync NEWS file:
+
+  SECURITY FIXES:
+
+    * Signedness security patch from Sebastian Krahmer
+      <krahmer@suse.de> -- in some cases we were not sufficiently
+      careful about reading integers from the network.
+
+(* Security fix *)
+----------------------------
+Mon Jan 21 13:21:07 PST 2002
+patches/packages/at.tgz:  Fixed a buffer overflow.
+(* Security fix *)
+patches/packages/sudo.tgz:  Upgraded to sudo-1.6.5p1.
+  This fixes a vulnerability where the mail system could be exploited.  So far,
+  the only working examples of this problem require Postfix to be installed,
+  but it's possible that exploits involving other mailers could emerge.
+(* Security fix *)
+patches/packages/xchat.tgz:  Upgraded to xchat-1.8.7.
+  This fixes a problem where an attacker could execute IRC server commands as
+  the user running xchat.
+(* Security fix *)
+----------------------------
+Sat Jan 12 13:05:33 PST 2002
+patches/packages/pine.tgz:  Fix a security problem with pine by upgrading
+  to pine4.44.  
+
+  More details from the Pine Announcement List:
+    This note is to announce the availability of the Pine Message System
+    version 4.44. The purpose of this release is to fix a security
+    bug with the treatment of quotes in the URL-handling code. The bug
+    allows a malicious sender to embed commands in a URL. This bug is
+    present in all versions of UNIX Pine.
+
+(* Security fix *)
+
+patches/packages/imapd.tgz:  This comes with Pine, so here's the new
+  version of this as well.  Just an upgrade, not a security fix.
+----------------------------
+Fri Jan 11 14:07:07 PST 2002
+patches/packages/glibc.tgz, patches/packages/glibcso.tgz:
+  Fixed a buffer overflow in the glob(3) function.  This bug may be
+  exploited through external services that might make use of it, like the
+  port of OpenBSD's FTP server (not included in Slackware, but an example
+  that's known to be affected).  It's highly recommended that internet-
+  connected machines or machines with local users who might try to exploit
+  setuid root binaries be upgraded as soon as possible.
+
+  Thanks to Flávio Veloso and Jakub Jelinek for finding this problem and
+  working out a patch.
+
+(* Security fix *)
+----------------------------
+Mon Jan  7 12:43:31 PST 2002
+patches/packages/mutt.tgz:  Upgraded to mutt-1.2.5.1 to fix a security
+  problem in the address handling code.  Mutt users are urged to upgrade
+  as soon as possible.
+(* Security fix *)
+----------------------------
+Sun Dec  9 14:31:52 PST 2001
+patches/packages/wuftpd.tgz:  This is a wu-ftpd-2.6.2 package to replace
+  the one shipped in /pasture, which has a security hole.  WU-FTPD is not
+  installed on Slackware by default, and unless you have some specific
+  reason to need WU-FTPD, we suggest using the default ProFTPD server.
+(* Security fix *)
+----------------------------
+Sun Aug 26 16:06:55 PDT 2001
+An input validation error in sendmail has been discovered by Cade Cairns of
+SecurityFocus.  This problem can be exploited by local users to gain root
+access.  It is not exploitable by remote attackers without shell access.
+
+It is recommended that all multiuser sites running sendmail upgrade to these
+new packages:
+
+patches/packages/procmail.tgz:  Upgraded to procmail-3.21.  The ChangeLog
+   mentions these problems, but it's not known how serious they really are:
+               - SECURITY: don't do unsafe things from signal handlers:
+                  - ignore TRAP when terminating because of a signal
+                  - resolve the host and protocol of COMSAT when it is set
+                  - save the absolute path form of $LASTFOLDER for the comsat
+                    message when it is set
+                  - only use the log buffer if it's safe
+patches/packages/sendmail.tgz:  Upgraded to sendmail.8.11.6.  Removed setup for
+   MAPS, since it's no longer a free service.
+patches/packages/smailcfg.tgz:  Upgraded to sendmail.8.11.6 config files.
+
+Detailed information about this security problem may be found here:
+   http://www.securityfocus.com/bid/3163
+(* Security fix *)
+----------------------------
+Thu Aug  9 13:29:49 PDT 2001
+An advisory from zen-parse on BugTraq today describes a hole in the netkit-0.17
+telnetd daemon which is used in Slackware.  All sites running telnet service are
+advised to upgrade using one of these updated packages as soon as possible.
+patches/packages/tcpip1.tgz:  New version of the tcpip1 package containing a
+   fixed /usr/sbin/in.telnetd.
+patches/patches/telnetd.tgz:  A patch-package containing just the fixed
+   in.telnetd binary (for faster download).
+(* Security fix *)
+----------------------------
+Thu Jun 28 15:36:05 PDT 2001
+Slackware-stable 8.0 is released!  :)
+----------------------------
+Thu Jun 28 14:32:30 PDT 2001
+isolinux/:  Added a replacement for the old .eltorito CD boot system that
+   allows selecting from several kernels to boot for the installation.  
+   Thanks to H. Peter Anvin for writing such a nifty tool, and to Kent Robotti
+   for sending in some useful examples.
+docs/slackware-book/:  Added a copy of the _Slackware Linux Essentials_ manual.
+----------------------------
+Thu Jun 28 01:04:52 PDT 2001
+a1/hdsetup.tgz:  Load GLX module by default in XF86Config-fbdev.
+----------------------------
+Wed Jun 27 10:58:58 PDT 2001
+contrib/parted-1.4.14-i386-1.tgz:  Upgraded to GNU parted-1.4.14.
+----------------------------
+Tue Jun 26 19:41:18 PDT 2001
+zipslack/zipslack.zip:  Built new zipslack.zip and fourmeg.zip.
+----------------------------
+Mon Jun 25 17:47:13 PDT 2001
+contrib/libsafe-2.0-2-i386-1.tgz:  Upgraded to libsafe-2.0-2.
+contrib/libsdl-1.2.1-i386-1.tgz:  Upgraded to SDL-1.2.1.
+----------------------------
+Sun Jun 24 22:22:22 PDT 2001
+gtk1/gnomedia.tgz:  Upgraded to gnome-media-1.2.3.
+gtk1/gnoutils.tgz:  Upgraded to gnome-utils-1.4.0.1.
+----------------------------
+Sun Jun 24 19:21:17 PDT 2001
+d1/python.tgz:  Upgraded to python-2.0.1.
+----------------------------
+Sun Jun 24 13:01:26 PDT 2001
+.eltorito/eltorito.img:  Patched hard drive installation to try vfat
+   and reiserfs filesystem types.
+rootdsks/color.gz:  Same changes.
+rootdsks/umsdos.gz:  Same changes.
+rootdsks/network.dsk, netw245.dsk, pcmcia.dsk, pcm245.dsk:  Replaced
+   kernel modules with non-SMP versions.
+contrib/sgmltools.tgz:  Fixed "setend" typo in smgltools.csh.
+   Thanks to James Rich for reporting this.
+kernels/:  Recompiled most of the kernels to remove SMP.  Added the
+   smp.i and smp.s kernels for those who want a pre-compiled kernel
+   supporting SMP.  Added IP aliasing support to all 2.2.19 kernels
+   except lowmem.i.
+bootdsks.144/:  Rebuilt bootdisks from new kernels.
+bootdsks.12/:  Rebuilt bootdisks from new kernels.
+a1/e2fsprog.tgz:  Upgraded to e2fsprogs-1.22.  (bug fixes) 
+   Here's hoping the third time's the charm. :)
+a1/hdsetup.tgz:  Patched makebootdisk to use 1.68MB floppy format.
+   (based on a diff from Kent Robotti)
+   Use better grammar in removepkg.  (from Aron Rosenburg)
+   Patch example XF86Config-fbdev to load speedo module.
+a1/i245.tgz:  Replaced with non-SMP kernel.
+a1/ide.tgz:  Replaced with non-SMP kernel.
+a1/modules.tgz:  Replaced with non-SMP modules.
+   (the SMP versions can still be found in the modules/ directory)
+a1/mods245.tgz:  Replaced with non-SMP modules, including non-SMP
+   DRI modules from XFree86-4.1.0.
+   (the SMP versions can still be found in the modules/ directory)
+a1/sc245.tgz:  Replaced with non-SMP kernel.
+a1/scsi.tgz:  Replaced with non-SMP kernel.
+n1/samba.tgz:  Upgraded to samba-2.2.0a.  (* Security fix *)
+   From the docs for the new version:
+
+      A remote attacker can use a netbios name containing unix path
+      characters which will then be substituted into the %m macro wherever
+      it occurs in smb.conf. This can be used to cause Samba to create a log
+      file on top of an important system file, which in turn can be used to
+      compromise security on the server.
+
+   Unless you've modified the logging specification in the default
+   smb.conf, Slackware is NOT vulnerable to this bug.
+n1/tcpip1.tgz:  Patched netconfig.color to probe for Realtek 8139 cards with
+   both the old (rtl8139) and new (8139too) module names.
+----------------------------
+Thu Jun 21 22:38:10 PDT 2001
+a1/util.tgz:  Switched back to mount/umount from util-linux-2.11b
+   in response to reports of segfaults.  I can't reproduce them here,
+   but have heard about it enough that I'm not going to take any
+   chances on this.  The new mount/umount have been renamed to
+   mount-2.11f and umount-2.11f, and the rest of the package is still
+   based on util-linux-2.11f.
+ap1/oggutils.tgz:  Upgraded to libao-0.7.0, libogg-1.0rc1,
+   libvorbis-1.0rc1, vorbis-tools-1.0rc1.  (we're still under a
+   freeze here, but this upgrade was needed to provide the last bits
+   of 1.0 functionality)
+d1/binutils.tgz:  Upgraded to binutils-2.11.90.0.19.
+gtk1/xmms.tgz:  Upgraded to xmms-1.2.5.  (adds missing man pages, and
+   fixes i18n problems)
+----------------------------
+Wed Jun 20 17:36:15 PDT 2001
+contrib/libglut-3.7-i386-1.tgz:  Added GLUT library.
+ap1/quota.tgz:  Patch to change "reiser" to "reiserfs".
+n1/proftpd.tgz:  Upgraded to proftpd-1.2.2rc3.
+----------------------------
+Tue Jun 19 01:55:11 PDT 2001
+contrib/gcc-3.0/gcc-3.0-i386-1.tgz:  Added gcc-3.0.
+   This is a major new .0 release which isn't likely to be 100%
+   compatible with the existing source code base.  I'd consider its
+   use experimental for now.  Use at your own risk, etc.
+   Still, it's out, so I think it needed to be in here.
+a1/lpr.tgz:  Patched lpd to ensure that it provides the name of
+   the accounting file to the input filter, fixing an incompatibility
+   with apsfilter-6.1.1.  Thanks to Kurt Fitzner for the patch.
+----------------------------
+Mon Jun 18 02:02:42 PDT 2001
+pasture/XFree86-3.3.6-servers/:  We don't need all of XFree86 3.3.6,
+   only the old X servers.  These run just fine on top of X-4.1.0, and
+   there are many advantages to not using all of the old stuff.  (Like,
+   it will actually work with the new versions of KDE and Qt)
+pasture/3dfx-obsolete/:  Move obsolete non-DRI 3dfx drivers here.
+.eltorito/eltorito.img:  Add 8bit patched dialog.
+   Increase size of generated boot floppy to 1.68MB, the largest size
+   that works with all 3.5" floppy drives.  (thanks Tim!)
+   Make sure to use /boot/boot-text.b for boot floppy.
+rootdsks/color.gz:  Same changes.
+rootdsks/umsdos.gz:  Same changes.
+a1/e2fsprog.tgz:  Upgraded to e2fsprogs-1.21.  (had to be done)
+a1/gpm.tgz:  Add USB mouse selection to setup menu.
+   (based on a patch by Aron Rosenberg)
+a1/hdsetup.tgz:  Patched dialog to support 8bit characters in inputbox.
+   (Thanks to Jan Rafaj for the patch! :)
+ap1/manpages.tgz:  Upgraded to man-pages-1.38.  (not a bug file, but
+   unlikely to break anything ;^)
+gtk1/imlib.tgz:  Relocate under /usr so things compile more easily.
+gtk1/libungif.tgz:  Relocate under /usr so things compile more easily.
+kde1/qt2.tgz:  Upgraded to qt-x11-2.3.1.  From the changes-2.3.1:
+   Qt 2.3.1 is a bugfix release. It keeps both forward and backward
+   compatibility (source and binary) with Qt 2.3.0.
+n1/ftchmail.tgz:  Upgraded to fetchmail-5.8.6.  This fixes a buffer
+   overflow in the header parser.  (* Security fix *)
+xap1/rxvt.tgz:  Patched buffer overflow reported on BugTraq.
+   (* Security fix *)
+----------------------------
+Sat Jun 16 20:59:57 PDT 2001
+a1/sc245.tgz:  Rename s245.tgz to sc245.tgz.
+----------------------------
+Sat Jun 16 13:43:45 PDT 2001
+a1/mods245.tgz:  Replaced kernel DRI 3D modules with ones built from the
+   XFree86-4.1.0 source tree.
+ap1/vim.tgz:  Fix bad permissions on /usr/share/vim/vim58.
+----------------------------
+Fri Jun 15 16:16:38 PDT 2001
+a1/lilo.tgz:  Recompile LILO to fix install-time errors.
+----------------------------
+Fri Jun 15 12:39:05 PDT 2001
+gnomcore.tgz:  The Netscape.desktop included in the gnome-core source runs
+   Mozilla, not Netscape.  This has been fixed to run Netscape like it should.
+----------------------------
+Thu Jun 14 23:36:06 PDT 2001
+bootdsks.12/, bootdsks.144/:  Update version, use latest LILO.
+.eltorito/eltorito.img:  Add rpc.portmap back to /sbin.  It's really
+   not needed for anything, but I'm getting numerous bug reports from
+   people trying to mount NFS manually that it hangs for 5 minutes
+   before the mount completes.  Using '-o nolock' (like in INSNFS)
+   fixes that, but it's just easier to include this.
+rootdsks/color.gz:  Same changes.
+rootdsks/umsdos.gz:  Same changes.
+contrib/java/:  Upgraded to j2sdk-1_3_1-linux-i386 and
+   j2re-1_3_1-linux-i386.
+contrib/ham/:  Several ham packages upgraded by Arno Verhoeven:
+   ham/ax25/ax25_apps-0.0.5-i386-1.tgz
+   ham/ax25/7plus-2.25-i386-1.tgz
+   ham/ax25/xfbb-7.03h-i386-1.tgz
+   ham/ax25/xconvers-0.7-i386-1.tgz
+   ham/ax25/ax25_tools-0.0.8-i386-1.tgz
+   ham/propagation/baken-0.4-i386-1.tgz
+   ham/propagation/baken_data-0.4-i386-1.tgz
+   ham/propagation/baken_map-0.4-i386-1.tgz
+a1/aaa_base.tgz:  Update initial email for Slackware åtta.  :)
+a1/lilo.tgz:  Patch liloconfig to add this to the lilo.conf:
+   change-rules
+     reset
+   Apparently LILO has been rewriting partition tables at boot time,
+   sometimes with nasty side effects.  The documentation says this:
+   "This option is _dangerous_ and it is disabled by default."
+   But is _is_ enabled by default, and was changing partition IDs on
+   NT so that NT wouldn't boot.  Not good!  Adding those two lines
+   turns this behavior off.
+a1/e2fsprog.tgz:  Reverted to e2fsprogs-1.19.  I had no good reason to
+   upgrade this package anyway, other than e2image seemed like a nice
+   feature, and it's .01 better, but now I hear there's some major bug
+   fixed in the WIP version.  The README requests that WIP versions not
+   be distributed in binary form (not that I would anyway, but there's
+   another reason), so back we go.  I moved version 1.20 into /contrib.
+   It worked for me, anyway...
+a1/hdsetup.tgz:  When installing a package, unlink files before copying
+   over them.  This might fix problems with upgrading running packages.
+a1/i245.tgz:  Add 2.4.5 IDE kernel package.
+a1/s245.tgz:  Add 2.4.5 IDE/SCSI kernel package.
+ap1/vim.tgz:  Added 3 patches from the vim site.
+gtk1/wmaker.tgz:  Fixed wmaker.inst.
+gtk1/xvim.tgz:  Added 3 patches from the vim site.
+   (* Slackware is now frozen in preparation for the upcoming release *)
+----------------------------
+Thu Jun 14 01:51:40 PDT 2001
+a1/e2fsprog.tgz:  Upgraded to e2fsprogs-1.20.
+a1/util.tgz:  Upgraded to util-linux-2.11f.
+----------------------------
+Wed Jun 13 18:25:12 PDT 2001
+gtk1/gnoprint.tgz:  Add missing .so symlink.
+gtk1/sawfish.tgz:  Add locale fix from sawfish CVS.
+kde1/kdebase.tgz:  Add more session types to kdmrc.  (Suggested by "rumen")
+x1/xfree86.tgz:  In Xsetup_0, fall back to xsetroot if kdedesktop is missing.
+xap1/imagick.tgz:  Upgraded to ImageMagick-5.3.5.
+   put *-config files in the $PATH.
+----------------------------
+Wed Jun 13 00:25:58 PDT 2001
+a1/etc.tgz:  Change shell for mysql user from /bin/false to /bin/bash.
+   (/bin/false prevents su'ing to mysql, so examples in docs don't work)
+ap1/ispell.tgz:  Upgraded to ispell-3.2.03.
+ap1/mysql.tgz:  Upgraded to mysql-3.23.39.
+----------------------------
+Tue Jun 12 17:41:29 PDT 2001
+a1/procps.tgz:  Upgraded to procinfo-18.
+   Upgraded to psmisc-20.1.
+   Fixed a locale problem with top in procps-2.0.7.
+   (Thanks to Andrey Panov for the patch)
+----------------------------
+Tue Jun 12 15:16:01 PDT 2001
+.eltorito/eltorito.img:  Fix fdformat at end of install.
+   Last version number bump before the release.  No more screwing around.
+rootdsks/color.gz:  Same changes.
+rootdsks/umsdos.gz:  Same changes.
+a1/hdsetup.tgz:  Bump version number.
+   Thanks to Roy Lanek, who suggested the hidden "code name". :)
+----------------------------
+Tue Jun 12 00:05:12 PDT 2001
+d1/binutils.tgz:  Upgraded to binutils-2.11.90.0.15.
+gtk1/galeon.tgz:  Upgraded to galeon-0.11.0.  (requires mozilla-0.9.1)
+gtk1/gnomevfs.tgz:  Added gnome-vfs-extras-0.1.1
+   (smb and icecast support for nautilus)
+gtk1/gtkhtml.tgz:  Added gtkhtml-0.9.2 for pan.
+gtk1/mozilla.tgz:  Upgraded to mozilla-0.9.1.  OK, I know I said this was
+   all frozen, but I've been testing it since the release.  It has a lot of
+   nice improvements, and no new bugs that I've found versus 0.9.  So, I'm
+   un-freezing the Mozilla stuff just long enough to let this in.  It
+   really would have been a shame not to include it.
+gtk1/pan.tgz:  Added pan-0.9.7 newsreader.  (The only *nix newsreader to
+   score 100% on the "Good Net-Keeping Seal of Approval" standards tests :)
+gtk1/nautilus.tgz:  Recompiled nautilus-1.0.3 against mozilla-0.9.1.
+   Nautilus-1.0.4 should be out soon (there's a 1.0.3.2 release candidate
+   now), and I do plan to upgrade to that when it's released.
+----------------------------
+Mon Jun 11 14:10:29 PDT 2001
+d1/automake.tgz:  Upgraded to automake-1.4-p4.
+----------------------------
+Sun Jun 10 18:46:34 PDT 2001
+a1/hdsetup.tgz:  Do not run xf86setup during install.  Basically, after
+   spending a few hours tracking down the lack of type1 and freetype
+   modules (left out by 'X -configure'), I don't have enough trust for 
+   'X -configure' to make it the default setup approach.  Instead, I've
+   written another XF86Config-fbdev file that's copied to 
+   /etc/X11/XF86Config if no config file is found.  I think that's a more
+   reliable initial X setup, and from there the user can configure for a
+   higher performance native driver if needed.  I'm leaving the
+   xfree86setup script in there in case anyone really liked it, and have
+   made sure that it adds those modules so that it's not a trap.
+   On the bright side, the framebuffer seems a whole lot faster under
+   XFree86-4.1.0. :)
+----------------------------
+Sat Jun  9 20:22:48 PDT 2001
+gtk1/mozilla.tgz:  Added a symlink in /opt/gnome/lib/mozilla:
+   libnssckbi.so -> ../libnssckbi.so
+   This fixes a problem with PSM failing to recognize a valid CA.
+----------------------------
+Sat Jun  9 18:51:12 PDT 2001
+gtk1/nautilus.tgz:  Recompiled without linking to ammonite (only used for
+   eazel services, which are no longer operating).
+----------------------------
+Sat Jun  9 16:33:11 PDT 2001
+ap1/screen.tgz:  Upgraded to screen-3.9.9.
+----------------------------
+Sat Jun  9 12:14:17 PDT 2001
+contrib/isdn/:  Added isdn4k-utils-CVS-2001-06-09.tar.gz.  This version is
+   required for 2.4.x kernels.  I'm also leaving the previous version in
+   there (isdn4k-utils.v3.1pre1.tar.gz) for 2.2.x kernels.
+----------------------------
+Fri Jun  8 22:46:08 PDT 2001
+n1/epic4.tgz:  Upgraded to epic4-1.0.1.  Thanks to Frédéric L. W. Meunier for
+   showing me how to check out the updated help files from CVS. :)
+----------------------------
+Fri Jun  8 16:50:13 PDT 2001
+ap1/sudo.tgz:  Upgraded to sudo-1.6.3p7.  I've heard this is a security
+    fix, but can't find any details.  You might want to treat it as such.
+----------------------------
+Fri Jun  8 14:29:02 PDT 2001
+ap1/ispell.tgz:  Upgraded to ispell-3.2.02.
+    #undef NO8BIT (normally #define NO8BIT is the default).
+----------------------------
+Thu Jun  7 16:58:45 PDT 2001
+gtk1/gdm.tgz:  Upgraded to gdm-2.2.2.1 (* Security fix *).
+     From the GDM ChangeLog:  * slave.c: SECURITY!  when
+     reinitializing the display for another go, first bake new cookies
+----------------------------
+Thu Jun  7 03:20:23 PDT 2001
+.eltorito/eltorito.img:  Add an error dialog if the drive runs out of
+  space during the installation.  Thanks to Saqib Shaikh for figuring out
+  that this condition is the cause of the "kernel install menu loop" 
+  reports.
+rootdsks/color.gz:  Same fix as above.
+rootdsks/umsdos.gz:  Same fix as above.
+a1/elflibs.tgz:  Upgraded with libvga.so.1.4.3 and libvgagl.so.1.4.3.
+a1/hdsetup.tgz:  Fixed the problem with XF86Config not getting installed in
+   /etc/X11.
+   Remove depricated setup.tty and pkgtool.tty tools.
+ap1/ghostscr.tgz:  Added Gimp-Print version 4.0.5 drivers.
+   (upgrading gs itself requires many patches, and will probably not happen
+   until after the next release, but upgrading the Gimp-Print part isn't
+   likely to break anything and adds support for many new Epson printers)
+d1/svgalib.tgz:  Upgraded to svgalib-1.4.3.
+xap1/gs_x11.tgz:  gs5.50 binary for X recompiled with new Gimp-Print driver.
+----------------------------
+Wed Jun  6 15:05:08 PDT 2001
+n1/mutt.tgz:  Use --enable-locales-fix.
+n1/wget.tgz:  Upgraded to GNU wget-1.7.
+xap1/rxvt.tgz:  Add --enable-xim and a locale patch.
+  Thanks to Denis Ducamp for the rxvt and mutt bug reports.
+----------------------------
+Tue Jun  5 21:22:53 PDT 2001
+.eltorito/eltorito.img:  Fix a problem with setup segfaulting on some machines.
+  Ghadi Shayban discovered the problem and provided an accurate and detailed
+  bug report pinpointing the area of code to investigate.  Thanks! :)
+rootdsks/color.gz:  Same fix as above.
+rootdsks/umsdos.gz:  Same fix as above.
+pasture/text-rootdisk/text.gz:  Retired (at least for now).  This isn't up
+  to date, and would need a lot of fixes for 2.4 support.  I'd rather not
+  leave it in /rootdsks where unsuspecting users will be tricked into
+  trying to install with it.
+----------------------------
+Mon Jun  4 22:53:34 PDT 2001
+gtk1/guile.tgz:  Upgraded to guile-1.4.
+gtk1/gnogames.tgz:  Guile uses a new incompatible soname (libguile.so.9), so
+   sol needed to be recompiled.  As far as I know, this is the only thing
+   that links with libguile.  Correct me if I'm wrong. :)
+gtk1/gnoprint.tgz:  Upgraded to gnome-print-0.29.
+x1/xf86jdoc.tgz:  Removed unmaintained Japanese docs.
+x1/xf86ps.tgz:  Removed unmaintained PostScript docs.  (It looks like both of
+   these were last touched around XFree86-3.2, and are probably too old to be
+   of much use)
+Upgraded to XFree86-4.1.0.  This builds libGLU.so again, so we don't need to
+   use an old version, and adds DRI support for the ATI Radeon (among other
+   enhancements).
+x1/xf86doc.tgz:  Upgraded to XFree86-4.1.0 documentation.
+x1/xf86html.tgz:  Upgraded to XFree86-4.1.0 HTML docs.
+x1/xf86prog.tgz:  Upgraded to development libraries and include files from
+   XFree86-4.1.0.
+x1/xfree86.tgz:  Upgraded to XFree86-4.1.0 base package.
+x1/xnest.tgz:  Upgraded to XFree86-4.1.0 nested X server.
+x1/xprt.tgz:  Upgraded to XFree86-4.1.0 print-only X server.
+x1/xvfb.tgz:  Upgraded to XFree86-4.1.0 virtual framebuffer X server.
+x1/lesstif.tgz:  Upgraded to lesstif-0.92.32.
+I'm still looking it over to see, but we can't be far from a freeze now.
+----------------------------
+Sun Jun  3 19:49:05 PDT 2001
+ap1/zsh.tgz:  Upgraded to zsh-4.0.1.
+gtk1/lunicode.tgz:  Upgraded from libunicode-0.4 to
+  libunicode-0.4.gnome.  Thanks to Jeffrey W. Baker for pointing
+  out that we weren't using the correct version.
+xap1/fvwm2.tgz:  Upgraded to fvwm-2.2.5.  This fixes a rare
+  security problem where fvwm would use .fvwm2rc from the
+  current directory if no $HOME was set.
+----------------------------
+Sun Jun  3 13:48:58 PDT 2001
+ap1/cdrtools.tgz:  Fixed the "can't mmap 4700000 bytes
+    from /dev/zero" problem happening with 2.2 kernels.
+    (It worked again after a recompile against 2.2.19 and
+    glibc-2.2.3)
+n1/tcpip1.tgz:  Patch in.comsat to correctly biff when the
+   mail goes somewhere other than /var/spool/mail/mailbox.
+   Thanks to Tom Crane for fixing this!
+----------------------------
+Sat Jun  2 16:59:00 PDT 2001
+n1/sendmail.tgz:  Upgraded to sendmail-8.11.4.
+n1/smailcfg.tgz:  Upgraded to sendmail-8.11.4 config files.
+----------------------------
+Sat Jun  2 14:03:10 PDT 2001
+.eltorito/eltorito.img:  Fix sbin/probe bug to detect SCSI
+   partitions properly.
+rootdsks/color.gz:  Same fix as above.
+rootdsks/umsdos.gz:  Same fix as above.
+bootdsks.144/speakup.i:  Add 2.2.19 IDE bootdisk with Speakup
+  (speech synth/screen reader) support.
+bootdsks.144/speakup.s:  Add 2.2.19 SCSI bootdisk with Speakup
+  (speech synth/screen reader) support.
+The patch to add Speakup support to 2.2.19 has also been added
+to source/kernel-source/v2.2.
+Thanks to Raul A. Gallegos for encouraging me to add this support
+and providing useful tips and examples.
+----------------------------
+Fri Jun  1 13:56:15 PDT 2001
+ap1/vim.tgz:  Upgraded to vim-5.8, ctags-5.0.1.
+gtk1/xvim.tgz:  Upgraded to vim-5.8, ctags-5.0.1.
+----------------------------
+Thu May 31 20:47:46 PDT 2001
+pasture/autoconf-2.13/autoconf.tgz:  Add autoconf-2.13 package.
+pasture/automake-1.4/automake.tgz:  Add autoconf-1.4 package.
+We need to provide the latest versions of these in order to be
+ready for new projects which will require them, but these versions
+are being restored in /pasture because not all projects have
+updated to the new versions yet, and because they are needed to
+compile some of the existing Slackware sources.
+----------------------------
+Wed May 30 20:30:05 PDT 2001
+bootdsks.144/2.4.5/aha1542.s:  This is mostly to test for a problem
+  reported with the aha1542 driver in the multi-adaptec disk.
+----------------------------
+Wed May 30 16:01:45 PDT 2001
+a1/bin.tgz:  In crond, use /usr/sbin/sendmail for mail path, not
+   /usr/lib/sendmail.  (Sendmail replacements often only provide
+   a /usr/sbin/sendmail link/binary)
+----------------------------
+Tue May 29 19:57:08 PDT 2001
+d1/autoconf.tgz:  Upgraded to autoconf-2.50.
+d1/automake.tgz:  Upgraded to automake-1.4-p2.
+d1/libtool.tgz:  Upgraded to libtool-1.4.
+gtk1/gdm.tgz:  Fixed the rootlogin diff, which wasn't applying.
+----------------------------
+Tue May 29 14:44:46 PDT 2001
+a1/fileutls.tgz:  Recompile with glibc-2.2.3 to fix static ln.
+ap1/rpm.tgz:  This was also linked static and could presumably have
+   similar locale problems, so I'm recompiling it just-in-case.
+d1/cvs.tgz:  Fixed contrib symlink in docs directory.
+----------------------------
+Mon May 28 20:47:02 PDT 2001
+bootdsks.144/2.4.5/adaptec.s:  Recompile 2.4.5 with Viro's patch
+  to fix the problem unmounting ReiserFS volumes.
+bootdsks.144/2.4.5/bare.i:  Recompiled the kernel with the above patch.
+bootdsks.144/2.4.5/ncr_sym.s:  Recompiled the kernel with the above patch.
+k1/lnx245.tgz:  Add a copy of the patch in /usr/src.
+source/kernel-source/v2.4/:  Also put a copy in here.
+----------------------------
+Mon May 28 16:39:34 PDT 2001
+ap1/quota.tgz:  rm rpc.rquotad, as there's a better version in
+    tcpip1.tgz already (part of nfs-utils).
+d1/cvs.tgz:  Upgraded to cvs-1.11.1p1.
+d1/gcl.tgz:  Upgraded to gcl-2.4.0.
+----------------------------
+Sun May 27 16:53:12 PDT 2001
+.eltorito/README:  Fix example for new versions of mkisofs.
+.eltorito/eltorito.img:  Fix mounting a partition in setup without
+   formatting it.  (mount failed before)
+   Fix /dev/makedevs.sh so it works with SCSI disks.
+   New full install size estimate == ~2GB.
+rootdsks/color.gz:  Same fixes as above.
+rootdsks/umsdos.gz:  Same fixes as above.
+bootdsks.144/2.4.5/ncr_sym.s:  NCR/Symbios SCSI 2.4.5 bootdisk.
+d1/gcc.tgz:  crtendS.o patched for glibc-2.2.3.
+----------------------------
+Sat May 26 17:44:44 PDT 2001
+bootdsks.144/2.4.5/bare.i:  Added IDE 2.4.5 bootdisk.
+bootdsks.144/2.4.5/adaptec.s:  Added Adaptec SCSI 2.4.5 bootdisk.
+rootdsks/pcm245.dsk, netw245.dsk:  Added versions of the network
+  and pcmcia supplemental disks for use with Linux 2.4.5.
+a1/aaa_base.tgz:  Fix permissions of directories in /etc/X11 that
+   were getting created chmod 777.  (spotted by Phil Howard)
+   Remove this ancient relic:
+   drwxrwxrwt root/root         0 1993-11-30 10:13 var/spool/tmp/
+a1/hdsetup.tgz:  The new fileutils-4.1 ls introduced an off-by-one
+   bug in makepkg, causing it to produce broken install scripts.
+   Patched.
+a1/kbd.tgz:  Fixed broken install script.
+a1/mods245.tgz:  Upgraded kernel and pcmcia modules to Linux 2.4.5.
+   (hey, putting the pcmcia modules in here _did_ make sense! :)
+ap1/quota.tgz:  Fixed broken install script.
+n1/tin.tgz:  Upgraded to tin-1.5.8.
+k1/lnx245.tgz:  Upgraded to linux-2.4.5 source code.
+----------------------------
+Fri May 25 23:57:32 PDT 2001
+a1/devfsd.tgz:  Upgraded to devfsd-v1.3.11.
+a1/fileutls.tgz:  Upgraded to GNU fileutils-4.1.
+a1/glibcso.tgz:  Upgraded to glibc-2.2.3.
+a1/kbd.tgz:  Upgraded to kbd-1.06.
+a1/zoneinfo.tgz:  Upgraded to tzdata2001b from glibc-2.2.3.
+ap1/quota.tgz:  Upgraded to quota-2.00.
+d1/gettext.tgz:  Upgraded to GNU gettext-0.10.38.
+d1/glibc.tgz:  Upgraded to glibc-2.2.3.
+   (I rebuilt mozilla with this and it worked perfectly with not
+   one diff required.  Good enough for me)
+d1/glocale.tgz:  Upgraded to locale files from glibc-2.2.3.
+gtk1/gdm.tgz:  Upgraded to gdm-2.2.2.
+----------------------------
+Thu May 24 22:20:00 PDT 2001
+ap1/cdutils.tgz:  Removed.  cdwrite removed, and cdrdao and
+    cdrtools moved into their own packages.
+ap1/cdrdao.tgz:  Added cdrdao-1.1.5.
+ap1/cdrtools.tgz:  Added cdrtools-1.10.
+----------------------------
+Thu May 24 14:16:25 PDT 2001
+kde1/kmedia.tgz:  Link with Ogg libraries.
+----------------------------
+Thu May 24 02:10:10 PDT 2001
+.eltorito/eltorito.img:  Switch back to mount from util-linux.
+rootdsks/color.gz:  Switch back to mount from util-linux.
+rootdsks/umsdos.gz:  Switch back to mount from util-linux.
+a1/sysvinit.tgz:  In rc.S, check for devfsd before trying to run it.
+   In rc.M, add 'start' parameter for rc.samba and rc.httpd.
+ap1/ksh93.tgz:  Fix extra '.gz' on manpage symlinks.
+ap1/manpages.tgz:  Upgraded to man-pages-1.36.
+f1/howto.tgz:  Updated to the newest batch of HOWTOs.
+f1/manyfaqs.tgz:  Updated to newest Linux FAQs on ibiblio.org.
+f1/mini.tgz:  Updated to the newest batch of mini-HOWTOs.
+gtk1/nautilus.tgz:  Don't use shared cdparanoia libraries.
+n1/apache.tgz:  Upgraded to apache_1.3.20 + EAPI patches from
+   mod_ssl-2.8.4-1.3.20.
+n1/mod_ssl.tgz:  Upgraded to mod_ssl-2.8.4-1.3.20.
+----------------------------
+Wed May 23 03:15:18 PDT 2001
+/pasture/sliplogin-2.1.1/sliplogin.tgz:  rm spurious symlink.
+ap1/mysql.tgz:  Upgraded to mysql-3.23.38.
+ap1/rpm.tgz:  Upgraded to rpm-4.0.2.
+  GNOME 1.4 updated:
+gtk1/ammonite.tgz:  Removed.  (merged into nautilus.tgz)
+gtk1/gal.tgz:  Upgraded to gal-0.8.
+gtk1/galeon.tgz:  Upgraded to galeon-0.10.6.
+gtk1/gconf.tgz:  Upgraded to GConf-1.0.1.
+gtk1/gnumeric.tgz:  Upgraded to gnumeric-0.65.
+gtk1/libole2.tgz:  Upgraded to libole2-0.2.3.
+gtk1/libxml1.tgz:  Upgraded to libxml-1.8.13.
+gtk1/mozilla.tgz:  Upgraded to mozilla-0.9.
+gtk1/nautilus.tgz:  Upgraded to nautilus-1.0.3.
+     Bundled in ammonite-1.0.2, eel-1.0, librsvg-1.0.0, medusa-0.5.1,
+     and trilobite-1.0.3.
+----------------------------
+Mon May 21 13:03:46 PDT 2001
+rootdsks/netw244.dsk:  Use 8139too module for Realtek 8139.
+----------------------------
+Mon May 21 01:52:07 PDT 2001
+/pasture/ipfwadm-2.3.0/ipfwadm.tgz:  Moved ipfwadm to /pasture.
+/pasture/sliplogin-2.1.1/sliplogin.tgz:  Moved sliplogin to /pasture,
+  as modern systems can't compile it, and there can't be many people
+  still using it.
+gtk1/ammonite.tgz:  Upgraded to ammonite-1.0.2.
+gtk1/bonobo.tgz:  Upgraded to bonobo-1.0.4.
+gtk1/gdm.tgz:  Upgraded to gdm-2.2.1.
+gtk1/ggv.tgz:  Upgraded to ggv-1.0.1.
+gtk1/gnomevfs.tgz:  Upgraded to gnome-vfs-1.0.1.
+gtk1/orbit.tgz:  Upgraded to ORBit-0.5.8.
+gtk1/scrollkp.tgz:  Instead of including a broken scrollkeeper database,
+     ship an empty /var/lib/scrollkeeper and run scrollkeeper-update either
+     as the package is installed or when the installation has finished to
+     generate a good database.
+n1/autofs.tgz:  Split out autofs from tcpip2.
+n1/bootp.tgz:  Split out bootp from tcpip2.
+n1/dhcp.tgz:  Split out dhcp from tcpip2.
+   Upgraded to dhcpcd-1.3.20-pl0.
+n1/ipchains.tgz:  Split out ipchains/ipmasqadm from tcpip2.
+n1/ncftp.tgz:  Split ncftp out of tcpip2.
+n1/netwatch.tgz:  Split out netwatch package from tcpip2.
+n1/tcpip1.tgz:  Small patch to netconfig to fix ethernet probe for 2.4.4.
+   Add missing exports(5) man page.
+n1/ytalk.tgz:  Split ytalk out of tcpip2.
+n1/tcpip2.tgz:  After everything was split out, nothing was left except
+   a symlink and an empty directory, which I threw away. :)   Phased out.
+----------------------------
+Sun May 20 11:48:56 PDT 2001
+The Apache packages have been updated by David Cantrell:
+n1/apache.tgz:  Recompiled using latest EAPI patches from mod_ssl-2.8.3-1.3.19.
+n1/mod_php.tgz:  Upgraded to php-4.0.5.  (and not linked with FreeType)
+n1/mod_ssl.tgz:  Upgraded to mod_ssl-2.8.3-1.3.19.
+----------------------------
+Sat May 19 19:51:33 PDT 2001
+(beta #1, but not quite frozen yet)
+bootdsks.144/2.4.4/lnx_2_4.i:  Added IDE 2.4.4 bootdisk.
+bootdsks.144/2.4.4/lnx_2_4.s:  Added Adaptec SCSI 2.4.4 bootdisk.
+rootdsks/color.gz:  Now supports 2.2 AND 2.4 kernels.
+  Added support for ReiserFS.
+  Add MD5SUM field to package data in /var/log/packages/.
+rootdsks/pcmcia.dsk:  Upgraded to pcmcia-cs-3.1.26
+  for Linux version 2.2.19.
+rootdsks/pcm244.dsk, netw244.dsk:  Added versions of the network
+  and pcmcia supplemental disks for use with Linux 2.4.4.
+rootdsks/umsdos.gz:  Now supports 2.2 and 2.4 kernels.
+  Add MD5SUM field to package data in /var/log/packages/.
+pasture/ibcs-2.1/ibcs2.tgz:  Moved iBCS emulator to /pasture.
+  I don't think enough people are using this anymore to place it
+  in the base system, and I never cared for the /shlib directory. ;)
+a1/hdsetup.tgz:  Add MD5SUM field to package data.
+a1/lilo.tgz:  liloconfig no longer labels Linux partitions as
+   "ext2fs".
+a1/mods244.tgz:  Added linux-2.4.4 kernel modules.
+a1/modules.tgz:  Added linux-2.2.19 pcmcia modules from
+   pcmcia-cs-3.1.26.
+a1/pcmcia.tgz:  Upgraded to pcmcia-cs-3.1.26.
+   (note that the pcmcia kernel modules are no longer bundled with
+   this package)
+k1/lnx244.tgz:  Added linux-2.4.4 kernel source.
+.eltorito/eltorito.img:  Update to new color.gz.
+----------------------------
+Thu May 17 21:39:56 PDT 2001
+/pasture/bind-8.2.4/bind.tgz:  Added bind-8.2.4.
+a1/elflibs.tgz:  Add /usr/lib/libpng.so.2.1.0.11.
+a1/modules.tgz:  Fix rc.modules to handle 2.2 or 2.4 kernels.
+   (thanks Alan!)
+ap1/apsfilt.tgz:  Upgraded to apsfilter-6.1.1.
+ap1/cdparano.tgz:  Upgraded to cdparanoia-III-alpha9.8.
+d1/bin86.tgz:  Upgraded to bin86-0.15.5.
+d1/libpng.tgz:  Upgraded to libpng-1.0.11.
+gtk1/gnogames.tgz:  Recompiled against libguile, restoring "sol".
+gtk1/guile.tgz:  Added GNU guile-1.3.4.
+n1/bind.tgz:  Upgraded to bind-9.1.2.
+n1/tcpip1.tgz:  In rc.inet2, start named directly since ndc is gone.
+----------------------------
+Wed May 16 19:20:04 PDT 2001
+a1/bin.tgz:  Add /sbin/fsck.reiserfs -> /bin/true symlink.
+a1/hdsetup.tgz:  Fixes to work with devfs-enabled kernels.
+a1/lilo.tgz:  Upgraded to lilo-21.7.5.  Made some odd hacks to liloconfig
+   to let it keep working with the old device names for one more release
+   cycle. (even if you try to use a devfs-enabled kernel, but don't mount
+   devfs :)
+a1/sysvinit.tgz:  Patched /etc/rc.d/rc.6 to use "sleep 1 ; wait" before
+   rebooting.  The "sleep" fixes some machines that otherwise wouldn't
+   flush all disk buffers, and the "wait" ensures SMP machines wait for
+   the sleep to complete.  I think this should fix the few machines with
+   stubborn fscking problems at boot time.
+   Don't try to mount SMB shares in rc.S.  Unmount them in rc.6.
+n1/openssh.tgz:  Fix rc.sshd output formatting when new keys are
+   generated.
+n1/tcpip1.tgz:  In rc.inet2, ypbind needs -broadcast.
+   Handle SMB shares in rc.inet2  (thanks to Mark Flacy for these 
+   suggestions :)
+   Fix missing '#' in rc.nfsd.  (found by Chris Lumens)
+   NIS section of rc.inet2 rewritten by Chris Lumens. 
+----------------------------
+Wed May 16 00:10:04 PDT 2001
+pasture/nfs-server-2.2beta47/oldnfsd.tgz:  Moved old user-space NFSD
+        utilities to /pasture, as Slackware now uses the knsfd NFS utils.
+a1/bin.tgz:  Upgraded to eject-2.0.6.
+a1/sysvinit.tgz:  Run "/etc/rc.d/rc.nfsd stop" at shutdown.
+   Various other non-essential text/comment cleanups in /etc/rc.d/.
+n1/samba.tgz:  Move /etc/rc.d/rc.samba to /usr/doc/samba-2.2.0/examples/.
+n1/tcpip1.tgz:  Changes in /etc/inetd.conf (rm your existing file first)
+     Fix bootpd example line in /etc/inetd.conf.
+     Start samba in /etc/inetd.conf instead of with rc.samba.
+   Changes in /etc/rc.d/rc.inet2 (rm your existing file before installing)
+     Start nfsd using "/etc/rc.d/rc.nfsd start" instead of directly.
+     Edit script output for a more professional text appearance. ;)
+   Upgrade to nfs-utils-0.3.1.  (note that this requires the nfsd.o module)
+   Switch to portmap_4 with H.J. Lu's knfsd patches (these will still work
+   with the user-space nfsd utils if needed)
+   Add /etc/rc.d/rc.nfsd to start/stop/restart knfsd.
+   Upgraded to net-tools-1.60.
+----------------------------
+Mon May 14 18:01:56 PDT 2001
+contrib/w3m-0.2.1-i386-1.tgz:  Added w3m-0.2.1 text-mode browser.
+a1/reiserfs.tgz:  Upgraded to reiserfsprogs-3.x.0j.
+a1/sysvinit.tgz:  Change devfs detection method in rc.S.
+ap1/groff.tgz:  Upgraded to GNU groff 1.17.
+gtk1/gnomcore.tgz:  Upgraded to gnome-core-1.4.0.4.
+n1/iptables.tgz:  Upgraded to iptables-1.2.2.
+----------------------------
+Sun May 13 15:39:00 PDT 2001
+a1/sysvinit.tgz:  Add devfsd startup to rc.S (if devfs is mounted).
+   Fix typo and gdm bug in rc.4.
+   Add 2 second poweroff/reboot delay (I've heard reports that some machines
+   running 2.4 switch off before the drive cache can write out, and that 
+   adding this short delay fixes it).
+a1/util.tgz:  Upgrade /bin/hostname to net-tools-1.60 version.
+   Patch bugs in the rc.serial script.
+gtk1/wmaker.tgz:  Upgraded to WindowMaker-0.65.0.
+n1/proftpd.tgz:  Upgraded to proftpd-1.2.2rc2.  (yes, I know using an "rc"
+   goes against the usual rules, but that's what ftp.kernel.org is running,
+   and I can't let it go out with that globbing bug in it... maybe there
+   will still be an official release in time, but this is just in case)
+----------------------------
+Sat May 12 23:01:42 PDT 2001
+a1/modutils.tgz:  Upgraded to modutils-2.4.6.
+ap1/mc.tgz:  Reverted to mc-4.5.51.  I've received many complaints about
+    problems with the newer version of mc, and it doesn't look like they'll be
+    fixed any time soon, so I'm going back to the last version that worked.
+    Also, removed --with-samba support, which was causing random freezes at
+    launch time for users who aren't running a samba server and do not need
+    (or want) samba support.  Note also that the newest version wouldn't 
+    compile as a GNOME app.  
+n1/ppp.tgz:  Upgraded to ppp-2.4.1.
+----------------------------
+Sat May 12 01:55:57 PDT 2001
+gtk1/eog.tgz:  Added eog-0.6, the Eye of GNOME image viewer.
+gtk1/imlib.tgz:  Fix libimlib-gif.so to link with libungif.so.4.1.0.
+----------------------------
+Thu May 10 21:08:45 PDT 2001
+ap1/mysql.tgz:  Upgraded to mysql-3.23.37.
+----------------------------
+Thu May 10 12:54:11 PDT 2001
+n1/openssh.tgz:  Upgraded to openssh-2.9p1.  (adds large file support)
+n1/samba.tgz:  Patched to link with -lcrypt before -lcrypto, otherwise
+   MD5 password support is broken.  (Submitted by Kristofer T. Karas)
+----------------------------
+Wed May  9 10:36:09 PDT 2001
+kde1/kdelibs.tgz:  Upgraded to kdelibs-2.1.2.  (* Security fix *)
+     Security fixes to libkdesu.
+n1/inn.tgz:  Upgraded to inn-2.3.2.
+----------------------------
+Mon May  7 18:04:08 PDT 2001
+d1/gettext.tgz:  Revert to gettext-0.10.35.  (I was talked into upgrading to
+   gettext-0.10.36 because of improvements with Russian locales, but this
+   version breaks other locales and seems to be no longer available on
+   alpha.gnu.org, so I'm deeming it "not ready")
+gtk1/abi.tgz:  Fixed some directory ownerships, removed static version.
+gtk1/xmms.tgz:  Removed a bunch of broken symlinks.
+----------------------------
+Sun May  6 00:15:35 PDT 2001
+gtk1/enlight.tgz:  Fixed some directory permissions.
+gtk1/xmms.tgz:  Removed source files accidentally included in
+     /usr/doc/xmms-1.2.4/.
+----------------------------
+Sat May  5 11:28:45 PDT 2001
+a1/elflibs.tgz:  Add libpopt.so.0.0.0, which will be needed
+   by several things in GNOME.
+ap1/mc.tgz:  Upgraded to mc-4.5.54.
+ap1/oggutils.tgz:  Added tools/libraries to support Ogg Vorbis.
+    Contains:  libao-0.6.0, libogg-1.0beta4, libvorbis-1.0beta4,
+    vorbis-tools-1.0beta4.
+Upgraded to GNOME 1.4 (major kudos to the GNOME development team!)
+gtk1/aaagnome.tgz:  This package adds /opt/gnome/bin (the new
+     home for GNOME) to the $PATH, and /opt/gnome/lib to the
+     /etc/ld.so.conf.  These changes are required to run just
+     about anything else here, so make sure to install it.
+gtk1/abi.tgz:  Added abi-0.7.14-2.
+gtk1/ammonite.tgz:  Added ammonite-1.0.0.
+gtk1/audiofil.tgz:  Rebuilt audiofile-0.2.1.
+gtk1/bonobo.tgz:  Added bonobo-1.0.2.
+gtk1/bugbuddy.tgz:  Upgraded to bug-buddy-2.0.1.
+gtk1/control.tgz:  Upgraded to control-center-1.4.0.1.
+gtk1/ee.tgz:  Recompiled ee-0.3.12.
+gtk1/enlight.tgz:  Recompiled enlightenment-0.16.5.
+gtk1/esound.tgz:  Upgraded to esound-0.2.22.
+gtk1/eterm.tgz:  Recompiled Eterm-0.8.10.
+gtk1/fnlib.tgz:  Recompiled fnlib-0.5.
+gtk1/gal.tgz:  Added gal-0.7.
+gtk1/galeon.tgz:  Added galeon-0.10.5.
+gtk1/gconf.tgz:  Added GConf-1.0.0.
+gtk1/gdkpixbf.tgz:  Upgraded to gdk-pixbuf-0.10.1.
+gtk1/gdm.tgz:  Upgraded to gdm-2.2.0.
+gtk1/gedit.tgz:  Upgraded to gedit-0.9.6.
+gtk1/gftp.tgz:  Upgraded to gftp-2.0.8.
+gtk1/ggv.tgz:  Upgraded to ggv-1.0.
+gtk1/ghex.tgz:  Added ghex-1.2.
+gtk1/gimp.tgz:  Recompiled gimp-1.2.1.
+gtk1/gimplibs.tgz:  Added aalib-1.2 and mpeg_lib-1.3.1 package.
+gtk1/gladedev.tgz:  Upgraded to glade-0.6.2.
+gtk1/glib.tgz:  Upgraded to glib-1.2.10.
+gtk1/gmp.tgz:  Recompiled gmp-3.1.1.
+gtk1/gnoadmin.tgz:  Recompiled gnome-admin-1.0.3.
+gtk1/gnoaudio.tgz:  Rebuilt gnome-audio-1.4.0.
+gtk1/gnogames.tgz:  Upgraded to gnome-games-1.4.0.1.
+gtk1/gnomapps.tgz:  Upgraded to gnome-applets-1.4.0.1.
+gtk1/gnomcore.tgz:  Upgraded to gnome-core-1.4.0.2.
+gtk1/gnomedia.tgz:  Recompiled gnome-media-1.2.0.
+gtk1/gnomeicu.tgz:  Recompiled gnomeicu-0.96.1.
+gtk1/gnomemm.tgz:  Added gnomemm-1.1.16.
+gtk1/gnomenet.tgz:  Recompiled gnome-network-1.0.2.
+gtk1/gnomepim.tgz:  Upgraded to gnome-pim-1.4.0.
+gtk1/gnometop.tgz:  Upgraded to gtop-1.0.13.
+gtk1/gnomevfs.tgz:  Added gnome-vfs-1.0.
+gtk1/gnomlibs.tgz:  Upgraded to gnome-libs-1.2.13.
+gtk1/gnomobjc.tgz:  Recompiled gnome-objc-1.0.40.
+gtk1/gnoprint.tgz:  Upgraded to gnome-print-0.28.
+gtk1/gnotepad.tgz:  Upgraded to gnotepad+-1.3.3.
+gtk1/gnoutils.tgz:  Upgraded to gnome-utils-1.4.0.
+gtk1/gnpython.tgz:  Upgraded to gnome-python-1.4.1.
+gtk1/gnumeric.tgz:  Upgraded to gnumeric-0.64.
+gtk1/gqmpeg.tgz:  Recompiled gqmpeg-0.6.3.
+gtk1/gtkeng.tgz:  Upgraded to gtk-engines-0.12.
+gtk1/gtkmm.tgz:  Added gtkmm-1.2.5.
+gtk1/gtkplus.tgz:  Upgraded to gtk+-1.2.10.
+gtk1/gtm.tgz:  Added gtm-0.4.9.
+gtk1/imlib.tgz:  Upgraded to imlib-1.9.10.
+gtk1/libghttp.tgz:  Recompiled libghttp-1.0.9.
+gtk1/libglade.tgz:  Upgraded to libglade-0.16.
+gtk1/libgtop.tgz:  Recompiled libgtop-1.0.12.
+gtk1/libole2.tgz:  Added libole2-0.2.1.
+gtk1/librep.tgz:  Upgraded to librep-0.13.6.
+gtk1/libsigc.tgz:  Added libsigc++-1.0.3.
+gtk1/libungif.tgz:  Recompiled libungif-4.1.0.
+gtk1/libxml1.tgz:  Recompiled libxml-1.8.11.
+gtk1/lunicode.tgz:  Added libunicode-0.4.
+gtk1/mozilla.tgz:  Added mozilla-0.8.1.
+gtk1/nautilus.tgz:  Added nautilus-1.0.2.
+gtk1/oaf.tgz:  Added oaf-0.6.5.
+gtk1/orbit.tgz:  Recompiled ORBit-0.5.7.
+gtk1/panelmm.tgz:  Added panelmm-0.1.
+gtk1/repgtk.tgz:  Upgraded to rep-gtk-0.15.
+gtk1/sawfish.tgz:  Upgraded to sawfish-0.38.
+gtk1/scrollkp.tgz:  Added scrollkeeper-0.2.
+gtk1/userdocs.tgz:  Added gnome-user-docs-1.4.1.
+gtk1/wmaker.tgz:  Recompiled WindowMaker-0.64.0.
+gtk1/xalf.tgz:  Added xalf-0.12.
+gtk1/xchat.tgz:  Added xchat-1.6.4.
+gtk1/xmms.tgz:  Added xmms-1.2.4.
+gtk1/xscrsave.tgz:  Upgraded to xscreensaver-3.32.
+n1/samba.tgz:  Fix path in /etc/rc.d/rc.samba.
+   Add /var/spool/samba and /var/lock/samba directories.
+   Add SSL cert directory to smb.conf-sample.
+x1/xf86prog.tgz:  Removed extra set of freetype2 includes. :)
+xap1/freefont.tgz:  Moved freefonts-0.10 package here (formerly
+   in the GTK series).
+pasture/gnome-attic/gmc.tgz:  Moved GNOME version of mc into
+   /pasture.  (You might still want to use it instead of Nautilus
+   if you have a slower machine, but I moved it here because I
+   found it was "unkillable" once started and would interfere
+   with Nautilus)
+----------------------------
+Mon Apr 23 22:33:36 PDT 2001
+a1/aaa_base.tgz:  Remove /usr/openwin/ (handled by XV series).
+   Remove /usr/man/preformat, which hasn't been used for years.
+a1/bin.tgz:  Fix COPYING links in dosfstools docs.
+a1/etc.tgz:  Remove XView things from /etc/csh.login and
+   /etc/profile.  These are moved into /etc/profile.d/ scripts
+   in the xvol32.tgz package.
+   Add /etc/ld.so.conf-incoming, which is moved into place if
+   no /etc/ld.so.conf exists.
+a1/glibcso.tgz:  Added ldd and ldconfig from glibc, and wrote
+   man pages for them.
+a1/ldso.tgz:  Moved to /pasture/libc5-attic/.
+a1/lilo.tgz:  In liloconfig, when searching for the MBR device,
+   only consider partitioned devices in /proc/partitions.  This
+   should weed out devices such as CD-ROM drives.
+d1/glibc.tgz:  Add ldconfig and ldd, and manpages for them.
+   Add extra copy of the timeconfig scripts from a1/zoneinfo.tgz
+   to make glibc.tgz fully complete and self-contained. :)
+d1/python.tgz:  Added _cursesmodule.so linked with ncurses for
+   those that want to try ESR's new kernel config tool (CML2).
+gtk1/freetype.tgz:  Removed.  (now included with XFree86)
+n1/ntp4.tgz:  Fixed bash-specific syntax in install script.
+n1/samba.tgz:  Upgraded to samba-2.2.0.  Config file directory
+   changed from /etc/ to /etc/samba/.  (* Security fix *)
+   Samba versions earlier than 2.0.8 contained /tmp bugs which
+   could allow a local attacker to write to devices such as
+   hard drives, possibly corrupting data.
+x1/xf86prog.tgz:  Added freetype-1.3.1.  As this is included with
+   the XFree86 4.0.3 sources, this seems a better place for it than
+   in the GTK series.  Removed extra set of freetype2 includes.
+x1/xfree86.tgz:  Added shared libraries and locale files for
+   freetype-1.3.1.
+xv1/xvol32.tgz:  Add /etc/profile.d/xview.* scripts.
+    Edit install script to add /usr/openwin/lib to /etc/ld.so.conf.
+----------------------------
+Sun Apr 15 16:50:01 PDT 2001
+a1/gpm.tgz:  Patched for devfs, fixed mouseconfig.
+a1/lilo.tgz:  Upgraded to lilo-21.7.3.  In liloconfig, search
+   for the correct MBR device in /proc/partitions.
+a1/util.tgz:  Remove obsolete wall.c patch.  Add sln.8 man page.
+n1/ftchmail.tgz:  Upgrade to fetchmail-5.8.1, add SSL support.
+----------------------------
+Thu Apr 12 22:12:09 PDT 2001
+a1/bin.tgz:  Added some missing dosfstools docs.
+a1/util.tgz:  Upgraded to util-linux-2.11b.  
+n1/apache.tgz:  Rebuilt Apache using EAPI patches from
+   mod_ssl-2.8.2-1.3.19.
+n1/mod_ssl.tgz:  Upgraded to mod_ssl-2.8.2-1.3.19.
+tcl1/tcl.tgz:  Upgraded to tcl8.3.3.
+tcl1/tclx.tgz:  Upgraded to tclx8.3.
+tcl1/tk.tgz:  Upgraded to tk8.3.3.
+xap1/tkdesk.tgz:  Moved to /pasture.  (the new version doesn't
+     work with Tcl >= 8.1, maybe this will be brought back but
+     for now it's not high priority)
+----------------------------
+Wed Apr 11 23:33:53 PDT 2001
+a1/fileutls.tgz:  Added "TERM screen" to /etc/DIR_COLORS.
+d1/perl.tgz:  Upgraded to perl-5.6.1, DBI-1.15.
+----------------------------
+Wed Apr 11 16:29:38 PDT 2001
+contrib/xemacs/:  Upgraded to xemacs-21.1.14.
+contrib/xemacs/intlfonts-1.2/:  Added intlfonts-1.2 from ftp.gnu.org.
+----------------------------
+Tue Apr 10 18:10:15 PDT 2001
+contrib/ham/:  Merged in updates for the ham packages from Arno Verhoeven.
+   Updated packages include:
+   contrib/ham/ax25/ax25_apps-0.0.5p2-i386-1.tgz
+   contrib/ham/ax25/ax25_tools-0.0.6-i386-2.tgz
+   contrib/ham/ax25/libax25-0.0.7-i386-3.tgz
+   contrib/ham/ax25/linkt-0.6.99-20010205-i386-1.tgz
+   contrib/ham/ax25/node-0.3.0-i386-2.tgz
+   contrib/ham/ax25/soundmodem-0.4-i386-2.tgz
+   contrib/ham/ax25/xcall-0.02-i386-1.tgz
+   contrib/ham/ax25/xconvers-0.6-i386-1.tgz
+   contrib/ham/ax25/xfbb-7.03e-i386-1.tgz
+   contrib/ham/ax25/z8530drv_utils-3.0-i386-2.tgz
+   contrib/ham/login/opie-2.32-i386-3.tgz
+   contrib/ham/login/opie_server-2.32-i386-1.tgz
+a1/bash.tgz:  Upgraded to bash-2.05.
+a1/bin.tgz:  Upgraded to apmd-3.0, asapm-2.10, dosfstools-2.8, gawk-3.0.6,
+   hdparm-4.1, indent-2.2.6, splitvt-1.6.5 (* Security fix *), which-2.12.
+   Added mktemp, savelog, and tempfile (found in debianutils_1.13.3.tar.gz).
+   About splitvt -- previous versions contained a buffer overflow which (on
+   Slackware anyway) could allow someone to gain group tty.  It's not clear
+   if any real damage can be done with that, but I've upgraded to the fixed
+   splitvt, and removed the setgid tty from it as well.  It's not the first
+   splitvt overflow, but it's the last.  Also, we've had many requests to
+   update "file", but believe we are providing a tested stable release with
+   many additions to /etc/magic, and the newer versions we've tried have
+   done some unexpected things that we didn't like.  The latest file
+   sources (file-3.34) that we were evaluating remain in sources/a/bin if
+   you'd like to try them.
+a1/kbd.tgz:  Upgraded to kbd-1.05.
+a1/ossllibs.tgz:  shared libraries relinked to change the soname from
+   libssl.so.0.9.6 and libcrypto.so.0.9.6 to libssl.so.0 and libcrypto.so.0
+   (like previous releases of OpenSSL).
+a1/txtutils.tgz:  Added symlinks for /usr/bin/cut and /usr/bin/head.
+a1/util.tgz:  Upgraded to util-linux-2.11a.
+   Upgraded to hostname from net-tools-1.59.
+ap1/joe.tgz:  Upgraded to joe-2.9.5.  (* Security fix *)
+    Older versions of joe look for a config file (.joerc) in the
+    current directory.  This could be exploited to run arbitrary programs
+    as the user running joe, for instance, someone could create /tmp/.joerc
+    and hope that root would start joe in /tmp.
+ap1/screen.tgz:  Added GNU screen-3.9.8.  Note that screen must be installed
+   setuid in order to modify /var/run/utmp so that sessions will appear in
+   'w' output and features like 'talk' will work.  However, we do _not_
+   install it setuid root because we don't believe it to be secure.  If this
+   is not an issue for you, you might wish to change this setting locally.
+n1/apache.tgz:  Comment out PHP and SSL modules in default config.
+n1/mod_php.tgz:  Fixed config file path.
+n1/openssh.tgz:  Recompiled against fixed OpenSSL libraries.
+n1/openssl.tgz:  shared libraries relinked to change the soname from
+   libssl.so.0.9.6 and libcrypto.so.0.9.6 to libssl.so.0 and libcrypto.so.0
+   (like previous releases of OpenSSL).
+n1/procmail.tgz:  Upgraded to procmail-3.15.1.
+n1/sendmail.tgz:  Upgraded to sendmail-8.11.3.
+n1/smailcfg.tgz:  Upgraded to sendmail-8.11.3.
+xap1/netscape.tgz:  Upgraded to communicator-v477.x86-unknown-linux2.2.
+----------------------------
+Sun Apr  8 15:40:35 PDT 2001
+a1/ossllibs.tgz:  Upgraded to openssl-0.9.6a.
+gtk1/eterm.tgz:  Switched to eterm-0.8.10.
+     (we had mistakenly used a development version before)
+n1/ntp4.tgz:  Upgraded to ntp-4.0.99k23.  (* Security fix *)
+   This package replaces the xntp.tgz package (which contained xntp3-5.93e).
+   The older version (and all versions prior to ntp-4.0.99k23, which was
+   released yesterday) contain a buffer overflow bug which could lead to a
+   root compromise on sites offering ntp service.  All sites running xntp
+   from Slackware 7.1 should upgrade to this package and/or ensure that their
+   /etc/ntp.conf does not allow connections from untrusted hosts.  To deny
+   public access to your time daemon (not a bad idea anyway if you're only
+   running ntp to keep your own clock updated) use this in /etc/ntp.conf:
+
+      #  Don't serve time or stats to anyone else
+      restrict default ignore
+
+n1/openssh.tgz:  Recompiled against openssl-0.9.6a.  Openssh appears to be
+   picky about matching the version of openssl it was compiled against, so
+   whenever you upgrade openssl, also upgrade (or recompile) openssh.
+n1/openssl.tgz:  Upgraded to openssl-0.9.6a.  There were some security
+   enhancements mentioned on BugTraq, so it's probably wise to upgrade both
+   openssh.tgz and openssl.tgz.
+----------------------------
+Fri Apr  6 15:33:00 PDT 2001
+a1/devs.tgz:  Added additional /dev/md* devices.
+a1/elflibs.tgz:  Recompiled libtiff.
+ap1/lvm.tgz:  Added lvm_0.9.1_beta6 (a 2.4.x kernel is needed for this).
+ap1/raidtool.tgz:  Upgraded to raidtools-19990824-0.90.
+d1/libtiff.tgz:  Recompiled linking with libz.
+----------------------------
+Fri Apr  6 00:20:14 PDT 2001
+tcl1/expect.tgz:  Fixed library symlinks.
+----------------------------
+Thu Apr  5 13:46:23 PDT 2001
+a1/sh_utils.tgz:  Java (and presumably other things) expect all of these tools
+   to be in /usr/bin, so we have added symlinks in /usr/bin to these utilities
+   in /bin:  date, echo, false, pwd, sleep, stty, true, and uname.  
+ap1/ksh93.tgz:  Upgraded AT&T Korn Shell 93 (2001-01-01.0000).
+ap1/workbone.tgz:  Upgraded to workbone_2.40-2.
+gtk1/xchat.tgz:  Upgraded to xchat-1.6.4.
+n1/ftchmail.tgz:  Upgraded to fetchmail-5.8.0.
+n1/iptables.tgz:  Upgraded to iptables-1.2.1a.
+n1/rdist.tgz:  Upgraded to rdist-6.1.5.
+n1/wget.tgz:  Upgraded to wget-1.6.
+tcl1/expect.tgz:  Upgraded to expect-5.32.1.
+xap1/imagick.tgz:  Upgraded to ImageMagick-5.2.9.
+xap1/x3270.tgz:  Upgraded to x3270-3.1.1.9.
+xap1/xfract.tgz:  Upgraded to xfractint-3.10.
+xap1/xpdf.tgz:  Upgraded to xpdf-0.92.
+----------------------------
+Mon Apr  2 18:14:30 PDT 2001
+d1/gettext.tgz:  Upgraded to gettext-0.10.36.
+Removed old epic4 from /contrib.
+----------------------------
+Mon Apr  2 15:30:09 PDT 2001
+contrib/java/:  Added Java(TM) 2 SDK, Standard Edition,
+       Version 1.3.0_02.  Thanks to Sun Microsystems for
+       allowing us to include this with Slackware.
+----------------------------
+Sun Apr  1 18:14:08 PDT 2001
+rootdsks/text.gz:  Put /etc/makedevs.sh in the boot script.
+   (this was missing before, so so hard drive partitions in
+   /dev weren't created)
+gtk1/gnumeric.tgz:  Propped up.
+n1/epic4.tgz:  Added epic4-1.0.  (As suggested by Frédéric)
+----------------------------
+Sat Mar 31 17:12:59 PST 2001
+.eltorito/eltorito.img:  Upgraded to linux-2.2.19.
+rootdsks/color.gz, umsdos.gz, text.gz:  Version number updates.
+   Removed floppy install option from color.gz and umsdos.gz
+   disks.  (We do not plan to split the A and N series this time)
+   Remove deprecated "slaktest" support.
+rootdsks/network.dsk:  Upgraded to linux-2.2.19 kernel modules.
+rootdsks/pcmcia.dsk:  Upgraded to pcmcia-cs-3.1.25.
+a1/elflibs.tgz:  Upgraded libvga, libvgagl.  Added libgmp.
+a1/hdsetup.tgz:  Enhancements to installpkg/removepkg suggested
+   by Jan Rafaj.  Things like this will now work:
+     installpkg gcc gcc_g77 gcc_objc (where the current directory
+     contains gcc.tgz, gcc_g77.tgz, gcc_objc.tgz)
+     removepkg *.tgz 
+a1/ide.tgz:  Upgraded to linux-2.2.19 kernel for IDE.
+a1/modules.tgz:  Upgraded to linux-2.2.19 kernel modules.
+   Merged in modules from (now deprecated) packages:  fsmods,
+   scsimods, sndmods, netmods.
+a1/modutils.tgz:  Upgraded to modutils-2.4.5.
+a1/pcmcia.tgz:  Upgraded to pcmcia-cs-3.1.25.
+a1/scsi.tgz:  Upgraded to linux-2.2.19 kernel for IDE/SCSI.
+ap1/mysql.tgz:  Add symlinks in /usr/lib for the libmysql* shared
+    libraries.
+d1/egcs.tgz:  Remove broken C++ support and utils duplicated
+   by the gcc package.  Add a note to the install info that egcs
+   is only recommended for compiling the kernel.
+d1/egcs_g77.tgz:  Removed.
+d1/egcsobjc.tgz:  Removed.
+d1/linuxinc.tgz:  Upgraded to linux-2.2.19 include files.
+d1/svgalib.tgz:  Upgraded to svgalib-1.4.2.
+k1/linuxinc.tgz:  Upgraded to linux-2.2.19 include files.
+k1/lx2219.tgz:  Upgraded to linux-2.2.19 source code.
+n1/tcpip1.tgz:  Bugfixes in the netconfig scripts.
+Add kdi-lt.tgz to scripts in kde1/.
+----------------------------
+Thu Mar 29 17:57:01 PST 2001
+n1/openssh.tgz:  Upgraded to openssh-2.5.2p2.
+   (* Security fix *)
+   Security related changes:
+   Improved countermeasure against "Passive Analysis of SSH
+   (Secure Shell) Traffic"
+   http://openwall.com/advisories/OW-003-ssh-traffic-analysis.txt
+
+   The countermeasures introduced in earlier OpenSSH-2.5.x versions
+   caused interoperability problems with some other implementations.
+
+   Improved countermeasure against "SSH protocol 1.5 session
+   key recovery vulnerability"
+   http://www.core-sdi.com/advisories/ssh1_sessionkey_recovery.htm
+----------------------------
+Thu Mar 29 13:05:49 PST 2001
+a1/hdsetup.tgz:  xfree86setup should work now during installation.
+Upgraded KDE to version 2.1.1:
+kde1/kadmin.tgz:  Upgraded to kdeadmin-2.1.1.
+kde1/kdebase.tgz:  Upgraded to kdebase-2.1.1.
+kde1/kdegames.tgz:  Upgraded to kdegames-2.1.1.
+kde1/kdelibs.tgz:  Upgraded to kdelibs-2.1.1.
+kde1/kdepim.tgz:  Upgraded to kdepim-2.1.1.
+kde1/kdesdk.tgz:  Upgraded to kdesdk-2.1.1.
+kde1/kdetoys.tgz:  Upgraded to kdetoys-2.1.1.
+kde1/kdeutils.tgz:  Upgraded to kdeutils-2.1.1.
+kde1/kdevelop.tgz:  Upgraded to kdevelop-1.4.1.
+kde1/kdoc.tgz:  Upgraded to kdoc-2.1.1.
+kde1/kgraphic.tgz:  Upgraded to kdegraphics-2.1.1.
+kde1/kmedia.tgz:  Upgraded to kdemultimedia-2.1.1.
+kde1/knetwork.tgz:  Upgraded to kdenetwork-2.1.1.
+kde1/koffice.tgz:  Recompiled.
+kde1/ksupport.tgz:  Recompiled.
+KDE I18N packages upgraded to 2.1.1:
+kde1/kdi-ca.tgz, kde1/kdi-cs.tgz, kde1/kdi-da.tgz, kde1/kdi-de.tgz,
+kde1/kdi-el.tgz, kde1/kdi-eo.tgz, kde1/kdi-es.tgz, kde1/kdi-et.tgz,
+kde1/kdi-fi.tgz, kde1/kdi-fr.tgz, kde1/kdi-he.tgz, kde1/kdi-hu.tgz,
+kde1/kdi-is.tgz, kde1/kdi-it.tgz, kde1/kdi-ja.tgz, kde1/kdi-ko.tgz,
+kde1/kdi-lt.tgz, kde1/kdi-nl.tgz, kde1/kdi-no.tgz, kde1/kdi-nony.tgz,
+kde1/kdi-pl.tgz, kde1/kdi-pt.tgz, kde1/kdi-ptbr.tgz, kde1/kdi-ro.tgz,
+kde1/kdi-ru.tgz, kde1/kdi-sk.tgz, kde1/kdi-sl.tgz, kde1/kdi-sr.tgz,
+kde1/kdi-sv.tgz, kde1/kdi-tr.tgz, kde1/kdi-uk.tgz, kde1/kdi-zhcn.tgz,
+kde1/kdi-zhtw.tgz.
+----------------------------
+Wed Mar 28 14:05:03 PST 2001
+ap1/mysql.tgz:  Upgraded to mysql-3.23.36.  (* Security fix *)
+    Details may be found on www.securityfocus.com.
+n1/tcpip2.tgz:  Fixed build script for dhcpcd and recompiled.
+kde1/htdig.tgz:  New symlink for KDevelop:
+     /opt/www/htdig/bin/htsearch -> ../../cgi-bin/htsearch
+----------------------------
+Mon Mar 26 14:52:51 PST 2001
+n1/apache.tgz:  The Apache package has been restructured:
+   - Upgraded to Apache 1.3.19
+   - The /usr prefix is used now instead of /var/lib/apache
+   - Configuration files are located in /etc/apache
+   - Log files are located in /var/log/apache
+   - DSO modules are in /usr/libexec and header files used when building DSO
+     modules are located in /usr/include/apache.  The /usr/sbin/apxs script
+     is built to provide the correct build information to an Apache module.
+   - In addition to the above changes, the Extended API from mod_ssl has
+     been included in the base Apache build.  This allows for, among other
+     things, the building of mod_ssl outside of the Apache tree.
+   - mm-1.1.3, a shared memory library, has been added to the package and
+     linked in with Apache.
+   - Added the /usr/sbin/apacheconfig script for configuring basic Apache
+     and module settings.
+n1/mod_php.tgz:  Added PHP 4.0.4pl1, a server-side scripting language for
+   Apache.
+n1/mod_ssl.tgz:  Added mod_ssl 2.8.1-1.3.19, the Secure Sockets Layer module
+   for the Apache web server.  Users will need to generate their own site
+   certificates and certificate authority before the https server will work,
+   run "apacheconfig" to configure this on your system.  The SSL
+   configuration settings for this module are in /etc/apache, with the
+   mod_ssl.conf file being the master control file for mod_ssl.
+Thanks to David <david@slackware.com> for working his a** off on this stuff.
+----------------------------
+Sun Mar 25 13:59:42 PST 2001
+a1/devs.tgz:  Added several new devices: /dev/agpgart, /dev/aio, /dev/arpd,
+   /dev/atomicps, /dev/cfs0, /dev/cpu, /dev/cpu/*, /dev/cpu/*/cpuid,
+   /dev/cpu/*/msr, /dev/cpu/microcode, /dev/crash, /dev/cuub?, /dev/cuusb?,
+   /dev/fwmonitor, /dev/intel_rng, /dev/ipauth, /dev/ipl, /dev/ipnat,
+   /dev/ipstate, /dev/jsflash, /dev/kbd, /dev/mga_vid, /dev/msr, /dev/mtd?,
+   /dev/net/tun, /dev/nvram, /dev/pciconf, /dev/ppp, /dev/profile,
+   /dev/profile*, /dev/raw, /dev/raw?, /dev/route, /dev/sexec, /dev/shm,
+   /dev/speaker, /dev/tap?, /dev/trace, /dev/trace*, /dev/ttyUB?, /dev/ttyUSB?,
+   /dev/usb/ez?, /dev/usb/lp?, /dev/usb/mouse?, /dev/usb/rio500,
+   /dev/usb/scanner?, /dev/userdma, /dev/vmmon, /dev/xsvc, /dev/yamm.
+a1/floppy.tgz:  Upgraded to fdutils-5.4-20010112.
+   Upgraded to mtools-3.9.7-20010325d.
+----------------------------
+Sat Mar 24 23:18:57 PST 2001
+a1/etc.tgz:  Make $HOME = / for user mail.
+a1/modutils.tgz:  Upgraded to modutils-2.4.3.
+   Linked against libz.a instead of libz.so.
+a1/sysklogd.tgz:  Upgraded to sysklogd-1.4.1.
+ap1/cdparano:  Added cdparanoia-III-alpha9.7, a really nice Compact Disc digital
+    audio extraction tool.  I know it says "alpha", but it's rock-solid.
+n1/samba.tgz:  Recompiled without -lreadline, improved rc.samba.
+n1/tcpip1.tgz:  Upgraded to net-tools-1.59 and whois_4.5.4.
+   Recompiled against current libraries.
+   Remove ttysnoop example from /etc/inetd.conf.
+n1/tcpip2.tgz:  Upgraded to autofs-3.1.7.
+   Upgraded to dhcpcd-1.3.19-pl8.
+   Upgraded to ncftp-3.0.2 (adds large file support).
+   Removed ttysnoop (this no longer works, or even compiles).
+   Split out YP programs to be placed in a separate package.
+n1/yptools.tgz:  New package containing the NIS utilities that
+   were formerly part of tcpip2.tgz.
+   Upgraded to yp-tools-2.5.
+   Upgraded to ypserv-1.3.12.
+   Upgraded to ypbind-mt-1.8.
+----------------------------
+Wed Mar 21 03:50:58 PST 2001
+ap1/mysql.tgz:  Upgraded to mysql-3.23.35.
+    Moved mysql socket to /var/run/mysql/ directory.
+----------------------------
+Tue Mar 20 19:31:29 PST 2001
+kde1/qt2.tgz:  Upgraded to qt-x11-2.3.0.
+x1/xf86doc.tgz:  Upgraded to XFree86-4.0.3.
+x1/xf86html.tgz:  Upgraded to XFree86-4.0.3.
+x1/xf86prog.tgz:  Upgraded to XFree86-4.0.3.
+x1/xf86ps.tgz:  Upgraded to XFree86-4.0.3.
+x1/xfree86.tgz:  Upgraded to XFree86-4.0.3.
+x1/xnest.tgz:  Upgraded to XFree86-4.0.3.
+x1/xprt.tgz:  Upgraded to XFree86-4.0.3.
+x1/xvfb.tgz:  Upgraded to XFree86-4.0.3.
+----------------------------
+Mon Mar 19 10:04:56 PST 2001
+gtk1/wmaker.tgz:  Added I18N support.
+----------------------------
+Sun Mar 18 20:04:47 PST 2001
+a1/cxxlibs.tgz:  Added libstdc++-3-libc6.2-2-2.10.0.so.
+d1/gcc.tgz:  Upgraded to gcc-2.95.3.
+d1/gcc_g77.tgz:  Upgraded to gcc-2.95.3.
+d1/gcc_objc.tgz:  Upgraded to gcc-2.95.3.
+d1/gdb.tgz:  Recompiled.
+contrib/gcc-2.95.3-java-chill/gcc_java.tgz:  Upgraded to gcc-2.95.3.
+contrib/gcc-2.95.3-java-chill/gccchill.tgz:  Upgraded to gcc-2.95.3.
+----------------------------
+Wed Mar 14 12:12:12 PST 2001
+ap1/mysql.tgz:  Upgraded to mysql-3.23.34.
+----------------------------
+Tue Mar 13 21:51:37 PST 2001
+ap1/mysql.tgz:  Added mysql-3.23.33.
+d1/perl.tgz:  Rebuilt Perl and added the following module packages:
+   libnet, TermReadKey, Getopt-Mixed, and MD5.
+----------------------------
+Sun Mar 11 13:05:10 PST 2001
+gtk1/guile.tgz:  Fixed.  (This needed a small patch to build
+     under glibc-2.2.2)
+gtk1/libgtop.tgz:  Recompiled with guile support.
+gtk1/gnogames.tgz:  Added "sol" (needed guile support).
+gtk1/xscrsave.tgz:  Rebuilt to include GL screensavers.
+x1/xf86prog.tgz:  Add libGLU headers.
+x1/xfree86.tgz:  Add libGLU.so symlink.
+----------------------------
+Sat Mar 10 15:09:33 PST 2001
+ap1/mc.tgz:  Upgraded to mc-4.5.51.  (* Security fix *)
+    Midnight Commander versions 4.5.40 through 4.5.51 have an input
+    validation error that can allow malicious users to embed
+    commands in directory names after certain byte values.  The
+    commands are executed when a user opens that directory through
+    Midnight Commander.  The exploit can give additional priviledges
+    to the malicious user.  More information is available at the
+    Security Focus web site:
+             http://www.securityfocus.com/vdb/?id=2016
+    Security Focus states, "Currently the SecurityFocus staff are
+    not aware of any exploits for this issue."  Nonetheless, it's
+    worth upgrading to the new packages.
+gtk1/audiofil.tgz:  Upgraded to audiofile-0.2.1.
+gtk1/bugbuddy.tgz:  Upgraded to bug-buddy-1.2.
+gtk1/control.tgz:  Upgraded to control-center-1.2.4.
+gtk1/ee.tgz:  Upgraded to ee-0.3.12.
+gtk1/enlight.tgz:  Upgraded to enlightenment-0.16.5.
+gtk1/esound.tgz:  Upgraded to esound-0.2.22.  (* Security fix *)
+     A race condition at startup in earlier versions of esound 
+     allows a local attacker to make arbitrary system files
+     world-writable.
+gtk1/eterm.tgz:  Upgraded to Eterm-0.9.
+gtk1/freetype.tgz:  Recompiled.  (Enlightenment isn't ready for
+     freetype2 yet)
+gtk1/gdkpixbf.tgz:  Upgraded to gdk-pixbuf-0.9.0.
+gtk1/gdm.tgz:  Recompiled.
+gtk1/gedit.tgz:  Recompiled.
+gtk1/gftp.tgz:  Upgraded to gftp-2.0.7b.
+gtk1/ggv.tgz:  Upgraded to ggv-1.0-beta2.
+gtk1/gimp.tgz:  Upgraded to gimp-1.2.1.
+gtk1/gladedev.tgz:  Upgraded to glade-0.6.0.
+gtk1/gmc.tgz:  Upgraded to mc-4.5.51.  (* Security fix *)
+gtk1/gmp.tgz:  Upgraded to gmp-3.1.1.
+gtk1/gnoadmin.tgz:  Recompiled.
+gtk1/gnoaudio.tgz:  Upgraded to gnome-audio-1.4.0.
+gtk1/gnogames.tgz:  Recompiled.
+gtk1/gnomapps.tgz:  Upgraded to gnome-applets-1.2.4.
+gtk1/gnomcore.tgz:  Upgraded to gnome-core-1.2.4.
+gtk1/gnomedia.tgz:  Recompiled.
+gtk1/gnomeicu.tgz:  Upgraded to gnomeicu-0.96.1.
+gtk1/gnomenet.tgz:  Recompiled.
+gtk1/gnomepim.tgz:  Upgraded to gnome-pim-1.3.2.
+gtk1/gnometop.tgz:  Upgraded to gtop-1.0.12.
+gtk1/gnomlibs.tgz:  Upgraded to gnome-libs-1.2.12.
+gtk1/gnomobjc.tgz:  Recompiled.
+gtk1/gnoprint.tgz:  Upgraded to gnome-print-0.25.
+gtk1/gnotepad.tgz:  Recompiled.
+gtk1/gnoutils.tgz:  Upgraded to gnome-utils-1.3.1.
+gtk1/gnpython.tgz:  Upgraded to gnome-python-1.4.0.
+gtk1/gtkeng.tgz:  Upgraded to gtk-engines-0.11.
+gtk1/gtkglib.tgz:  Upgraded to glib-1.2.9, gtk+-1.2.9, and mpeg_lib-1.3.1.
+gtk1/guile.tgz:  Recompiled.
+gtk1/imlib.tgz:  Upgraded to imlib-1.9.9.
+gtk1/libghttp.tgz:  Upgraded to libghttp-1.0.9.
+gtk1/libglade.tgz:  Upgraded to libglade-0.16.
+gtk1/libgtop.tgz:  Upgraded to libgtop-1.0.12.
+gtk1/librep.tgz:  Upgraded to librep-0.13.4.
+gtk1/libxml.tgz:  Upgraded to libxml-1.8.11.
+gtk1/orbit.tgz:  Upgraded to ORBit-0.5.7.
+gtk1/repgtk.tgz:  Upgraded to rep-gtk-0.15.
+gtk1/sawfish.tgz:  Upgraded to sawfish-0.37.3.
+gtk1/wmaker.tgz:  Upgraded to WindowMaker-0.64.0, libPropList-0.10.1.
+gtk1/xscrsave.tgz:  Upgraded to xscreensaver-3.29.
+----------------------------
+Fri Mar  2 22:37:51 PST 2001
+kde1/kdebase.tgz:  Fix konsole path in kickerrc.
+n1/openssh.tgz:  Upgraded to openssh-2.5.1p2.
+n1/proftpd.tgz:  Upgraded to proftpd-1.2.1.
+   Fix --localstatedir (/var/run, not /var/run/proftpd).
+   Add /var/run/proftpd directory for ftpwho.
+----------------------------
+Thu Mar  1 18:18:29 PST 2001
+Upgraded to KDE 2.1.  (As always, _great_ job KDE team! :)
+kde1/kadmin.tgz:  Upgraded to kdeadmin-2.1.
+kde1/kdebase.tgz:  Upgraded to kdebase-2.1.
+kde1/kdegames.tgz:  Upgraded to kdegames-2.1. 
+kde1/kdelibs.tgz:  Upgraded to kdelibs-2.1.
+kde1/kdepim.tgz:  Upgraded to kdepim-2.1.
+kde1/kdesdk.tgz:  Added kdesdk-2.1.
+kde1/kdetoys.tgz:  Upgraded to kdetoys-2.1.
+kde1/kdeutils.tgz:  Upgraded to kdeutils-2.1.
+kde1/kdevelop.tgz:  Added kdevelop-1.4.
+kde1/kdi-ca.tgz:  Added KDE Catalan language support.
+kde1/kdi-cs.tgz:  Added KDE Czech language support.
+kde1/kdi-da.tgz:  Added KDE Danish language support.
+kde1/kdi-de.tgz:  Added KDE German language support.
+kde1/kdi-el.tgz:  Added KDE Greek language support.
+kde1/kdi-eo.tgz:  Added KDE Esperanto language support.
+kde1/kdi-es.tgz:  Added KDE Spanish language support.
+kde1/kdi-et.tgz:  Added KDE Estonian language support.
+kde1/kdi-fi.tgz:  Added KDE Finnish language support.
+kde1/kdi-fr.tgz:  Added KDE French language support.
+kde1/kdi-he.tgz:  Added KDE Hebrew language support.
+kde1/kdi-hu.tgz:  Added KDE Hungarian language support.
+kde1/kdi-is.tgz:  Added KDE Icelandic language support.
+kde1/kdi-it.tgz:  Added KDE Italian language support.
+kde1/kdi-ja.tgz:  Added KDE Japanese language support.
+kde1/kdi-ko.tgz:  Added KDE Korean language support.
+kde1/kdi-nl.tgz:  Added KDE Dutch language support.
+kde1/kdi-no.tgz:  Added KDE Norwegian (Bokmaal) language support.
+kde1/kdi-nony.tgz:  Added KDE Norwegian (Nynorsk) language support.
+kde1/kdi-pl.tgz:  Added KDE Polish language support.
+kde1/kdi-pt.tgz:  Added KDE Portuguese language support.
+kde1/kdi-ptbr.tgz:  Added KDE Brazil Portuguese language support.
+kde1/kdi-ro.tgz:  Added KDE Romanian language support.
+kde1/kdi-ru.tgz:  Added KDE Russian language support.
+kde1/kdi-sk.tgz:  Added KDE Slovak language support.
+kde1/kdi-sl.tgz:  Added KDE Slovenian language support.
+kde1/kdi-sr.tgz:  Added KDE Serbian language support.
+kde1/kdi-sv.tgz:  Added KDE Swedish language support.
+kde1/kdi-tr.tgz:  Added KDE Turkish language support.
+kde1/kdi-uk.tgz:  Added KDE Ukrainian language support.
+kde1/kdi-zhcn.tgz:  Added KDE Simplified Chinese language support.
+kde1/kdi-zhtw.tgz:  Added KDE Chinese language support.
+kde1/kdoc.tgz:  Upgraded to kdoc-2.1.
+kde1/kgraphic.tgz:  Upgraded to kdegraphics-2.1.
+kde1/kmedia.tgz:  Upgraded to kdemultimedia-2.1.
+kde1/knetwork.tgz:  Upgraded to kdenetwork-2.1.
+kde1/ksupport.tgz:  Upgraded to kdesupport-2.1.
+ap1/rpm.tgz:  Switched to rpm-4.0.  73.5% bigger.
+----------------------------
+Tue Feb 27 15:31:05 PST 2001
+n1/imapd.tgz:  No, the package wasn't changed.  But, there's an
+   update regarding the supposed imapd overflow. It was
+   reported to us that an exploit existed for the version
+   of imapd previously used by Slackware, but after obtaining a
+   copy of the exploit from this site:
+   http://packetstorm.securify.com/0102-exploits/imapd_exploit.c
+   ...we found it to be completely ineffective.  Still, it never
+   hurts to keep daemons that provide network services as
+   up-to-date as possible, so if you're running imapd you should
+   consider upgrading.
+----------------------------
+Mon Feb 26 18:16:17 PST 2001
+a1/hdsetup.tgz:  Bugfixes and more informative closing dialog in
+   xfree86setup.
+n1/imapd.tgz:  Upgraded to IMAP4rev1 2000.287 from pine4.33.
+   (* Security fix *)  A remote exploit exists for the previously
+   included version of imapd, so all sites running imapd are urged
+   to upgrade to the new version immediately.  Note that imapd
+   has been installed to run by default in previous versions of
+   Slackware, including 7.1. 
+n1/pine.tgz:  Upgraded to pine4.33.
+n1/proftpd.tgz:  Upgraded to proftpd-1.2.0.
+n1/tcpip1.tgz:  Edit /etc/inetd.conf to not allow access to POP or
+   IMAP by default.  If people want to run a mail server, they can
+   edit /etc/inetd.conf to open these services up.
+Many upgrades and additions in the /contrib directory:
+contrib/afterstep-1.8.8-i386-1.tgz:  Upgraded.
+contrib/blackbox-0.61.1-i386-1.tgz:  Upgraded.
+contrib/cmatrix-1.1b-i386-1.tgz:  Upgraded.
+contrib/epic4-0.9.15-i386-1.tgz:  Upgraded.
+contrib/figlet-2.2-i386-1.tgz:  Added a program that makes large
+        ASCII letters out of ordinary text.
+contrib/icewm-1.0.6-i386-1.tgz:  Upgraded.
+contrib/libsafe-1.3-i386-1.tgz:  Recompiled.
+contrib/libsdl-1.1.8-i386-1.tgz:  Added Simple DirectMedia Layer.
+contrib/openmotif2.1.30/openmotif-2.1.30-i386-2.tgz:  Recompiled.
+contrib/parted-1.4.9-i386-1.tgz:  Upgraded.
+contrib/pinfo-0.6.0-i386-1.tgz:  Upgraded.
+contrib/qcam-0.91j-i386-1.tgz:  Recompiled.
+contrib/rexima-1.1-i386-1.tgz:  Upgraded.
+contrib/rio-1.07m-i386-1.tgz:  Upgraded.
+contrib/rp_pppoe-2.8-i386-1.tgz:  Added PPPoE client and server.
+contrib/socket-1.1-i386-1.tgz:  Upgraded.
+contrib/up-0.3-i386-1.tgz:  Recompiled.
+contrib/xfstt-1.1-i386-1.tgz:  Recompiled.
+contrib/xmps-0.2.0-i386-1.tgz:  Added X Movie Player System.
+----------------------------
+Mon Feb 26 00:12:37 PST 2001
+a1/etc.tgz:  Added MySQL user/group (uid 27, gid 27).
+   Added ftp group (gid 50).
+a1/hdsetup.tgz:  Patched cpkgtool and pkgtool.tty for safer removal
+   of packages when some of the files/directories have been previously
+   removed manually.  Thanks to Ivan Kalvatchev for suggesting a fix.
+   Edited xfree86setup to ask if you want to configure instead of
+   just going ahead with it.
+n1/proftpd.tgz:  Added proftpd-1.2.0rc3-CVS-20010222
+   (final test release).
+n1/tcpip.tgz:  Many patches to rebuild under glibc-2.2.2.
+   Edited inetd.conf to use proftpd instead of wu-ftpd.
+pasture/wu-ftpd-2.6.1/wuftpd.tgz:  wu-ftpd-2.6.1 retired to /pasture.
+----------------------------
+Sun Feb 25 00:27:02 PST 2001
+a1/hdsetup.tgz:  Added xfree86setup (a simple X configuration script).
+a1/loadlin.tgz:  Upgraded to loadlin-1.6b.
+ap1/cdutils.tgz:  Recompiled against linux-2.2.18 headers (this allows
+    cdrecord to work with either the 2.2.x or 2.4.x kernel).
+n1/bitchx.tgz:  Added BitchX-1.0c18.
+----------------------------
+Sat Feb 24 16:23:44 PST 2001
+...I hate to do this on a weekend, but:
+ap1/sudo.tgz:  Upgraded to sudo-1.6.3p6.  (* Security fix *)
+    Fixes buffer overflow hole reported on BugTraq.
+----------------------------
+Fri Feb 23 20:14:10 PST 2001
+a1/aaa_base.tgz:  Add /usr/X11R6/include/X11 directory.
+kde1/qt2.tgz:  Upgraded to qt-x11-2.2.4.
+x1/xf86prog.tgz:  Rebuilt from updated CVS XFree86 4_0_2-branch.
+x1/xfree86.tgz:  Rebuilt from updated CVS XFree86 4_0_2-branch.
+   Added DRI modules for Voodoo3 and Voodoo4/5.
+x1/xnest.tgz:  Rebuilt from updated CVS XFree86 4_0_2-branch.
+x1/xprt.tgz:  Rebuilt from updated CVS XFree86 4_0_2-branch.
+x1/xvfb.tgz:  Rebuilt from updated CVS XFree86 4_0_2-branch.
+----------------------------
+Tue Feb 20 16:21:56 PST 2001
+a1/gpm.tgz:  Remove redundant mouse setup menu.
+----------------------------
+Tue Feb 20 14:10:32 PST 2001
+d1/perl.tgz:  Recompiled without -lndbm to fix DB_File module.
+   Thanks to Toshikazu Yoshikawa for posting a problem report and fix.
+n1/openssh.tgz:  Upgraded to openssh-2.5.1p1.
+----------------------------
+Mon Feb 19 16:09:59 PST 2001
+a1/etc.tgz:  Fixed /usr/bin/filesize to handle large files.
+a1/glibcso.tgz:  Upgraded to glibc-2.2.2.
+a1/gpm.tgz:  Move PS/2 mouse to top of the menu list.
+a1/hdsetup.tgz:  Obsolete XD series support removed.
+   Fixed --no-paranoia in upgradepkg (but you still shouldn't use it :)
+a1/ldso.tgz:  Refreshed initial /etc/ld.so.cache.
+a1/zoneinfo.tgz:  Updated to glibc-2.2.2 timezone database
+   (from tzdata2000h).
+d1/glibc.tgz:  Upgraded to glibc-2.2.2.
+d1/glocale.tgz:  Upgraded to locale files from glibc-2.2.2.
+n1/rsync.tgz:  Upgraded to rsync-2.4.6.  Added large file support.
+XFree86-3.3.6 and source has been moved into /pasture, as has Mesa, which
+is now included with (and installed by) the XFree86-4.0.2 source tree.
+Speaking of which, XFree86-4.0.2 is now merged into slakware/x1:
+x1/xf86doc.tgz:  Docs for XFree86-4.0.2.
+x1/xf86html.tgz:  HTML docs for XFree86-4.0.2.
+x1/xf86jdoc.tgz:  Japanese docs for XFree86-4.0.2.
+x1/xf86prog.tgz:  XFree86-4.0.2 development libs/includes/manpages.
+x1/xf86ps.tgz:  PostScript docs for XFree86-4.0.2.
+x1/xfnts.tgz:  Fonts for XFree86-4.0.2.
+x1/xfnts100.tgz:  100dpi fonts for XFree86-4.0.2.
+x1/xfntscal.tgz:  Scalable fonts for XFree86-4.0.2.
+x1/xfntscyr.tgz:  Cyrillic fonts for XFree86-4.0.2.
+x1/xfntslt2.tgz:  Latin-2 (ISO8859-2) fonts for XFree86-4.0.2.
+x1/xfree86.tgz:  Main XFree86-4.0.2 package.
+x1/xnest.tgz:  Experimental nested X server.
+x1/xprt.tgz:  Print-only X server.
+x1/xvfb.tgz:  Experimental virtual framebuffer X server.
+rootdsks/color.gz, umsdos.gz, text.gz:  Obsolete XD series support removed.
+.eltorito/eltorito.img:  Obsolete XD series support removed.
+contrib/XFree86-4.0.1/:  removed.
+----------------------------
+Sun Feb 18 00:38:26 PST 2001
+a1/aaa_base.tgz:  Fix an error message (about var/X11R6/lib) when installing
+   a new system.  Relocate X11 fonts directory to /usr/X11R6/lib/X11/fonts/.
+   Now that /usr/X11R6/lib/X11 is not a symlink to /var/X11R6/lib/, there's
+   no good reason to go against the prevailing standard.  Remove the
+   /var/X11R6/bin directory.
+a1/floppy.tgz:  Fix xdfformat.1.gz manpage symlink.
+a1/hdsetup.tgz:  Patched xwmconfig to not run unless there are actually some
+   xinitrc files in /etc/X11/xinit.
+gtk1/freefont.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+x1/xf100.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+x1/xfcyr.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+x1/xfnon.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+x1/xfscl.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+xap1/x3270.tgz:  Move fonts into /usr/X11R6/lib/X11/fonts/.
+----------------------------
+Fri Feb 16 01:19:21 PST 2001
+a1/aaa_base.tgz:  Make several symlinks from /usr/X11R6/lib/X11 to
+   /etc/X11 even if /usr/X11R6/lib/X11 begins as an empty directory.
+ap1/mt_st.tgz:  Upgraded to mt-st-0.6.
+Added /pasture directory.  A nice place for Slackware packages to retire
+in their old age. :)
+----------------------------
+Wed Feb 14 10:15:02 PST 2001
+a1/aaa_base.tgz:  Added /usr/share/doc -> ../doc symlink.
+   *** follow default XFree86 directory layout ***
+   Removed /var/X11R6/lib directory.
+   Added /var/X11R6/lib symlink.
+   Added /etc/X11 directory.
+   Eliminate /usr/X11R6/lib/X11 symlink.
+   Added /usr/X11R6/lib/X11 directory.
+   Added /usr/X11R6/lib/X11/fonts symlink.
+   Move these symlinks here from xbin.tgz, since they aren't installed by
+   XFree86 by default: /usr/bin/X11, /usr/lib/X11, /usr/include/X11, /usr/X11.
+   NOTE:  One of the things aaa_base will do this time around is to transform
+   the X11R6 layout on a Slackware Linux machine from the old structure to the
+   more commonly used (and now XFree86 default on Linux) structure.  The old
+   Slackware structure (used since the original FSSTND days) featured a
+   symlink from /usr/X11R6/lib/X11 to a /var/X11R6/lib directory.  Now there
+   are actual /usr/X11R6/lib/X11 and /etc/X11 directories, and many symlinks
+   from /usr/X11R6/lib/X11 into /etc/X11.  The purpose of this "grand
+   reorganization" is to fall in line with the way XFree86 installs itself
+   (which is now Linux FHS compliant), and to make XFree86 easier to upgrade
+   from source.  Make sure you upgrade this package before upgrading to any
+   other X related packages in this batch of updates.
+a1/devs.tgz:  .tar.gz'ed Mylex devices in /dev/rd (these are used by few people
+   but were using 2000+ inodes).  Easy enough to untar if you need them.
+   Added a few new device nodes.  Changed dialout devices (ttyS*) to gid uucp.
+a1/etc.tgz:  Alex Bukhansky wins the "find the oldest obvious bug" contest by
+   pointing out that line 13 of /etc/termcap (now /etc/termcap-Linux) is
+   missing a comment.
+a1/floppy.tgz:  Recompiled with the mtools-3.9.7-20001213 patch.
+   (accidentally left out of the previous build script)
+a1/hdsetup.tgz:  Patch xwmconfig to move xinitrc to /etc/X11/xinit/.
+   Patch upgradepkg to "double install" packages by default.  Note that you
+   might get an error if you use upgradepkg to update itself, but the
+   installed package will be ok.  I wouldn't give upgradegpkg a long list
+   of things to upgrade that includes hdsetup.tgz, though, or it will stop
+   when it reaches that package.
+a1/minicom.tgz:  Upgraded to minicom-1.83.1.  Also, /usr/bin/minicom is no
+   longer setgid uucp.  Instead, the dialout devices may only be accessed by
+   members of the uucp group, so add users to that group if they are trusted
+   to use the modem.
+ap1/groff.tgz:  Moved app-defaults to /etc/X11/.
+ap1/sudo.tgz:  Moved stray symlink into install script.
+kde1/kdebase.tgz:  Moved /var/X11R6/lib/ to /etc/X11/.
+n1/mutt.tgz:  Mutt requires docs to be in /usr/doc/mutt.
+n1/tcpip1.tgz:  Upgraded to inetd-OpenBSD-1.79.
+n1/uucp.tgz:  Make several binaries setuid uucp in addition to setgid uucp.
+t1/transfig.tgz:  Upgraded to transfig.3.2.3c.
+t1/xfig.tgz:  Upgraded to xfig.3.2.3c.
+x1/xcfg.tgz:  Relocate from /var/X11R6/lib to /etc/X11.  Edit Xsession to
+   run /etc/X11/xinit/xinitrc.
+x1/xdoc.tgz:  Moved from /var/X11R6/lib/doc to /usr/X11R6/lib/X11/doc.
+x1/xlib.tgz:  Moved from /var/X11R6/lib to /usr/X11R6/lib/X11.
+x1/xfsrv.tgz:  Moved config dir from /var/X11R6/lib/fs to /etc/X11/fs.
+x1/xhtml.tgz:  Moved docs into /usr/X11R6/lib/X11/doc/html.
+x1/xjdoc.tgz:  Moved docs into /usr/X11R6/lib/X11/doc/Japanese.
+x1/xprog.tgz:  Since LessTif no longer requires modification to Motif.tmpl or
+   Motif.rules, revert to the versions of those provided by XFree86, and
+   unpatch Imake.tmpl so that they aren't included.  In addition, if there's
+   already a host.def file (which LessTif now uses), don't overwrite it with
+   the empty file included with XFree86.
+x1/xps.tgz:  Moved docs into /usr/X11R6/lib/X11/doc/PostScript.
+x1/xset.tgz:  Moved support files into /usr/X11R6/lib/X11/XF86Setup.
+x1/lesstif.tgz:  Upgraded to lesstif-0.92.6.  Don't overwrite host.def --
+   instead modify the existing file.
+x1/xbin.tgz:  Remove symlinks:  /usr/bin/X11, /usr/lib/X11, /usr/include/X11,
+   /usr/X11R6/lib/X11, /var/X11R6/lib/fonts.  These are now in aaa_base.tgz.
+   Move files in /var/X11R6/lib/app-defaults to /etc/X11/app-defaults.
+   Remove rxvt and rclock, and man pages, which belong in their own package.
+xap1/fvwm2.tgz:  Recompile to move lib directory to /etc/X11/fvwm2/.
+     Moved package here from x1/.
+xap1/fvwm95.tgz:  Upgraded to fvwm95-2.0.43ba-15.  Moved files into
+     /etc/X11/fvwm95, /etc/X11/xinit, and /usr/X11R6/lib/X11.
+xap1/fvwmicns.tgz:  Moved package here from x1/.
+xap1/gv.tgz:  Moved app-defaults into /etc/X11/app-defaults.
+xap1/xlock.tgz:  Upgraded to xlockmore-5.00.  Adds these new modes:  fire,
+     pentominoes, roll, sballs, t3d, tik_tak, and xcl.
+     Moved package here from x1/.
+xap1/rxvt.tgz:  Added separate rxvt package, upgrade to rxvt-2.6.3.
+xap1/seyon.tgz:  Upgraded to seyon-2.20c.  Moved app-defaults into
+     /etc/X11/app-defaults.
+xap1/x3270.tgz:  Moved app-defaults into /etc/X11/app-defaults.
+xap1/xfm.tgz:  Moved support files into /etc/X11/xfm.
+xap1/xpaint.tgz:  Moved app-defaults into /etc/X11/app-defaults.
+xap1/xxgdb.tgz:  Moved app-defaults into /etc/X11/app-defaults.
+xv1/xvol32.tgz:  Moved xinitrc.openwin to /etc/X11/xinit.
+    Moved Xinitrc into /usr/openwin/lib, removed the symlink,
+    and removed /var/openwin.
+    Moved config files to /usr/X11R6/lib/X11/config.
+The following things are in GTK, which will be getting a proper refresh
+shortly.  Meanwhile, we'll align these things with the new standard:
+gtk1/econf.tgz:  Obsolete.  Removed.
+gtk1/enlight.tgz:  Moved xinitrc.e to /etc/X11/xinit.
+gtk1/gdm.tgz:  Moved configuration files into /etc/X11/gdm.
+gtk1/gnomcore.tgz:  Moved xinitrc.gnome to /etc/X11/xinit.
+gtk1/sawfish.tgz:  Moved xinitrc.sawfish to /etc/X11/xinit.
+gtk1/wmaker.tgz:  Moved xinitrc.wmaker to /etc/X11/xinit.
+gtk1/xscrsave.tgz:  Moved app-defaults into /etc/X11/app-defaults.
+----------------------------
+Sun Feb  4 16:01:39 PST 2001
+contrib/3dfx/:  Refreshed the 3Dfx package archive.  Latest CVS snapshots of
+   Glide 2.x and 3.x, added Voodoo 4/5 Glide and Glide-DRI packages,
+   reorganized the packages (there's now a Glide package for each card),
+   new Mesa build against latest Glide 2.x CVS snapshot, removed the xtdfx.tgz
+   package (obsolete), removed the fxt1.tgz package (obsolete).  Please see
+   the README and README.cards files in the /contrib/3dfx directory for more
+   information.
+contrib/ham/:  Added updates from Arno Verhoeven:  xconvers-0.5,
+   soundmodem-0.4, linkt-0.6.99-001106, and xfbb-7.03a.  Also,
+    httptunnel-2.90.tgz was removed (obsolete).
+a1/aaa_base.tgz:  Added /usr/share/man -> ../man symlink.
+a1/bzip2.tgz:  Upgraded to bzip2-1.0.1, large file support.
+a1/elflibs.tgz:  Upgraded to libpng.so.2.1.0.9, libbz2.so.1.0.1,
+   libtiff.so.3.5.5, libhistory.so.4.1, libreadline.so.4.1,
+   libgdbm.so.2.0.0 (gdbm-1.8.0), libslang.so.1.4.3.
+a1/floppy.tgz:  Upgraded to fdutils-5.4 + fdutils-5.4-20010112.diff,
+   and mtools-3.9.7 + mtools-3.9.7-20001213.
+a1/less.tgz:  Upgraded to less-358.
+a1/lilo.tgz:  Upgraded to lilo-21.6.1.
+a1/reiserfs.tgz:  Added reiserfs_utils-3.6.25-fsck-3.x.0b.
+a1/sh_utils.tgz:  Fixed date's --utc option (thanks to Greg Roelofs for the
+   patch), recompiled everything to support large files.
+a1/tcsh.tgz:  Upgraded to tcsh-6.10.
+a1/umsprogs.tgz:  Upgraded to umsdos_progs-1.13.
+a1/util.tgz:  Upgraded to util-linux-2.10s.
+ap1/bc.tgz:  Upgraded to GNU bc-1.06.
+ap1/cdutils.tgz:  Upgraded to cdrecord-1.9.
+ap1/groff.tgz:  Upgraded to GNU groff-1.16.1.
+ap1/jed.tgz:  Upgraded to jed-B0.99-12.
+ap1/manpages.tgz:  Upgraded to man-pages-1.34.
+ap1/sc.tgz:  Upgraded to sc-7.7.
+ap1/sox.tgz:  Upgraded to sox-12.17.1.
+ap1/sudo.tgz:  Upgraded to sudo-1.6.3p5.
+d1/binutils.tgz:  Upgraded to binutils-2.10.1.0.4.
+d1/gdbm.tgz:  Upgraded to GNU gdbm-1.8.0.
+d1/gmake.tgz:  Upgraded to GNU make-3.79.1.
+d1/libpng.tgz:  Upgraded to libpng-1.0.9.
+d1/libtiff.tgz:  Upgraded to tiff-v3.5.5.
+d1/perl.tgz:  Recompiled to enable large file support.
+   Upgraded to DBI-1.14.
+d1/pmake.tgz:  Upgraded to pmake-2.1.34.
+d1/readline.tgz:  Upgraded to GNU libreadline-4.1.
+d1/slang.tgz:  Upgraded to slang-1.4.3.
+n1/apache.tgz:  Upgraded to apache_1.3.17.
+n1/inn.tgz:  Upgraded to inn-2.3.1.
+n1/tcpdump.tgz:  Upgraded to tcpdump-3.6.1, libpcap-0.6.1.
+n1/tin.tgz:  Upgraded to tin-1.4.4.
+----------------------------
+Fri Feb  2 17:46:03 PST 2001
+Starting to support large (>2GB) files.  Note that you need to run linux-2.4.0
+or newer to use large file support.
+a1/fileutls.tgz:  Compile /bin/ln as static, as glibc doesn't always rebuild
+   reliably without this.  Enable large file support.
+a1/glibcso.tgz:  Recompiled glibc-2.2.1 under linux-2.4.1. 
+   (adds large file support)
+a1/modutils.tgz:  Upgraded to modutils-2.4.2.
+a1/txtutils.tgz:  Recompile to enable large file support.
+d1/cvs.tgz:  Added cvs-1.11.
+d1/glibc.tgz:  Recompiled glibc-2.2.1 under linux-2.4.1.  
+   (adds large file support)
+d1/glocale.tgz:  Regenerated from glibc-2.2.1 sources.
+----------------------------
+Sun Jan 28 13:42:44 PST 2001
+n1/bind.tgz:  Upgraded to bind-8.2.3. (* Security fix *)
+----------------------------
+Fri Jan 26 01:03:56 PST 2001
+d1/python.tgz:  Upgraded to python-2.0.
+----------------------------
+Tue Jan 23 18:28:12 PST 2001
+sgiboot/vmlinux:  Recompiled adding Adaptec SCSI support.
+----------------------------
+Mon Jan 22 22:19:01 PST 2001
+n1/iptables.tgz:  Added iptables-1.2.
+n1/ppp.tgz:  Upgraded to ppp-2.4.0.
+----------------------------
+Thu Jan 18 23:25:05 PST 2001
+sgiboot/kernel-source/defkeymap.map:  According to Greg, this
+        line in defkeymap.map should also be commented out
+        for the SGI's USB keyboard:
+        #       control alt     keycode 111 = Boot
+sgiboot/vmlinux:  Recompiled the SGI kernel with the patched
+        keymap.
+----------------------------
+Thu Jan 18 22:10:07 PST 2001
+ap1/a2ps.tgz:  Added a2ps-4.13b and psutils-1.17.  (converts
+    most formats to PostScript -- useful for APSFILTER)
+----------------------------
+Wed Jan 17 22:07:47 PST 2001
+a1/modutils.tgz:  Upgraded to modutils-2.4.1.
+ap1/apsfilt.tgz:  Apply official diff-6.0.0-09.01.2001.gz
+    to fix samba remote printing.
+----------------------------
+Sun Jan 14 16:34:12 PST 2001
+a1/glibcso.tgz:  Upgraded to glibc-2.2.1.
+a1/zoneinfo.tgz:  Updated to glibc-2.2.1 timezone database
+   (from tzdata2000h).
+d1/glibc.tgz:  Upgraded to glibc-2.2.1.
+d1/glocale.tgz:  Upgraded to locale files from glibc-2.2.1.
+----------------------------
+Sat Jan 13 13:46:38 PST 2001
+a1/sysvinit.tgz:  Remove obsolete references to kerneld and
+   -f flag to reboot/halt in rc.* scripts.
+----------------------------
+Thu Jan 11 22:52:49 PST 2001
+.eltorito/eltorito.img:  Upgraded to linux-2.2.18.
+bootdsks.12/:  Upgraded to linux-2.2.18.
+bootdsks.144/:  Upgraded to linux-2.2.18.
+kernels/:  Upgraded to linux-2.2.18.
+sgiboot/vmlinux:  Recompiled with defkeymap.map that fixes the
+        backspace problem with the SGI USB keyboard.  Fix sent
+        in by Sir Ace ("Greg from Systems").
+rootdsks/network.dsk:  Upgraded to linux-2.2.18 kernel modules.
+rootdsks/pcmcia.dsk:  Upgraded to pcmcia-cs-3.1.23.
+a1/fsmods.tgz:  Upgraded to linux-2.2.18 kernel modules.
+a1/ibcs2.tgz:  Recompiled for linux-2.2.18.
+a1/ide.tgz:  Upgraded to linux-2.2.18 kernel for IDE.
+a1/modules.tgz:  Upgraded to linux-2.2.18 kernel modules.
+a1/pcmcia.tgz:  Upgraded to pcmcia-cs-3.1.23.
+a1/scsi.tgz:  Upgraded to linux-2.2.18 kernel for IDE/SCSI.
+a1/scsimods.tgz:  Upgraded to linux-2.2.18 kernel modules.
+a1/sndmods.tgz:  Upgraded to linux-2.2.18 kernel modules.
+d1/linuxinc.tgz:  Upgraded to linux-2.2.18 include files.
+k1/linuxinc.tgz:  Upgraded to linux-2.2.18 include files.
+k1/lx2218.tgz:  Upgraded to linux-2.2.18 source code.
+n1/netmods.tgz:  Upgraded to linux-2.2.18 kernel modules.
+----------------------------
+Wed Jan 10 12:46:50 PST 2001
+(* security fix *)
+glibc-2.2 contains a local vulnerability that affects all setuid root
+binaries.  Any user on affected systems will be able to read any file on
+the system through a simple process:  The user sets the RESOLV_HOST_CONF
+environment variable to the name of the file that they wish to read, then
+runs any setuid root program that makes use of that variable.  The file is
+then written to stderr.
+a1/glibcso.tgz:  Patched sysdeps/generic/unsecvars.h to fix the problem
+   with RESOLV_HOST_CONF, and also to add HOSTALIASES to the list.  (this
+   change is noted in glibc-CVS)
+d1/glibc.tgz:  Patched sysdeps/generic/unsecvars.h as above. 
+----------------------------
+Mon Jan  8 02:02:47 PST 2001
+a1/devs.tgz:  Added /dev/input/ USB devices.
+   Added /dev/oldusbmouse device (misc 10 32).
+a1/glibcso.tgz:  Remove bash-specific code from install script.
+a1/gpm.tgz:  Upgraded to gpm-1.19.3.
+a1/ossllibs.tgz:  Added /etc/ssl/ lib directory.
+a1/sysvinit.tgz:  Added /sbin/poweroff -> halt symlink.
+   Patched /etc/rc.d/rc.6 to call poweroff instead of halt -p.
+   Patched /etc/rc.d/rc.S and /etc/rc.d/rc.6 to not run /sbin/hwclock
+   on SGI Visual Workstations with the Cobalt APIC.
+d1/egcs.tgz:  Brought back egcs-1.1.2 as an alternate to gcc-2.95.2,
+   primarily for use as a kernel compiler now that the kernel team
+   recommends it for linux-2.4.0.  For all other uses, gcc-2.95.2
+   is probably a better choice.
+d1/egcs_g77.tgz:  Moved back to d1/ from contrib/egcs-1.1.2/.
+   It's probably better to use gcc_g77.tgz than this package.
+d1/egcsobjc.tgz:  Moved back to d1/ from contrib/egcs-1.1.2/.
+   It's probably better to use gccobjc.tgz than this package.
+d1/glibc.tgz:  Remove bash-specific code from install script.
+n1/openssh.tgz:  Moved config directory to /etc/ssh/.
+n1/openssl.tgz:  Moved ssl lib directory to /etc/ssl/.
+n1/tcpdump.tgz:  Upgraded to tcpdump-3.5.2 and libpcap-0.5.2.
+n1/tcpip1.tgz:  Upgraded to pidentd-3.0.12.
+   Added routed.18.candidate.final.patch.gz from Jan Rafaj.
+   Patched timed for glibc-2.2.
+sgiboot/:  Added support for the SGI Visual Workstation 320 and 540.
+----------------------------
+Fri Jan  5 16:39:05 PST 2001
+a1/devfsd.tgz:  Added devfsd-v1.3.10.
+a1/modutils.tgz:  Upgraded to modutils-2.4.0.
+ap1/apsfilt.tgz:  Upgraded to apsfilter-6.0.0.
+----------------------------
+Wed Jan  3 22:19:50 PST 2001
+ap1/ghostscr.tgz:  Upgraded to gnu-gs-5.50.  The /usr/bin/gs in this
+    package is compiled, as usual, without X11 support so as not to
+    require the X11 shared libraries.  If you require X11 support
+    (most people probably do) then install the gs_x11.tgz package
+    after installing this one.
+    Improved /tmp security with mkstemp().
+    Added support for the stp driver from gimp-print-4.0.4, additional
+    Epson, HP, and Lexmark printer support merged in.
+ap1/gsfonts.tgz:  Upgraded to gnu-gs-fonts-other-5.50.tar.gz and
+    gnu-gs-fonts-std-5.50.tar.gz.
+gtk1/gimp.tgz:  Upgraded to gimp-1.2.0 and gimp-data-extras-1.2.0.
+n1/procmail.tgz:  Recompiled.
+n1/sendmail.tgz:  Upgraded to sendmail-8.11.2.
+n1/smailcfg.tgz:  Upgraded to config files for sendmail-8.11.2.
+xap1/gs_x11.tgz:  Upgraded to gnu-gs-5.50 with X11 driver support.
+----------------------------
+Mon Dec 18 17:00:34 PST 2000
+a1/etc.tgz:  Upgrade to Chris Lumens' ksh prompt:  PS1='! ${PWD/#$HOME/~}$ '
+   Upgrade to BSD termcap 11.0.1.
+   Swap /etc/nsswitch.conf parameters (it turns out the other way causes
+   way more problems than it solves):
+             -hosts:          dns files
+             +hosts:          files dns
+             -networks:       dns files
+             +networks:       files dns
+a1/glibcso.tgz:  Changed shared library install script to install as many
+   shared libraries simultaneously as possible.  This is because glibc
+   seems to be getting more strict about the dependencies between the
+   various shared libraries, and it doesn't always work to install and
+   ldconfig them individually.
+d1/glibc.tgz:  Changed install script as noted in a1/glibcso.tgz above.
+   Added /usr/lib/libnss_db.a.
+n1/tcpip2.tgz:  Swap /etc/nsswitch.conf parameters.
+----------------------------
+Fri Dec 15 12:26:55 PST 2000
+n1/openssh.tgz:  Fixed a small bug in /etc/rc.d/rc.sshd:
+ sshd_restart() {
+-  ssh_stop
++  sshd_stop
+   sleep 1
+-  ssh_start
++  sshd_start
+ }
+----------------------------
+Thu Dec 14 16:52:56 PST 2000
+a1/etc.tgz:  Fixed /etc/profile for ksh93 compatibility.  (changed some " to ',
+   added setting for VISUAL mode)
+a1/ldso.tgz:  Updated default /etc/ld.so.cache with glibc-2.2 entries.  This is
+   recreated with each boot anyway, but the system must ship with an original
+   version that's sufficient to get it that far.
+a1/ossllibs.tgz:  Added OpenSSL shared library package.
+ap1/ksh93.tgz:  Added AT&T Korn Shell 93 (2000-10-31.0000).
+kde1/kadmin.tgz:  Upgraded to kdeadmin-2.0.1.
+kde1/kde-i18n.tgz:  Upgraded to kde-i18n-2.0.1.
+kde1/kdebase.tgz:  Upgraded to kdebase-2.0.1.
+kde1/kdegames.tgz:  Upgraded to kdegames-2.0.1.
+kde1/kdelibs.tgz:  Upgraded to kdelibs-2.0.1.
+kde1/kdepim.tgz:  Upgraded to kdepim-2.0.1.
+kde1/kdetoys.tgz:  Upgraded to kdetoys-2.0.1.
+kde1/kdeutils.tgz: Upgraded to kdeutils-2.0.1.
+kde1/kdoc.tgz: Upgraded to kdoc-2.0.1b.
+kde1/kgraphic.tgz: Upgraded to kdegraphics-2.0.1.
+kde1/kmedia.tgz: Upgraded to kdemultimedia-2.0.1.
+kde1/knetwork.tgz: Upgraded to kdenetwork-2.0.1.
+kde1/koffice.tgz: Upgraded to koffice-2.0.1.
+kde1/ksupport.tgz: Upgraded to ksupport-2.0.1.
+kde1/qt2.tgz:  Upgraded to qt-x11-2.2.3.
+n1/imapd.tgz:  Upgraded to IMAP4rev1 2000.284 from pine-4.31.
+n1/mutt.tgz:  Added mutt-1.2.5i.
+n1/openssh.tgz:  Added openssh-2.3.0p1.
+n1/openssl.tgz:  Added openssl-0.9.6.  Due to patent or license issues, there is
+   no support for the following algorithms:  MDC2, IDEA, RC5, MD2.
+n1/pine.tgz:  Upgraded to pine-4.31.
+n1/tcpip1.tgz:    Upgraded to pidentd-3.0.11, added idecrypt and ikeygen
+   utilities.  Linked pidentd with libcrypto.
+   Disabled writing to identd.pid.
+   Added commented out entries for KDE's talk to /etc/inetd.conf.
+   Edited /etc/rc.d/rc.inet2 to start /etc/rc.d/rc.sshd, if it is found.
+   Edited rc.inet2 to use /usr/sbin/ndc to start named.
+   (NOTE:  If you want the new version of rc.inet2 installed, which is
+   recommended, you'll have to remove the old version before using installpkg
+   or upgradepkg)
+rootdsks/network.dsk:  Fixed a problem where cards were found and activated for
+   an NFS install, but no /etc/rc.d/rc.netdevice was created so they weren't
+   found after the reboot.
+----------------------------
+Thu Nov 30 18:00:11 PST 2000
+a1/libdb123.tgz:  Eliminated.  (merged into glibcso.tgz)
+a1/elflibs.tgz:  Replaced libltdl.so.0.1.1 with libltdl.so.0.1.2.
+a1/glibcso.tgz:  Merged in Berkeley DB libraries.
+a1/sysvinit.tgz:  Edited rc.S and rc.0/6 so that if a partition cannot
+   be unmounted, try remounting it as read-only.  This can prevent
+   time wasted doing unneccessary e2fscks.  Suggested by Ron Gage.
+ap1/man.tgz:  Moved here from a1/man.tgz.  (since the manpages and
+    groff are in the AP series)
+ap1/vim.tgz:  Upgraded to vim-5.7.
+d1/binutils.tgz:  Upgraded to binutils-2.10.1.0.2.
+d1/bsd_db{1,2,3}.tgz:  Eliminated.  (merged into glibc.tgz)
+d1/glibc.tgz:  Merged the BSD DB libraries back into the glibc package.
+   A few comments here... I'd intended to keep the BSD DB packages
+   seperate, but found that once /lib/libnss_db-2.2.so is compiled
+   that things get trickier.  In short, having libnss_db around without
+   the libdb libraries will cause a whole lot of binaries to segfault,
+   including many that aren't directly linked to either library.  It
+   seems much safer to bundle these all back together again to ensure
+   that everything stays properly in sync.
+d1/glocale.tgz:  Moved files from /usr/share/locale to /usr/lib/locale.
+   For some reason glibc-2.2 wants part of the locale files under
+   /usr/share/locale, and part under /usr/lib/locale.  A symlink was
+   considered, but it was decided to put them where glibc's "make
+   install" wants them to go.
+gtk1/xvim.tgz:  Upgraded to vim-5.7, linked with GTK+, and moved into
+   the GTK series from the XAP series.
+n1/inn.tgz:  Fixed missing spool directories.
+xap1/xvim.tgz:  Moved to GTK series and linked with GTK+.
+----------------------------
+Fri Nov 24 16:40:21 PST 2000
+a1/etc.tgz:  The default /etc/nsswitch.conf may result in "Temporary
+   failure in name resolution" errors.
+   In /etc/nsswitch.conf, made these changes:
+             -hosts:          files dns
+             +hosts:          dns files
+             -networks:       files dns
+             +networks:       dns files
+   This is the order shown in nsswitch.5, and under glibc-2.2 the previous
+   order no longer works.  IMPORTANT:  To make sure /etc/nsswitch.conf is
+   updated, remove the existing one before installing or upgrading etc.tgz!
+a1/glibcso.tgz:  Added /lib/libnss_db-2.2.so.
+d1/glibc.tgz:  Merged in nss_db-2.2.
+n1/tcpip2.tgz:  Patched /etc/nsswitch.conf.
+----------------------------
+Thu Nov 23 22:48:45 PST 2000
+d1/glocale.tgz:  Added glibc-2.2 locale package.
+----------------------------
+Wed Nov 22 12:10:33 PST 2000
+a1/hdsetup.tgz:  Fixed /sbin/makebootdisk with Jan Rafaj's patch.
+d1/gcc.tgz:  Patched /usr/include/g++-3/streambuf.h and
+   /usr/include/g++-3/parsestream.h.  Some definitions needed to be changed
+   to match the new ones in glibc-2.2, otherwise C++ has problems.
+----------------------------
+Tue Nov 21 10:22:56 PST 2000
+a1/glibcso.tgz:  Move libSegFault.so from lib/incoming to lib, the
+   directory it shipped in in the previous glibc.tgz package.  This
+   prevents upgradepkg from removing it in the second pass, and crashing
+   the machine until it has been replaced.  Sorry about that, and thanks
+   for beta testing.  Good thing we're not using apt-get. ;)
+d1/glibc.tgz:  See above bug.
+kde1/qt2.tgz:  Upgraded to qt-x11-2.2.2, compiled with -no-g++-exceptions.
+----------------------------
+Mon Nov 20 22:59:00 PST 2000
+a1/elflibs.tgz:  Upgraded to ncurses libraries from ncurses-5.2.
+a1/glibcso.tgz:  Upgraded to glibc-2.2.
+a1/hdsetup.tgz:  Added a patch to installpkg to handle long package names.
+                 Updated small /usr/share/terminfo database.
+                 Remove DES series support.
+                 Make KDE2 the default WM choice.
+a1/libdb123.tgz:  Added Berkeley DB shared lib package.
+a1/zoneinfo.tgz:  Updated from glibc-2.2 (tzdata2000g).
+ap1/cdutils.tgz:  Upgraded to cdrdao-1.1.4.
+d1/binutils.tgz:  Upgraded to binutils-2.10.0.33.
+d1/bsd_db1.tgz:  Added Berkeley db.1.85 package.
+d1/bsd_db2.tgz:  Added Berkeley db-2.4.14 package.
+d1/bsd_db3.tgz:  Added Berkeley db-3.1.17 package.
+d1/gcc.tgz:  Upgraded to gcc-2.95.2.
+d1/gcc_g77.tgz:  Upgraded to Fortran-77 from gcc-2.95.2.
+d1/gcc_objc.tgz:  Upgraded to Objective-C from gcc-2.95.2.
+d1/glibc.tgz:  Upgraded to glibc-2.2.
+d1/ncurses.tgz:  Upgraded to ncurses-5.2. (* Security fix *)
+des1/:  crypt() merged into glibc-2.2: series obsolete; eliminated.
+gtk1/librep.tgz:  Chmod 755 /usr/doc/librep-0.11.3/doc/.
+xap1/netscape.tgz:  Upgraded to communicator-v476.x86-unknown-linux2.2.
+rootdsks/color.gz, umsdos.gz, text.gz:  DES series support removed.
+.eltorito/eltorito.img:  DES series support removed.
+----------------------------
+Sat Nov 11 13:28:50 PST 2000
+n1/lynx.tgz:  Some of the lynx documentation in /usr/lib/lynx/lynx_doc/
+   needed to be chowned from UID 10184 to UID 0.
+----------------------------
+Fri Nov 10 20:24:04 PST 2000
+n1/bind.tgz:  Upgraded to bind-8.2.2-P7.  (* Security fix *)
+   A bug in code intended to provide support for the transfer of compressed
+   zone files can crash the name server, resulting in denial of service.
+   More BIND security information can be found at:
+   http://www.isc.org/products/BIND/bind8.html
+n1/lynx.tgz:  Recompiled with official 1a,1b,1c patches.  Provided a
+   patched <sys/ucontext.h> to fix compiling under glibc-2.1.3.
+----------------------------
+Sun Nov  5 19:44:20 PST 2000
+kde1/qt_2_21.tgz:  Recompiled to not link with Mesa.  This doesn't seem
+     to be needed by anything, and causes problems for people using the
+     NVidia OpenGL libraries.
+contrib/qt-with-opengl/qt221_gl.tgz:  This is the old Mesa-linked version
+        of Qt, in case anyone needs it.
+----------------------------
+Wed Nov  1 12:35:58 PST 2000
+n1/imapd.tgz:  Upgraded to IMAP4rev1 2000.283 from pine-4.30.
+n1/pine.tgz:  Upgraded to pine-4.30.  (* Security fix *)
+   Pine (versions 4.21 and before) contain a buffer overflow vulnerability
+   which allows a remote user to execute arbitrary code on the local client
+   by the sending of a special-crafted email message.  The overflow occurs
+   during the periodic "new mail" checking of an open folder.
+----------------------------
+Mon Oct 30 17:57:55 PST 2000
+slackware-current upgraded to KDE-2.0:
+kde1/htdig.tgz:  htdig-3.1.5, the ht://Dig system for KDE help.
+kde1/kadmin.tgz:  kdeadmin-2.0, KDE system administration and backup tools.
+kde1/kde-i18n.tgz:  kde-i18n-2.0, internationalization support for KDE.
+kde1/kdebase.tgz:  kdebase-2.0, core applications for the K Desktop Environment.
+kde1/kdegames.tgz:  kdegames-2.0, games for the K Desktop Environment.
+kde1/kdelibs.tgz:  kdelibs-2.0, system libraries required by KDE.
+kde1/kdepim.tgz:  kdepim-2.0, kdepim is a collection of Personal Information
+     Management (PIM) tools.
+kde1/kdetoys.tgz:  kdetoys-2.0, some toys for use with KDE.
+kde1/kdeutils.tgz: kdeutils-2.0, utilities for the K Desktop Environment.
+kde1/kdoc.tgz: kdoc-2.0, documentation tools for the K Desktop Environment.
+kde1/kgraphic.tgz: kdegraphics-2.0, graphics programs for KDE.
+kde1/kmedia.tgz: kdemultimedia-2.0, multimedia applications for KDE.
+kde1/knetwork.tgz: kdenetwork-2.0, network related utilities for KDE.
+kde1/koffice.tgz: koffice-2.0, office applications for KDE.
+kde1/ksupport.tgz: ksupport-2.0, support libraries for KDE.
+kde1/qt_2_21.tgz: Qt-2.2.1.
+Removed KDE betas and qt-2.1.1 from /contrib.
+----------------------------
+Mon Oct 23 14:09:22 PDT 2000
+x1/xlock.tgz:  Upgraded to xlockmore-4.17.2.  (* Security fix *)
+   By providing a carefully crafted display variable to xlock, it is
+   possible for a local attacker to gain root access.  Anyone running
+   xlock on a public machine should upgrade to this version of xlock
+   (or disable xlock) immediately.
+----------------------------
+Fri Oct 20 18:55:01 PDT 2000
+a1/util.tgz:  Remove /usr/bin/tsort, as there's a better version
+   included with GNU textutils (txtutils.tgz).
+   Moved getopt support files into /usr/share/misc/getopt/.
+   Added /usr/doc/util-linux-2.10o/README.getopt-1.1.0a.
+n1/ppp.tgz:  Fixed stupid /tmp bug in ppp-off.  This could allow a
+   local user to corrupt system files.  (* Security fix *)
+n1/tcpip1.tgz:  Added /sbin/mii-tool.
+   Added manpages: mii-tool.8, ethers.5.
+----------------------------
+Wed Oct 18 17:16:33 PDT 2000
+a1/pcmcia.tgz:  Rebuild without PnP BIOS option, which doesn't work on
+   many older laptops.
+a1/zoneinfo.tgz:  Patched setup.timeconfig bug when using UTC.
+n1/apache.tgz:  Apparently the new version of Apache breaks RewriteMaps.
+   This package update includes a patch from Tony Finch to fix the problem.
+.eltorito/eltorito.img:  Add PageUp/PageDown support.
+          Use 2 (not 1) in field 6 in /etc/fstab for non-root partitions.
+          Added /dev/hd{a,b,c,d,e,f,g}, as these don't seem to show up as
+          ATAPI CD-ROM drives in /proc/partitions on all machines, and in
+          that case the device node would not be made by the init scripts.
+rootdsks/pcmcia.dsk:  Retrofit using recompiled pcmcia modules and utilities.
+rootdsks/color.gz:  Add PageUp/PageDown support.
+         Use 2 (not 1) in field 6 in /etc/fstab for non-root partitions.
+         Added /dev/hd{a,b,c,d,e,f,g}.
+rootdsks/umsdos.gz:  Add PageUp/PageDown support.
+         Added /dev/hd{a,b,c,d,e,f,g}.
+rootdsks/text.gz: Use 2 (not 1) in field 6 in /etc/fstab for non-root
+         partitions.  Added /dev/hd{a,b,c,d,e,f,g}.
+----------------------------
+Mon Oct 16 20:01:09 PDT 2000
+a1/hdsetup.tgz:  Switched to a new version of /sbin/installpkg.  This
+   removes old support for building packages (use makepkg for that), and
+   adds /sbin/dialog infobox and menu modes.
+   Fixed a symlink removal problem with removepkg. 
+   Added Mark Slagell's page up/page down patch for /bin/dialog.  (THANKS!!)
+a1/modutils.tgz:  Upgraded to modutils-2.3.18, and patched insmod to send
+   warnings to stderr, not stdout.
+a1/pcmcia.tgz:  Edited to /etc/rc.d/rc.pcmcia to suppress unneccessary warnings
+   while probing for the correct PCIC module.
+a1/util.tgz:  Upgraded to util-linux-2.10o.  (added /sbin/blockdev,
+   /sbin/elvtune, /sbin/mkfs.bfs and man pages)
+   Upgraded to /bin/hostname from net-tools-1.57.
+n1/tcpip1.tgz:  Fix UID/GID values in /home/ftp/etc/* to match the ones in /etc.
+   Upgraded to biff+comsat-0.17, bsd-finger-0.17, net-tools-1.57 (adding support
+   for IPv6 and including the ipmaddr and iptunnel utilities), netkit-base-0.17,
+   netkit-bootparamd-0.17, netkit-ftp-0.17, netkit-ntalk-0.17,
+   netkit-routed-0.17, netkit-rsh-0.17, netkit-rusers-0.17, netkit-rwall-0.17,
+   netkit-rwho-0.17, netkit-telnet-0.17, netkit-tftp-0.17, netkit-timed-0.17,
+   and netwrite-0.17.
+n1/tcpip2.tgz:  Upgraded to autofs-3.1.5, dhcp-2.0pl5, dhcpcd-1.3.19-pl2, and
+   ipchains-1.3.10.
+----------------------------
+Sat Oct 14 20:03:51 PDT 2000
+n1/apache.tgz:  Upgraded to apache_1.3.14.  (* Security fix *)
+   It is recommended that sites using Apache upgrade to this
+   version of the apache package as soon as possible.
+   The following security problems are fixed with this version
+   of Apache (from the Apache announcement):
+     * A problem with the Rewrite module, mod_rewrite, allowed 
+       access to any file on the web server under certain 
+       circumstances
+     * The handling of Host: headers in mass virtual hosting
+       configurations, mod_vhost_alias, could allow access to 
+       any file on the server
+     * If a cgi-bin directory is under the document root, the 
+       source to the scripts inside it could be sent if using
+       mass virtual hosting
+----------------------------
+Thu Sep 28 19:45:07 PDT 2000
+rootdsks/network.dsk:  Upgraded to use 2.2.17 kernel modules.
+rootdsks/pcmcia.dsk:  Upgraded to use 2.2.17 kernel modules.
+.eltorito/eltorito.img:  Upgraded to Linux 2.2.17.
+bootdsks.12/*:  Rebuilt from new kernels.
+bootdsks.144/*:  Rebuilt from new kernels.
+kernels/:  Upgraded to Linux 2.2.17.
+modules/:  Upgraded to Linux 2.2.17.
+a1/fsmods.tgz:  Upgraded to 2.2.17.
+a1/ibcs2.tgz:  Recompiled for Linux 2.2.17.
+a1/modules.tgz:  Upgraded to 2.2.17.
+a1/modutils.tgz:  Upgraded to modutils-2.3.17.
+a1/pcmcia.tgz:  Upgraded to pcmcia-cs-3.1.20.
+a1/scsimods.tgz:  Upgraded to 2.2.17.
+a1/sndmods.tgz:  Upgraded to 2.2.17.
+d1/linuxinc.tgz:  Upgraded to 2.2.17 include files.
+k1/linuxinc.tgz:  Upgraded to 2.2.17 include files.
+k1/lx2217.tgz:  Upgraded to Linux 2.2.17 kernel source.
+n1/netmods.tgz:  Upgraded to 2.2.17.
+n1/tcpip1.tgz:  Upgraded to wu-ftpd-2.6.1.  (* Security fix *)
+   This fixes a possible format string hole reported on BugTraq.
+----------------------------
+Mon Sep 25 13:27:05 PDT 2000
+a1/sysklogd.tgz:  Patched syslog.c with Hank Leininger's fix
+                  for kernel logging.
+----------------------------
+Sun Sep 24 16:11:34 PDT 2000
+a1/e2fsprog.tgz:  Upgraded to e2fsprogs-1.19.
+a1/etc.tgz:  Edited incoming /etc/issue to contain:
+             Welcome to \s \r (\l)
+a1/getty.tgz:  Patched for correct functioning with glibc.
+a1/hdsetup.tgz:  Patched makebootdisk to use the old boot-text.b
+                 LILO loader, not the new menu one.
+a1/modutils.tgz:  Upgraded to modutils-2.3.15.
+a1/procps.tgz:  Upgraded to procps-2.0.7, psmisc-18, procinfo-17.
+a1/sysvinit.tgz:  Edited /etc/rc.d/rc.S to not overwrite
+                  /etc/issue at boot time.
+n1/procmail.tgz:  Upgraded to procmail-3.15.
+n1/sendmail.tgz:  Upgraded to sendmail.8.11.0, added new config
+                  file options to use the MAPS RBL.
+n1/smailcfg.tgz:  Upgraded to sendmail.8.11.0, added new config
+                  file options to use the MAPS RBL.  (for more
+                  about MAPS, see http://mail-abuse.org)
+x1/xprog.tgz:  Removed /usr/X11R6/lib/zlib.a (this is handled by
+               the zlib.tgz package, and also the version shipped
+               in the X tree isn't always the newest or most
+               bug-free)
+----------------------------
+Mon Sep 18 11:13:56 PDT 2000
+a1/sysklogd.tgz:  Upgraded to sysklogd-1.4.  This fixes the
+   "klogd format bug" announced this morning on BugTraq.
+   (* Security fix *)
+----------------------------
+Sun Sep 17 15:19:25 PDT 2000
+a1/lilo.tgz:  Upgraded to LILO 21.5.1 (includes a boot menu now).
+tcl1/tcl.tgz:  Upgraded to Tcl 8.3.2, patched tclConfig.sh to fix
+     ${TCL_DBGX} variables that don't get expanded for some reason.
+tcl1/tk.tgz:  Upgraded to Tk 8.3.2.
+tcl1/tclx.tgz:  Recompiled TclX 8.2.0 against Tcl/Tk 8.3.2.
+tcl1/tix.tgz:  Recompiled Tix 4.1.0.006 against Tcl/Tk 8.3.2.
+----------------------------
+Fri Sep 15 19:10:20 PDT 2000
+d1/gcl.tgz:  Recompiled GCL static, as dynamically linked versions
+   don't always work on a different machine than they were compiled on,
+   while the static version is always rock-solid.  At least it's only
+   50% bigger.  :)
+tcl1/tix.tgz:  Recompiled with a patch to support Tcl/Tk 8.3.x.
+----------------------------
+Wed Sep 13 18:44:39 PDT 2000
+Merged in fixes for XFree86 3.3.6 from ftp.xfree86.org.  This includes
+patches for the Rage 128, S3, and S3 Virge drivers.
+x1/xma64.tgz:  rebuilt.
+x1/xs3.tgz:  rebuilt.
+x1/xs3v.tgz :  rebuilt.
+x1/xsvga.tgz:  rebuilt.
+----------------------------
+Tue Sep 12 20:12:08 PDT 2000
+gtk1/xchat.tgz:  Upgraded to xchat-1.5.7.  (* Security fix *)
+     This fixes the "X-Chat Command Execution Via URLs Vulnerability"
+     described on BugTraq.
+     A console version of X-Chat (xchat-text) has also been added to
+     this updated package.
+----------------------------
+Sun Sep 10 16:06:30 PDT 2000
+n1/inn.tgz:  Remove obsolete nnrp.access (readers.conf replaced it)
+             Fix default active file.
+             Thanks to Przemyslaw Gubernat for pointing out these bugs.
+----------------------------
+Tue Sep  5 22:20:48 PDT 2000
+n1/inn.tgz:  Upgraded to inn-2.3.0.
+n1/procmail.tgz:  Fixed ownership of some docs directories to root.root.
+n1/sendmail.tgz:  Added missing /etc/mail/statistics and /etc/mail/helpfile.
+----------------------------
+Mon Sep  4 22:48:59 PDT 2000
+This update fixes the three known locale-related vulnerabilities in glibc-2.1.3
+recently reported on BugTraq that allow local users to gain root access.  Thanks
+to Solar Designer for putting together a set of patches from the current glibc
+CVS version.
+a1/glibcso.tgz:  Recompiled with security patch for glibc-2.1.3.
+d1/glibc.tgz:  Recompiled with security patch for glibc-2.1.3.
+des1/descrypt.tgz:  Recompiled with security patch for glibc-2.1.3.
+     Note that if you don't reinstall this package after installing glibcso.tgz
+     and/or glibc.tgz, the C library will be limited to using MD5 crypt().
+(* Security fix *)
+----------------------------
+Sat Sep  2 01:26:24 PDT 2000
+d1/binutils.tgz:  Upgraded to binutils-2.10.0.24.
+d1/perl.tgz:  Patched suidperl to report hack attempts through syslog,
+   not /bin/mail.  This patch closes a security hole through which local
+   users can gain root access using /usr/bin/suidperl5.6.0.
+   (* Security fix *)
+----------------------------
+Wed Aug 30 18:53:21 PDT 2000
+bootdsks.144/ata66.i:  Upgraded to latest ATA66/100 patch for 2.2.16.
+             (ide.2.2.16.all.20000825.patch)
+kernels/ata66/bzImage, config, System.map:  Upgraded to latest ATA66/100
+             patch for 2.2.16 (ide.2.2.16.all.20000825.patch). 
+d1/bin86.tgz:  Upgraded to bin86-0.15.1.
+n1/rsync.tgz:  Upgraded to rsync-2.4.5.
+----------------------------
+Tue Aug 29 19:50:15 PDT 2000
+Added XFree86-4.0.1 source and binary packages:
+contrib/XFree86-4.0.1/XFree86-4.0.1-i386-1.tgz:   base XFree86-4.0.1 binary
+                                                  package.
+contrib/XFree86-4.0.1/XFree86-fonts-4.0.1-1.tgz:  fonts for XFree86-4.0.1.
+n1/bind.tgz:  Patched install script to make /var/named (chmod 755) if it
+              doesn't exist.
+n1/tcpip1.tgz:  Install script no longer tries to make /var/named.
+----------------------------
+Thu Aug 24 16:12:55 PDT 2000
+Merged package directories for the A and N series.
+a1/bash.tgz, bash1.tgz:  Patched install script to ensure that a
+   newly-created /etc/shells will be chmoded 644.
+xap1/netscape.tgz:  Upgraded to Netscape Communicator 4.75.
+     (communicator-v475.x86-unknown-linux2.2)
+xap1/xv.tgz:  Added PNG support from Alexander Lehmann, Andreas Dilger,
+              and Greg Roelofs (thanks for continuing to remind me about
+              this, Greg! :)
+----------------------------
+Thu Aug 24 14:14:00 PDT 2000
+(* Branched new Slackware-current from Slackware 7.1 *)

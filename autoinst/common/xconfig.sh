@@ -20,6 +20,29 @@ EOF
   done
 }
 
+detect_mouse_defaults() {
+  if [ -z "$MOUSEDEV" ]; then
+    if [ -c /dev/psaux ]; then
+      MOUSEDEV=psaux
+    elif [ -c /dev/ps2aux ]; then
+      MOUSEDEV=ps2aux
+    else
+      MOUSEDEV=cua1
+    fi
+  fi
+
+  if [ -z "$MOUSETYPE" ]; then
+    case "$MOUSEDEV" in
+      psaux|ps2aux)
+        MOUSETYPE="PS/2"
+        ;;
+      cua1)
+        MOUSETYPE="Microsoft"
+        ;;
+    esac
+  fi
+}
+
 configure_x11r6_svga() {
   SERVER=/usr/X11R6/bin/XF86_SVGA
   echo "Found X11 server at $SERVER"
@@ -36,12 +59,6 @@ configure_x11r6_svga() {
 
   XFREECFG="$X11PATH/XF86Config"
   XFREECFG_ETC=/etc/XF86Config
-
-  if [ -c /dev/psaux ]; then
-    X11MOUSEDEV=psaux
-  else
-    X11MOUSEDEV=$MOUSEDEV
-  fi
 
   echo "Creating XF86Config in $XFREECFG"
 
@@ -73,7 +90,7 @@ EndSection
 # Mouse settings.
 Section "Pointer"
     Protocol    "$MOUSETYPE"
-    Device      "/dev/$X11MOUSEDEV"
+    Device      "/dev/$MOUSEDEV"
     Emulate3Buttons
 EndSection
 
@@ -115,6 +132,96 @@ Section "Screen"
         Modes       "1024x768"
         ViewPort    0 0
     EndSubsection
+EndSection
+EOF
+
+  if [ "$XFREECFG" != "$XFREECFG_ETC" ]; then
+    cp "$XFREECFG" "$XFREECFG_ETC"
+  fi
+}
+
+configure_x11r6_xfree86_4() {
+  SERVER=/usr/X11R6/bin/XFree86
+  echo "Found X11 server at $SERVER"
+
+  if [ -d /var/X11R6/bin ]; then
+    (cd /var/X11R6/bin; ln -sf "$SERVER" X)
+  fi
+
+  for X11PATH in /etc/X11 /etc /usr/X11R6/lib/X11; do
+    if [ -d "$X11PATH" ]; then
+      break
+    fi
+  done
+
+  XFREECFG="$X11PATH/XF86Config"
+  XFREECFG_ETC=/etc/XF86Config
+
+  echo "Creating XFree86 4.x XF86Config in $XFREECFG"
+
+  if [ -f "$XFREECFG" ]; then
+    cp "$XFREECFG" "$XFREECFG.orig"
+  fi
+
+  cat > "$XFREECFG" <<EOF
+Section "Files"
+    RgbPath     "/usr/X11R6/lib/X11/rgb"
+    FontPath    "/usr/X11R6/lib/X11/fonts/misc/"
+    FontPath    "/usr/X11R6/lib/X11/fonts/Type1/"
+    FontPath    "/usr/X11R6/lib/X11/fonts/Speedo/"
+    FontPath    "/usr/X11R6/lib/X11/fonts/75dpi/"
+    FontPath    "/usr/X11R6/lib/X11/fonts/100dpi/"
+EndSection
+
+Section "InputDevice"
+    Identifier  "Keyboard0"
+    Driver      "keyboard"
+    Option      "AutoRepeat" "500 5"
+EndSection
+
+Section "InputDevice"
+    Identifier  "Mouse0"
+    Driver      "mouse"
+    Option      "Protocol" "$MOUSETYPE"
+    Option      "Device" "/dev/$MOUSEDEV"
+    Option      "Emulate3Buttons"
+EndSection
+
+Section "Monitor"
+    Identifier  "QEMU"
+    HorizSync   31.5 - 82.0
+    VertRefresh 40-150
+EndSection
+
+Section "Device"
+    Identifier  "QEMU"
+    Driver      "vesa"
+EndSection
+
+Section "Screen"
+    Identifier  "Screen0"
+    Device      "QEMU"
+    Monitor     "QEMU"
+    DefaultDepth 16
+    SubSection "Display"
+        Depth       8
+        Modes       "1024x768" "800x600" "640x480"
+    EndSubSection
+    SubSection "Display"
+        Depth       16
+        Modes       "1024x768" "800x600" "640x480"
+    EndSubSection
+    SubSection "Display"
+        Depth       24
+        Modes       "1024x768" "800x600" "640x480"
+    EndSubSection
+EndSection
+
+Section "ServerLayout"
+    Identifier  "Default Layout"
+    Screen      "Screen0"
+    InputDevice "Keyboard0" "CoreKeyboard"
+    InputDevice "Mouse0" "CorePointer"
 EndSection
 EOF
 
@@ -219,8 +326,14 @@ ModeDB
 EOF
 }
 
-# XFree86 3.1 uses XF86Config with R6 paths. Older releases use Xconfig.
-if [ -x /usr/X11R6/bin/XF86_SVGA ]; then
+# Pick mouse defaults once for all X server variants while preserving
+# any values that were already supplied by the installer environment.
+detect_mouse_defaults
+
+# XFree86 4.x uses a monolithic XFree86 server. XFree86 3.1 uses XF86_SVGA.
+if [ -x /usr/X11R6/bin/XFree86 ]; then
+  configure_x11r6_xfree86_4
+elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
   configure_x11r6_svga
 elif [ -x /usr/X386/bin/XF86_SVGA ]; then
   configure_x386_svga

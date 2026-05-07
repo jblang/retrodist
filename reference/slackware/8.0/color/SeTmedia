@@ -1,0 +1,35 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+
+dialog --title "SOURCE MEDIA SELECTION" --menu \
+"\nWhere do you want to install Slackware Linux from?\n" 13 65 4 \
+"1" "Install from a Slackware CD-ROM" \
+"2" "Install from a hard drive partition" \
+"3" "Install via NFS" \
+"4" "Install from a pre-mounted directory" \
+2> $TMP/media
+if [ $? = 1 -o $? = 255 ]; then
+ rm $TMP/media
+ exit
+fi
+
+SOURCE_MEDIA="`cat $TMP/media`"
+rm -f $TMP/media
+if [ "$SOURCE_MEDIA" = "1" ]; then
+ INSCD
+elif [ "$SOURCE_MEDIA" = "2" ]; then
+ INShd
+elif [ "$SOURCE_MEDIA" = "3" ]; then
+ INSNFS
+elif [ "$SOURCE_MEDIA" = "4" ]; then
+ INSdir 
+elif [ "$SOURCE_MEDIA" = "5" ]; then
+ INSfd
+fi
+
+# Sorry, this goes the way of the dinosaur...
+#"5" "Install from floppy disks (A and N series only)" 
+
