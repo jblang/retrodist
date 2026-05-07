@@ -1,0 +1,174 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+while [ 0 ]; do
+ rm -f $TMP/SeTDS $TMP/SeTmount
+ T_PX="`cat $TMP/SeTT_PX`"
+ UPNRUN=1
+ if [ "$T_PX" = "/" ]; then
+  cat << EOF > $TMP/tempmsg
+
+You're running off the hard drive filesystem. Is this machine
+currently running on the network you plan to install from? If
+so, we won't try to reconfigure your ethernet card.
+
+Are you up-and-running on the network?
+EOF
+  dialog --title "NFS INSTALLATION" --yesno "`cat $TMP/tempmsg`" 11 68
+  UPNRUN=$?
+ fi
+ if [ $UPNRUN = 1 ]; then
+  cat << EOF > $TMP/tempmsg
+
+You will need to enter the IP address you wish to
+assign to this machine. Example: 111.112.113.114
+
+What is your IP address?
+EOF
+  dialog --title "ASSIGN IP ADDRESS" --inputbox "`cat $TMP/tempmsg`" 12 \
+  65 $LOCAL_IPADDR 2> $TMP/local
+  if [ ! $? = 0 ]; then
+   rm -f $TMP/tempmsg $TMP/local
+   exit
+  fi
+  LOCAL_IPADDR="`cat $TMP/local`"
+  rm -f $TMP/local
+  cat << EOF > $TMP/tempmsg
+
+Now we need to know your netmask.
+Typically this will be 255.255.255.0
+but this can be different depending on
+your local setup.
+
+What is your netmask?
+EOF
+  if [ "$LOCAL_NETMASK" = "" ]; then # assign default
+    LOCAL_NETMASK=255.255.255.0
+  fi
+  dialog --title "ASSIGN NETMASK" --inputbox "`cat $TMP/tempmsg`" 14 \
+  65 $LOCAL_NETMASK 2> $TMP/mask
+  if [ ! $? = 0 ]; then
+   rm -f $TMP/tempmsg $TMP/mask
+   exit
+  fi
+  LOCAL_NETMASK="`cat $TMP/mask`"
+  rm $TMP/mask
+  # Broadcast and network are derived from IP and netmask:
+  LOCAL_BROADCAST=`ipmask $LOCAL_NETMASK $LOCAL_IPADDR | cut -f 1 -d ' '`
+  LOCAL_NETWORK=`ipmask $LOCAL_NETMASK $LOCAL_IPADDR | cut -f 2 -d ' '`
+  dialog --yesno "Do you have a gateway?" 5 30
+  HAVE_GATEWAY=$?
+  if [ "$HAVE_GATEWAY" = "0" ]; then
+   if [ "$LOCAL_GATEWAY" = "" ]; then
+    LOCAL_GATEWAY="`echo $LOCAL_IPADDR | cut -f1-3 -d '.'`."
+   fi
+   dialog --title "ASSIGN GATEWAY ADDRESS" --inputbox \
+   "\nWhat is the IP address for your gateway?" 9 65 \
+   $LOCAL_GATEWAY 2> $TMP/gw
+   if [ ! $? = 0 ]; then
+    rm -f $TMP/tempmsg $TMP/gw
+    exit
+   fi
+   LOCAL_GATEWAY="`cat $TMP/gw`"
+   rm -f $TMP/gw
+  fi
+ fi # ! UPNRUN
+
+ cat << EOF > $TMP/tempmsg
+
+Good! We're all set on the local end, but now we need to know
+where to find the software packages to install. First, we need
+the IP address of the machine where the Slackware sources are
+stored.
+
+EOF
+ if [ "$UPNRUN" = "0" ]; then
+  cat << EOF >> $TMP/tempmsg
+Since you're already running on the network, you should be able
+to use the hostname instead of an IP address if you wish.
+
+EOF
+ fi
+ echo "What is the IP address of your NFS server? " >> $TMP/tempmsg
+ dialog --title "ENTER IP ADDRESS OF NFS SERVER" --inputbox \
+ "`cat $TMP/tempmsg`" 14 70 $REMOTE_IPADDR 2> $TMP/remote
+ if [ ! $? = 0 ]; then
+  rm -f $TMP/tempmsg $TMP/remote
+  exit
+ fi
+ REMOTE_IPADDR="`cat $TMP/remote`"
+ rm $TMP/remote
+ if [ ! "$UPNRUN" = "0" ]; then
+   ENET_DEVICE="eth0" 
+ fi # ! UPNRUN
+
+ cat << EOF > $TMP/tempmsg
+
+ There must be a directory on the server with the Slackware
+ packages and files arranged in a tree like the FTP site.
+
+ The installation script needs to know the name of the 
+ directory on your server that contains the disk 
+ subdirectories. For example, if your A3 disk is found at 
+ /slack/slackware/a3, then you would respond: /slack/slackware
+ 
+ What is the Slackware source directory?
+EOF
+ dialog --title "SELECT SOURCE DIRECTORY" --inputbox "`cat $TMP/tempmsg`" 18 \
+ 65 $REMOTE_PATH 2> $TMP/slacksrc
+ if [ ! $? = 0 ]; then
+  rm -f $TMP/tempmsg $TMP/slacksrc
+  exit
+ fi
+ REMOTE_PATH="`cat $TMP/slacksrc`"
+ rm $TMP/slacksrc
+ echo
+ echo 
+ echo
+ echo "We'll switch into text mode here so you can see if you have any errors."
+ echo
+ if [ ! "$UPNRUN" = "0" ]; then
+  echo "Configuring ethernet card..."
+  ifconfig $ENET_DEVICE $LOCAL_IPADDR netmask $LOCAL_NETMASK broadcast $LOCAL_BROADCAST
+  # Older kernel versions need these to set up the eth0 routing table.
+  KVERSION=`uname -r | cut -f 1,2 -d .`
+  if [ "$KVERSION" = "1.0" -o "$KVERSION" = "1.1" \
+    -o "$KVERSION" = "1.2" -o "$KVERSION" = "2.0" -o "$KVERSION" = "" ]; then
+    /sbin/route add -net ${LOCAL_NETWORK} netmask ${LOCAL_NETMASK} eth0
+  fi
+  if [ "$HAVE_GATEWAY" = "0" ]; then
+   echo "Configuring your gateway..."
+   route add default gw $LOCAL_GATEWAY metric 1
+  fi
+  if [ -x /sbin/rpc.portmap ]; then
+    echo "Running /sbin/rpc.portmap..."
+    /sbin/rpc.portmap
+  fi
+ fi
+ echo "Mounting NFS..."
+ mount -r -t nfs -o nolock $REMOTE_IPADDR:$REMOTE_PATH /var/log/mount
+ echo "/var/log/mount" > $TMP/SeTDS
+ echo "-source_mounted" > $TMP/SeTmount
+ echo "/dev/null" > $TMP/SeTsource
+ echo
+ echo "Current mount table:"
+ mount
+ echo
+ echo "(If you see errors above and the mount table doesn't show your NFS"
+ echo "server, then try setting up NFS again)"
+ echo
+ echo -n "Do you need to try setting up NFS again ([y]es, [n]o)? "
+ read TRY_AGAIN;
+ if [ "$TRY_AGAIN" = "n" ]; then
+  break
+ fi
+ if [ "$UPNRUN" = "1" ]; then
+  route del $LOCAL_NETWORK
+  ifconfig $ENET_DEVICE down 
+ fi
+done
+echo $LOCAL_IPADDR > $TMP/SeTIP
+echo $LOCAL_NETMASK > $TMP/SeTnetmask
+echo $LOCAL_GATEWAY > $TMP/SeTgateway

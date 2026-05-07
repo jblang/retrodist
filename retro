@@ -108,7 +108,15 @@ slackware_build_tagfiles() {
     find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | while read -r SERIESDIR; do
       find "$SERIESDIR" -maxdepth 1 -type f \( -name '*.tgz' -o -name '*.tar' \)
     done | while read -r TGZ; do
-      basename "$TGZ" | sed 's/\.tgz$//' | sed 's/\.tar$//'
+      basename "$TGZ" | sed 's/\.tgz$//' | sed 's/\.tar$//' | awk -F- '{
+        if (NF > 3) {
+          for (i = 1; i <= NF - 3; i++) {
+            printf "%s%s", $i, (i < NF - 3 ? "-" : ORS)
+          }
+        } else {
+          print $0
+        }
+      }'
     done | sort -u > "$SERIESPKG"
     cat "$SERIESPKG" | while read -r PKG; do
       if [[ -n "$PKG" ]]; then
@@ -170,7 +178,16 @@ slackware_build_tagfiles_from_iso() {
         pkg = $3
         sub(/\.tgz$/, "", pkg)
         sub(/\.tar$/, "", pkg)
-        print pkg ":     ADD"
+        n = split(pkg, parts, /-/)
+        if (n > 3) {
+          out = parts[1]
+          for (i = 2; i <= n - 3; i++) {
+            out = out "-" parts[i]
+          }
+          print out ":     ADD"
+        } else {
+          print pkg ":     ADD"
+        }
       }
     ' "$PKGLIST" | sort -u > "$TAGDIR/tagfile"
   done

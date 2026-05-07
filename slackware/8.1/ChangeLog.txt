@@ -1,0 +1,2005 @@
+Wed Jun 19 07:02:39 PDT 2002
+Slackware 8.1.01-stable is released.
+a/sysvinit-2.84-i386-19.tgz:  Added -M to fix quotacheck for reiserfs.
+d/cvs-1.11.2-i386-2.tgz:  Added docs in text format.
+n/apache-1.3.26-i386-1.tgz:  Upgraded to apache-1.3.26.
+  This fixes the issue described in:
+  "CERT Advisory CA-2002-17 Apache Web Server Chunk Handling Vulnerability"
+  While the impact of this issue is minimal on 32 bit Linux systems, we felt it
+  was important enough to stop the presses and get these fixes in before sending
+  the Slackware 8.1 discs in for replication.
+  (* Security fix *)
+n/mod_ssl-2.8.9_1.3.26-i386-1.tgz:  Upgraded to mod_ssl-2.8.9_1.3.26.
+rootdisks/rescue.dsk:  Added network/pcmcia scripts.
+----------------------------
+Tue Jun 18 10:47:47 PDT 2002
+Slackware 8.1-stable is released!  :-)
+----------------------------
+Sun Jun 16 16:14:16 PDT 2002
+ap/quota-3.06-i386-1.tgz:  Upgraded to quota-3.06.
+kdei/:  Added koffice-i18n packages.
+rootdisks/:  Merged in more ataraid fixes from Alan Miles.
+zipslack/:  By default, do not load a keyboard map at boot.
+----------------------------
+Sat Jun 15 21:56:47 PDT 2002
+gnome/evolution-1.0.7-i386-1.tgz:  Upgraded to evolution-1.0.7.
+l/lesstif-0.93.34-i386-1.tgz:  Upgraded to lesstif-0.93.34.
+----------------------------
+Sat Jun 15 02:56:43 PDT 2002
+kde/kdelibs-3.0.1-i386-2.tgz:  Patched KHTML.  From the KDE website:
+  "KHTML, the html rendering component of Konqueror, allowed webpages to
+  initialize the file upload box with a filename. This could cause unwanted
+  submit of the file to the remote host."
+  The patch also fixes <OBJECT> tags.
+  (* Security fix *)
+l/libtermcap-1.2.3-i386-2.tgz:  Removed extra /etc/termcap that was
+  copying over a better version from the etc package.
+extra/sgml-tools-1.0.9/sgml-tools-1.0.9-i386-3.tgz:  Added XML catalog,
+  XSL stylesheets, DocBook PNG support.
+----------------------------
+Fri Jun 14 02:05:15 PDT 2002
+a/bin-8.3.0-i386-2.tgz:  Added fbset (suggested by Nicolas Laplante).
+a/less-374-i386-2.tgz:  Patched lesspipe.sh to view compressed man pages.
+a/util-linux-2.11r-i386-2.tgz:  Edited description to include adjtimex.
+ap/mysql-3.23.51-i386-1.tgz:  Upgraded to mysql-3.23.51.
+gnome/xscreensaver-4.05_gnome-i386-1.tgz:  Upgraded to xscreensaver-4.05.
+xap/xscreensaver-4.05-i386-1.tgz:  Upgraded to xscreensaver-4.05.
+rootdisks/:  Fixed a problem with ataraid devices (reported by Alan Miles).
+zipslack/:  Updated bin, less, and util-linux packages.
+----------------------------
+Wed Jun 12 20:12:19 PDT 2002
+a/aaa_base-8.1.0-i386-3.tgz:  Make sure the version number will be ready.
+a/pkgtools-8.1.1-i386-6.tgz:  Fixed a bug using ROOT= with upgradepkg.
+zipslack/:  Updated aaa_base, pkgtools, sysvinit, and util-linux packages.
+----------------------------
+Wed Jun 12 15:23:14 PDT 2002
+a/sysvinit-2.84-i386-18.tgz:  Cleaned up hwclock code in rc.S and rc.6.
+  Updated location of Quota mini-HOWTO in rc.M.
+  Removed rc.ibcs2 startup, since iBCS does not work with Linux 2.4.x.
+a/util-linux-2.11r-i386-2.tgz:  Added adjtimex-1.13 to the package.
+extra/cups-1.1.15-i386-2.tgz:  Avoid overwriting existing configuration
+  files in future package upgrades.
+extra/java2-runtime-environment/j2re-1.4.0_01-i586-1.tgz:
+  Upgraded to version 1.4.0_01 of Sun's Java(TM) 2 Runtime Environment.
+rootdisks/:  Fixed package series selection bug for real this time.
+  (reported by Jurgen Philippaerts again :-)
+----------------------------
+Tue Jun 11 17:37:58 PDT 2002
+a/devs-2.3.1-i386-10.tgz:  Added AMI HyperDisk RAID devices.
+a/pkgtools-8.1.1-i386-5.tgz:  Updates in /usr/share/terminfo.
+kde/kdepim-3.0.1-i386-2.tgz:  Rebuilt with pilot-link installed so that
+  kpilot is built.  (Suggested by Roger Hay)
+l/ncurses-5.2-i386-4.tgz:  Cured various color-xterm problems with:
+  tic /usr/X11R6/lib/X11/etc/xterm.terminfo
+  Thanks to Andrey V. Panov for the suggestion.
+xap/imagemagick-5.4.6-i386-1.tgz:  Upgraded to ImageMagick-5.4.6.
+  Fixed location of include files (thanks to Brent Cook).
+rootdisks/:  Added ataraid support (thanks to Alan Miles).
+  Fixed package series selection bug (reported by Jurgen Philippaerts).
+----------------------------
+Mon Jun 10 15:39:55 PDT 2002
+Slackware 8.1rc3 is released for testing...  it won't be long now.
+a/devs-2.3.1-i386-9.tgz:  Added more IDE devices, and patched MAKEDEV to do
+  the same.  Suggested by Greg Roelofs.
+a/shadow-4.0.3-i386-3.tgz:  Patched adduser to reject uppercase in usernames
+  so that you don't have to wait for useradd to reject it at the very end.
+  Thanks to Stuart Winter and "xcp".
+a/sysvinit-2.84-i386-17.tgz:  Edited rc.M to prevent a bogus error message
+  when using a UMSDOS root partition.
+d/binutils-2.12.90.0.9-i386-1.tgz:  Upgraded to binutils-2.12.90.0.9.
+  Added missing /usr/include/libiberty.h.
+n/lftp-2.5.4-i386-1.tgz:  Upgraded to lftp-2.5.4.
+n/proftpd-1.2.5-i386-1.tgz:  Upgraded to proftpd-1.2.5.
+rootdisks/install.zip:  Added a UMSDOS-based installer that might be useful
+  in certain situations, such as installing with extremely low memory.
+  Thanks to Rob McGee who wrote the install.zip.README.
+rootdisks/network.dsk:  Fixed listing of modules with 'L'.
+  Thanks to Erik Jan Tromp for sending in a fix.
+rootdisks/rescue.dsk:  Added a simple one-floppy rescue disk image.
+zipslack/:  The return of ZipSlack.  :-)
+----------------------------
+Sat Jun  8 19:07:24 PDT 2002
+a/kernel-modules-2.4.18-i386-4.tgz:  Added examples for apm, cs4232, maestro3,
+  and natsemi to /etc/rc.d/rc.modules.
+a/pcmcia-cs-3.1.33-i386-4.tgz:  Changed rc.pcmcia to remove modules more
+  cleanly at shutdown.
+ap/cdrtools-1.11a24-i386-1.tgz:  Upgraded to cdrtools-1.11a24.
+ap/ksh93-20011031-i386-2.tgz:  Fix permissions on /usr/doc directories.
+ap/vim-6.1-i386-5.tgz:  Updated with the latest vim patches.
+d/perl-5.6.1-i386-3.tgz:  Upgraded the included perl modules to DBI-1.25,
+  Digest-MD5-2.20 (this replaces the obsolete MD5 module), TermReadKey-2.20,
+  and libnet-1.12.  Also, cleaned up the build process as suggested by
+  Cezary Sliwa.
+gnome/esound-0.2.27-i386-1.tgz:  Upgraded to esound-0.2.27.
+gnome/galeon-1.2.5-i386-1.tgz:  Upgraded to galeon-1.2.5.
+l/orbit-0.5.17-i386-1.tgz:  Upgraded to ORBit-0.5.17.
+xap/xvim-6.1-i386-5.tgz:  Updated with the latest vim patches.
+extra/xcdroast-0.98alpha10/xcdroast-0.98alpha10-i386-1.tgz:
+  Added xcdroast-0.98alpha10.
+rootdisks/install.?:  Use /dev/scd?, not /dev/sr?.
+  (This was changed in devices.txt on Apr 22).
+----------------------------
+Thu Jun  6 21:30:12 PDT 2002
+gnome/evolution-1.0.5-i386-1.tgz:  Correct a typo in install/slack-desc.
+gnome/gaim-0.58-i386-3.tgz:  Also include non-applet version.
+l/libtiff-3.5.7-i386-2.tgz:  Fix a segfault in fax2tiff.  (thanks to Aleksej)
+extra/brltty-2.99.8/brltty-2.99.8-i386-1.tgz:  Added brltty-2.99.8.
+extra/emacspeak-16.0/emacspeak-16.0-i386-1.tgz:  Added emacspeak-16.0.
+extra/emacspeak-ss-1.9.1/emacspeak-ss-1.9.1-i386-1.tgz:  
+  Added emacspeak-ss-1.9.1.
+----------------------------
+Wed Jun  5 22:31:19 PDT 2002
+gnome/abiword-1.0.2-i386-1.tgz:  Upgraded to abiword-1.0.2.
+gnome/dia-0.90-i386-1.tgz:  Upgraded to dia-0.90.
+gnome/galeon-1.2.3-i386-3.tgz:  Recompiled galeon-1.2.3 against Mozilla 1.0.
+gnome/gnome-print-0.36-i386-1.tgz:  Upgraded to gnome-print-0.36.
+gnome/gnumeric-1.0.7-i386-1.tgz:  Upgraded to gnumeric-1.0.7.
+n/procmail-3.15.2-i386-1.tgz:  Switched to procmail-3.15.2, which is the latest
+  stable procmail.  Stuart Winter noticed that the version we were using before
+  segfaults if fed a control-C, which is probably not good as it's setuid.
+n/yptools-2.7-i386-2.tgz:  Fix /etc/rc.d/rc.yp installation.
+  (thanks to Jack S. Lai for reporting the problem and suggesting a fix)
+xap/mozilla-1.0-i386-1.tgz:  Upgraded to mozilla-1.0.  :-)
+bootdisks/xfs.i:  Recompiled with smbfs included to prevent an Oops.
+  (reported by Lucio Maciel)
+extra/aumix-2.7/aumix-2.7-i386-1.tgz:  Added aumix-2.7.
+extra/cups-1.1.15/cups-1.1.15-i386-1.tgz:  Upgraded to cups-1.1.15.
+extra/espgs-7.05.2/espgs-7.05.2_1-i386-1.tgz:  Added espgs-7.05.2-1.
+  ESP Ghostscript is a version of GNU Ghostscript with a driver for CUPS.
+extra/parted-1.6.1/parted-1.6.1-i386-1.tgz:  Added GNU parted-1.6.1.
+pasture/XFree86-3.3.6-servers/xset-3.3.6-i386-2.tgz:  Added SuperProbe, which is
+  needed by XF86Setup (reported by Piter Punk).
+pasture/wu-ftpd-2.6.2/wu-ftpd-2.6.2-i386-1.tgz:  Added wu-ftpd-2.6.2.
+----------------------------
+Tue Jun  4 20:47:09 PDT 2002
+a/devs-2.3.1-i386-8.tgz:  Added Compaq Next Generation Drive Array devices
+  in /dev/cciss/.
+a/elflibs-8.1.0-i386-2.tgz:  Added /usr/lib/libgcc_s.so.1 from gcc-3.1.
+a/etc-5.0-noarch-7.tgz:  For non-root users, ensure '.' is last in the $PATH.
+a/pkgtools-8.1.1-i386-4.tgz:  Don't create /.xinitrc during the installation.
+ap/mc-4.5.55-i386-6.tgz:  Patched /etc/profile.d/mc.sh to fix a problem when
+  using /bin/ksh (reported by Brad Clarke), and to not use a $HOME/.mc directory
+  if we are su'ed to or from root (thanks to Tomas Szepe for noticing the
+  problems with the original mc.sh script and proposing a solution).
+ap/tmp/workbone-2.40-i386-2.tgz:  Removed empty /usr/doc/WorkBone-2.40 dir.
+  (this was noticed by Luis Peralta)
+gnome/gaim-0.58-i386-2.tgz:  Recompiled with --enable-panel.
+gnome/galeon-1.2.3-i386-2.tgz:  Recompiled against the Mozilla CVS
+  MOZILLA_1_0_RELEASE sources (see below).
+gnome/xchat-1.8.9-i386-1.tgz:  Upgraded to xchat-1.8.9.
+n/sendmail-8.12.4-i386-1.tgz:  Upgraded to sendmail-8.12.4.
+n/sendmail-cf-8.12.4-i386-1.tgz:  Upgraded to config files for sendmail-8.12.4.
+n/tcpdump-3.7.1-i386-2.tgz:  Recompiled with --enable-ipv6.
+n/wireless-tools-24-i386-1.tgz:  Added wireless_tools.24.
+xap/mozilla-1.0_cvs-i386-1.tgz:  Upgraded to the MOZILLA_1_0_RELEASE sources
+  from the Mozilla CVS repository.  From the release tag announcement:
+    "The MOZILLA_1_0_RELEASE branch has been cut and while there is some tiny
+     chance that we will need to take further changes, it is highly probable
+     that this is the source we will release as Mozilla 1.0."
+  However, please note:
+    "Mozilla 1.0 has not been released yet. If you look at the user agent or
+     the about: page you'll see a browser that claims to be Mozilla 1.0, but
+     don't be fooled."
+----------------------------
+Sun Jun  2 21:27:28 PDT 2002
+pkgtools-8.1.1-i386-3.tgz:  Removed zero-length /bin/ipmask that shouldn't
+  have been there.  You might need to reinstall the tcpip package if this
+  broke your ipmask binary.  (thanks to Mircea Baciu for the report)
+----------------------------
+Sun Jun  2 17:14:07 PDT 2002
+a/cxxlibs-6.2.1-i386-1.tgz:  Added libstdc++.so.4.0.0 from gcc-3.1.
+a/elflibs-8.1.0-i386-1.tgz:  Updated all the shared libraries, and added
+  libpcre and libglib.
+a/kbd-1.06-i386-4.tgz:  Added speakupmap.map.gz and speakup-jfw.map.gz
+  keymaps for Speakup.
+a/pcmcia-cs-3.1.33-i386-3.tgz:  Don't install /sbin/cardctl setuid root.
+a/pkgtools-8.1.1-i386-2.tgz:  Commented out unnecessary bug workaround
+  in makebootdisk.
+a/syslinux-1.67-i386-1.tgz:  Switched to syslinux-1.67.  It seems the changes
+  in 1.70+ ("* Major code restructuring.") have made syslinux unstable, so we
+  will use syslinux-1.67 (which seems to work perfectly) for the release.
+  The problem with the newer versions is that kernels around 1145000 bytes
+  will not load, but smaller or larger ones will.  In fact, I found that
+  padding the end of a non-booting kernel with a couple K of zeroes works
+  around the bug... maybe something to do with calculating the file size?
+ap/ash-0.4.0-i386-1.tgz:  Upgraded to ash-0.4.0.
+gnome/gqmpeg-0.16.0-i386-1.tgz:  Added gqmpeg-0.16.0.
+l/libungif-4.1.0b1-i386-3.tgz:  Fix docs perms and a world-writable dir.
+n/dhcpcd-1.3.22pl1-i386-3.tgz:  Fix docs perms and a world-writable dir.
+n/proftpd-1.2.5rc3-i386-1.tgz:  Upgraded to proftpd-1.2.5rc3.
+bootdisks/:  Regenerated using syslinux-1.67.
+  Added Speakup bootdisks.  (also added the source for Speakup,
+  speakup-1.00.tar.gz, to the source/k/ directory)
+Some more ham radio upgrades and additions from Arno Verhoeven:
+extra/ham/logging/tlfmanual-0.5.2-noarch-1.tgz:  Added tlfmanual-0.5.2.
+extra/ham/logging/tlfcwkeyer-0.1-noarch-1.tgz:  Added tlfcwkeyer-0.1.
+extra/ham/logging/tlf-0.5.4-i386-1.tgz:  Added tlf-0.5.4.
+extra/ham/packet/xastir-1.1.2-i386-3.tgz:  Upgraded to xastir112-20020530.
+----------------------------
+Sat Jun  1 15:20:00 PDT 2002
+a/aaa_base-8.1.0-i386-2.tgz:  Bumped version number to Slackware 8.1-rc2.
+a/etc-5.0-i386-6.tgz:  Fix /etc/inputrc values (should be On/Off not on/off).
+a/kernel-ide-2.4.18-i386-3.tgz:  Recompiled.
+a/kernel-modules-2.4.18-i386-3.tgz:  Recompiled.
+  Patched rc.modules.new for the new joystick modules.
+a/pkgtools-8.1.1-i386-1.tgz:  In xwmconfig, make sure $HOME/.xwmconfig is
+  properly replaced (this was only working for non-root users).
+  Added two options to upgradepkg (inspired by a discussion with Alan Brown):
+  --install-new:  Install new packages instead of skipping them.
+  --reinstall:  Reinstall already installed versions (the default is now
+    to skip packages if the exact same name-version-arch-build is installed
+    already, which should save a bit of time :-)
+a/procps-2.0.7-i386-5.tgz:  Fixed problems with top on multiprocessor machines.
+a/syslinux-1.72-i386-1.tgz:  Switched back to syslinux-1.72, as the boot
+  floppies made with 1.73 weren't working.
+a/sysvinit-2.84-i386-16.tgz:  Fixed typos in rc.S (reported by Naresh Donti).
+d/kernel-headers-2.4.18-i386-3.tgz:  Updated autoconf.h from the kernel source
+  package.
+gnome/gnome-games-1.4.0.4-i386-2.tgz:  Recompiled against the new guile package.
+gnome/gnome-utils-1.4.1.2-i386-2.tgz:  Recompiled against the new guile package.
+gnome/gnome-vfs-1.0.5-i386-2.tgz:  Don't link libsmb.so with CUPS.
+gnome/gnumeric-1.0.6-i386-2.tgz:  Recompiled --without-guile.
+gnome/guile-1.4.1-i386-1.tgz:  Upgraded to guile-1.4.1.
+k/kernel-source-2.4.18-noarch-4.tgz:  Updated /usr/src/linux/.config to match
+  the new bare.i configuration.
+kde/kde-i18n-fr-3.0.1-noarch-2.tgz:  Rebuilt using the May 24 version of
+  kde-i18n-fr-3.0.1.tar.bz2.
+kde/kdenetwork-3.0.1-i386-2.tgz:  Merged in official patch for the ktalkd hole.
+  Luckily nobody ever uses this anyway...
+  (* Security fix *)
+n/inn-2.3.3-i386-1.tgz:  Upgraded to inn-2.3.3.
+n/mutt-1.4i-i386-1.tgz:  Upgraded to mutt-1.4i.
+n/openssh-3.2.3p1-i386-1.tgz:  Upgraded to openssh-3.2.3p1.
+  Configured using --with-ipv4-default to avoid boot timeouts without a net.
+n/sendmail-cf-8.12.3-i386-5.tgz:  Updated the README.linux file in
+  /usr/share/sendmail (Delian Krustev noticed this was somewhat out of date).
+n/sendmail-8.12.3-i386-5.tgz:  Ship an initial (empty) /etc/mail/access and
+  /etc/mail/access.db -- without these mail won't flow if the SMTP+ACCESS config
+  file is used.  Also, chmod several files in /etc/mail as well as
+  /var/run/sendmail.pid to thwart file locking DoS attacks.  (* Security fix *)
+n/tcpip-0.17-i386-13.tgz:  Run rc.yp from rc.inet2 instead of starting NIS
+  directly.  Don't source rc.firewall -- run it instead.
+  In rc.inet1, reduce the timeout for dhcpcd from 60 seconds to 10.  That should
+  be more than enough time to get an IP address from any working DHCP server.
+  Support DHCP hostname in netconfig (suggested by Dennis Bijwaard).
+n/yptools-2.7-i386-1.tgz:  Upgraded to yp-tools-2.7.
+  Upgraded to ypbind-mt-1.12.
+  Upgraded to ypserv-2.4.
+  Added /etc/rc.d/rc.yp init script.
+x/xfree86-4.2.0-i386-5.tgz:  In /etc/X11/xdm/Xsession, start xfce and
+  wmaker by exec'ing their xinitrc files.
+xap/windowmaker-0.80.0-i386-2.tgz:  Valter Ferraz Sanches pointed out that
+  WindowMaker uses /usr/bin/cpp for menu processing unless --no-cpp is used, so
+  xinitrc.wmaker was patched to use that option if /usr/bin/cpp is missing,
+  and was also patched to run wmaker.inst if $HOME/GNUstep is missing.
+xap/xfce-3.8.16-i386-2.tgz:  Patched xinitrc.xfce to install xfce config files
+  in $HOME/.xfce if they aren't already there.
+----------------------------
+Wed May 29 23:22:15 PDT 2002
+a/bin-8.3.0-i386-1.tgz:  Upgraded to eject-2.0.12, file-3.37, and tree-1.4b2.
+a/etc-5.0-i386-5.tgz:  Added Eterm to /etc/termcap (thanks to Roland Dobbins).
+  Added missing rpc user/group (thanks to Dominik L. Borkowski).
+a/gzip-1.3.3-i386-1.tgz:  Upgraded to gzip-1.3.3.
+a/hdparm-5.1-i386-1.tgz:  Upgraded to hdparm-5.1.
+a/jfsutils-1.0.18-i386-1.tgz:  Upgraded to jfsutils-1.0.18.
+  (also upgraded JFS kernel to jfs-2.4-1.0.18)
+a/shadow-4.0.3-i386-2.tgz:  Merged in adduser updates from Stuart Winter.
+a/sysklogd-1.4.1-i386-6.tgz:  Start klogd with -x option, which turns off
+  broken Oops decoding.  (Reported by Georgi Chorbadzhiyski)
+a/syslinux-1.73-i386-1.tgz:  Upgraded to syslinux-1.73.
+ap/apsfilter-7.2.2-i386-2.tgz:  Patched HP drivers to use the new IJS syntax.
+  (Thanks to Andrey V. Panov for informing me about this)
+ap/lsof-4.63-i386-1.tgz:  Upgraded to lsof-4.63.
+ap/lvm-1.0.4-i386-1.tgz:  Upgraded to lvm-1.0.4.
+ap/rexima-1.2-i386-1.tgz:  Upgraded to rexima-1.2.
+n/ncftp-3.1.3-i386-1.tgz:  Upgraded to ncftp-3.1.3.
+n/ntp-4.1.1a-i386-1.tgz:  Upgraded to ntp-4.1.1a.
+n/wget-1.8.2-i386-1.tgz:  Upgraded to wget-1.8.2.
+xap/fvwm-2.4.7-i386-1.tgz:  Upgraded to fvwm-2.4.7.
+xap/sane-1.0.8-i386-1.tgz:  Upgraded to sane-1.0.8.
+  Moved configuration files to /etc/sane.d/.
+xap/xlockmore-5.04-i386-1.tgz:  Upgraded to xlockmore-5.04.
+xap/xsane-0.86-i386-1.tgz:  Upgraded to xsane-0.86.
+----------------------------
+Wed May 29 01:41:47 PDT 2002
+a/etc-5.0-i386-4.tgz:  Removed .less/.lesskey from /etc/skel.
+  Changed permissions on /tmp/.X11-unix/ to 1777.
+a/fileutils-4.1-i386-2.tgz:  Don't link /bin/ln static (we have sln for that).
+  Patched /bin/rm to make insecure use (such as 'rm -r' in /tmp) more secure.
+a/gettext-0.11.2-i386-1.tgz:  Upgraded to GNU gettext-0.11.2.
+a/gpm-1.19.6-i386-2.tgz:  Recompiled using --with-curses.
+  gpm-1.20.0 was tried, but it breaks dialog and seems to have other quirks.
+a/less-374-i386-1.tgz:  Upgraded to less-374.
+a/pcmcia-cs-3.1.33-i386-2.tgz:  Edited rc.pcmcia to probe using yenta_socket if
+  the module is found.
+a/procps-2.0.7-i386-4.tgz:  chown root:bin /sbin/sysctl.
+a/sysvinit-2.84-i386-15.tgz:  Start rc.pcmcia from rc.M rather than rc.S so that
+  cardmgr will come back up when returning from single-user mode.
+  In rc.6, grep for FAIL in /etc/upsstatus, not /etc/powerstatus.
+  Since /sbin/update has been obsolete for some time now, we no longer start it.
+  Run '/etc/rc.d/rc.pcmcia stop' when shutting down or going to single user.
+ap/diffutils-2.8.1-i386-1.tgz:  Upgraded to GNU diffutils-2.8.1.
+ap/ifhp-3.5.8-i386-1.tgz:  Upgraded to ifhp-3.5.8.
+ap/man-pages-1.48-noarch-1.tgz:  Upgraded to man-pages-1.48.
+ap/mc-4.5.55-i386-5.tgz:  Recompiled with --enable-mcserv-install.
+  Added patches from Andrew V. Samoilov to fix --enable-charset.
+d/bin86-0.16.3-i386-1.tgz:  Upgraded to bin86-0.16.3.
+d/gettext-tools-0.11.2-i386-1.tgz:  Upgraded to GNU gettext-0.11.2.
+d/nasm-0.98.33-i386-1.tgz:  Added nasm-0.98.33.
+gnome/gnome-games-1.4.0.4-i386-1.tgz:  Upgraded to gnome-games-1.4.0.4.
+gnome/gnome-libs-1.4.1.7-i386-1.tgz:  Upgraded to gnome-libs-1.4.1.7.
+gnome/gnome-pim-1.4.6-i386-1.tgz:  Upgraded to gnome-pim-1.4.6.
+gnome/xscreensaver-4.03_gnome-i386-1.tgz:  Upgraded to xscreensaver-4.03.
+l/libxml2-2.4.22-i386-1.tgz:  Upgraded to libxml2-2.4.22.
+l/libxslt-1.0.18-i386-1.tgz:  Upgraded to libxslt-1.0.18.
+l/orbit-0.5.16-i386-1.tgz:  Upgraded to ORBit-0.5.16.
+n/bitchx-1.0c19-i386-1.tgz:  Upgraded to BitchX-1.0c19.
+n/links-0.97-i386-1.tgz:  Upgraded to links-0.97.
+n/nc-1.10-i386-1.tgz:  Added nc-1.10.
+n/nmap-2.54BETA34-i386-1.tgz:  Upgraded to nmap-2.54BETA34.
+n/proftpd-1.2.5rc2-i386-1.tgz:  Upgraded to proftpd-1.2.5rc2.
+n/tcpip-0.17-i386-12.tgz:  In netconfig, do not autoprobe arlan (needs an
+  irq= specified to work), com90io, or com90xx (these taint the kernel).
+  Rewrote /etc/rc.d/rc.inet1 to make it easy to set up a second NIC.
+  Removed obsolete netconfig.tty.
+  Patched netconfig to write out the new version of /etc/rc.d/rc.inet1.
+  Added /bin/ipmask utility (this will be removed from pkgtools).
+xap/imagemagick-5.4.5-i386-1.tgz:  Upgraded to imagemagick-5.4.5.
+xap/xscreensaver-4.03-i386-1.tgz:  Upgraded to xscreensaver-4.03.
+extra/ham/:  Added extra ham radio packages from Arno Verhoeven.
+rootdisks/network.dsk:  Removed autoprobe for arlan, com90io, and com90xx.
+rootdisks/install.?:  Don't add HPFS partitions to /etc/fstab, as NTFS also
+  shares these partition IDs, and trying to mount an NTFS partition as HPFS
+  can hang the machine.  At this point in time, it might be safer to assume
+  partitions using these IDs are actually NTFS (but it's safer still to make
+  no assumptions).
+isolinux/README.TXT:  Suggest -boot-load-size 32 when mastering the CD with
+  mkisofs to ensure the entire isolinux.bin is loaded, otherwise sometimes it
+  works... sometimes it doesn't.  Thanks to Janusz Wolanski for noticing that
+  this needed to be bigger.
+----------------------------
+Sun May 26 14:48:28 PDT 2002
+gnome/galeon-1.2.3-i386-1.tgz:  Upgraded to galeon-1.2.3.
+kde/koffice-1.1.1_kde3-i386-2.tgz:  Added koffice-1.1.1_kde3.
+Oh, and thanks to Greg Roelofs for cleaning up the slackware.com site logo
+and converting it to PNG.  It looks much better!  :-)
+----------------------------
+Sat May 25 12:38:52 PDT 2002
+Well folks, we are now at Slackware 8.1-rc1.  :-)
+Please test and report any problems you might find.
+a/aaa_base-8.1.0-i386-1.tgz:  Bumped version number in slackware-version
+  and welcome email.
+a/lprng-3.8.12-i386-1.tgz:  Upgraded to lprng-3.8.12.
+a/slocate-2.6-i386-3.tgz:  Added indexing of type 'auto' filesystems.
+gnome/eterm-0.9.1-i386-1.tgz:  Upgraded to eterm-0.9.1.
+gnome/galeon-1.2.2-i386-1.tgz:  Upgraded to galeon-1.2.2.
+gnome/gnome-games-1.4.0.3-i386-2.tgz:  Fixed to not overwrite existing scores.
+gnome/gtm-0.4.11-i386-2.tgz:  Patched for wget >= 1.8.
+kde/:  Upgraded to KDE-3.0.1.
+  Switched from qt-3.0.4 to qt-copy-3.0.4, which includes several
+  improvements to work better with KDE.
+  Compiled with --disable-debug for better performance.
+  Thanks to Andrey V. Panov for getting me to understand that --enable-debug=no
+  is not the same thing as --disable-debug.
+kdei/:  KDE language support packages upgraded to 3.0.1.
+l/freetype-1.3.1-i386-2.tgz:  Relocated header files from
+  /usr/include/freetype to /usr/include/freetype1/freetype.
+n/fetchmail-5.9.11-i386-1.tgz:  Upgraded to fetchmail-5.9.11 to fix another
+  fetchmail-vulnerable-to-malicious-mail-server hole.  My advice:  if you
+  don't trust your mail server, don't use fetchmail with it.  (and get a new
+  mail server)
+  (* Security fix *)
+n/tcpip-0.17-i386-11.tgz:  Patched netconfig to add a probe for Ethernet cards
+  based on the National Semiconductor DP8381x chipset (natsemi module).
+  Patched ping to handle ping times > 1s correctly (thanks to Jonathan Woithe).
+  Added -broadcast to ypbind example in /etc/rc.inet2.  ""
+xap/mozilla-1.0rc3-i386-1.tgz:  Upgraded to mozilla-1.0rc3.
+xap/xpdf-1.01-i386-1.tgz:  Upgraded to xpdf-1.01.
+extra/iproute2-2.4.7-now-ss020116-try/iproute2-2.4.7_now_ss020116_try-i386-2.tgz
+  Added missing /var/lib/arpd directory.
+----------------------------
+Mon May 20 21:34:16 PDT 2002
+a/devs-2.3.1-i386-7.tgz:  Added /dev/parport{0,1,2,3}.
+n/lftp-2.5.2-i386-1.tgz:  Upgraded to lftp-2.5.2.
+  Removed --with-modules from ./configure (this breaks the fish protocol).
+  Thanks to Andrey V. Panov for the bug report.
+n/php-4.2.1-i386-1.tgz:  Upgraded to php-4.2.1.
+xap/gnuplot-3.7.2-i386-3.tgz:  Recompiled using --with-readline, since the
+  gnuplot license isn't GPL compatible.  Sorry...
+extra/iproute2-2.4.7-now-ss020116-try/iproute2-2.4.7_now_ss020116_try-i386-1.tgz
+  Added iproute2-2.4.7-now-ss020116-try.
+----------------------------
+Sun May 19 22:11:19 PDT 2002
+a/devs-2.3.1-i386-6.tgz:  Added /dev/ataraid/ devices.
+a/lilo-22.2-i386-5.tgz:  Patched a bug in liloconfig that caused LILO to be
+  installed on /dev/hdc instead of /dev/hda.  Thanks to Christian Robert for
+  pointing this out and helping to run some tests.
+a/pkgtools-8.1.0-i386-1.tgz:  Upgraded to dialog-0.9b-20020519.
+ap/mc-4.5.55-i386-4.tgz:  Recompiled without --enable-charsets.
+n/htdig-3.1.6-i386-2.tgz:  Improved config file handling.
+  Fixed file perms in /usr/doc/htdig-3.1.6.
+n/ntp-4.1.1-i386-2.tgz:  Removed obsolete "authenticate" option from ntp.conf.
+n/ppp-2.4.1-i386-2.tgz:  Added support for more devices in pppsetup.
+n/tcpip-0.17-i386-10.tgz:  Removed automatic probe for com20020 in netconfig.
+xap/mozilla-1.0rc2-i386-1.tgz:  Removed Nautilus comment from slack-desc.
+xap/skipstone-0.8.1-i386-1.tgz:  This doesn't work with Mozilla > 0.9.9, and
+  neither does the newest version of the source (won't compile, and the old
+  binary runs but won't accept keyboard input).  Really, skipstone seems to be
+  more trouble than it's worth -- when new versions of Mozilla are released I
+  don't want to have to choose between breaking skipstone (by upgrading
+  Mozilla), or dragging my feet on Mozilla and waiting for a new skipstone
+  release that'll work.  Package removed, at least for now.
+extra/gcc-3.1/:  Added new gcc-3.1 packages:
+  gcc-3.1-i386-1.tgz, gcc-g++-3.1-i386-1.tgz,
+  gcc-g77-3.1-i386-1.tgz, gcc-java-3.1-i386-1.tgz,
+  gcc-objc-3.1-i386-1.tgz
+  # standard disclaimer follows :-)
+  If you use these (which I don't personally recommend) be aware that
+  all C++ related shared libraries (including anything having to do with
+  Qt and KDE) must be recompiled before you can link with them.
+  I may stick with gcc-2.95.x until the kernel is officially gcc-3 ready.
+rootdisks/network.dsk:  Removed automatic probe for com20020.
+----------------------------
+Sat May 18 13:48:28 PDT 2002
+a/acpid-1.0.1-i386-1.tgz:  Added acpid-1.0.1.
+a/bin-8.2.1-i386-5.tgz:  Upgraded to bpe-1.4, indent-2.2.8, lha-114i.
+a/devfsd-1.3.25-i386-2.tgz:  Switched to new config file handling.
+a/devs-2.3.1-i386-5.tgz:  Added /dev/rawctl and /dev/raw/* devices as specified
+  by the Linux Assigned Names And Numbers Authority (LANANA).
+a/etc-5.0-i386-3.tgz:  Added /etc/inputrc and patched /etc/profile and
+  /etc/csh.login to map it to $INPUTRC if there is no $HOME/.inputrc.
+a/gawk-3.1.1-i386-1.tgz:  Upgraded to gawk-3.1.1.
+a/glibc-solibs-2.2.5-i386-2.tgz:  Recompiled against kernel-headers-2.4.18.
+a/glibc-zoneinfo-2.2.5-i386-2.tgz:  Fixed some formatting bugs in timeconfig.
+a/openssl-solibs-0.9.6d-i386-1.tgz:  Upgraded to openssl-0.9.6d.
+a/procps-2.0.7-i386-3.tgz:  Added pkill, pgrep, sysctl, and manpages.
+a/sysvinit-2.84-i386-14.tgz:  Try to run rc.acpid from rc.M.
+a/util-linux-2.11r-i386-1.tgz:  Upgraded to util-linux-2.11r.
+  Added pivot_root, raw, and manpages.
+ap/mpg321-0.2.10-i386-1.tgz:  Upgraded to mpg321-0.2.10.
+d/binutils-2.12.90.0.7-i386-1.tgz:  Upgraded to binutils-2.12.90.0.7.
+d/kernel-headers-2.4.18-i386-2.tgz:  include/linux/autoconf.h was left over
+  from an old build -- this was replaced to match the current bare.i config.
+gnome/gaim-0.58-i386-1.tgz:  Upgraded to gaim-0.58.  This fixes some security
+  problems.
+gnome/galeon-1.2.1-i386-3.tgz:  Recompiled with --enable-nautilus-view=no.
+gnome/nautilus-1.0.6-i386-3.tgz:  Recompiled without the Mozilla view, since this
+  crashes with Mozilla > 0.9.9 and will be removed in nautilus-1.0.7 anyway.
+  It's possible to compile Galeon with --enable-nautilus-view=yes to replace this
+  functionality, but I'm leaning towards _not_ doing that since it causes Galeon
+  to link with all the Nautilus libraries.  If you feel strongly that Galeon
+  should or should not be compiled with the Nautilus libraries let me know.
+k/kernel-source-2.4.18-noarch-3.tgz:  include/linux/autoconf.h was left over
+  from an old build -- this was replaced to match the current bare.i config.
+  Cleaned compile-time generated files from drivers/net/hamradio/soundmodem.
+l/glibc-2.2.5-i386-2.tgz:  Recompiled against kernel-headers-2.4.18.
+  Link to the sln in util-linux rather than including another copy.
+n/mailx-8.1.1-i386-2.tgz:  Added mail.1.gz -> mailx.1.gz manpage symlink.
+n/openssh-3.2.2p1-i386-1.tgz:  Upgraded to openssh-3.2.2p1.
+n/openssl-0.9.6d-i386-1.tgz:  Upgraded to openssl-0.9.6d.
+n/sendmail-8.12.3-i386-4.tgz:  Fixed access_db in linux.smtp.access.cf.
+n/sendmail-cf-8.12.3-i386-4.tgz:  Fixed access_db in linux.smtp.access.cf.
+xap/netscape-6.2.3-i686-1.tgz:  Upgraded to netscape-6.2.3.
+isolinux/initrd.img:  This can now load pcmcia.dsk and network.dsk directly from
+  the CD-ROM in the rootdisks/ or isolinux/ directories.
+rootdisks/network.dsk:  Fixed to work if the disk image is mounted read-only.
+----------------------------
+Mon May 13 19:11:26 PDT 2002
+a/procps-2.0.7-i386-2.tgz:  Fixed AIX format descriptors.
+ap/bc-1.06-i386-2.tgz:  Added readline support.
+ap/cdrtools-1.11a23-i386-1.tgz:  Upgraded to cdrtools-1.11a23.
+gnome/evolution-1.0.5-i386-1.tgz:  Upgraded to evolution-1.0.5.
+gnome/galeon-1.2.1-i386-2.tgz:  Recompiled against mozilla-1.0rc2.
+n/samba-2.2.4-i386-3.tgz:  Added missing /var/cache/samba directory.
+xap/mozilla-1.0rc2-i386-1.tgz:  Upgraded to mozilla-1.0rc2.
+extra/sdl-1.2.4/sdl-1.2.4-i386-1.tgz:  Added SDL-1.2.4.
+----------------------------
+Wed May  8 23:03:11 PDT 2002
+a/devfsd-1.3.25-i386-1.tgz:  Upgraded to devfsd-1.3.25.
+a/etc-5.0-i386-2.tgz:  Added smmsp and pop to /etc/shadow.
+a/jfsutils-1.0.17-i386-1.tgz:  Upgraded to jfsutils-1.0.17.
+a/lilo-22.2-i386-4.tgz:  Added support for append="" to the simple
+  LILO setup menu.
+a/kernel-ide-2.4.18-i386-2.tgz:  Rebuilt with kmod (really :-) and
+  without devfs (which is still considered experimental, and was
+  changing the /proc/partitions output in a way that was complicating
+  a lot of things).
+a/kernel-modules-2.4.18-i386-2.tgz:  Rebuilt without devfs, and commented
+  out most of /etc/rc.d/rc.modules.
+a/kernel-scsi-2.4.18-i386-2.tgz:  Removed.  Only the vanilla bare.i
+  kernel will be packaged as kernel-ide-*-*.tgz.  Other kernels will have
+  to be installed from the CD-ROM or a bootdisk.
+a/modutils-2.4.16-i386-1.tgz:  Upgraded to modutils-2.4.16.
+  Added /etc/cron.hourly/kmod to autoclean unused kernel modules.
+a/reiserfsprogs-3.x.1b-i386-1.tgz:  Upgraded to reiserfsprogs-3.x.1b.
+a/syslinux-1.72-i386-1.tgz:  Upgraded to syslinux-1.72.
+a/sysvinit-2.84-i386-13.tgz:  It looks like rc.modules has to come after
+  setting the clock in rc.S.  Otherwise, depmod may stamp the wrong time
+  on modules.dep and other files, which can lead to false warnings that
+  modules.dep is too old every time a module utility is used.
+  Changed the serial line examples in /etc/inittab to use -L (local, no
+  carrier), 9600 baud 8N1.  (suggested by Cameron Kerr)
+a/xfsprogs-2.0.3-i386-1.tgz:  Upgraded to xfsprogs-2.0.3.
+f/linux-faqs-20020507-noarch-1.tgz:  Linux FAQs updated.
+f/linux-howtos-20020507-noarch-1.tgz:  Linux HOWTOs updated.
+f/linux-mini-howtos-20020507-noarch-1.tgz:  Linux mini HOWTOs updated.
+gnome/abiword-1.0.1-i386-1.tgz:  Upgraded to abiword-1.0.1.
+gnome/esound-0.2.26-i386-1.tgz:  Upgraded to esound-0.2.26.
+k/kernel-source-2.4.18-noarch-2.tgz:  Changed package arch to 'noarch'.
+  Updated /usr/src/linux/.config to match the new bare.i configuration.
+kde/qt-3.0.4-i386-1.tgz:  Upgraded to qt-3.0.4.
+n/bind-9.2.1-i386-1.tgz:  Upgraded to bind-9.2.1.
+n/dhcp-3.0pl1-i386-1.tgz:  Upgraded to dhcp-3.0pl1.  This fixes a remote
+  security hole, so if you run dhcpd (this is NOT run by default), then you'll
+  want to upgrade this right away.
+  (* Security fix *)
+n/tcpip-0.17-i386-9.tgz:  In rc.inet2, look for a user-supplied
+  /etc/rc.d/rc.firewall before enabling packet forwarding.
+bootdisks/:  New bootdisks.
+kernels/:  Added some new kernels and rebuilt all the others (+kmod -devfs).
+rootdisks/:  New rootdisks. (syslinux and other updates/fixes)
+isolinux/:  Use the kernels in the kernels/ directory.  Burn the isolinux
+  and kernels directories closer to the beginning of the disc using -sort
+  (see isolinux/README.TXT).
+----------------------------
+Mon May  6 00:26:51 PDT 2002
+a/elflibs-8.0.8-i386-2.tgz:  Added libpng.so.3.
+a/pkgtools-8.0.99-i386-1.tgz:  Modified installpkg to deal with packages
+  created with newer versions of tar that store files as './foo' and './bar'
+  rather than 'foo' and 'bar', so that removepkg/upgradepkg can match files
+  properly.  Of course, such problems are completely avoidable by using makepkg
+  rather than tar or a tool that produces out-of-spec packages, but I realize
+  people will do this anyway so I'll fix it before it's a problem. :-)
+ap/ghostscript-7.05-i386-1.tgz:  Upgraded to ghostscript-7.05.
+ap/gimp-print-4.2.1-i386-1.tgz:  Unbundled from the ghostscript package since
+  this now uses the IJS interface and Ghostscript no longer links with
+  libgimpprint.  Upgraded to gimp-print-4.2.1.
+ap/hpijs-1.1-i386-1.tgz:  Upgraded to hpijs-1.1.
+gnome/bonobo-1.0.20-i386-1.tgz:  Upgraded to bonobo-1.0.20.
+gnome/esound-0.2.25-i386-1.tgz:  Upgraded to esound-0.2.25.
+gnome/gal-0.19.2-i386-1.tgz:  Upgraded to gal-0.19.2.
+gnome/gdm-2.2.5.5-i386-2.tgz:  Added xfce session type.
+gnome/gedit-0.9.7-i386-1.tgz:  Upgraded to gedit-0.9.7.
+gnome/gnome-core-1.4.0.8-i386-1.tgz:  Upgraded to gnome-core-1.4.0.8.
+gnome/gnome-libs-1.4.1.6-i386-1.tgz:  Upgraded to gnome-libs-1.4.1.6.
+gnome/guppi-0.40.3-i386-1.tgz:  Added guppi-0.40.3.  This supplies a plugin to
+  support graphing in gnumeric.
+gnome/oaf-0.6.10-i386-1.tgz:  Upgraded to oaf-0.6.10.
+gnome/pan-0.11.3-i386-1.tgz:  Upgraded to pan-0.11.3.
+gnome/xchat-1.8.8-i386-2.tgz:  Recompiled without MMX and debugging.
+kde/kdebase-3.0-i386-2.tgz:  Added xfce session type for kdm.
+l/gdk-pixbuf-0.17.0-i386-1.tgz:  Upgraded to gdk-pixbuf-0.17.0.
+l/libxml2-2.4.21-i386-1.tgz:  Upgraded to libxml2-2.4.21.
+l/libxslt-1.0.17-i386-1.tgz:  Upgraded to libxslt-1.0.17.
+n/php-4.2.0-i386-1.tgz:  Upgraded to php-4.2.0.
+  Here's a note from the NEWS file:
+  ATTENTION!! register_globals defaults to 'off' now !!!
+n/rsync-2.5.5-i386-1.tgz:  Upgraded to rsync-2.5.5.
+n/samba-2.2.4-i386-2.tgz:  Recompiled without CUPS support since we do not want
+  to require libcups.so.
+n/sendmail-8.12.3-i386-3.tgz:  Added editmap program and manpage.
+  Added a new sample sendmail.cf with /etc/mail/access support.
+n/sendmail-cf-8.12.3-i386-3.tgz:  Added a new sample sendmail.cf with
+  /etc/mail/access support.
+x/xfree86-4.2.0-i386-4.tgz:  Added xfce to /etc/X11/xdm/Xsession.
+extra/blackbox-0.62.1/blackbox-0.62.1-i386-1.tgz:  Added blackbox-0.62.1.
+extra/cups-1.1.14/cups-1.1.14-i386-2.tgz:  Recompiled against libpng.so.3.
+extra/isdn4k-utils/isdn4k-utils-CVS-2002-05-05.tar.gz:  Added isdn4k-utils
+  source package.
+pasture/libglut-3.7/libglut-3.7-i386-1.tgz:  Some games still need this.
+----------------------------
+Sat May  4 22:42:01 PDT 2002
+a/sysklogd-1.4.1-i386-5.tgz:  Cleaned up /etc/syslog.conf to avoid duplicated
+  lines.  Thanks to Michiel Broek for reporting the problem.
+a/sysvinit-2.84-i386-12.tgz:  Switched to better config file handling on
+  /etc/inittab.  Note that upgrading to this version of the package will still
+  replace an existing /etc/inittab, but this will be the last time. :-)
+  Add a short delay after running rc.pcmcia to allow network cards to
+  initialize before rc.inet1 is run.  (Also suggested by Michiel Broek)
+a/util-linux-2.11q-i386-1.tgz:  Upgraded to util-linux-2.11q.
+ap/lvm-1.0.3-i386-2.tgz:  Rebuilt without debugging support.
+d/gdb-5.2-i386-1.tgz:  Upgraded to gdb-5.2.
+n/dhcpcd-1.3.22pl1-i386-2.tgz:  Patched the configure script to stop forcing
+  -march=i686, which was causing dhcpcd to fail on older machines.
+n/samba-2.2.4-i386-1.tgz:  Upgraded to samba-2.2.4.
+n/yptools-2.6-i386-5.tgz:  Rewrote the installation script to handle the
+  config files better.
+----------------------------
+Wed May  1 10:49:10 PDT 2002
+ap/vim-6.1-i386-4.tgz:  Fixed perms on /usr/share/vim/vim61/.
+  (and, found the bug in my build script that was causing that! ;-)
+xap/xvim-6.1-i386-4.tgz:  Fixed perms on /usr/share/vim/vim61/.
+----------------------------
+Wed May  1 01:13:20 PDT 2002
+a/devs-2.3.1-i386-4.tgz:  Added device files for Mylex and Compaq RAID
+  controllers.
+a/floppy-5.4-i386-3.tgz:  Recompiled with fdutils-5.4-20020222.diff.gz.
+a/shadow-4.0.3-i386-1.tgz:  Upgraded to shadow-4.0.3.
+a/sysklogd-1.4.1-i386-4.tgz:  Added /etc/rc.d/rc.syslog.
+a/sysvinit-2.84-i386-11.tgz:  In rc.M, start syslogd/klogd using rc.syslog;
+  start sendmail using rc.sendmail; if rc.cups is found, start CUPS instead
+  of lpd.
+  LVM fixes in rc.S and rc.6 (lvtab -> lvmtab, mount /proc before scan).
+  Remove directories in addition to files from /var/log/setup/tmp.
+  Move hwclock section after rc.modules in rc.S (fixes a problem with using
+  a modularized real time clock).
+ap/vim-6.1-i386-3.tgz:  Added vim-6.1-lang language support.
+  Reduced from "huge" to "big".
+  Applied the latest patches from ftp.vim.org.
+  Thanks to Adrien Beau for pointing me at the vim-6.1-lang package. :-)
+gnome/rep-gtk-0.15-i386-2.tgz:  Fixed ownership of files under /usr/doc/.
+l/glibc-i18n-2.2.5-i386-1.tgz:  Fixed a typo in the slack-desc file.
+l/t1lib-1.3.1-i386-1.tgz:  Added t1lib-1.3.1.
+n/epic4-1.0.1-i386-2.tgz:  Fixed ownership of files under /usr/doc/.
+n/nmap-2.54BETA33-i386-1.tgz:  Upgraded to nmap-2.54BETA33.
+n/popa3d-0.5.1-i386-1.tgz:  Upgraded to popa3d-0.5.1.
+n/sendmail-8.12.3-i386-2.tgz:  Fixed the install script to be sure there's an
+  /etc/mail/aliases.db.
+  Added /etc/rc.d/rc.sendmail.
+n/sendmail-cf-8.12.3-i386-2.tgz:  Rebuilt.
+n/tcpip-0.17-i386-8.tgz:  In rc.inet2, use rc.syslog to start syslogd/klogd.
+n/yptools-2.6-i386-4.tgz:  Upgraded to ypbind-mt-1.11.
+  Fixed two manpages that weren't compressed but ended in '.gz'.
+xap/gnuplot-3.7.2-i386-2.tgz:  Recompiled with readline (--with-readline=gnu).
+xap/xfce-3.8.16-i386-1.tgz:  Upgraded to xfce-3.8.16.
+xap/xvim-6.1-i386-3.tgz:  Added vim-6.1-lang language support.
+  Reduced from "huge" to "big".
+  Applied the latest patches from ftp.vim.org.
+xap/xpdf-1.00-i386-3.tgz:  Recompiled against t1lib and freetype2.
+----------------------------
+Thu Apr 25 12:00:50 PDT 2002
+ap/sudo-1.6.6-i386-1.tgz:  Upgraded to sudo-1.6.6.
+  This version of sudo fixes a security problem whereby a local user may gain
+  root access through corruption of the heap (Off-By-Five).
+  This issue was discovered by Global InterSec LLC, and more information may
+  be found on their web site:  
+  http://www.globalintersec.com/adv/sudo-2002041701.txt
+  The discussion on the site indicates that this problem may only be exploitable
+  on systems that use PAM, which Slackware does not use.  However, in the 
+  absence of proof, it still seems prudent to upgrade sudo immediately.
+  (* Security fix *)
+----------------------------
+Wed Apr 24 21:04:25 PDT 2002
+a/pkgtools-8.0.8-i386-5.tgz:  Fixed xfree86setup text formatting.
+gnome/abiword-1.0.0-i386-1.tgz:  Upgraded to abiword-1.0.0.
+gnome/galeon-1.2.1-i386-1.tgz:  Upgraded to galeon-1.2.1.
+gnome/gnumeric-1.0.6-i386-1.tgz:  Upgraded to gnumeric-1.0.6.
+xap/mozilla-1.0rc1-i386-1.tgz:  Upgraded to mozilla-1.0rc1.
+xap/windowmaker-0.80.0-i386-1.tgz:  This really didn't belong in /gnome.
+----------------------------
+Thu Apr 18 18:20:19 PDT 2002
+d/cvs-1.11.2-i386-1.tgz:  Upgraded to cvs-1.11.2.
+----------------------------
+Tue Apr 16 21:28:07 PDT 2002
+a/loadlin-1.6c-i386-1.tgz:  Upgraded to loadlin-1.6c.  (Thanks Hans!)
+ap/mc-4.5.55-i386-3.tgz:  Recompiled with different options that should get
+  rid of most of the reported problems.  Thanks to Georgi Chorbadzhiyski for
+  helping out with this.
+xap/skipstone-0.8.1-i386-1.tgz:  Added skipstone-0.8.1.
+extra/java2-runtime-environment/j2re-1.4.0-i486-1.tgz:  Added a symlink
+  /usr/bin/ls -> /bin/ls, needed by the ControlPanel script.
+----------------------------
+Mon Apr 15 23:47:55 PDT 2002
+a/dcron-2.3.3-i386-4.tgz:  Modified root's crontab to run package cron scripts
+  in /etc/cron.{daily,hourly,monthly,weekly} with the run-parts script that
+  was added to the bin package yesterday.  (these cron directories are required
+  by the LSB)  Note that upgrading the dcron package will not replace root's
+  crontab unless it is deleted manually first.
+a/devs-2.3.1-i386-3.tgz:  Updated /dev/fb* devices to use the new numbering
+  standard.
+a/logrotate-3.6.3-i386-1.tgz:  Upgraded to logrotate-3.6.3.  Added a daily
+  cron script in /etc/cron.daily instead of running logrotate directly from
+  root's crontab.
+a/shadow-19990827-i386-6.tgz:  Fixed config file replacement script.
+a/slocate-2.6-i386-2.tgz:  Added an slocate cron script in /etc/cron.daily.
+ap/vim-6.1-i386-2.tgz:  Recompile with --with-features=huge.  Thanks again
+  to Naresh Donti for the tip.  Since we were recompiling anyway, the
+  latest patches from ftp.vim.org were also applied.
+kde/qt-3.0.3-i386-2.tgz:  Corrected a couple of minor bugs in the 
+  /etc/profile.d/ scripts.  When using qt.sh, ':' should not be added to the
+  end of $CPLUS_INCLUDE_PATH.  Use QTDIR=/usr/lib/qt-3.0.3 if found, otherwise
+  fall back to QTDIR=/usr/lib/qt.  This prevents some runtime warnings. 
+n/lftp-2.5.0a-i386-2.tgz:  Recompiled adding --with-modules.
+n/lynx-2.8.4-i386-2.tgz:  Recompiled adding --with-ssl --enable-color-style 
+  --enable-prettysrc --enable-source-cache --enable-nsl-fork
+  Thanks to Frédéric L. W. Meunier for the lftp and lynx suggestions.
+xap/xvim-6.1-i386-2.tgz:  Recompiled with latest patches and
+  --with-features=huge.
+extra/java2-runtime-environment/j2re-1.4.0-i486-1.tgz:  Added a package
+  containing Sun's Java(TM) 2 Runtime Environment.
+----------------------------
+Sun Apr 14 21:29:14 PDT 2002
+a/bin-8.2.1-i386-4.tgz:  Added run-parts script and manpage.
+  Upgraded to GNU indent-2.2.7.
+  Upgraded to GNU which-2.13.
+  Fixed permissions on splitvt docs.
+ap/mc-4.5.55-i386-2.tgz:  Recompiled with large file support.
+gnome/nautilus-1.0.6-i386-2.tgz:  Added a patch that prevents spawning around
+  50 zombie shell processes when 'help' is used.  This is caused by nautilus
+  trying to use a feature that will be present in a future scrollkeeper version,
+  but that isn't there yet.  Thanks to Naresh Donti for the bug report.
+extra/rp-pppoe-3.3/rp-pppoe-3.3-i386-1.tgz:  Added rp-pppoe-3.3.
+----------------------------
+Sat Apr 13 20:16:42 PDT 2002
+a/shadow-19990827-i386-5.tgz:  Added /var/log/faillog.
+  Fixed install script to not overwrite existing login.access or login.defs.
+l/readline-4.2a-i386-2.tgz:  Remove extra '.old' copies of the shared libraries.
+----------------------------
+Fri Apr 12 02:01:53 PDT 2002
+We'll call this Slackware 8.1-beta2. :-)
+a/pkgtools-8.0.8-i386-4.tgz:  Fixed GNOME selection in xwmconfig.
+d/gdb-5.1.1-i386-3.tgz:  Fix ownership of /usr/doc/gdb-5.1.1/README.gdbserver.
+d/python-2.2.1-i386-1.tgz:  Upgraded to python-2.2.1.
+Hey folks, here is the long awaited update to GNOME.  I think you'll find it was
+worth the wait while these were tweaked (and retweaked :) to get everything just
+exactly perfect.  This GNOME build is based on stable GNOME 1.4.1, and nearly
+every package has been recently updated.  There are also several new packages
+that have not appeared in Slackware before, such as Evolution.
+gnome/abiword-0.99.3-i386-1.tgz:  Added abiword-0.99.3.
+gnome/bonobo-1.0.19-i386-1.tgz:  Added bonobo-1.0.19.
+gnome/bonobo-conf-0.14-i386-1.tgz:  Added bonobo-conf-0.14.
+gnome/bug-buddy-2.0.8-i386-1.tgz:  Added bug-buddy-2.0.8.
+gnome/control-center-1.4.0.5-i386-1.tgz:  Added control-center-1.4.0.5.
+gnome/dia-0.88.1-i386-1.tgz:  Added dia-0.88.1.
+gnome/enlightenment-0.16.5-i386-1.tgz:  Added enlightenment-0.16.5.
+gnome/eog-0.6-i386-1.tgz:  Added eog-0.6.
+gnome/esound-0.2.24-i386-1.tgz:  Added esound-0.2.24.
+gnome/eterm-0.8.10-i386-1.tgz:  Added eterm-0.8.10.
+gnome/evolution-1.0.3-i386-1.tgz:  Added evolution-1.0.3.
+gnome/fnlib-0.5-i386-1.tgz:  Added fnlib-0.5.
+gnome/gaim-0.55-i386-1.tgz:  Added gaim-0.55.
+gnome/gal-0.19.1-i386-1.tgz:  Added gal-0.19.1.
+gnome/galeon-1.2.0-i386-1.tgz:  Added galeon-1.2.0.
+gnome/gconf-1.0.9-i386-1.tgz:  Added gconf-1.0.9.
+gnome/gdm-2.2.5.5-i386-1.tgz:  Added gdm-2.2.5.5.
+gnome/gedit-0.9.6-i386-1.tgz:  Added gedit-0.9.6.
+gnome/gftp-2.0.11-i386-1.tgz:  Added gftp-2.0.11.
+gnome/ggv-1.0.2-i386-1.tgz:  Added ggv-1.0.2.
+gnome/ghex-1.2.1-i386-1.tgz:  Added ghex-1.2.1.
+gnome/glade-0.6.4-i386-1.tgz:  Added glade-0.6.4.
+gnome/gnet-1.1.2-i386-1.tgz:  Added gnet-1.1.2.
+gnome/gnome-admin-1.0.3-i386-1.tgz:  Added gnome-admin-1.0.3.
+gnome/gnome-applets-1.4.0.5-i386-1.tgz:  Added gnome-applets-1.4.0.5.
+gnome/gnome-audio-1.4.0-noarch-1.tgz:  Added gnome-audio-1.4.0.
+gnome/gnome-core-1.4.0.6-i386-1.tgz:  Added gnome-core-1.4.0.6.
+gnome/gnome-games-1.4.0.3-i386-1.tgz:  Added gnome-games-1.4.0.3.
+gnome/gnome-libs-1.4.1.4-i386-1.tgz:  Added gnome-libs-1.4.1.4.
+gnome/gnome-media-1.2.3-i386-1.tgz:  Added gnome-media-1.2.3.
+gnome/gnome-mime-data-1.0.1-i386-1.tgz:  Added gnome-mime-data-1.0.1.
+gnome/gnome-network-1.0.2-i386-1.tgz:  Added gnome-network-1.0.2.
+gnome/gnome-objc-1.0.40-i386-1.tgz:  Added gnome-objc-1.0.40.
+gnome/gnome-pilot-0.1.64-i386-1.tgz:  Added gnome-pilot-0.1.64.
+gnome/gnome-pim-1.4.4-i386-1.tgz:  Added gnome-pim-1.4.4.
+gnome/gnome-print-0.35-i386-1.tgz:  Added gnome-print-0.35.
+gnome/gnome-python-1.4.2-i386-1.tgz:  Added gnome-python-1.4.2.
+gnome/gnome-user-docs-1.4.1.1-noarch-1.tgz:  Added gnome-user-docs-1.4.1.1.
+gnome/gnome-utils-1.4.1.2-i386-1.tgz:  Added gnome-utils-1.4.1.2.
+gnome/gnome-vfs-1.0.5-i386-1.tgz:  Added gnome-vfs-1.0.5.
+gnome/gnomeicu-0.98.2-i386-1.tgz:  Added gnomeicu-0.98.2.
+gnome/gnomemm-1.2.2-i386-1.tgz:  Added gnomemm-1.2.2.
+gnome/gnotepad+-1.3.3-i386-1.tgz:  Added gnotepad+-1.3.3.
+gnome/gnumeric-1.0.5-i386-1.tgz:  Added gnumeric-1.0.5.
+gnome/gqview-1.0.2-i386-1.tgz:  Added gqview-1.0.2.
+gnome/gtk-engines-0.12-i386-1.tgz:  Added gtk-engines-0.12.
+gnome/gtkhtml-1.0.2-i386-1.tgz:  Added gtkhtml-1.0.2.
+gnome/gtkmm-1.2.8-i386-1.tgz:  Added gtkmm-1.2.8.
+gnome/gtm-0.4.11-i386-1.tgz:  Added gtm-0.4.11.
+gnome/gtop-1.0.13-i386-1.tgz:  Added gtop-1.0.13.
+gnome/guile-1.5.6-i386-1.tgz:  Added guile-1.5.6.
+gnome/imlib-1.9.14-i386-1.tgz:  Added imlib-1.9.14.
+gnome/libghttp-1.0.9-i386-1.tgz:  Added libghttp-1.0.9.
+gnome/libglade-0.17-i386-1.tgz:  Added libglade-0.17.
+gnome/libgtop-1.0.13-i386-1.tgz:  Added libgtop-1.0.13.
+gnome/libole2-0.2.4-i386-1.tgz:  Added libole2-0.2.4.
+gnome/librep-0.15.2-i386-1.tgz:  Added librep-0.15.2.
+gnome/libsigc++-1.0.4-i386-1.tgz:  Added libsigc++-1.0.4.
+gnome/libunicode-0.4-i386-1.tgz:  Added libunicode-0.4.
+gnome/nautilus-1.0.6-i386-1.tgz:  Added nautilus-1.0.6.
+gnome/oaf-0.6.8-i386-1.tgz:  Added oaf-0.6.8.
+gnome/pan-0.11.2.91-i386-1.tgz:  Added pan-0.11.2.91.
+gnome/panelmm-0.3.1-i386-1.tgz:  Added panelmm-0.3.1.
+gnome/pilot-link-0.9.5-i386-1.tgz:  Added pilot-link-0.9.5.
+gnome/pkgconfig-0.12.0-i386-1.tgz:  Added pkgconfig-0.12.0.
+gnome/rep-gtk-0.15-i386-1.tgz:  Added rep-gtk-0.15.
+gnome/sawfish-1.0.1-i386-1.tgz:  Added sawfish-1.0.1.
+gnome/scrollkeeper-0.2-i386-1.tgz:  Added scrollkeeper-0.2.
+gnome/sodipodi-0.24.1-i386-1.tgz:  Added sodipodi-0.24.1.
+gnome/windowmaker-0.80.0-i386-1.tgz:  Added windowmaker-0.80.0.
+gnome/xalf-0.12-i386-1.tgz:  Added xalf-0.12.
+gnome/xchat-1.8.8-i386-1.tgz:  Added xchat-1.8.8.
+gnome/xscreensaver-4.02_gnome-i386-1.tgz:  Added xscreensaver-4.02 compiled
+  for GNOME.
+n/iptables-1.2.6a-i386-1.tgz:  Upgraded to iptables-1.2.6a.
+n/mutt-1.2.5.1-i386-3.tgz:  Patched mutt to look in the correct directory
+  for charmaps (/usr/share/i18n/charmaps).  Note that mutt still does not
+  understand compressed charmaps, which are now default with glibc.  Until
+  this can be addressed, if you need to use charmaps with mutt, you'll need
+  to go into /usr/share/i18n/charmaps and uncompress them.
+  Thanks to Cezary Sliwa for pointing out this problem.
+----------------------------
+Thu Apr 11 01:47:23 PDT 2002
+pasture/XFree86-3.3.6-servers/xwrapper-3.3.6-i386-1.tgz:  Added setuid
+  Xwrapper program to allow non-root users to run XFree86 3.3.6 servers
+  without requiring them to be made setuid root.  Thanks to Harka Steinhart
+  for reminding me that this was required.
+a/bin-8.2.1-i386-3.tgz:  Patched /bin/ed to create tmp files more safely.
+a/genpower-1.0.1-i386-1.tgz:  Added genpower-1.0.1 (replaces powerd).
+a/getty-ps-2.0.7j-i386-3.tgz:  Moved inittab example to the examples
+  directory.
+a/shadow-19990827-i386-4.tgz:  Fixed a bug in adduser that caused it to
+  always use the next available UID no matter what UID was entered.
+a/sysvinit-2.84-i386-10.tgz:  Added support for LVM in rc.S and rc.6.
+  Removed powerd and rewrote the scripts to use genpowerd instead.  
+  Don't try to run crond or atd if they aren't installed on the system.
+  Rather than replacing existing scripts in /etc/rc.d/, leave .new ones behind.
+  Fix rc.S so that the -f and -F options to /sbin/shutdown work properly.
+  Restart /sbin/init after installing the new binary, so that the system can
+  unmount its drives at the next shutdown/reboot.
+  In rc.6, unmount remote volumes before killing processes.  Fixes a problem
+  when using SMB volumes with PCMCIA network cards.  (thanks Nathan England)
+  In rc.6, clear /var/lock/subsys.  (thanks Jeff Adams) 
+  Change gdm path in rc.4 to /usr/bin/gdm.
+----------------------------
+Wed Apr 10 14:34:08 PDT 2002
+ap/hpijs-1.0.4-i386-1.tgz:  Upgraded to hpijs-1.0.4.
+l/gdk-pixbuf-0.16.0-i386-1.tgz:  Added gdk-pixbuf-0.16.0, needed by xfce.
+Touched a few packages that were not mirroring out properly.
+----------------------------
+Wed Apr 10 01:00:21 PDT 2002
+Added "install-packages" scripts in the package directories.
+a/lilo-22.2-i386-3.tgz:  If XFS is detected, make MBR installation the default
+  menu choice.
+a/pkgtools-8.0.8-i386-3.tgz:  Fix bug which caused leftover files in
+  /var/log/setup/tmp when a package was skipped while using -infobox.
+  Return an error code from upgradepkg if the last (or only) package it tried
+  to upgrade was not installed.
+  Add xfce detection to xwmconfig, and remember previous selection.
+a/sysklogd-1.4.1-i386-3.tgz:  Fixed missing /var/log/syslog err/warn logging in
+  /etc/syslog.conf.  Add rotation for /var/log/syslog.
+ap/rexima-1.1-i386-1.tgz:  Added rexima-1.1.
+xap/fvwm-2.4.6-i386-4.tgz:  Don't create an xinitrc symlink.
+xap/fvwm95-2.0.43ba-i386-2.tgz:  Don't create an xinitrc symlink.
+xap/xfce-3.8.14c-i386-1.tgz:  Added xfce-3.8.14c.  Do you find GNOME and KDE to
+  be too slow on your machine?  Then try xfce, "The Cholesterol Free Desktop
+  Environment".  This has been added to fill the need for a complete but
+  lightweight and _fast_ desktop environment.
+----------------------------
+Tue Apr  9 01:09:48 PDT 2002
+a/dcron-2.3.3-i386-3.tgz:  Patched to report correct version.
+n/sendmail-8.12.3-i386-1.tgz:  Upgraded to sendmail-8.12.3.
+n/sendmail-cf-8.12.3-i386-1.tgz:  Upgraded to sendmail-8.12.3.
+----------------------------
+Sun Apr  7 18:15:16 PDT 2002
+a/aaa_base-8.0.8-i386-4.tgz:  Moved /etc/slackware-version to here.
+a/dcron-2.3.3-i386-2.tgz:  Added logrotate to root's crontab.
+  Added updatedb (slocate) to root's crontab.
+  Removed nobody's crontab, which used to run GNU findutils updatedb.
+a/etc-5.0-i386-1.tgz:  Removed obsolete "filesize" script.
+  Added slocate group.
+a/findutils-4.1.7-i386-1.tgz:  Upgraded to findutils-4.1.7.
+  Removed deprecated locate and updatedb programs -- the new versions
+  are in the slocate package.
+a/glibc-zoneinfo-2.2.5-i386-1.tgz:  Fixed timeconfig to work better on
+  vt100 terminals.  Since it's a minor change, and this _is_ -current, I
+  didn't update the build number.
+a/grep-2.5-i386-2.tgz:  Compile against the static libpcre.a, since we
+  don't want to have to move that into the A series, and it doesn't make
+  grep much larger.
+a/lprng-3.8.5-i386-2.tgz:  Better config file handling in the install script.
+a/logrotate-3.6.2-i386-1.tgz:  Added by popular demand.  ;-)
+a/pciutils-2.1.10-i386-1.tgz:  Upgraded to pciutils-2.1.10 and the latest
+  version of pci.ids.
+a/pkgtools-8.0.8-i386-2.tgz:  Fixed some spelling errors in installpkg and
+  pkgtool.  Also fixed many several other spelling mistakes in the installer
+  and package descriptions.  Thanks to Jason Byrne for kicking me into editor
+  mode.  :-)
+  Removed /etc/slackware-version.
+  Eliminated use of obsolete filesize script in makepkg.
+a/shadow-19990827-i386-3.tgz:  Don't create (obsolete) /var/log/sulog.
+a/slocate-2.6-i386-1.tgz:  Added slocate-2.6.
+a/sysklogd-1.4.1-i386-2.tgz:  Provide a more complete syslog.conf.
+  Add /etc/logrotate.d/syslog.
+ap/mysql-3.23.49-i386-2.tgz:  Recompiled with better optimization.
+l/gdbm-1.8.0-i386-2.tgz:  Fixed '/usr/local' bug in libgdbm.la.
+l/glibc-2.2.5-i386-1.tgz:  Fixed timeconfig script for vt100 terminals.
+n/php-4.1.2-i386-4.tgz:  Added IMAP/SSL support.
+  Thanks to Miha Verlic for suggesting the mysql and php changes.
+xap/fvwm-2.4.6-i386-3.tgz:  Added back a bunch of icons that fvwm doesn't
+  include in recent versions.  Thanks to Artur Kedzierski for noticing this.
+----------------------------
+Fri Apr  5 22:54:17 PST 2002
+rootdisks/install.?:  Use /dev/sr?, not /dev/scd? which is deprecated.
+  Support a new series KDEI for the kde-i18n packages.
+extra/openmotif-2.2.1/openmotif-2.2.1-i386-1.tgz:  Added openmotif-2.2.1.
+extra/sgml-tools-1.0.9-i386-2.tgz:  Fixed missing libostyle.
+a/gettext-0.11-i386-2.tgz:  Recompiled.
+a/grep-2.5-i386-1.tgz:  Upgraded to GNU grep-2.5.
+a/lilo-22.2-i386-2.tgz:  Add a warning against installing LILO on the
+  superblock of an XFS partition.
+a/pkgtools-8.0.8-i386-1.tgz:  Enhanced upgradepkg to handle a sloppy package
+  database -- if multiple packages match the old package name, remove all of
+  them instead of a random one.
+  Made xwmconfig a menu rather than a radiolist.
+ap/texinfo-4.2-i386-1.tgz:  Upgraded to GNU texinfo-4.2.
+d/autoconf-2.53-i386-1.tgz:  Upgraded to GNU autoconf-2.53.
+ (I'm holding off on automake-1.6 until the impact of the renaming of
+ /usr/share/aclocal can be assessed.  Really, I'm mostly hoping they change
+ their minds, since it really screws things up for packages that want to install
+ an .m4 file in there to have /usr/share/aclocal-1.6.  When automake-1.7 comes
+ out I don't want to be rerolling dozens of packages just to move the .m4 files
+ into /usr/share/aclocal-1.7.)
+d/bison-1.35-i386-1.tgz:  Upgraded to GNU bison-1.35.
+d/gdb-5.1.1-i386-2.tgz:  Added gdbserver and docs.
+d/gettext-tools-0.11-i386-2.tgz:  Fixed libgettextlib.la to indicate that the
+  library is installed.
+kde/:  Upgraded to KDE-3.0.  (Thanks KDE team for the great work! :-)
+kdei/:  New series for the KDE language support packages.
+l/audiofile-0.2.3-i386-2.tgz:  Moved here from ../kde.  Even though KDE 3.0rc3
+  uses aRts, it seems audiofile is still required, and things outside of KDE
+  will require it in the future.
+l/freetype-1.3.1-i386-1.tgz:  Split out of the xfree86 packages.  Moved into
+  /usr instead of /usr/X11R6, which seems to help prevent programs from
+  including the wrong header files (freetype2, which is bundled with XFree86,
+  puts its header files under /usr/X11R6/include).
+l/libungif-4.1.0b1-i386-2.tgz:  Fixed libungif.la to indicate that the library
+  is installed.
+l/libxml2-2.4.19-i386-1.tgz:  Upgraded to libxml2-2.4.19.
+n/bind-9.2.0-i386-2.tgz:  Added missing rndc-confgen, and patched the install
+  script to run it at install time with the -a option.
+n/links-0.97pre9-i386-1.tgz:  Upgraded to links-0.97pre9.
+n/lftp-2.5.0a-i386-1.tgz:  Added lftp-2.5.0a.
+n/pidentd-3.0.12-i386-1.tgz:  Split out from tcpip package, reverted to 3.0.12
+  since 3.0.14 was doing this:
+    in.identd[6698]: Error while changing user/group privileges
+n/tcpip-0.17-i386-7.tgz:  Remove pidentd (now in separate package).
+x/xfree86-4.2.0-i386-3.tgz:  Removed freetype-1.3.1 shared library.
+x/xfree86-devel-4.2.0-i386-3.tgz:  Removed freetype-1.3.1 headers.
+x/xfree86-docs-4.2.0-i386-2.tgz:  Removed freetype-1.3.1 docs.
+xap/freefonts-0.10-i386-1.tgz:  Removed.  There were a couple of problems with
+  this.  First, it's tricky to install them in the usual (Type1) directory
+  without stomping on the existing fonts.dir and fonts.alias.  Second, not all
+  of the licenses are as free as the package name might lead you to think.
+  If you need these fonts you can find them here:
+    ftp://ftp.gimp.org/pub/gimp/fonts/
+xap/sane-1.0.7-i386-1.tgz:  Added sane-1.0.7.
+xap/xmms-1.2.7-i386-2.tgz:  Added support for ESD and GNOME.
+xap/xpdf-1.00-i386-2.tgz:  Fixed xpdfrc to not try to load Type1 fonts.
+xap/xsane-0.84-i386-1.tgz:  Added xsane-0.84.
+----------------------------
+Mon Apr  1 01:31:47 PST 2002
+Here are a few updates to slackware-current...  :-)
+----------------------------
+Sun Mar 31 21:51:27 PST 2002
+a/pkgtools-8.0.7-i386-3.tgz:  Edited some text in xwmconfig.
+----------------------------
+Sun Mar 31 00:45:29 PST 2002
+a/sysvinit-2.84-i386-9.tgz:  Add /etc/dhcpc/dhcpcd-eth0.pid to the list of
+  files to be removed at boot time in rc.S.
+ap/quota-3.04-i386-1.tgz:  Upgraded to quota-3.04.
+n/nfs-utils-0.3.3-i386-2.tgz:  Removed rpc.rquotad, which is now maintained
+  in the quota package.
+----------------------------
+Sat Mar 30 20:55:02 PST 2002
+a/jfsutils-1.0.16-i386-1.tgz:  Added jfsutils-1.0.16.
+a/xfsprogs-2.0.1-i386-1.tgz:  Added xfsprogs-2.0.1.
+I've also added mkfs.jfs and mkfs.xfs to the isolinux initrd and rootdisk
+images, and patched the installer to allow any of these filesystems if they're
+found in the kernel:  ext2, ext3, jfs, reiserfs, and xfs.  In addition, there
+are now kernels with jfs and xfs support usable from isolinux.  This is still
+just for testing, and the prebuilt JFS/XFS kernels don't contain any support for
+SCSI controllers (but it would be easy to rebuild the kernel with the patches
+in source/k/kernel-source/... consider that part of your test :)
+----------------------------
+Sat Mar 30 13:09:38 PST 2002
+l/libxml-1.8.17-i386-1.tgz:  Added libxml1.
+  Moved some libraries which are bound to see widespread usage outside of KDE:
+l/libxml2-2.4.15-i386-1.tgz:  Moved here from kde/.
+l/libxslt-1.0.12-i386-1.tgz:  Moved here from kde/.
+l/pcre-3.9-i386-1.tgz:  Moved here from kde/.
+l/orbit-0.5.15-i386-1.tgz:  Added ORBit, which is needed to build Mozilla.
+n/nmap-2.54BETA31-i386-2.tgz:  Put GNOME files under /usr, not /opt/gnome.
+xap/mozilla-0.9.9-i386-2.tgz:  Put GNOME files under /usr, not /opt/gnome.
+xap/xscreensaver-4.02-i386-2.tgz:  Recompiled against libxml.
+----------------------------
+Fri Mar 29 00:50:23 PST 2002
+n/nmap-2.54BETA31-i386-1.tgz:  Added nmap-2.54BETA31.
+xap/imagemagick-5.4.4-i386-1.tgz:  Upgraded to ImageMagick-5.4.4.
+----------------------------
+Thu Mar 28 20:53:40 PST 2002
+a/pkgtools-8.0.7-i386-2.tgz: Fixed a bug that prevented tagfiles from being
+  followed correctly.
+  In pkgtool "View" mode, jump back to the same place in the list after viewing
+  the package.  Suggested by Marek Januszewski.
+----------------------------
+Thu Mar 28 15:46:08 PST 2002
+a/cpio-2.4.2.91-i386-1.tgz:  Upgraded to cpio-2.4.2.91 (which appears to be
+  primarily a bugfix version) from alpha.gnu.org because there hasn't been an
+  official release of this in over 6 years.
+n/mod_ssl-2.8.8_1.3.24-i386-2.tgz:  Fixed the html documentation.
+n/openssh-3.1p1-i386-2.tgz:  Edited rc.sshd to allow 'rc.sshd restart' without
+  hanging up on existing connections.  Suggested by Pawel Kot.
+----------------------------
+Wed Mar 27 23:54:51 PST 2002
+a/floppy-5.4-i386-2.tgz:  Recompiled, stripped binaries.
+a/pkgtools-8.0.7-i386-1.tgz:  Use dynamic resizing for slack-desc windows.
+ap/vim-6.1-i386-1.tgz:  Upgraded to vim-6.1.
+n/apache-1.3.24-i386-1.tgz:  Upgraded to apache-1.3.24.
+n/mod_ssl-2.8.8_1.3.24-i386-1.tgz:  Upgraded to mod_ssl-2.8.8_1.3.24.
+x/xfree86-4.2.0-i386-2.tgz:  Rebuilt against system zlib.
+x/xfree86-devel-4.2.0-i386-2.tgz:  Rebuilt against system zlib.
+  Added "HasZlib YES" to linux.cf.
+x/xfree86-xnest-4.2.0-i386-2.tgz:  Rebuilt against system zlib.
+x/xfree86-xprt-4.2.0-i386-2.tgz:  Rebuilt against system zlib.
+x/xfree86-xvfb-4.2.0-i386-2.tgz:  Rebuilt against system zlib.
+xap/xvim-6.1-i386-1.tgz:  Added GTK+ version of vim.
+----------------------------
+Wed Mar 27 01:33:20 PST 2002
+extra/kde-3.0rc3/:  This is a set of packages to test KDE 3.0rc3.  This
+  requires (at least) libxml2, libxslt, and pcre from the KDE series (in
+  slackware/kde), and lesstif from the L series.  There are other dependencies
+  as well, so if you want to test this, I recommend a full install, then remove
+  the old packages like this:
+    cd /var/log/packages ; removepkg kde* kdoc* koffice* qt*
+  Finally, use installpkg to install all the packages in extra/kde-3.0rc3.
+xap/netscape-6.2.2-i686-1.tgz:  Upgraded to netscape-6.2.2.
+  This build includes the zlib fix.
+xap/xmms-1.2.7-i386-1.tgz:  Added xmms-1.2.7.
+xap/xscreensaver-4.02-i386-1.tgz:  Added xscreensaver-4.02.
+----------------------------
+Sun Mar 24 20:01:54 PST 2002
+a/pkgtools-8.0.6-i386-1.tgz:  Fix installpkg to handle slack-desc files with
+  anywhere from 1 to 13 lines, and add \n to the end of the lines before
+  displaying them so that dialog doesn't change the formatting.
+----------------------------
+Sat Mar 23 23:26:06 PST 2002
+a/pkgtools-8.0.5-i386-6.tgz:  In the provided sample XF86Config, increase the
+  default color depth from 8 to 24 (most cards should be able to handle it).
+a/shadow-19990827-i386-2.tgz:  /usr/sbin/adduser has been rewritten by
+  Stuart Winter.  This version accepts the new account name from the command
+  line (optionally), and has better input, output, and error checking. 
+a/sysvinit-2.84-i386-8.tgz:  In rc.M, don't start smartd by default, as it
+  doesn't handle all ATAPI devices well.
+d/m4-1.4-i386-2.tgz:  Relocate docs into correct directory.
+l/libjpeg-6b-i386-2.tgz:  Add more docs that are included with the source.
+n/htdig-3.1.6-i386-1.tgz:  Upgraded to htdig-3.1.6-i386-1.tgz.
+----------------------------
+Sat Mar 23 00:08:39 PST 2002
+a/aaa_base-8.0.8-i386-3.tgz:  Updated welcome email.
+a/devfsd-1.3.24-i386-1.tgz:  Upgraded to devfsd-1.3.24.
+a/kernel-scsi-2.4.18-i386-1.tgz:  Add a kernel image with support for most
+  SCSI controllers.
+ap/texinfo-4.1-i386-1.tgz:  Upgraded to texinfo-4.1.
+d/binutils-2.12.90.0.1-i386-1.tgz:  Upgraded to binutils-2.12.90.0.1.
+n/tcpip-0.17-i386-6.tgz:  Probe for ethernet cards using the 8139cp driver in
+  netconfig.
+bootdisks/:  Added some bootdisks:  bare.i, adaptec.s, raid.s, and scsi.s.
+rootdisks/:  Added floppy rootdisk images.  Due to the size of the compressed
+  image finally exceeding 1.44MB (with apparently no way to trim it down below
+  that), we have to use a split *uncompressed* rootdisk.  This means there are
+  now 5 rootdisk images that the kernel needs to load (not counting the
+  network and pcmcia supplemental images).  There are other ways around this
+  that might reduce the number to 2 or 3 floppies, but they 1) increase
+  complexity, 2) increase RAM usage, and/or 3) require kernel patches.  None
+  of these seem like worthwhile tradeoffs.
+  Oh well.  It's a shame the floppy disk format never evolved...
+----------------------------
+Fri Mar 22 00:14:29 PST 2002
+a/modutils-2.4.14-i386-1.tgz:  Upgraded to modutils-2.4.14.
+a/pkgtools-8.0.5-i386-5.tgz:  Added a syslinux bootdisk option to
+  makebootdisk (along with various other cleanups to makebootdisk).
+a/smartsuite-2.1-i386-1.tgz:  Added smartsuite-2.1.
+a/syslinux-1.67-i386-1.tgz:  Added syslinux-1.67.
+a/sysvinit-2.84-i386-7.tgz:  Edit rc.M to start smartd if found.
+extra/libsafe-2.0-12/libsafe-2.0.12-i386-1.tgz:  Added libsafe-2.0-12.
+----------------------------
+Thu Mar 21 21:22:26 PST 2002
+n/inetd-1.79s-i386-1.tgz:  Split inetd out of tcpip package.
+n/nfs-utils-0.3.3-i386-1.tgz:  Split nfs-utils out of tcpip package.
+n/portmap-4.0-i386-1.tgz:  Split portmap out of tcpip package.
+n/tcpip-0.17-i386-5.tgz:  Update /etc/protocols and /etc/services, toss out some
+  long obsolete config files in /etc (gateways and NETWORKING).  Ported the
+  telnet client from OpenBSD, which supports more options.
+----------------------------
+Wed Mar 20 21:39:43 PST 2002
+a/pciutils-2.1.9-i386-2.tgz:  Updated with latest pci.ids from:
+  http://pciids.sourceforge.net/pci.ids
+a/sysvinit-2.84-i386-6.tgz:  Switch to 'last' included with these sources,
+  as it seems to be better (-a option, for example) than the version in
+  util-linux.  Thanks again to Stuart Winter for managing to convince me. :)
+a/util-linux-2.11o-i386-2.tgz:  Removed /usr/bin/last.
+ap/apsfilter-7.2.2-i386-1.tgz:  Upgraded to apsfilter-7.2.2.
+ap/hpijs-1.0.3-i386-2.tgz:  I hear -O makes this more stable.  Recompiled.
+xap/mozilla-0.9.9-i386-1.tgz:  Added mozilla-0.9.9.
+----------------------------
+Wed Mar 20 00:49:29 PST 2002
+a/devs-2.3.1-i386-1.tgz:  Don't let users write to /dev/vcs*.
+  (reported by Stuart Winter -- thanks :-)
+a/util-linux-2.11o-i386-1.tgz:  Upgraded to util-linux-2.11o.
+ap/ghostscript-6.53-i386-1.tgz:  Upgraded to GNU ghostscript-6.53 with
+   gimp-print-4.2.0.  Patched to link with system PNG and zlib libraries.
+ap/hpijs-1.0.3-i386-1.tgz:  Added hpijs-1.0.3 (HP inkjet drivers for gs).
+xap/gimp-1.2.3-i386-1.tgz:  Upgraded to gimp-1.2.3.
+----------------------------
+Mon Mar 18 17:45:07 PST 2002
+ap/lsof-4.62-i386-1.tgz:  Added lsof-4.62.
+emacs-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+emacs-info-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+emacs-leim-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+emacs-lisp-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+emacs-misc-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+emacs-nox-21.2-i386-1.tgz:  Upgraded to GNU Emacs 21.2.
+l/aalib-1.4rc4-i386-1.tgz:  Added aalib-1.4rc4.
+l/mpeg_lib-1.3.1-i386-1.tgz:  Added mpeg_lib-1.3.1.
+----------------------------
+Sat Mar 16 02:09:32 PST 2002
+a/aaa_base-8.0.8-i386-2.tgz:  Removed /cdrom directory, and added /mnt/cdrom,
+  /mnt/floppy, and /mnt/hd mount point directories.  This seems to be the
+  standard these days.  Also, the installer will add these lines to /etc/fstab:
+  /dev/cdrom       /mnt/cdrom       iso9660     noauto,owner,ro  0   0
+  /dev/fd0         /mnt/floppy      auto        noauto,owner     0   0
+  Originally I thought about using "user" instead of "owner" to allow local
+  users to mount CDs and floppies, but this opens up some security problems
+  even though setuid bits are suppressed.  You really don't want a normal
+  user to be able to log in through the network and mount a disc you've left
+  in there.  I've also seen methods of chowning the devices to users as they
+  log in at the console, and this also strikes me as insecure.  I've seen that
+  chown whole hard drives to a user after hardware has been moved around.
+  Anyway, you may want to use "user" on your system if the security risks seem
+  low enough for your purposes. :)
+a/etc-4.8-i386-1.tgz:  Added pop user/group (90/90) for use by pop servers.
+a/pkgtools-8.0.5-i386-4.tgz:  Removed setup.cdrom.
+a/sysvinit-2.84-i386-5.tgz:  Removed obsolete rdstop from rc.6.
+  Removed /etc/rc.d/rc.cdrom and call to it in rc.M.
+n/popa3d-0.5-i386-1.tgz:  Added popa3d-0.5, a small, secure, and reliable POP3
+  daemon by Solar Designer.
+n/tcpip-0.17-i386-4.tgz:  In the supplied inetd.conf, remove some old cruft
+  referring to daemons we no longer ship (or that you shouldn't be running
+  anyway ;), and added an example for using popa3d.  Removed traceroute.
+  Upgraded to whois-4.5.21.  Upgraded to nfs-utils-0.3.3.  Upgraded to
+  pidentd-3.0.14.  Replaced netkit-tftp with tftp-hpa-0.29.  Added more docs.
+n/traceroute-1.4a12-i386-1.tgz:  Split into its own package, rebuilt using the
+  traceroute-1.4a12 LBL sources.
+xap/xpdf-1.00-i386-1.tgz:  Upgraded to xpdf-1.00.
+----------------------------
+Fri Mar 15 15:19:59 PST 2002
+Added Vincent Rivellino's patches for Mylex and Compaq RAID controllers to
+makedevs.sh and probe on the installer.  This still doesn't set up LILO
+automatically, but should make it much easier to install using one of these
+controllers.
+----------------------------
+Fri Mar 15 02:49:19 PST 2002
+xap/gnuchess-4.0.pl80-i386-2.tgz:  Upgraded to use xboard-4.0.7.
+----------------------------
+Thu Mar 14 23:03:57 PST 2002
+a/elflibs-8.0.8-i386-1.tgz:  Updated from the current system libraries.
+xap/gnuplot-3.7.2-i386-1.tgz:  Upgraded to gnuplot-3.7.2.
+xap/gv-3.5.8-i386-1.tgz:  Recompiled, added slack-desc.
+xap/seyon-2.20c-i386-2.tgz:  Removed redundant app-defaults symlink.
+----------------------------
+Thu Mar 14 19:34:59 PST 2002
+d/cvs-1.11.1p1-i386-4.tgz:  Fix dir perms: chmod 755 /usr/share/cvs/contrib/.
+n/php-4.1.2-i386-3.tgz:  Rebuilt using a --with-png-dir= flag to build in
+  PNG support.  (thanks to christian laubscher for noticing it was missing)
+n/rsync-2.5.4-i386-1.tgz:  Upgraded to rsync-2.5.4 (fixes broken -z option).
+xap/fvwm-2.4.6-i386-2.tgz:  Fixes to the system.fvwm2rc.
+xap/xgames-0.2-i386-1.tgz:  Recompiled, added slack-desc.
+xap/xfm-1.4.3-i386-1.tgz:  Upgraded to xfm-1.4.3.
+xap/xfractint-20.2.03-i386-1.tgz:  Upgraded to xfractint-20.2.03.
+xap/xpaint-2.6.2-i386-1.tgz:  Upgraded to xpaint-2.6.2.
+xap/xxgdb-1.12-i386-1.tgz:  Recompiled, added slack-desc.
+pasture/xview-3.2p1.4:  XV series retired.
+----------------------------
+Tue Mar 12 00:12:57 PST 2002
+d/cvs-1.11.1p1-i386-3.tgz:  Gzipped the tmp diff so that it applies correctly.
+  Thanks to George Georgakis for pointing out the mistake.
+  (* Security fix *)
+----------------------------
+Tue Mar 12 00:11:19 PST 2002
+xap/fvwm-2.4.6-i386-1.tgz:  Renamed from fvwm2, upgraded to fvwm-2.4.6.
+xap/seyon-2.20c-i386-1.tgz:  Recompiled.  Thought about moving it to pasture,
+  but I think I'll leave it until a suitable replacement is nominated.
+xap/x3270-3.2.18p11-i386-1.tgz:  Upgraded to x3270-3.2.18p11.
+----------------------------
+Mon Mar 11 18:56:12 PST 2002
+a/e2fsprogs-1.27-i386-1.tgz:  Upgraded to e2fsprogs-1.27.
+----------------------------
+Mon Mar 11 17:39:02 PST 2002
+d/cvs-1.11.1p1-i386-2.tgz:  Patched to link to the shared zlib on the system
+  instead of statically linking to the included zlib source.  Also, use mktemp
+  to create files in /tmp files more safely.
+  (* Security fix *)
+----------------------------
+Mon Mar 11 15:02:50 PST 2002
+n/rsync-2.5.3-i386-1.tgz:  Upgraded to rsync-2.5.3.  This fixes two security
+  problems:
+
+  * Make sure that supplementary groups are removed from a server
+    process after changing uid and gid. (Ethan Benson) (Debian bug
+    #132272, CVE CAN-2002-0080)
+
+  * Fix zlib double-free bug.  (Owen Taylor, Mark J Cox) (CVE CAN-2002-0059)
+
+(* Security fix *)
+----------------------------
+Mon Mar 11 13:18:30 PST 2002
+l/zlib-1.1.4-i386-1.tgz:  Upgraded to zlib-1.1.4.  This fixes a security
+  problem which may introduce vulnerabilities into any program that links with
+  zlib.  Quoting the advisory on zlib.org:
+
+  "Depending upon how and where the zlib routines are called from the given
+   program, the resulting vulnerability may have one or more of the following
+   impacts: denial of service, information leakage, or execution of arbitrary
+   code."
+
+Sites are urged to upgrade the zlib package immediately.
+
+The complete advisory may be found here:
+   http://www.zlib.org/advisory-2002-03-11.txt
+
+(* Security fix *)
+----------------------------
+Mon Mar 11 12:21:03 PST 2002
+a/getty-ps-2.0.7j-i386-2.tgz:  Fixed patch that wasn't getting applied.
+ap/mad-0.14.2b-i386-1.tgz:  Added mad-0.14.2b MPEG audio library and decoder.
+ap/mpg321-0.2.3-i386-1.tgz:  Added mpg321-0.2.3.  (replacement for mpg123)
+n/tcpip-0.17-i386-3.tgz:  Removed gnu-pop3d and pop3d-1.006d.
+pasture/gnu-pop3d-0.9.8/gnu-pop3d-0.9.8-i386-1.tgz:  Retired.
+pasture/pop3d-1.020i/pop3d-1.020i-i386-1.tgz:  Upgraded, then retired.
+----------------------------
+Sat Mar  9 23:41:58 PST 2002
+a/bin-8.2.1-i386-2.tgz:  Added zisofs.magic to /etc/magic.
+a/kernel-ide-2.4.18-i386-1.tgz:  Fixed install script.
+y/bsd-games-2.13-i386-1.tgz:  Renamed from bsdgames, upgraded to bsd-games-2.13.
+xap/rxvt-2.6.4-i386-1.tgz:  Upgraded to rxvt-2.6.4.
+xap/xv-3.10a-i386-1.tgz:  Fixed PNG patch, recompiled, added slack-desc.
+----------------------------
+Sat Mar  9 18:28:17 PST 2002
+a/pkgtools-8.0.5-i386-3.tgz:  Upgraded to dialog-0.9a-20020308a.
+n/php-4.1.2-i386-2.tgz:  Relinked against gd-1.8.4.
+n/sendmail-8.12.2-i386-3.tgz:  Patch setup.sendmail script.
+n/sendmail-cf-8.12.2-i386-3.tgz:  Moved cf files into /usr/share/sendmail.
+----------------------------
+Sat Mar  9 14:53:57 PST 2002
+a/kbd-1.06-i386-3.tgz:  Patched fontconfig script.
+a/pkgtools-8.0.5-i386-1.tgz:  Upgraded to dialog-0.9a-20020308.
+a/pkgtools-8.0.5-i386-2.tgz:  Patched scripts for changed dialog return codes.
+----------------------------
+Sat Mar  9 01:59:34 PST 2002
+a/lilo-22.2-i386-1.tgz:  Upgraded to lilo-22.2, patched liloconfig to look
+  for the kernel in /boot.
+a/pcmcia-cs-3.1.33-i386-1.tgz:  Upgraded to pcmcia-cs-3.1.33.
+a/kernel-ide-2.4.18-i386-1.tgz:  Upgraded to linux-2.4.18.  Moved kernel to
+  the /boot directory.
+a/kernel-modules-2.4.18-i386-1.tgz:  Built kernel modules from Linux 2.4.18,
+  XFree86 4.2.0, and pcmcia-cs-3.1.33.
+a/pkgtools-8.0.4-i386-2.tgz:  Edit pkgtool to look for some busybox links
+  to figure out it it's on the install disk.
+ap/cdrtools-1.11a16-i386-1.tgz:  Upgraded to cdrtools-1.11a16, added
+  zisofs-tools-1.0.3, patched mkisofs for zisofs support.
+d/kernel-headers-2.4.18-i386-1.tgz:  Upgraded to linux-2.4.18.
+k/kernel-source-2.4.18-i386-1.tgz:  Upgraded to linux-2.4.18.
+x/xfree86-drm-2.4.17-i386-1.tgz:  Removed.  The new XFree86 DRM kernel
+  are in the kernel-modules- package instead.
+----------------------------
+Thu Mar  7 21:21:20 PST 2002
+l/gmp-4.0.1-i386-1.tgz:  Upgraded to GNU gmp-4.0.1.
+n/apache-1.3.23-i386-1.tgz:  Upgraded to apache-1.3.23.
+n/mod_ssl-2.8.7_1.3.23-i386-1.tgz:  Upgraded to mod_ssl-2.8.7-1.3.23.
+n/php-4.1.2-i386-1.tgz:  Renamed package from mod_php, upgraded to
+  php-4.1.2, added standalone interpreter in /usr/bin.
+----------------------------
+Thu Mar  7 15:11:23 PST 2002
+n/openssh-3.1p1-i386-1.tgz:  Upgraded to openssh-3.1p1.
+
+  This fixes a security problem in the openssh package.  All sites running
+  OpenSSH should upgrade immediately.
+
+  All versions of OpenSSH between 2.0 and 3.0.2 contain an off-by-one error
+  in the channel code.  OpenSSH 3.1 and later are not affected.  This bug can
+  be exploited locally by an authenticated user logging into a vulnerable
+  OpenSSH server or by a malicious SSH server attacking a vulnerable OpenSSH
+  client.  This bug was discovered by Joost Pol <joost@pine.nl>
+
+(* Security fix *)
+----------------------------
+Wed Mar  6 23:23:08 PST 2002
+l/ncurses-5.2-i386-3.tgz:  Removed empty docs/misc directory.
+n/ppp-2.4.1-i386-1.tgz:  Recompiled, added slack-desc.
+n/trn-3.6-i386-1.tgz:  Recompiled, added slack-desc.
+xap/freefonts-0.10-i386-1.tgz:  Renamed from freefont, added slack-desc.
+----------------------------
+Wed Mar  6 18:04:00 PST 2002
+a/hdparm-4.6-i386-2.tgz:  Fixed permissions on hdparm.
+n/links-0.97pre6-i386-1.tgz:  Added links-0.97pre6, another text-based WWW
+  browser (like "lynx"), but with support for frames and SSL.
+n/yptools-2.6-i386-2.tgz:  Fixed the install script.
+----------------------------
+Wed Mar  6 16:24:30 PST 2002
+a/gpm-1.19.6-i386-1.tgz:  Removed broken curses support that interferes with
+  ncurses, upgraded to gpm-1.19.6.  This should restore application mouse
+  support for things like mc.  Thanks to Thomas Dickey (and Google) for
+  supplying the clues I needed to solve this mystery. :)  Also added a
+  description of the setup.mouse script that's seen when reconfiguring with
+  pkgtool, removed the suid bit from disable-paste, and patched for <time.h>
+  changes in recent glibc.  Fixed rc.gpm to accept "start" and "stop".
+  Moved shared library into /lib, since we'll be linking libncurses to it and
+  that's where libncurses.so.* is installed.
+l/ncurses-5.2-i386-2.tgz:  Linked to /lib/libgpm.so.1.  This automagically
+  brings console mouse support to lynx and possibly other apps that use
+  libncurses.
+n/netatalk-1.4b2-i386-1.tgz:  Patched for compatibility with 2.4.x quota.h,
+  recompiled, added slack-desc.
+----------------------------
+Tue Mar  5 22:28:45 PST 2002
+n/elm-2.5.6-i386-1.tgz:  Upgraded to elm-2.5.6.
+n/metamail-2.7-i386-1.tgz:  Recompiled, added Hebrew fonts, removed some
+  obsolete utilities, added slack.desc.
+n/nn-6.6.3-i386-1.tgz:  Renamed from nn_nntp, upgraded to nn-6.6.3.
+n/samba-2.2.3a-i386-1.tgz:  Upgraded to samba-2.2.3a.
+n/tin-1.5.11-i386-1.tgz:  Upgraded to tin-1.5.11.
+n/yptools-2.6-i386-1.tgz:  Upgraded to yp-tools-2.6, ypbind-mt-1.10, and
+  ypserv-2.2.
+----------------------------
+Sun Mar  3 19:45:09 PST 2002
+a/bin-8.2.1-i386-1.tgz:  Added tree-1.4b1 to the bin collection.
+ap/gnu-gs-fonts-6.0-noarch-1.tgz:  Renamed from "gsfonts".  Upgraded with
+   fonts from gnu-gs-fonts-std-6.0.tar.gz and gnu-gs-fonts-other-6.0.tar.gz.
+----------------------------
+Wed Feb 27 20:59:12 PST 2002
+a/lilo-22.1-i386-2.tgz:  Comment out some really old code in liloconfig that
+  tries to swap the first two IDE drives if DOS/Win is installed on other
+  than the first drive.  This probably hasn't been needed in years.
+  Spotted by Laurie Riley (who has Win98 on /dev/hde1 :)
+n/ipchains-1.3.10-i386-1.tgz:  Added slack-desc, merged into tree.
+n/netpipes-4.2-i386-1.tgz:  Recompiled, added slack-desc.
+n/netwatch-0.9g-i386-1.tgz:  Added slack-desc, merged into tree.
+n/ntp-4.1.1-i386-1.tgz:  Upgraded to ntp-4.1.1, renamed from "ntp4".
+n/dip-:  Doesn't recompile, is obsolete.  Tossed out.  If anyone misses it,
+  let me know and I'll work on it.
+n/uucp-1.06.2-i386-2.tgz:  Recompiled, patched a buffer overflow in uuxqt.
+  On Slackware this is not exploitable since uuxqt is only executable for
+  users who are already members of the uucp group.
+----------------------------
+Tue Feb 26 23:55:10 PST 2002
+n/bitchx-1.0c18-i386-1.tgz:  Recompiled, added slack-desc.
+n/epic4-1.0.1-i386-1.tgz:  Recompiled, added slack-desc.
+n/fetchmail-5.9.8-i386-1.tgz:  Upgraded to fetchmail-5.9.8.
+n/lynx-2.8.4-i386-1.tgz:  Upgraded to lynx-2.8.4.
+n/mailx-8.1.1-i386-1.tgz:  Recompiled, added slack-desc.
+n/tcpdump-3.7.1-i386-1.tgz:  Upgraded to libpcap-0.7.1 and tcpdump-3.7.1.
+n/ytalk-3.1.1-i386-1.tgz:  Patched to put ytalkrc in /etc.
+----------------------------
+Tue Feb 26 20:07:31 PST 2002
+n/autofs-3.1.7-i386-1.tgz:  Recompiled, added slack-desc.
+n/bind-9.2.0-i386-1.tgz:  Upgraded to ISC bind-9.2.0.
+n/bootp-2.4.3-i386-1.tgz:  Recompiled, added slack-desc.
+n/dhcp-3.0-i386-1.tgz:  Upgraded to ISC dhcp-3.0.
+n/dhcpcd-1.3.22pl1-i386-1.tgz:  Split out of dhcp package, upgraded to
+  dhcpcd-1.3.22-pl1.
+n/inn-2.3.2-i386-1.tgz:  Recompiled, added slack-desc.
+n/wget-1.8.1-i386-1.tgz:  Upgraded to GNU wget-1.8.1.
+----------------------------
+Tue Feb 26 13:21:13 PST 2002
+a/e2fsprogs-1.26-i386-1.tgz:  Upgraded to e2fsprogs-1.26.
+ap/oggutils-1.0rc3-i386-1.tgz:  Upgraded to libao-0.8.2, libogg-1.0rc3,
+  libvorbis-1.0rc3, and vorbis-tools-1.0rc3.
+n/curl-7.9.4-i386-1.tgz:  Added curl-7.9.4.
+----------------------------
+Mon Feb 25 22:24:05 PST 2002
+ap/enscript-1.6.3-i386-1.tgz:  Upgraded to GNU enscript-1.6.3.
+ap/mc-4.5.55-i386-1.tgz:  Upgraded to mc-4.5.55.
+e/emacs-21.1-i386-2.tgz:  Recompiled to link with libXaw3d.
+e/emacs-info-21.1-i386-2.tgz:  Rebuilt.
+e/emacs-leim-21.1-i386-2.tgz:  Rebuilt.
+e/emacs-lisp-21.1-i386-2.tgz:  Rebuilt.
+e/emacs-misc-21.1-i386-2.tgz:  Rebuilt.
+e/emacs-nox-21.1-i386-2.tgz:  Rebuilt.
+l/xaw3d-1.5-i386-2.tgz:  Recompiled, works.
+t/tetex-1.0.7-i386-1.tgz:  Added slack-desc, merged into tree.
+t/tetex-bin-1.0.7-i386-1.tgz:  Added slack-desc, merged into tree.
+t/tetex-doc-1.0.7-i386-1.tgz:  Added slack-desc, merged into tree.
+t/transfig-3.2.3d-i386-1.tgz:  Upgraded to transfig-3.2.3d.
+t/xfig-3.2.3d-i386-1.tgz:  Upgraded to xfig-3.2.3d.
+tcl/expect-5.34-i386-1.tgz:  Upgraded to expect-5.34.
+----------------------------
+Mon Feb 25 14:06:20 PST 2002
+a/kernel-modules-2.4.17-i386-4.tgz:  Load ide-scsi module by default.  If you
+  have an IDE based CD-R, CD-RW, DVD-R, or other IDE/ATAPI burner you need this
+  module to allow your IDE device to emulate a SCSI device, since all the Linux
+  media-burning applications expect a SCSI device.  This is actually not a
+  handicap in any way -- several applications (like cdparanoia in many cases)
+  may work better with SCSI emulation than with the native ATAPI CDROM driver.
+  Note that you must prevent the ATAPI driver from grabbing the device at boot
+  with a kernel parameter like this (perhaps in LILO's append=""): hdc=ide-scsi
+ap/cdrtools-1.11a15-i386-1.tgz:  Upgraded to cdrtools-1.11a15, needed for recent
+  CD-RW/DVD burners.
+ap/jove-4.16-i386-1.tgz:  Recompiled, added slack-desc.
+ap/lvm-1.0.3-i386-1.tgz:  Upgraded to lvm_1.0.3.
+ap/man-pages-1.47-i386-1.tgz:  Upgraded to man-pages-1.47.
+ap/mysql-3.23.49-i386-1.tgz:  Upgraded to mysql-3.23.49.
+f/linux-faqs-20020225-i386-1.tgz:  Upgraded to latest FAQs off ibiblio.org.
+f/linux-howtos-20020208-i386-1.tgz:  Upgraded to the 2002-02-08 HOWTOs.
+f/linux-mini-howtos-20020208-i386-1.tgz:  Upgraded to the 2002-02-08 mini-HOWTOs.
+xap/netscape-6.2.1-i686-2.tgz:  Fixed /usr/bin/netscape startup script.
+----------------------------
+Sun Feb 24 16:24:26 PST 2002
+a/bin-8.2-i386-2.tgz:  Rebuilt to remove obsolete makewhatis.
+a/devs-2.3.1-i386-1.tgz:  Make sure all the supported IDE devices are present.
+  Update MAKEDEV, and patch it further to support all the IDE devices listed
+  in the devices.txt in 2.4.17.
+a/minicom-2.00.0-i386-1.tgz:  Upgraded to minicom-2.00.0.
+ap/a2ps-4.13b-i386-2.tgz:  Recompiled, added slack-desc.
+ap/amp-0.7.6-i386-1.tgz:  Recompiled, split out of mp3 package.
+ap/groff-1.17.2-i386-1.tgz:  Upgraded to GNU groff-1.17.2.
+ap/ispell-3.2.06-i386-1.tgz:  Upgraded to ispell-3.2.06.
+ap/joe-2.9.7-i386-1.tgz:  Upgraded to joe-2.9.7.
+ap/man-1.5j-i386-1.tgz:  Upgraded to man-1.5j.
+ap/mpg123-0.59r-i386-1.tgz:  Recompiled, split out of mp3 package.
+ap/mt-st-0.7-i386-1.tgz:  Upgraded to mt-st-0.7.
+ap/quota-2.00-i386-2.tgz:  Recompiled, added slack-desc.
+ap/raidtools-0.90-i386-2.tgz:  Recompiled, added slack-desc.
+ap/sc-7.15-i386-1.tgz:  Upgraded to sc-7.15.
+ap/seejpeg-1.10-i386-1.tgz:  Recompiled, added slack-desc.
+ap/sox-12.17.3-i386-1.tgz:  Upgraded to sox-12.17.3.
+n/imapd-4.44-i386-2.tgz:  Recompiled with SSL support.
+n/mutt-1.2.5.1-i386-2.tgz:  Recompiled with SSL support.
+n/pine-4.44-i386-2.tgz:  Recompiled with SSL support.
+----------------------------
+Sat Feb 23 21:33:35 PST 2002
+ap/ash-0.2-i386-1.tgz:  Use GNU make, not pmake.  Recompiled, added
+  slack-desc.
+ap/bc-1.06-i386-1.tgz:  Recompiled, added slack-desc.
+ap/cdparanoia-IIIalpha9.8-i386-1.tgz:  Recompiled, added slack-desc.
+ap/cdrdao-1.1.5-i386-2.tgz:  Upgraded pccts, recompiled, added slack-desc.
+ap/jed-B0.99_15-i386-1.tgz:  Upgraded to jed-B0.99-15.
+ap/ksh93-20011031-i386-1.tgz:  Upgraded to the Halloween 2001 release of ksh93.
+ap/rpm-4.0.2-i386-2.tgz:  Recompiled, added slack-desc.
+ap/screen-3.9.11-i386-1.tgz:  Upgraded to GNU screen-3.9.11.
+ap/texinfo-4.0-i386-1.tgz:  Recompiled, added slack-desc.
+ap/workbone-2.40-i386-1.tgz:  Recompiled, added slack-desc.
+d/perl-5.6.1-i386-2.tgz:  Recompiled, patched DB_File modules to build
+  correctly, upgraded modules DBI-1.21 and libnet-1.0704.
+  D series completely rebuilt.  Wow. :)
+d/pmake-2.1.35-i386-2.tgz:  Fixed path bug.
+l/glib-1.2.10-i386-1.tgz:  Recompiled, added slack-desc, moved under /usr.
+  The policy from now on for any of these formerly GNOME-related libs is that if
+  they don't actually link with a GNOME library then they belong under /usr where
+  under things can find them more easily.
+l/glibc-2.2.5-i386-1.tgz:  Removed the libndbm.* synlinks in /usr/lib.
+  OK, I should have used a new build number, but I didn't want to muck
+  with all of these... :)
+l/gtk+-1.2.10-i386-2.tgz:  Recompiled, added slack-desc, moved under /usr.
+xap/imagemagick-5.4.3_5-i386-1.tgz:  Upgraded to ImageMagick-5.4.3-5.
+xap/netscape-6.2.1-i686-1.tgz:  Upgraded to netscape-6.2.1.
+xap/xlockmore-5.03-i386-1.tgz:  Upgraded to xlockmore-5.03.
+----------------------------
+Fri Feb 22 21:10:09 PST 2002
+a/bash-2.05a-i386-2.tgz:  Added /usr/bin/bash -> /bin/bash symlink.
+a/less-358-i386-2.tgz:  The new version of tar changes the bzip2 option
+  from -y to -j, so this needs to change in lesspipe.sh (and probably
+  many other places I haven't yet found).  I thought about just patching
+  tar to accept -y, but it's better to just accept the new scheme...
+d/byacc-1.9-i386-1.tgz:  Recompiled, added slack-desc.
+d/cvs-1.11.1p1-i386-1.tgz:  Recompiled, added slack-desc.
+d/flex-2.5.4a-i386-1.tgz:  Recompiled, added slack-desc.
+d/gcc-2.95.3-i386-2.tgz:  Recompiled, added slack-desc.
+d/gcc-g++-2.95.3-i386-2.tgz:  Recompiled, added slack-desc.
+d/gcc-g77-2.95.3-i386-2.tgz:  Recompiled, added slack-desc.
+d/gcc-objc-2.95.3-i386-2.tgz:  Recompiled, added slack-desc.
+d/gcl-2.4.0-i386-1.tgz:  Added slack-desc, merged into tree.
+d/gdb-5.1.1-i386-1.tgz:  Upgraded to gdb-5.1.1.
+d/p2c-1.21alpha2-i386-1.tgz:  Patched for glibc2, recompiled, added
+  slack-desc.
+d/pmake-2.1.35-i386-1.tgz:  Upgraded to pmake-2.1.35, added slack-desc.
+d/rcs-5.7-i386-1.tgz:  Recompiled, added slack-desc.
+d/strace-4.4-i386-1.tgz:  Upgraded to strace-4.4, added slack-desc.
+extra/gcc-3.0.4/:  Added new gcc-3.0.4 packages:
+  gcc-3.0.4-i386-1.tgz, gcc-g++-3.0.4-i386-1.tgz, 
+  gcc-g77-3.0.4-i386-1.tgz, gcc-java-3.0.4-i386-1.tgz,
+  gcc-objc-3.0.4-i386-1.tgz
+  If you use these (which I don't personally recommend) be aware that
+  all C++ related shared libraries (including anything having to do with
+  Qt and KDE) must be recompiled before you can link with them.
+  I may stick with gcc-2.95.x until the kernel is gcc-3 ready.
+----------------------------
+Thu Feb 21 22:36:20 PST 2002
+a/apmd-3.0.2-i386-1.tgz:  Split out of bin, added slack-desc.
+  Upgraded to apmd-3.0.2.
+a/bin-8.2-i386-1.tgz:  This is the collection of all the things in the
+  old "bin" package for which I could find no upgrades.  As these things
+  appear fairly stable, I'll leave them here for now.  I am considering
+  moving some of them (like indent and patch to the D series), but that's
+  not terribly crucial.
+a/cpio-2.4.2-i386-1.tgz:  Recompiled, added slack-desc.
+a/cxxlibs-6.2-i386-1.tgz:  Added slack-desc, merged into tree.
+a/dcron-2.3.3-i386-1.tgz:  Split out of bin into a separate package.
+  Fix problem where user creates /var/spool/cron/crontabs/<user>.new
+  using 'crontab -', exits with control-c, and then crontab refuses to
+  overwrite the junk file.
+a/gawk-3.1.0-i386-1.tgz:  Split out of bin, upgraded to gawk-3.1.0.
+a/getty-ps-2.0.7j-i386-1.tgz:  Recompiled, added slack-desc.
+a/hdparm-4.6-i386-1.tgz:  Split out of bin, added slack-desc.
+a/isapnptools-1.26-i386-1.tgz:  Upgraded to isapnptools-1.26, renamed from
+  isapnp, added slack-desc.
+a/kernel-modules-2.4.17-i386-3.tgz:  No longer load ppp_deflate.o by
+  default in rc.modules, as the new modutils whine that it "taints" the
+  kernel.  The module is under a standard BSD license, so I suspect this
+  problem will go away in the future.  We'll see.
+a/lilo-22.1-i386-1.tgz:  Upgraded to lilo-22.1, fixes to liloconfig
+  to work with the new fdisk (where "Linux native" partitions are
+  now simply called "Linux" partitions).
+a/pciutils-2.1.9-i386-1.tgz:  Upgraded to pciutils-2.1.9.
+pkgtools-8.0.4-i386-1.tgz:  Fixed a bug where only the first slack-desc
+  would be found when installing multiple packages without .txt files.
+  Added --linkadd and --chown options to makepkg.
+  Reported/suggested by David Nordenberg.
+  Patches to use tar-1.13 if it's around, and to complain if it isn't.
+a/tar-1.13.25-i386-1.tgz:  Upgraded to GNU tar-1.13.25.  We still keep a
+  tar-1.13 binary around for the Slackware package utilities to use, because
+  the new tar wipes out symbolic links to directories when untarring.  (Try
+  making /opt a link to /usr/opt and untarring a KDE package and you'll see
+  the effect).  Nevertheless, tar-1.13.25 appears better overall.
+a/tcsh-6.11-i386-1.tgz:  Upgraded to tcsh-6.11.
+a/umsdos-progs-1.13-i386-1.tgz:  Added slack-desc, merged into tree.
+a/util-linux-2.11n-i386-2.tgz:  Move /usr/bin/tput into here from bin.tgz
+  since it's the /usr/bin/clear included here that needs it.
+xap/fvwm95-2.0.43ba-i386-1.tgz:  Moved asapm from the bin package into here
+  since it's only used by system.fvwm95rc-apm-battery.  Recompiled (which took
+  a lot of #include <time.h> patches).  Added slack-desc.
+----------------------------
+Tue Feb 19 20:34:45 PST 2002
+a/bzip2-1.0.2-i386-1.tgz:  Upgraded to bzip2-1.0.2.
+a/elvis-2.1_4-i386-1.tgz:  Recompiled, added slack-desc.
+a/fileutils-4.1-i386-1.tgz:  Renamed from fileutls, recompiled, added
+  slack-desc.
+a/findutils-4.1-i386-1.tgz:  Renamed from "find", recompiled, added slack-desc.
+a/grep-2.4.2-i386-1.tgz:  Recompiled, added slack-desc.
+a/infozip-5.50-i386-1.tgz:  Recompiled zip-2.3, upgraded to unzip-550, added
+  slack-desc.
+a/less-358-i386-1.tgz:  Recompiled, added slack-desc.
+a/procps-2.0.7-i386-1.tgz:  Recompiled, upgraded to psmisc-20.2, added 
+  slack-desc.
+a/sh-utils-2.0-i386-1.tgz:  Renamed from sh_utils, recompiled, added slack-desc.
+a/textutils-2.0-i386-1.tgz:  Renamed from txtutils, recompiled, added
+  slack-desc.
+----------------------------
+Mon Feb 18 19:33:17 PST 2002
+a/floppy-5.4-i386-1.tgz:  Recompiled, upgraded to mtools-3.9.8, first
+  versioned (5.4) package, added slack-desc.
+a/gettext-0.11-i386-1.tgz:  Upgraded to gettext-0.11, created minimal gettext
+  package as recommended in the docs.
+a/kbd-1.06-i386-2.tgz:  Don't install a default rc.font.
+a/loadlin-1.6b-i386-1.tgz:  Added slack-desc, merged into tree.
+a/shadow-19990827-i386-1.tgz:  Recompiled, added slack-desc.
+a/sysvinit-2.84-i386-4.tgz:  Edited /etc/rc.d/rc.S to do a better job of
+  cleaning up /var/run/.  In particular, get rid of old pppd databases that may
+  produce spurious error messages in the logs.  Thanks to Daniel T. Drea for
+  helping spot this problem. :)
+d/autoconf-2.52-i386-1.tgz:  Upgraded to GNU autoconf-2.52.
+d/automake-1.5-i386-1.tgz:  Upgraded to GNU automake-1.5.
+d/bison-1.33-i386-1.tgz:  Upgraded to GNU bison-1.33.
+d/gettext-tools-0.11-i386-1.tgz:  Upgraded to gettext-0.11, created new
+  gettext-tools package for the development tools as recommended in the docs.
+d/libtool-1.4.2-i386-1.tgz:  Upgraded to GNU libtool-1.4.2.
+d/m4-1.4-i386-1.tgz:  Recompiled, added slack-desc.
+n/sendmail-8.12.2-i386-2.tgz:  Fix chown bug in the install script.
+n/sendmail-cf-8.12.2-i386-2.tgz:  Automated rebuild.
+----------------------------
+Sun Feb 17 19:24:30 PST 2002
+a/kernel-modules-2.4.17-i386-2.tgz:  Added pcmcia-cs modules for linux-2.2.17.
+a/pcmcia-cs-3.1.31-i386-1.tgz:  Upgraded to pcmcia-cs-3.1.31.
+----------------------------
+Fri Feb 15 01:27:39 PST 2002
+a/devfsd-1.3.23-i386-1.tgz:  Upgraded to devfsd-1.3.23.
+----------------------------
+Thu Feb 14 23:24:29 PST 2002
+a/gpm-1.19.3-i386-1.tgz:  Edited mouse setup menu, added slack-desc.
+a/sysklogd-1.4.1-i386-1.tgz:  Recompiled, added slack-desc.
+a/sysvinit-2.84-i386-3.tgz:  Start lpd later in rc.M.
+n/tcpip-0.17-i386-2.tgz:  Remove lpd from rc.inet2, since it's
+  already in rc.M.
+----------------------------
+Thu Feb 14 22:48:13 PST 2002
+a/etc-4.7-i386-1.tgz:  Added slack-desc, merged into tree.
+  Added smmsp user/group for sendmail, update /etc/services.
+----------------------------
+Thu Feb 14 22:12:42 PST 2002
+a/kbd-1.06-i386-1.tgz:  Added slack-desc, merged into tree.
+a/modutils-2.4.13-i386-1.tgz:  Upgraded to modutils-2.4.13.
+----------------------------
+Thu Feb 14 21:34:15 PST 2002
+a/gzip-1.3.2-i386-1.tgz:  Upgraded to gzip-1.3.2.
+a/util-linux-2.11n-i386-1.tgz:  Upgraded to util-linux-2.11n.
+d/make-3.79.1-i386-1.tgz:  Renamed (was gmake), recompiled, added
+  slack-desc.
+kde/kdepim-2.2.2-i386-3.tgz:  Removed /usr/lib/python* stuff that
+  shouldn't have been there.
+l/gdbm-1.8.0-i386-1.tgz:  Added slack-desc, merged into tree.
+l/libgr-2.0.13-i386-1.tgz:  Added slack-desc, merged into tree.
+l/libjpeg-6b-i386-1.tgz:  Recompiled, renamed (was "jpeg6"), added
+  slack-desc file.
+l/libpng-1.2.1-i386-1.tgz:  Upgraded to libpng-1.0.12 (.so.2) and
+  libpng-1.2.1 (.so.3).
+l/libtermcap-1.2.3-i386-1.tgz:  Upgraded to libtermcap-1.2.3.
+l/libtiff-3.5.7-i386-1.tgz:  Upgraded to libtiff-3.5.7.
+l/ncurses-5.2-i386-1.tgz:  Recompiled, added slack-desc.
+l/slang-1.4.5-i386-1.tgz:  Upgraded to slang-1.4.5.
+l/svgalib-1.4.3-i386-1.tgz:  Recompiled, added slack-desc.
+l/zlib-1.1.3-i386-1.tgz:  Recompiled, added slack-desc.
+n/iptables-1.2.5-i386-1.tgz:  Upgraded to iptables-1.2.5.  (Jan Rafaj
+  did most of the work building this one... thanks :)
+n/rdist-6.1.5-i386-1.tgz:  Recompiled, added slack-desc.
+n/tcpip-0.17-i386-1.tgz:  Recompiled, renamed from tcpip1, first
+  versioned (0.17) package.  Comment out services telnet, rlogin, rsh,
+  netbios-ssn, and netbios-ns in inetd.conf.  Add commented out swat
+  example.  Numerous additions to /etc/services.
+----------------------------
+Thu Feb 14 00:20:32 PST 2002
+a/sysvinit-2.84-i386-2.tgz:  In rc.6, stop Samba at shutdown.
+  Modify rc.M for sendmail, which now requires separately started MTA
+  and queue runner processes.
+ap/zsh-4.0.4-i386-1.tgz:  Upgraded to zsh-4.0.4.
+d/bin86-0.16.1-i386-1.tgz:  Upgraded to bin86-0.16.1.
+d/binutils-2.11.93.0.2-i386-1.tgz:  Upgraded to binutils-2.11.93.0.2.
+d/python-2.2-i386-1.tgz:  Upgraded to Python-2.2.
+kde/libxml2-2.4.15-i386-1.tgz:  Upgraded to libxml2-2.4.15.
+kde/libxslt-1.0.12-i386-1.tgz:  Upgraded to libxslt-1.0.12.
+l/readline-4.2a-i386-1.tgz:  Upgraded to readline-4.2a.
+tcl/hfsutils-3.2.6-i386-1.tgz:  Added slack-desc, merged into tree.
+tcl/tcl-8.3.4-i386-1.tgz:  Upgraded to tcl-8.3.4.
+tcl/tclx-8.3-i386-1.tgz:  Recompiled tclx-8.3 against new Tcl/Tk.
+tcl/tix-8.1.3-i386-1.tgz:  Upgraded to tix-8.1.3.
+tcl/tk-8.3.4-i386-1.tgz:  Upgraded to tk-8.3.4.
+----------------------------
+Wed Feb 13 16:11:23 PST 2002
+Moved to slackware/l (libraries) from slackware/d (devel):
+  gdbm-0.0-i386-1.tgz (0.0 are packages unchanged from Slackware 8.0),
+  glibc-2.2.5-i386-1.tgz,
+  glibc-i18n-2.2.5-i386-1.tgz,
+  jpeg6-0.0-i386-1.tgz,
+  libgr-0.0-i386-1.tgz,
+  libpng-0.0-i386-1.tgz,
+  libtiff-0.0-i386-1.tgz,
+  ncurses-0.0-i386-1.tgz,
+  readline-0.0-i386-1.tgz,
+  slang-0.0-i386-1.tgz,
+  svgalib-0.0-i386-1.tgz,
+  termcap-0.0-i386-1.tgz,
+  zlib-0.0-i386-1.tgz
+----------------------------
+Wed Feb 13 14:35:05 PST 2002
+a/aaa_base-8.0.8-i386-1.tgz:  Remove /usr/include/{asm,linux} symlinks.
+  Chmod 700 /var/man/cat* since there's no safe way to cache those.
+  (IMHO, various attempts to make man a setuid or gid binary are a joke)
+a/bash-2.05a-i386-1.tgz:  Upgraded to GNU bash-2.05a.
+a/kernel-ide-2.4.17-i386-1.tgz:  Added IDE 2.4.17 Linux kernel image.
+a/pkgtools-8.0.3-i386-1.tgz:  Support changes from below (change
+  "slakware" directory to "slackware", get rid of the "1" on the end of
+  the subdirectories contained within, and change the name of the
+  package list in each directory from disk*1 to package-list.txt)
+a/reiserfsprogs-3.x.1a-i386-1.tgz:  Upgraded to reiserfsprogs-3.x.1a.
+d/kernel-headers-2.4.17-i386-1.tgz:  Added package that puts a copy of
+  the kernel headers under /usr/include instead of using symlinks to the
+  kernel source in /usr/src/linux.
+n/procmail-3.22-i386-1.tgz:  Upgraded to procmail-3.22.
+n/rsync-2.5.2-i386-1.tgz:  Upgraded to rsync-2.5.2.
+k/kernel-source-2.4.17-i386-1.tgz:  Added 2.4.17 Linux kernel source.
+extra/cups-1.1.14/:  Upgraded to CUPS 1.1.14.
+----------------------------
+Tue Feb 12 13:10:33 PST 2002
+Change "slakware" directory to "slackware", get rid of the "1" on the
+end of the subdirectories contained within, and change the name of the
+package list in each directory from disk*1 to package-list.txt.
+e/emacs-lisp-21.1-i386-1.tgz:  Edit slack-desc.
+l/lesstif-0.93.18-i386-1.tgz:  Upgraded to lesstif-0.93.18.
+----------------------------
+Mon Feb 11 16:27:35 PST 2002
+ap1/ifhp-3.5.3-i386-1.tgz:  Merged into tree.
+n1/proftpd-1.2.5rc1-i386-1.tgz:  Upgraded to proftpd-1.2.5rc1.  This was
+  compiled using the --enable-autoshadow feature, and has an example of
+  "PersistentPasswd off" usage (must be uncommented) in the proftpd.conf
+  which, according to Felix Radensky, should fix the problem of ProFTPD
+  not working with NIS/NIS+.  Thanks Felix! :)
+l1/libungif-4.1.0b1-i386-1.tgz:  Added libungif-4.1.0b1 package to new
+  "L" series.  This new series will contain libraries that don't fit into
+  another series.  For example, libungif is being placed here because both
+  KDE and GNOME require it;  libraries specific to KDE or GNOME will remain
+  in that series.
+l1/xaw3d-1.5-i386-1.tgz:  Upgraded to Xaw3d-1.5.
+extra/gcc-3.0.3-i386-1.tgz:  Merged into tree.
+----------------------------
+Sat Feb  9 17:26:25 PST 2002
+kde1/audiofile-0.2.3-i386-2.tgz:  Added slack-desc, merged into tree.
+  Since GNOME also uses this, we might need a new location for it.
+kde1/htdig-3.1.5-i386-3.tgz:  Added slack-desc, merged into tree.
+kde1/kde-i18n-*.tgz:  Merged KDE 2.2.2 i18n packages.
+kde1/kdeaddons-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdeadmin-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdeartwork-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdebase-2.2.2-i386-2.tgz:  Merged, added (optional) CUPS support.
+kde1/kdegames-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdegraphics-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdelibs-2.2.2-i386-2.tgz:  Merged, added (optional) CUPS support.
+kde1/kdemultimedia-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdenetwork-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdepim-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdesdk-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdetoys-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdeutils-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdevelop-2.0.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/kdoc-2.2.2-i386-2.tgz:  Added slack-desc, merged into tree.
+kde1/koffice-1.1.1-i386-2.tgz:  Edited slack-desc, merged into tree.
+kde1/koffice-i18n-*-1.1.1-i386-2.tgz:  Edited slack-desc, merged into tree.
+kde1/libxml2-2.4.14-i386-1.tgz:  Upgraded to libxml2-2.4.14.
+kde1/libxslt-1.0.11-i386-1.tgz:  Upgraded to libxslt-1.0.11.
+kde1/qt-2.3.2-i386-1.tgz:  Upgraded to qt-2.3.2.
+extra/cups-1.1.13:  Added CUPS (alternate print spooler) in new /extra
+  directory.  This is so nicely integrated into KDE that it has to at
+  least be an option. :)
+----------------------------
+Thu Feb  7 22:18:53 PST 2002
+a1/bin-8.0.0-i386-1.tgz:  Merged bin package, with "at" split out.
+a1/lprng-3.8.5-i386-1.tgz:  Merged into tree. (replaces lpr)
+a1/openssl-solibs-0.9.6c-i386-1.tgz:  Merged into tree.
+a1/pkgtools-8.0.2-i386-4.tgz:  Merged into tree. (replaces hdsetup)
+a1/sysvinit-2.84-i386-1.tgz:  Upgraded to sysvinit-2.84.
+ap1/at-3.1.8-i386-1.tgz:  Merged into tree.
+ap1/sudo-1.6.5p1-i386-1.tgz:  Merged into tree.
+ap1/vim-6.0-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-info-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-leim-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-lisp-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-misc-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+e1/emacs-nox-21.1-i386-1.tgz:  Added slack-desc, merged into tree.
+gtk1/xvim-6.0-i386-1.tgz:  Added slack-desc, merged into tree.
+n1/imapd-4.44-i386-1.tgz:  Merged into tree.
+n1/mutt-1.2.5.1-i386-1.tgz:  Merged into tree.
+n1/openssh-3.0.2p1-i386-1.tgz:  Merged into tree.
+n1/openssl-0.9.6c-i386-1.tgz:  Merged into tree.
+n1/pine-4.44-i386-1.tgz:  Merged into tree.
+x1/xfree86-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-devel-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-docs-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-docs-html-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-drm-2.4.17-i386-1.tgz:  Merged into tree.
+x1/xfree86-fonts-100dpi-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-fonts-cyrillic-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-fonts-misc-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-fonts-scale-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-xnest-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-xprt-4.2.0-i386-1.tgz:  Merged into tree.
+x1/xfree86-xvfb-4.2.0-i386-1.tgz:  Merged into tree.
+----------------------------
+*** Begin merging -current packages into an installable tree
+----------------------------
+Thu Feb  7 17:58:09 PST 2002
+pkgtools-8.0.2/packages/pkgtools-8.0.2-i386-4.tgz:  Fixed a bug in
+  installpkg which caused it to not actually install packages if the -menu
+  option was used.  Pkgtool works again.
+----------------------------
+Tue Feb  5 19:27:10 PST 2002
+XFree86-4.2.0/packages/xfree86-drm-2.4.17-i686-1.tgz:  Added DRM kernel modules
+  for linux 2.4.17 compiled for i686 (which should work for any P2 or better
+  processor, including Athlon, etc).  The previous set of -i386 modules only
+  worked with an i386/i486 kernel.
+LPRng-3.8.5/packages/lprng-3.8.5-i386-1.tgz:  Added LPRng-3.8.5, an enhanced
+  print spooler system.
+ifhp-3.5.3/packages/ifhp-3.5.3-i386-1.tgz:  Added ifhp-3.5.3, an "Almost
+  Universal LPRng Print Filter" designed to work with LPRng to print to
+  PostScript, PJL, PCL, and text based line printers.  I'm including this as
+  an alternate print filter system, but replacing lpr.tgz with the new LPRng
+  package worked with my existing APSfilter system right out of the box, too.
+  You get to pick. :)
+I've also been looking at CUPS, but couldn't get that working with my HP890C
+without Foomatic (which requires additional Perl libraries on the system).
+So far LPRng+APSfilter has worked best for me, and was the easiest to get up
+and running.
+----------------------------
+Sat Jan 26 13:42:21 PST 2002
+XFree86-4.2.0/:  Added XFree86 4.2.0 packages, including DRM kernel modules
+  for linux 2.4.17.  I know we don't ship linux 2.4.17, but you're all running
+  it, right? ;)
+glibc-2.2.5/:  Added glibc-2.2.5 packages.
+----------------------------
+Mon Jan 21 13:09:29 PST 2002
+at-3.1.8/packages/at-3.1.8-i386-1.tgz:  Fixed a buffer overflow.
+(* Security fix *)
+pine-4.44/packages/pine-4.44-i386-1.tgz:  Upgraded to pine-4.44.
+  This fixes a vulnerability viewing URLs.
+(* Security fix *)
+pine-4.44/packages/imapd-4.44-i386-1.tgz:  Upgraded to the new imapd that comes
+  with pine4.44.
+sudo-1.6.5p1/packages/sudo-1.6.5p1-i386-1.tgz:  Upgraded to sudo-1.6.5p1.
+  This fixes a vulnerability where the mail system could be exploited.  So far,
+  the only working examples of this problem require Postfix to be installed,
+  but it's possible that exploits involving other mailers could emerge.
+(* Security fix *)
+xchat-1.8.7/packages/xchat-1.8.7-i386-1.tgz:  Upgraded to xchat-1.8.7.
+  This fixes a problem where an attacker could execute IRC server commands as
+  the user running xchat.
+(* Security fix *)
+----------------------------
+Tue Jan 15 12:52:25 PST 2002
+openssh-3.0.2p1/packages/openssh-3.0.2p1-i386-1.tgz:
+  Upgraded to openssh-3.0.2p1.
+openssl-0.9.6c/packages/openssl-0.9.6c-i386-1.tgz:
+  Upgraded to openssl-0.9.6c.
+openssl-0.9.6c/packages/openssl-solibs-0.9.6c-i386-1.tgz:
+  Upgraded to openssl-0.9.6c.  New base package name "openssl-solibs"
+  instead of "openssl-shlibs".  Use "%" to upgrade:
+  upgradepkg openssl-shlibs%openssl-solibs-0.9.6c-i386-1.tgz
+----------------------------
+Mon Jan 14 22:22:22 PST 2002
+glibc-2.2.4/:  Added glibc-2.2.4 packages.  Some of these are named a bit
+    differently than before... now all the glibc packages share the base name
+    "glibc" for easy identification.  These are the old and new package names:
+       glibc ->  glibc
+       glibcso -> glibc-solibs
+       glocale -> glibc-i18n
+       zoneinfo -> glibc-zoneinfo
+
+  To upgrade these with upgradepkg, the "%" operator must be used to give the
+  old base package name if the new one is different, like this:
+
+    upgradepkg glibc-2.2.4-i386-1.tgz
+    upgradepkg glibcso%glibc-solibs-2.2.4-i386-1.tgz
+    upgradepkg glocale%glibc-i18n-2.2.4-i386-1.tgz
+    upgradepkg zoneinfo%glibc-zoneinfo-2.2.4-i386-1.tgz
+
+----------------------------
+Wed Jan  9 10:01:38 PST 2002
+gcc-3.0.3/:  Upgraded to gcc-3.0.3, fixed install script symlink bugs.
+----------------------------
+Mon Jan  7 12:43:31 PST 2002
+mutt-1.2.5.1/:  Upgraded to mutt-1.2.5.1 to fix a security problem in the
+  address handling code.  Mutt users are urged to upgrade as soon as
+  possible.
+  (* Security fix *)
+  PS:  thanks for all the email, and it's good to be back. :)
+----------------------------
+Tue Dec 18 16:25:26 PST 2001
+pkgtools-8.0.2/:  Fix a bug in installpkg where a package contains a
+  description but no installation script.  Fix a removepkg bug where packages
+  complain of a missing "install/" directory.
+koffice-1.1.1/:  Upgraded to KOffice 1.1.1.
+----------------------------
+Sat Dec 15 15:44:07 PST 2001
+pkgtools-8.0.2/:  Added a "Setup" menu choice to pkgtool.  This lets you rerun
+  any of the post-install scripts again.  A menu is presented where you toggle
+  the ones you want, and then it runs them.  This should be an improvement over
+  the old "setup" program that would run all of the scripts whether you wanted
+  them all or not.
+----------------------------
+Fri Dec 14 22:22:08 PST 2001
+pkgtools-8.0.2/:  More patches to installpkg/removepkg:
+  In the /install directory, reserve any files starting with slack-*.  The first
+  such file will be slack-desc, an internal description of the package that will
+  be used during installation if no external source is found.
+    When creating temporary files, use "$$" to make them unique if multiple
+  copies happen to be running.  (This doesn't work yet, but I'm looking in that
+  direction).
+----------------------------
+Sat Dec  8 20:16:42 PST 2001
+pkgtools-8.0.1/:  Some patches to fix problems using these tools to do the
+  initial system installation.
+    In installpkg:
+  Initialize the database directories if they are not found.
+  Remove some bash-specific syntax.
+  Search for package descriptions using the package's base name in addition
+  to the filename.
+  If a package description is found in a package-version-arch-build.txt file,
+  use that instead.
+  If a tagfile is specified and says "SKP" for a package, don't install it. :)
+    In pkgtool:
+  Use a better method of determining if pkgtool is running on the rootdisk.
+  When building the View/Remove menus, try to be more backwards compatible with
+  older versions of installpkg/pkgtool when parsing the descriptions.
+Cleaned out the /attic.
+----------------------------
+Sun Dec  2 17:56:18 PST 2001
+pkgtools-8.0/:  Upgraded to dialog-0.9a-20011202.
+sysvinit-2.83/:  In rc.S, use 'reboot -f' instead of 'reboot' if the system
+  needs to be restarted after a root partition check.
+----------------------------
+Sat Dec  1 17:21:17 PST 2001
+pkgtools-8.0/:  Fixed package_name() function in upgradepkg and removepkg.  The
+  buggy function considered any package name with a dash to be the new
+  packagename-version-arch-build format, which caused trouble when packages with
+  unexpected naming schemes (like program-0.47.999.tgz or mozilla-0.92.tgz) are
+  upgraded or removed on the system.  Now the rule is that a package name must
+  contain three dashes (or more) to be considered "new", otherwise it's
+  considered "old".  Thanks to mRgOBLIN for helping out with this one. :)
+  Patched /sbin/installpkg to handle newer gzip. (based on a suggestion
+  from Kent Robotti)
+  Patched makepkg to parse ls output better (to handle different ls versions).
+----------------------------
+Wed Nov 28 10:25:31 PST 2001
+pkgtools-8.0/:  Fixed pkgtool package removal bug, and made a couple other
+   cosmetic cleanups while I was in there.
+----------------------------
+Tue Nov 27 13:14:57 PST 2001
+proftpd-1.2.4/:  Upgraded to proftpd-1.2.4.
+----------------------------
+Mon Nov 26 20:23:04 PST 2001
+e2fsprogs-1.25/:  Upgraded to e2fsprogs-1.25.
+libungif-4.1.0b1/:  Upgraded to libungif-4.1.0b1.  This version fixes a
+  bug in libungif-4.1.0 that makes emacs crash if GIF support is compiled
+  in.  Now that it should work, I'll consider compiling it in. :)
+sysvinit-2.83/:  Upgraded to sysvinit-2.83.
+  Made changes to fsck handling in /etc/rc.d/rc.S that are required by
+  e2fsprogs, since the -A flag to fsck no longer works as advertised in
+  the man page.  The workaround is to check the root partition first, and
+  then remount / read-write and initialize /etc/mtab before going on to
+  check the other partitions.
+----------------------------
+Sat Nov 24 13:08:13 PST 2001
+openssh-3.0.1p1/:  Upgraded to OpenSSH 3.0.1p1.
+kde-2.2.2/:  Upgraded to KDE 2.2.2.
+             Upgraded to audiofile-0.2.3.
+             Upgraded to libxml2-2.4.10.
+             Added libxslt-1.0.7 (XML stylesheet parsing engine
+                                 used by KDE's help system)
+             Upgraded to pcre-3.7.
+pkgtools-8.0/:
+  This is intended to replace the "hdsetup.tgz" package, and consists of the
+  first round of bugfixes and enhancements to the Slackware package handling
+  tools.  Evolutionary not revolutionary, so that everything will remain
+  completely backward compatible.
+  upgradepkg:  Handles both 8.3 and long (name-version-arch-build.tgz)
+             package names.  As long as the base package names for the
+             installed and new packages are the same, you can upgrade
+             specifying only the new package name instead of having to
+             use the old%new notation.
+  installpkg/removepkg:  Sets $TMP to be under $ROOT.
+  installpkg:  Fix some long-standing bugs when package names ended the same
+             (like libc.tgz and glibc.tgz).  Add -ask mode.  Other fixes
+             to support usage from pkgtool.
+  removepkg:  Understand the concept of a base package name.  Now a package
+            may be specified either by the full package name (as you'd
+            see listed in /var/log/packages/), or by the base package name.
+            For example, the package foo-1.0-i386-1.tgz may be removed with
+            any of the following commands:
+                removepkg foo-1.0-i386-1.tgz
+                removepkg foo-1.0-i386-1
+                removepkg foo.tgz
+                removepkg foo
+  pkgtool:  Removed ancient package installation code -- now calls installpkg
+          and removepkg to do the work.  Many fixes that make it nicer to use.
+  The setup tools were removed, as they really shouldn't be needed again once
+  the system is installed.
+  Switched to a different version of dialog:  dialog-0.9a-20011111, maintained
+  by Thomas Dickey of ncurses fame.
+Moved older versions of KDE and OpenSSL to the "attic" directory to let them
+rest before removal.
+----------------------------
+Tue Nov  6 18:24:34 PST 2001
+gcc-3.0.2/:  Added GNU gcc-3.0.2.  This is for testing purposes...
+             Slackware packages are still being built with gcc-2.95.3.
+htdig-3.1.5/:  Added a patch to resist a DoS attack.
+kde-2.2.1/:  Recompiled against openssl-0.9.6b, fixed "help" problems.
+             Many thanks to George Staikos for helping debug my build. :)
+koffice-1.1/:  Rebuilt against rebuilt kde-2.2.1.
+openssh-2.9.9p2/:  Upgraded to openssh-2.9.9p2, built against openssl-0.9.6b.
+openssl-0.9.6b/:  Upgraded to openssl-0.9.6b.
+NOTES:  Before upgrading KDE, first upgrade htdig, openssl and openssh.
+----------------------------
+Mon Oct 22 13:55:59 PDT 2001
+emacs-21.1/:  Added source and packages for GNU Emacs 21.1.
+----------------------------
+Sun Sep 30 10:30:06 PDT 2001
+vim-6.0/:  Added source and packages (standard and GTK+ enabled) for the latest
+           version of Vim.
+----------------------------
+Mon Sep 24 11:43:48 PDT 2001
+koffice-1.1/:  Added source and packages for KOffice.  I forgot to upload that
+               with the KDE-2.2.1 batch before... sorry.
+----------------------------
+Fri Sep 21 15:01:21 PDT 2001
+Started new -current directory.  For now, this will be used to hold upgrades to
+Slackware 8.0, starting with KDE-2.2.1.  I used the long package name format
+that's been used in the Slackware ports (name-version-arch-build.tgz) and
+which will be the default format in slackware-next.
+
+Have fun!
+

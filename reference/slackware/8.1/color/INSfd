@@ -1,0 +1,28 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+rm -f $TMP/SeTDS $TMP/SeTmount
+cat << EOF > $TMP/tempmsg
+
+The base Slackware series (A) can be installed from 1.2M
+or 1.44M media. Most of the other disks will not fit on 
+1.2M media, but can be downloaded to your hard drive and 
+installed from there later.
+
+Which drive do you want to install from?
+EOF
+dialog --title "SELECT FLOPPY DRIVE" --menu "`cat $TMP/tempmsg`" 18 67 4 \
+"/dev/fd0u1440" "1.44M drive a:" \
+"/dev/fd1u1440" "1.44M drive b:" \
+"/dev/fd0h1200" "1.2M drive a:" \
+"/dev/fd1h1200" "1.2M drive b:" 2> $TMP/whichdrv
+if [ ! $? = 0 ]; then
+ rm -f $TMP/whichdrv $TMP/tempmsg
+ exit
+fi
+rm -f $TMP/tempmsg
+mv $TMP/whichdrv $TMP/SeTsource
+echo "" > $TMP/SeTDS
+echo "" > $TMP/SeTmount

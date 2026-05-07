@@ -66,6 +66,17 @@ prepare_pkgtool_source() {
 
   if [ -x /usr/lib/setup/cpkgtool ]; then
     SLACK_PKGTOOL_BIN=/usr/lib/setup/cpkgtool
+  elif [ -x /usr/lib/setup/pkgtool ]; then
+    SLACK_PKGTOOL_BIN=/usr/lib/setup/pkgtool
+  elif [ -x /bin/pkgtool ]; then
+    SLACK_PKGTOOL_BIN=/bin/pkgtool
+  elif [ -x /bin/pkgtool.tty ]; then
+    SLACK_PKGTOOL_BIN=/bin/pkgtool.tty
+  fi
+
+  if [ -d "$INSTMOUNT/tagfiles" ]; then
+    SLACK_PKG_TAG_MODE=tagpath
+    write_setup_state SeTtagpath "$INSTMOUNT/tagfiles"
   fi
 
   if [ -z "$SLACK_PKG_SOURCE" ]; then
@@ -85,10 +96,6 @@ prepare_pkgtool_source() {
       exit 1
     fi
 
-    SLACK_PKG_TAG_MODE=tagpath
-    if [ -d "$INSTMOUNT/tagfiles" ]; then
-      write_setup_state SeTtagpath "$INSTMOUNT/tagfiles"
-    fi
     SLACK_CD_FSTAB_ENTRY="$CD_DEVICE    /cdrom    iso9660    ro   1   1"
   fi
 }
@@ -96,10 +103,10 @@ prepare_pkgtool_source() {
 cleanup_pkgtool_source() {
   remove_setup_state SeTtagext
   rm -f /tmp/custom
-  if [ "$SLACK_PKG_TAG_MODE" = "tagpath" ]; then
-    if [ -d "$INSTMOUNT/tagfiles" ]; then
-      remove_setup_state SeTtagpath
-    fi
+  if [ -d "$INSTMOUNT/tagfiles" ]; then
+    remove_setup_state SeTtagpath
+  fi
+  if [ "$SLACK_PKG_TAG_MODE" = "tagpath" ] && [ -n "$CD_MOUNT" ]; then
     if mount | fgrep "on $CD_MOUNT " >/dev/null 2>&1; then
       umount "$CD_MOUNT"
     fi
@@ -219,6 +226,11 @@ set_timezone() {
 install_lilo() {
   if [ -x "$ROOTMOUNT/sbin/lilo" ]; then
     echo "### installing lilo..."
+    if [ -r "$ROOTMOUNT/boot/vmlinuz" ]; then
+      LILO_IMAGE=/boot/vmlinuz
+    else
+      LILO_IMAGE=/vmlinuz
+    fi
     BOOTDEV=`echo "$ROOTDEV" | sed 's/[0-9][0-9]*$//'`
     if [ "$BOOTDEV" = "$ROOTDEV" ]; then
       BOOTDEV=/dev/hda
@@ -238,7 +250,7 @@ vga = normal    # force sane state
 ramdisk = 0     # paranoia setting
 # End LILO global section
 # Linux bootable partition config begins
-image = /vmlinuz
+image = $LILO_IMAGE
   root = $ROOTDEV
   label = Linux
   read-only
