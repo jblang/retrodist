@@ -1,0 +1,96 @@
+#!/bin/sh
+TMP=/var/log/setup/tmp
+if [ ! -d $TMP ]; then
+  mkdir -p $TMP
+fi
+REDIR=/dev/tty4
+NDIR=/dev/null
+crunch() {
+ read STRING;
+ echo $STRING;
+}
+rm -f $TMP/SeTswap $TMP/SeTswapskip
+SWAPLIST="`probe -l | fgrep "Linux swap" | sort 2> $NDIR`" 
+if [ "$SWAPLIST" = "" ]; then
+ dialog --title "NO SWAP SPACE DETECTED" --yesno "You have not created \
+a swap partition with Linux fdisk.  \
+Do you want to continue installing without one? " 6 60
+ if [ "$?" = "1" ]; then
+  dialog --title "ABORTING INSTALLATION" --msgbox "Create a swap partition with Linux fdisk, and then try this again." \
+6 40
+ else
+  touch $TMP/SeTswapskip
+ fi
+ exit
+else # there is at least one swap partition:
+ echo > $TMP/swapmsg 
+ if [ "`echo "$SWAPLIST" | sed -n '2 p'`" = "" ]; then
+  echo "Slackware Setup has detected a swap partition:" >> $TMP/swapmsg
+  echo >> $TMP/swapmsg
+  echo "   Device Boot    Start       End    Blocks   Id  System\\n" >> $TMP/swapmsg
+  echo "`echo "$SWAPLIST" | sed -n '1 p'`\\n" >> $TMP/swapmsg
+  echo >> $TMP/swapmsg
+  echo "Do you wish to install this as your swap partition?" >> $TMP/swapmsg
+  dialog --title "SWAP SPACE DETECTED" --cr-wrap --yesno "`cat $TMP/swapmsg`" 12 70
+  REPLY=$?
+ else
+  echo "Slackware Setup has detected the following swap partitions:" >> $TMP/swapmsg
+  echo >> $TMP/swapmsg
+  echo "   Device Boot    Start       End    Blocks   Id  System\\n" >> $TMP/swapmsg
+  echo "$SWAPLIST\\n" >> $TMP/swapmsg
+  echo >> $TMP/swapmsg
+  echo "Do you wish to install these as your swap partitions? " >> $TMP/swapmsg
+  dialog --title "SWAP SPACE DETECTED" --cr-wrap --yesno "`cat $TMP/swapmsg`" 13 70
+  REPLY=$?
+ fi
+ rm -f $TMP/swapmsg
+ if [ $REPLY = 0 ]; then # yes
+  if cat /proc/meminfo | grep "Swap:        0        0        0" 1> $NDIR 2> $NDIR ; then
+   USE_SWAP=0 # swap is not currently mounted
+  else # warn of possible problems:
+   # This 10231808 below is the size of a swapfile pre-supplied by install.zip that we'd like to ignore.
+   if /proc/meminfo | grep 10231808 1> $NDIR 2> $NDIR ; then
+    USE_SWAP=0
+   else
+    cat << EOF > $TMP/swapmsg
+IMPORTANT NOTE: If you have already made any of your swap 
+partitions active (using the swapon command), then you 
+should not allow Setup to use mkswap on your swap partitions,
+because it may corrupt memory pages that are currently 
+swapped out.  Instead, you will have to make sure that your 
+swap partitions have been prepared (with mkswap) before they
+will work.  You might want to do this to any inactive swap 
+partitions before you reboot.
+EOF
+    dialog --title "MKSWAP WARNING" --msgbox "`cat $TMP/swapmsg`" 12 67
+    rm -f $TMP/swapmsg
+    dialog --title "USE MKSWAP?" --yesno "Do you want Setup to use mkswap on your swap partitions?" \
+    5 65
+    USE_SWAP=$?
+   fi
+  fi
+  CURRENT_SWAP="1" 
+  while [ ! "`echo "$SWAPLIST" | sed -n "$CURRENT_SWAP p"`" = "" ]; do 
+   SWAP_PART=`probe -l | fgrep "Linux swap" | sed -n "$CURRENT_SWAP p" | crunch | cut -f 1 -d ' '`
+   if [ $USE_SWAP = 0 ]; then 
+    dialog --title "FORMATTING SWAP PARTITION" --infobox "Formatting \
+$SWAP_PART as a Linux swap partition (and checking for bad blocks)..." 4 55
+    mkswap -c $SWAP_PART 1> $REDIR 2> $REDIR
+   fi
+   echo "Activating swap partition $SWAP_PART:"
+   echo "swapon $SWAP_PART"
+   swapon $SWAP_PART 1> $REDIR 2> $REDIR
+   #SWAP_IN_USE="`echo "$SWAP_PART       swap        swap        defaults   0   0"`"
+   #echo "$SWAP_IN_USE" >> $TMP/SeTswap
+   printf "%-16s %-16s %-11s %-16s %-3s %s\n" "$SWAP_PART" "swap" "swap" "defaults" "0" "0" >> $TMP/SeTswap
+   CURRENT_SWAP="`expr $CURRENT_SWAP + 1`"
+   sleep 4
+  done
+  echo "Your swapspace has been configured. This information will" > $TMP/swapmsg
+  echo "be added to your /etc/fstab:" >> $TMP/swapmsg
+  echo >> $TMP/swapmsg
+  cat $TMP/SeTswap >> $TMP/swapmsg 
+  dialog --title "SWAP SPACE CONFIGURED" --exit-label OK --textbox $TMP/swapmsg 10 72
+  rm $TMP/swapmsg
+ fi
+fi  
