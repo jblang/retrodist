@@ -16,11 +16,11 @@ If a distro supports automated installation and/or configuration, it should:
 
 - Call the `autoinst_prep` function from its `extract.sh` script to copy the appropriate scripts to the distro's installation media.
 
-- Supply an `autoinst.txt` file listing which scripts to run during installation and in what order.
+- Supply an `autoinst.sh` manifest which sets install-time variables and calls the install helper functions in the correct order.
 
-- Supply an `autoconf.txt` file listing which scripts to run during post-install configuration and in what order.
+- Supply an `autoconf.sh` manifest which sets post-install variables and calls the configuration helper functions in the correct order.
 
-- Supply a `config.sh` script which sets up environment variables that are used by various installation and configuration steps.  
+- Keep helper logic under `autoinst/common`, `autoinst/debian`, or `autoinst/slakware` as function-only scripts so the main runners can source them up front.
 
 ## Notes
 
@@ -30,10 +30,8 @@ If a distro supports automated installation and/or configuration, it should:
 
 - Some distro directories have their own README files with additional implementation notes. For Debian-specific script layout and generation notes, see [debian/README.md](/Users/jblang/repos/retrodist/autoinst/debian/README.md).
 
-- The `config.sh` script and all the scripts specified by `autoinst.txt ` and `autoconf.txt` are copied to the installation media and sourced by the main script prior to running the individual steps.
+- The main runners source the helper trees from `autoinst.d`, then source `autoinst.d/config/autoinst.sh` or `autoinst.d/config/autoconf.sh` to set variables and call the desired helper functions.
 
 - Helper trees such as `common/`, `debian/`, and `slakware/` are copied recursively into `autoinst.d` rather than symlinked. This matters for old installers that see the staged disk through a DOS-backed filesystem export.
 
 - Some older installers mount the staged disk as plain `msdos`, so helper filenames and directory layout need to remain DOS-friendly.
-
-- When the files specified in `autoinst.txt` and `autoconf.txt` are copied to the installation media they are renamed to numbered files in the `inststep` and `confstep` directories so that they are executed in the correct order.

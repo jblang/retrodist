@@ -1,7 +1,7 @@
 #!/bin/sh
 # Automatic installation for retro distros
 echo "### Beginning automatic installation..."
-PATH=$PATH:/usr/bin:/bin:/sbin:/usr/sbin:/usr/lib/setup
+PATH=$PATH:/usr/bin:/bin:/etc:/usr/etc:/sbin:/usr/sbin:/usr/lib/setup
 
 # Derive the staged media mount point from the script location so installs
 # work no matter where the FAT disk is mounted.
@@ -29,11 +29,29 @@ if [ ! -d "$INSTMOUNT/autoinst.d" ]; then
     exit 1
 fi
 
-# run each of the install scripts
-. $INSTMOUNT/autoinst.d/config.sh
-for INSTSTEP in $INSTMOUNT/autoinst.d/inststep/[0-9]*.sh; do
-    . "$INSTSTEP"
-done
+source_script_libraries() {
+    for SCRIPTDIR in \
+        "$INSTMOUNT/autoinst.d/common" \
+        "$INSTMOUNT/autoinst.d/debian" \
+        "$INSTMOUNT/autoinst.d/slakware"
+    do
+        if [ -d "$SCRIPTDIR" ]; then
+            for SCRIPTFILE in $SCRIPTDIR/*.sh $SCRIPTDIR/*/*.sh; do
+                if [ -f "$SCRIPTFILE" ]; then
+                    . "$SCRIPTFILE"
+                fi
+            done
+        fi
+    done
+}
+
+if [ ! -f "$INSTMOUNT/autoinst.d/config/autoinst.sh" ]; then
+    echo "No autoinst manifest found; aborting."
+    exit 1
+fi
+
+source_script_libraries
+. "$INSTMOUNT/autoinst.d/config/autoinst.sh"
 
 echo "### Rebooting..."
 echo "Press ENTER to reboot."

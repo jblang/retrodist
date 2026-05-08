@@ -1,26 +1,28 @@
-echo "### Creating partitions..."
-for FDFILE in $INSTMOUNT/autoinst.d/fdisk.*; do
-    FDDEV=$(echo $FDFILE | sed "s,$INSTMOUNT/autoinst\.d/fdisk\.,,g")
-    fdisk /dev/$FDDEV < $FDFILE > /dev/null
-done
-fdisk -l
+prepare_disks() {
+    echo "### Creating partitions..."
+    for FDFILE in $INSTMOUNT/autoinst.d/fdisk.*; do
+        FDDEV=$(echo $FDFILE | sed "s,$INSTMOUNT/autoinst\.d/fdisk\.,,g")
+        fdisk /dev/$FDDEV < $FDFILE > /dev/null
+    done
+    fdisk -l
 
-echo "### Initializing swap..."
-mkswap $SWAPDEV $SWAPSIZE
-swapon $SWAPDEV
+    echo "### Initializing swap..."
+    mkswap $SWAPDEV $SWAPSIZE
+    swapon $SWAPDEV
 
-echo "### Initializing root filesystem..."
-case $ROOTFS in
-    ext2 )  mke2fs $ROOTDEV ;;
-    * )     echo "Unknown filesystem $ROOTFS"; exit 1;;
-esac
+    echo "### Initializing root filesystem..."
+    case $ROOTFS in
+        ext2 )  mke2fs $ROOTDEV ;;
+        * )     echo "Unknown filesystem $ROOTFS"; exit 1;;
+    esac
 
-mount -t $ROOTFS $ROOTDEV $ROOTMOUNT
-mkdir -p $ROOTMOUNT/tmp
+    mount -t $ROOTFS $ROOTDEV $ROOTMOUNT
+    mkdir -p $ROOTMOUNT/tmp
 
-echo "### Creating fstab..."
-cat > $ROOTMOUNT/fstab.tmp <<EOF
+    echo "### Creating fstab..."
+    cat > $ROOTMOUNT/fstab.tmp <<EOF
 $ROOTDEV		/		$ROOTFS	defaults	0	1
 $SWAPDEV		none		swap		sw		0	0
 none			/proc		proc		defaults	0	0
 EOF
+}

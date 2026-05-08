@@ -43,7 +43,7 @@ Seriously, just use the automatic installer, but if you *must* have the authenti
     ```
 
 - Switch back to QEMU and press enter to install disk 2.
-- Answer the configuration questions. Refer to the [config.sh](config.sh) file for network configuration.
+- Answer the configuration questions. Refer to [autoinst.sh](autoinst.sh) and [autoconf.sh](autoconf.sh) for the automated install and network settings.
 - Answer `n` when prompted to create a boot disk. Otherwise you will overwrite the install disk.
 - At the menu, choose 7. Return to shell (don't reboot). 
 - Type `/root/usr/bin/vi /root/etc/lilo.conf`

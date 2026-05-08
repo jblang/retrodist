@@ -1,6 +1,3 @@
-# Configure X11 for the Cirrus card emulated by QEMU.
-echo "### Configuring X11..."
-
 install_startx_setfont_wrapper() {
   for STARTX in /usr/bin/startx /usr/X386/bin/startx; do
     if [ -f "$STARTX" ] && [ ! -L "$STARTX" ] && [ ! -f "$STARTX.real" ]; then
@@ -326,20 +323,24 @@ ModeDB
 EOF
 }
 
-# Pick mouse defaults once for all X server variants while preserving
-# any values that were already supplied by the installer environment.
-detect_mouse_defaults
+configure_x11() {
+  echo "### Configuring X11..."
 
-# XFree86 4.x uses a monolithic XFree86 server. XFree86 3.1 uses XF86_SVGA.
-if [ -x /usr/X11R6/bin/XFree86 ]; then
-  configure_x11r6_xfree86_4
-elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
-  configure_x11r6_svga
-elif [ -x /usr/X386/bin/XF86_SVGA ]; then
-  configure_x386_svga
-  install_startx_setfont_wrapper
-elif [ -x /usr/X386/bin/X386mono ]; then
-  configure_x386_mono
-else
-  echo "No supported X11 server found."
-fi
+  # Pick mouse defaults once for all X server variants while preserving
+  # any values that were already supplied by the installer environment.
+  detect_mouse_defaults
+
+  # XFree86 4.x uses a monolithic XFree86 server. XFree86 3.1 uses XF86_SVGA.
+  if [ -x /usr/X11R6/bin/XFree86 ]; then
+    configure_x11r6_xfree86_4
+  elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
+    configure_x11r6_svga
+  elif [ -x /usr/X386/bin/XF86_SVGA ]; then
+    configure_x386_svga
+    install_startx_setfont_wrapper
+  elif [ -x /usr/X386/bin/X386mono ]; then
+    configure_x386_mono
+  else
+    echo "No supported X11 server found."
+  fi
+}

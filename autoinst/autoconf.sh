@@ -1,7 +1,7 @@
 #!/bin/sh
 # Automatic configuration for retro distros
 echo "### Beginning automatic configuration..."
-PATH=$PATH:/usr/bin:/bin:/sbin:/usr/sbin
+PATH=$PATH:/usr/bin:/bin:/etc:/usr/etc:/sbin:/usr/sbin
 SCRIPTDIR=`echo "$0" | sed 's,/[^/]*$,,'`
 if [ -z "$SCRIPTDIR" -o "$SCRIPTDIR" = "$0" ]; then
     SCRIPTDIR=.
@@ -21,11 +21,29 @@ if [ ! -d "$INSTMOUNT/autoinst.d" ]; then
     exit 1
 fi
 
-# run the install scripts
-. $INSTMOUNT/autoinst.d/config.sh
-for CONFSTEP in $INSTMOUNT/autoinst.d/confstep/[0-9]*.sh; do
-    . "$CONFSTEP"
-done
+source_script_libraries() {
+    for SCRIPTDIR in \
+        "$INSTMOUNT/autoinst.d/common" \
+        "$INSTMOUNT/autoinst.d/debian" \
+        "$INSTMOUNT/autoinst.d/slakware"
+    do
+        if [ -d "$SCRIPTDIR" ]; then
+            for SCRIPTFILE in $SCRIPTDIR/*.sh $SCRIPTDIR/*/*.sh; do
+                if [ -f "$SCRIPTFILE" ]; then
+                    . "$SCRIPTFILE"
+                fi
+            done
+        fi
+    done
+}
+
+if [ ! -f "$INSTMOUNT/autoinst.d/config/autoconf.sh" ]; then
+    echo "No autoconf manifest found; aborting."
+    exit 1
+fi
+
+source_script_libraries
+. "$INSTMOUNT/autoinst.d/config/autoconf.sh"
 
 echo "### Rebooting"
 # prevent script from running again

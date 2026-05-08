@@ -18,4 +18,4 @@ Use the original installer flow for now.
 - When the installer asks for the additional base floppies, use the QEMU monitor to swap in the extracted images from `.extract/`.
 - Complete the remaining installer steps manually.
 
-Refer to [config.sh](config.sh) for the network and serial settings used by the automated configs.
+Refer to [autoinst.sh](autoinst.sh) for the install-time network settings used by the automated flow.

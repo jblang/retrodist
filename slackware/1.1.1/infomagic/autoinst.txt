@@ -1,2 +1,0 @@
-common/diskinit.sh
-slakware/pkginst/111.sh

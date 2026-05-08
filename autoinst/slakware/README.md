@@ -4,22 +4,16 @@ This directory contains the Slackware-specific install helpers used by `autoinst
 
 ## Layout
 
-- `sysinst/default.sh`
+- `sysinst.sh`
   Shared installer for the early SLS-style `sysinstall` based Slackware releases.
 
-- `pkginst/111.sh`
-  Wrapper for Slackware `1.1.1` `pkgtool`.
-
-- `pkginst/112+.sh`
-  Wrapper for the Slackware `1.1.2+` `pkgtool` family.
-
-- `pkginst/shared.sh`
-  Common helper used by the `pkgtool` wrappers.
+- `pkginst.sh`
+  Combined `pkgtool` helper for Slackware `1.1.1` and later.
 
 ## Package Skips
 
 Slackware `pkgtool` installs can define per-distribution package skips in
-`pkgskip.txt` next to each distro's `config.sh`. During extraction, `retro`
+`pkgskip.txt` next to each distro's manifests. During extraction, `retro`
 generates tagfiles from the package directories and marks every package listed
 in `pkgskip.txt` as `SKP`.
 
@@ -46,7 +40,7 @@ Slackware `1.01` uses the older `doinstall` plus `sysinstall` flow inherited fro
 7. If a package contains `install/doinst.sh`, `sysinstall` runs it immediately so the package can do its own post-install work, such as moving files into final locations or finishing package-local setup.
 8. After the package pass, `doinstall` writes the finished `/etc/fstab` and leaves the new system staged for later boot setup. Compared with later Slackware releases, this flow stops earlier and leaves more of the machine-specific boot configuration outside the guided installer itself.
 
-This is the family handled by `sysinst/default.sh`.
+This is the family handled by `sysinst.sh`.
 
 ### Slackware 1.1.1 and later text setup
 
@@ -74,4 +68,4 @@ Version notes:
 5. `3.1` and `3.9` add `addkerne.tty`, which breaks the kernel-copy step out of `setup.tty`. That helper can install a kernel from the boot disk, a DOS floppy, or the Slackware CD-ROM and then set the root device with `rdev`.
 6. `3.1` and later also call packaged setup helpers from `/var/adm/setup` during the post-install phase, so more of the machine-specific configuration can be delegated to scripts shipped in the package set.
 
-This is the family handled by `pkginst/111.sh`, `pkginst/112+.sh`, and `pkginst/shared.sh`.
+This is the family handled by `pkginst.sh`.

@@ -29,7 +29,7 @@ This table summarizes Slackware releases and major component versions. The data 
 | [7.1](./7.1/README.txt) | [2000-06-22](./7.1/ChangeLog.txt) | 2.2.16 | glibc 2.1.3 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95.2 | 3.3.6 |
 | [8.0](./8.0/README.txt) | [2001-06-28](./8.0/ChangeLog.txt) | 2.2.19 | glibc 2.2.3 | gcc 2.95.3<br>egcs 1.1.2 | 4.1.0 |
 | [8.1](./8.1/README.txt) | [2002-06-18](./8.1/ChangeLog.txt) | 2.4.18 | glibc 2.2.5 | gcc 2.95.3<br>gcc 3.1 | 4.2.0 |
-| 9.0 | 2003-03-19 | — | — | — | — |
+| [9.0](./9.0/README.txt) | [2003-03-18](./9.0/ChangeLog.txt) | 2.4.20 | glibc 2.3.1 | gcc 3.2.2 | 4.3.0 |
 | 9.1 | 2003-09-26 | — | — | — | — |
 | 10.0 | 2004-06-23 | — | — | — | — |
 | 10.1 | 2005-02-02 | — | — | — | — |

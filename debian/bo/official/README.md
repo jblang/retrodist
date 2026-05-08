@@ -20,4 +20,4 @@ mount -t msdos /dev/hdb1 /mnt
 The original Bo installer can still be used if you want to go through the historical install flow.
 
 - Follow the onscreen installer steps from the rescue/root environment.
-- Refer to [config.sh](config.sh) for the network and serial settings used by the automated configuration.
+- Refer to [autoinst.sh](autoinst.sh) for the install-time network settings used by the automated configuration.

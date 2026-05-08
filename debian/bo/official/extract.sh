@@ -10,6 +10,14 @@ cp "$DISKDIR/resc1440.bin" boot.img
 cp "$DISKDIR/root.bin" root.img
 7z x -y -o. boot.img LINUX >/dev/null
 mv -f LINUX kernel
+mkdir -p install/bootflop
+7z x -y -oinstall/bootflop boot.img LINUX INSTALL.SH RDEV.SH SYS_MAP.GZ TYPE.TXT >/dev/null
+for FILE in install/bootflop/*; do
+    LOWER=$(echo "$(basename "$FILE")" | tr '[:upper:]' '[:lower:]')
+    if [ "$(basename "$FILE")" != "$LOWER" ]; then
+        mv "$FILE" "install/bootflop/$LOWER"
+    fi
+done
 mkdir -p install/drivers
 7z x -y -oinstall/drivers "$DISKDIR/drv1440.bin" >/dev/null
 for FILE in install/drivers/*; do

@@ -63,17 +63,6 @@ fdisk_commands() {
   echo        # extra newline
 }
 
-# link the autoinst files listed in $1 to the directory $2
-link_autoinst() {
-  NUM=1
-  cat_newline $1 | while read FILE; do
-    if [[ -n "$FILE" ]]; then
-      cp "$AUTOBASE/$FILE" "$2/$(printf "%02d" $NUM).sh"
-      NUM=$(($NUM+1))
-    fi
-  done
-}
-
 copy_autoinst_tree() {
   local SUBDIR=$1
   find "$AUTOBASE/$SUBDIR" -type f | while read -r SRC; do
@@ -81,12 +70,6 @@ copy_autoinst_tree() {
     mkdir -p "$AUTOINSTD/$(dirname "$REL")"
     cp "$SRC" "$AUTOINSTD/$REL"
   done
-}
-
-load_distro_config() {
-  if [[ -f "$CONFDIR/config.sh" ]]; then
-    source "$CONFDIR/config.sh"
-  fi
 }
 
 slackware_build_tagfiles() {
@@ -257,21 +240,20 @@ autoinst_patch() {
 # $1 is a partition table file in `autoinst/fdisk`
 autoinst_prep() {
   AUTOINSTD=$EXTRACTDIR/install/autoinst.d
-  mkdir -p $AUTOINSTD/inststep $AUTOINSTD/confstep
+  mkdir -p $AUTOINSTD/config
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
-  cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/"
-  cp "$CONFDIR/config.sh" "$AUTOINSTD/"
+  cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/autoconf.sh"
   for SUBDIR in common debian slakware; do
     if [[ -d $AUTOBASE/$SUBDIR ]]; then
       rm -rf "$AUTOINSTD/$SUBDIR"
       copy_autoinst_tree "$SUBDIR"
     fi
   done
-  if [[ -f $CONFDIR/autoinst.txt ]]; then
-    link_autoinst $CONFDIR/autoinst.txt $AUTOINSTD/inststep
+  if [[ -f $CONFDIR/autoinst.sh ]]; then
+    cp "$CONFDIR/autoinst.sh" "$AUTOINSTD/config/autoinst.sh"
   fi
-  if [[ -f $CONFDIR/autoconf.txt ]]; then
-    link_autoinst $CONFDIR/autoconf.txt $AUTOINSTD/confstep
+  if [[ -f $CONFDIR/autoconf.sh ]]; then
+    cp "$CONFDIR/autoconf.sh" "$AUTOINSTD/config/autoconf.sh"
   fi
   fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
   slackware_prepare_tagfiles
@@ -480,14 +462,13 @@ mount_copy() {
 retro_extract() {
   if [[ ! -d $EXTRACTDIR ]]; then
     retro_download
-    if [[ -f "$CONFDIR/extract.sh" || -f "$CONFDIR/autoinst.txt" ]]; then
+    if [[ -f "$CONFDIR/extract.sh" || -f "$CONFDIR/autoinst.sh" ]]; then
       mkdir -p $EXTRACTDIR
-      load_distro_config
       pushd $EXTRACTDIR > /dev/null
       if [[ -f "$CONFDIR/extract.sh" ]]; then
         source "$CONFDIR/extract.sh"
       fi
-      if [[ -f "$CONFDIR/autoinst.txt" ]]; then
+      if [[ -f "$CONFDIR/autoinst.sh" ]]; then
         mkdir -p "$EXTRACTDIR/install"
         load_qemu_config
         autoinst_prep "$QEMU_HD_SIZE"
@@ -533,6 +514,12 @@ load_qemu_config() {
   qemu_defaults
   if [[ -f $CONFDIR/qemu.sh ]]; then
     source $CONFDIR/qemu.sh
+  fi
+}
+
+load_distro_config() {
+  if [[ -f $CONFDIR/config.sh ]]; then
+    source $CONFDIR/config.sh
   fi
 }
 

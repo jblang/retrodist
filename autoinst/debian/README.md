@@ -4,28 +4,11 @@ This directory contains the Debian-specific install and configuration helpers us
 
 ## Layout
 
-- `baseinst/091.sh`
-  Debian 0.91 base install path. This is kept separate because it still uses the older `basedsk*.img` extraction flow and rewrites the installed system more directly.
+- `baseinst.sh`
+  Combined base-install helper containing the Debian 0.91 path, the shared Debian 0.93R6 / 1.x flow, and the thin per-release wrappers.
 
-- `baseinst/093r6.sh`
-  Wrapper for Debian 0.93R6. Structurally it is closer to the Debian 1.x installer flow, but that release is not currently usable with the staged MSDOS install disk because of missing kernel support.
-
-- `baseinst/buzz.sh`
-- `baseinst/rex.sh`
-- `baseinst/bo.sh`
-  Thin per-release wrappers for the Debian 1.x family.
-
-- `baseinst/dinstall.sh`
-  Shared runner for the Debian 0.93R6 / 1.x style install flow.
-
-- `baseinst/shared.sh`
-  Common helper functions used by the Debian 1.x style wrappers.
-
-- `dpkginst/default.sh`
-  Post-install package installation helper used by Debian 0.91 `autoconf`.
-
-- `dpkginst/tree.sh`
-  Alternate package-tree based helper used by Debian 0.93R6.
+- `dpkginst.sh`
+  Combined post-install package installation helper for both flat-package and package-tree layouts.
 
 ## Tested Status
 
@@ -42,13 +25,9 @@ This directory contains the Debian-specific install and configuration helpers us
 
 ## Debian 1.x Flow
 
-For Buzz, Rex, and Bo, the `autoinst.txt` entry points at a small wrapper under `baseinst/`. That wrapper sets release-specific variables and then sources:
+For Buzz, Rex, and Bo, the distro `autoinst.sh` manifest calls a small wrapper function in `baseinst.sh`. That wrapper sets release-specific variables and then calls the shared Debian 0.93R6 / 1.x flow.
 
-```sh
-$INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh
-```
-
-`dinstall.sh` then runs the shared steps in order:
+That shared flow runs the steps in order:
 
 1. Extract the base system.
 2. Prepare `inittab` / `unconfigured.sh` state if needed.
@@ -61,7 +40,7 @@ $INSTMOUNT/autoinst.d/debian/baseinst/dinstall.sh
 
 ## Wrapper Variables
 
-The Debian 1.x wrappers customize the shared flow through shell variables before they source `dinstall.sh`.
+The Debian 1.x wrappers customize the shared flow through shell variables before they call `debian_install_base_dinstall`.
 
 Common ones are:
 
@@ -107,7 +86,7 @@ Common ones are:
 
 - The staged install disk is mounted as `msdos`, so long filenames can be constrained by DOS 8.3 behavior. The Debian helper layout uses subdirectories such as `baseinst/` and `dpkginst/` to keep the staged names readable while avoiding collisions.
 
-- `baseinst/091.sh` is intentionally kept separate from the Debian 1.x flow. The extraction method, installed layout adjustments, and follow-on package handling are older and do not fit the shared `dinstall` runner cleanly.
+- `debian_install_base_091` is intentionally kept separate from the Debian 1.x flow. The extraction method, installed layout adjustments, and follow-on package handling are older and do not fit the shared `debian_install_base_dinstall` runner cleanly.
 
 - `bo` is close to Rex structurally, but not identical. It uses `root.sh.tar.gz` for the root handoff and needs `star -x` rather than the plain `star` invocation that worked for Buzz and Rex.
 
