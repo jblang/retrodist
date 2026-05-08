@@ -1,6 +1,13 @@
 configure_networking() {
     echo '### Configuring networking...'
 
+    NETMASK=${NETMASK:-255.255.255.0}
+    NETWORK=${NETWORK:-10.0.2.0}
+    BROADCAST=${BROADCAST:-10.0.2.255}
+    GATEWAY=${GATEWAY:-10.0.2.2}
+    NAMESERVER=${NAMESERVER:-10.0.2.1}
+    DOMAINNAME=${DOMAINNAME:-retro.net}
+
     ETCPATH=/etc
     RCPATH=$ETCPATH/rc.d
 

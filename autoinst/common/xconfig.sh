@@ -20,20 +20,20 @@ EOF
 detect_mouse_defaults() {
   if [ -z "$MOUSEDEV" ]; then
     if [ -c /dev/psaux ]; then
-      MOUSEDEV=psaux
+      MOUSEDEV=/dev/psaux
     elif [ -c /dev/ps2aux ]; then
-      MOUSEDEV=ps2aux
+      MOUSEDEV=/dev/ps2aux
     else
-      MOUSEDEV=cua1
+      MOUSEDEV=/dev/cua1
     fi
   fi
 
   if [ -z "$MOUSETYPE" ]; then
     case "$MOUSEDEV" in
-      psaux|ps2aux)
+      /dev/psaux|/dev/ps2aux)
         MOUSETYPE="PS/2"
         ;;
-      cua1)
+      /dev/cua1)
         MOUSETYPE="Microsoft"
         ;;
     esac
@@ -87,7 +87,7 @@ EndSection
 # Mouse settings.
 Section "Pointer"
     Protocol    "$MOUSETYPE"
-    Device      "/dev/$MOUSEDEV"
+    Device      "$MOUSEDEV"
     Emulate3Buttons
 EndSection
 
@@ -180,7 +180,7 @@ Section "InputDevice"
     Identifier  "Mouse0"
     Driver      "mouse"
     Option      "Protocol" "$MOUSETYPE"
-    Option      "Device" "/dev/$MOUSEDEV"
+    Option      "Device" "$MOUSEDEV"
     Option      "Emulate3Buttons"
 EndSection
 
@@ -309,7 +309,7 @@ Keyboard
   ServerNumLock
 
 # Mouse settings.
-$MOUSETYPE "/dev/$MOUSEDEV"
+$MOUSETYPE "$MOUSEDEV"
   Emulate3Buttons
 
 # Mono server mode selection.

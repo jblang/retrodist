@@ -1,4 +1,7 @@
 enable_serial_console() {
+    TTYDEV=${TTYDEV:-ttyS0}
+    TTYBAUD=${TTYBAUD:-9600}
+
     # Enable serial console on ttyS0
     echo "### Enabling serial console on $TTYDEV..."
 
