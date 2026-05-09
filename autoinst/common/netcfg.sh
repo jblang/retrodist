@@ -8,8 +8,8 @@ configure_networking() {
     NAMESERVER=${NAMESERVER:-10.0.2.1}
     DOMAINNAME=${DOMAINNAME:-retro.net}
 
-    ETCPATH=/etc
-    RCPATH=$ETCPATH/rc.d
+    ETCPATH=${ETCPATH:-/etc}
+    RCPATH=${RCPATH:-$ETCPATH/rc.d}
 
     # standard network configuration
     if [ -f "$RCPATH/rc.inet1" ]; then
@@ -76,6 +76,55 @@ configure_networking() {
                 echo "localnet $NETWORK" > $ETCPATH/networks
             fi
         fi
+    elif [ -f "$ETCPATH/init.d/network" ]; then
+        echo "$HOSTNAME" > $ETCPATH/hostname
+        chmod 644 $ETCPATH/hostname
+
+        echo "localnet	$NETWORK" > $ETCPATH/networks
+        chmod 644 $ETCPATH/networks
+
+        if [ -n "$DOMAINNAME" ] && [ "$DOMAINNAME" != "none" ]; then
+            echo "domain $DOMAINNAME" > $ETCPATH/resolv.conf
+            echo "search $DOMAINNAME" >> $ETCPATH/resolv.conf
+            if [ -n "$NAMESERVER" ] && [ "$NAMESERVER" != "none" ]; then
+                echo "nameserver	$NAMESERVER" >> $ETCPATH/resolv.conf
+            fi
+            chmod 644 $ETCPATH/resolv.conf
+        fi
+
+        cat > $ETCPATH/init.d/network <<EOF
+#!	/bin/sh
+ifconfig lo 127.0.0.1
+route add -net 127.0.0.0
+IPADDR=$IPADDR
+NETMASK=$NETMASK
+NETWORK=$NETWORK
+BROADCAST=$BROADCAST
+GATEWAY=$GATEWAY
+EOF
+        if [ -n "$DEBIAN_GUARD_ETH0" ]; then
+            cat >> $ETCPATH/init.d/network <<EOF
+if ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST} >/dev/null 2>&1; then
+route add -net \${NETWORK}
+route add default gw \${GATEWAY} metric 1
+fi
+EOF
+        else
+            cat >> $ETCPATH/init.d/network <<EOF
+ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST}
+route add -net \${NETWORK}
+route add default gw \${GATEWAY} metric 1
+EOF
+        fi
+        chmod 755 $ETCPATH/init.d/network
+
+        echo "127.0.0.1	localhost" > $ETCPATH/hosts
+        if [ -n "$DOMAINNAME" ] && [ "$DOMAINNAME" != "none" ]; then
+            echo "$IPADDR		$HOSTNAME.$DOMAINNAME	$HOSTNAME" >> $ETCPATH/hosts
+        else
+            echo "$IPADDR		$HOSTNAME" >> $ETCPATH/hosts
+        fi
+        chmod 644 $ETCPATH/hosts
     elif [ -f "$ETCPATH/rc.net" ]; then
         # SLS's non-standard network configuration via /etc/hosts only
         echo '## Configuring networking via hosts...'

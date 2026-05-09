@@ -7,25 +7,6 @@ AUTOBASE=$SCRIPTDIR/autoinst
 TEMPDIR=$(mktemp -d)
 trap 'rm -rf "$TEMPDIR"' EXIT
 
-# outputs fdisk commands to add a partition
-new_partition() {
-cat <<EOF
-n
-$PARTMODE
-EOF
-# logical partition doesn't ask for a partition number
-if [ "$PARTMODE" != "l" ]; then
-  echo $PARTNUM
-fi
-cat <<EOF
-$PARTBEGIN
-$PARTEND
-t
-$PARTNUM
-$PARTTYPE
-EOF
-}
-
 # adds a final newline to a file so read loop works correctly
 cat_newline() {
   cat $1
@@ -44,23 +25,6 @@ url_path_depth() {
     IFS=/ read -ra PARTS <<< "$URLPATH"
     echo "${#PARTS[@]}"
   fi
-}
-
-# generates fdisk commands for the partition table specified with format:
-#   mode    num     begin   end     type
-# mode: p = primary; e = extended; l = logical
-# num: partition number: 1-4 (primary/extended); 5+: logical
-# begin/end: in "cylinders" (depends on disk size and kernel version)
-# type: 82 = swap, 83 = ext2
-fdisk_commands() {
-  cat_newline $1 | while read PARTMODE PARTNUM PARTBEGIN PARTEND PARTTYPE PARTIGNORE; do
-    case $PARTMODE in
-      [pel] ) new_partition ;;    # primary / extended / logical
-      * ) ;;                      # ignore invalid partition modes
-    esac        
-  done
-  echo "w"    # write partition
-  echo        # extra newline
 }
 
 copy_autoinst_tree() {
@@ -237,7 +201,6 @@ autoinst_patch() {
 }
 
 # prepare auto-install/config files for the current distro
-# $1 is a partition table file in `autoinst/fdisk`
 autoinst_prep() {
   AUTOINSTD=$EXTRACTDIR/install/autoinst.d
   mkdir -p $AUTOINSTD/config
@@ -255,7 +218,6 @@ autoinst_prep() {
   if [[ -f $CONFDIR/autoconf.sh ]]; then
     cp "$CONFDIR/autoconf.sh" "$AUTOINSTD/config/autoconf.sh"
   fi
-  fdisk_commands $AUTOBASE/fdisk/$1 > $AUTOINSTD/fdisk.hda
   slackware_prepare_tagfiles
 }
 
@@ -471,7 +433,7 @@ retro_extract() {
       if [[ -f "$CONFDIR/autoinst.sh" ]]; then
         mkdir -p "$EXTRACTDIR/install"
         load_qemu_config
-        autoinst_prep "$QEMU_HD_SIZE"
+        autoinst_prep
       fi
       popd > /dev/null
     else

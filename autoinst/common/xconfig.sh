@@ -258,7 +258,7 @@ Keyboard
   ServerNumLock
 
 # Mouse settings.
-$MOUSETYPE "/dev/$MOUSEDEV"
+$MOUSETYPE "$MOUSEDEV"
   Emulate3Buttons
 
 # Cirrus SVGA mode selection.

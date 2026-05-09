@@ -8,7 +8,7 @@ This directory contains scripts that automate installation and configuration of 
 - `autoconf.sh`: main configuration script
 - `common`: scripts that can be used for multiple distros
 - `distro`: scripts specific to a particular distro (e.g., `slackware`)
-- `fdisk`: partition tables that get translated to fdisk commands for disks of various sizes
+- `common/diskinit.sh`: shared disk layout constants and fdisk command generation
 
 ## Preparation
 

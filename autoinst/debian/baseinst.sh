@@ -93,58 +93,6 @@ copy_base_configuration_hooks() {
     rm -f $ROOTMOUNT/sbin/unconfigured.sh
 }
 
-write_network_configuration() {
-    echo $HOSTNAME > $ROOTMOUNT/etc/hostname
-    set_file_mode $ROOTMOUNT/etc/hostname
-
-    echo "localnet	$NETWORK" > $ROOTMOUNT/etc/networks
-    set_file_mode $ROOTMOUNT/etc/networks
-
-    if [ -n "$DOMAINNAME" ] && [ "$DOMAINNAME" != "none" ]; then
-        cat > $ROOTMOUNT/etc/resolv.conf <<EOF
-domain $DOMAINNAME
-search $DOMAINNAME
-EOF
-        if [ -n "$NAMESERVER" ] && [ "$NAMESERVER" != "none" ]; then
-            echo "nameserver	$NAMESERVER" >> $ROOTMOUNT/etc/resolv.conf
-        fi
-        set_file_mode $ROOTMOUNT/etc/resolv.conf
-    fi
-
-    cat > $ROOTMOUNT/etc/init.d/network <<EOF
-#!	/bin/sh
-ifconfig lo 127.0.0.1
-route add -net 127.0.0.0
-IPADDR=$IPADDR
-NETMASK=$NETMASK
-NETWORK=$NETWORK
-BROADCAST=$BROADCAST
-GATEWAY=$GATEWAY
-EOF
-    if [ -n "$DEBIAN_GUARD_ETH0" ]; then
-        cat >> $ROOTMOUNT/etc/init.d/network <<EOF
-if ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST} >/dev/null 2>&1; then
-route add -net \${NETWORK}
-route add default gw \${GATEWAY} metric 1
-fi
-EOF
-    else
-        cat >> $ROOTMOUNT/etc/init.d/network <<EOF
-ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST}
-route add -net \${NETWORK}
-route add default gw \${GATEWAY} metric 1
-EOF
-    fi
-    set_file_mode $ROOTMOUNT/etc/init.d/network
-    chmod 755 $ROOTMOUNT/etc/init.d/network
-
-    cat > $ROOTMOUNT/etc/hosts <<EOF
-127.0.0.1	localhost
-$IPADDR		$HOSTNAME	$HOSTNAME.$DOMAINNAME
-EOF
-    set_file_mode $ROOTMOUNT/etc/hosts
-}
-
 extract_base_system() {
     echo "### Installing base system to $ROOTDEV..."
     cd $ROOTMOUNT
@@ -286,13 +234,10 @@ debian_install_base_dinstall() {
     echo "### Configuring base system..."
     copy_base_configuration_hooks
 
-    echo "### Configuring network..."
-    write_network_configuration
-
     debian_install_lilo
 }
 
-debian_install_base_091() {
+debian_install_base_091_style() {
   # unpack the base system
   echo "### Installing base system to $ROOTDEV..."
   cd $ROOTMOUNT
@@ -330,51 +275,25 @@ debian_install_base_091() {
   chmod 755 $ROOTMOUNT/sbin/setup.sh
 }
 
-debian_install_base_093r6() {
-  DEBIAN_BASE_DISKS="basedsk1 basedsk2 basedsk3"
-  DEBIAN_PREPARE_FUNCTION=prepare_base_system_093r6
-  DEBIAN_ROOT_HOOK=.configure
-  DEBIAN_OPTIONAL_LILO=1
+debian_install_base() {
+  DEBIAN_BASE_STYLE=${DEBIAN_BASE_STYLE:-dinstall}
 
-  debian_install_base_dinstall
-}
-
-debian_install_base_bo() {
-  DEBIAN_BASE_TARBALL=base1_3.tgz
-  DEBIAN_PREPARE_FUNCTION=prepare_base_system_dinstall
-  DEBIAN_INITTAB_FALLBACK=etc/init.d/inittab
-  DEBIAN_ROOT_HOOK=.bash_profile
-  DEBIAN_ROOT_TARBALL=/etc/root.sh.tar.gz
-  DEBIAN_TAR_EXTRACTOR="star -x"
-  DEBIAN_INSTALL_BOOT_FLOPPY=1
-  DEBIAN_INSTALL_DRIVERS=1
-  DEBIAN_CONFIGURE_MODULES=1
-  DEBIAN_GUARD_ETH0=1
-  DEBIAN_SKIP_SETUP_SH=1
-
-  debian_install_base_dinstall
-}
-
-debian_install_base_buzz() {
-  DEBIAN_BASE_TARBALL=base1_1.tgz
-  DEBIAN_PREPARE_FUNCTION=prepare_base_system_dinstall
-  DEBIAN_ROOT_HOOK=.configure
-  DEBIAN_INSTALL_BOOT_FLOPPY=1
-  DEBIAN_CONFIGURE_MODULES=1
-  DEBIAN_GUARD_ETH0=1
-
-  debian_install_base_dinstall
-}
-
-debian_install_base_rex() {
-  DEBIAN_BASE_TARBALL=base1_2.tgz
-  DEBIAN_PREPARE_FUNCTION=prepare_base_system_dinstall
-  DEBIAN_INITTAB_FALLBACK=etc/init.d/inittab
-  DEBIAN_ROOT_HOOK=.bash_profile
-  DEBIAN_INSTALL_BOOT_FLOPPY=1
-  DEBIAN_INSTALL_DRIVERS=1
-  DEBIAN_CONFIGURE_MODULES=1
-  DEBIAN_GUARD_ETH0=1
-
-  debian_install_base_dinstall
+  case $DEBIAN_BASE_STYLE in
+    091 )
+      DEBIAN_BASE_DISKS=${DEBIAN_BASE_DISKS:-"basedsk1 basedsk2 basedsk3"}
+      debian_install_base_091_style
+      ;;
+    dinstall )
+      DEBIAN_PREPARE_FUNCTION=${DEBIAN_PREPARE_FUNCTION:-prepare_base_system_dinstall}
+      DEBIAN_ROOT_HOOK=${DEBIAN_ROOT_HOOK:-.configure}
+      DEBIAN_INSTALL_BOOT_FLOPPY=${DEBIAN_INSTALL_BOOT_FLOPPY:-1}
+      DEBIAN_CONFIGURE_MODULES=${DEBIAN_CONFIGURE_MODULES:-1}
+      DEBIAN_GUARD_ETH0=${DEBIAN_GUARD_ETH0:-1}
+      debian_install_base_dinstall
+      ;;
+    * )
+      echo "Unknown Debian base install style: $DEBIAN_BASE_STYLE"
+      exit 1
+      ;;
+  esac
 }

@@ -1,4 +1,0 @@
-# partition table for 2G drive
-# mode  num     begin   end     type
-p       1       1       17      82  # 64MB swap
-p       2       18     520      83  # ext2
