@@ -3,17 +3,140 @@
 set -euo pipefail
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 JUMPHOME=${JUMPHOME:-$SCRIPTDIR/.retrojump}
-CLOUDIMG=jammy-server-cloudimg-amd64.img
-JUMPIMG=$JUMPHOME/retrojump.img
+HOST_OS=$(uname -s)
+HOST_ARCH=$(uname -m)
+UBUNTU_RELEASE=26.04
+JUMP_NET_MAC_INTERNET=52:54:00:12:34:56
+JUMP_NET_MAC_RETRONET=52:54:00:12:34:57
 
 # temp directory automatically cleaned up on exit
 TEMPDIR=$(mktemp -d)
+SEEDIMG=$TEMPDIR/seed.iso
 trap 'rm -rf "$TEMPDIR"' EXIT
+
+jump_configure_platform() {
+  case "$HOST_OS/$HOST_ARCH" in
+    Linux/*)
+      UBUNTU_ARCH=amd64
+      QEMU_BIN=qemu-system-x86_64
+      QEMU_MACHINE_ARGS="-machine accel=kvm,type=q35 -cpu host"
+      QEMU_NET_DEVICE=virtio-net-pci
+      QEMU_EXTRA_ARGS=""
+      ;;
+    Darwin/x86_64)
+      UBUNTU_ARCH=amd64
+      QEMU_BIN=qemu-system-x86_64
+      QEMU_MACHINE_ARGS="-machine accel=hvf,type=q35 -cpu host"
+      QEMU_NET_DEVICE=virtio-net-pci
+      QEMU_EXTRA_ARGS=""
+      ;;
+    Darwin/arm64)
+      UBUNTU_ARCH=arm64
+      QEMU_BIN=qemu-system-aarch64
+      QEMU_MACHINE_ARGS="-machine accel=hvf,highmem=off,type=virt -cpu host"
+      QEMU_NET_DEVICE=virtio-net-device
+      QEMU_EXTRA_ARGS="-bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd"
+      ;;
+    *)
+      UBUNTU_ARCH=amd64
+      QEMU_BIN=qemu-system-x86_64
+      QEMU_MACHINE_ARGS="-machine accel=tcg,type=q35 -cpu max"
+      QEMU_NET_DEVICE=virtio-net-pci
+      QEMU_EXTRA_ARGS=""
+      ;;
+  esac
+
+  CLOUDIMG=ubuntu-$UBUNTU_RELEASE-server-cloudimg-$UBUNTU_ARCH.img
+  JUMPIMG=$JUMPHOME/retrojump-$UBUNTU_RELEASE-$UBUNTU_ARCH.img
+}
+
+jump_check_platform_prereqs() {
+  if ! command -v "$QEMU_BIN" >/dev/null 2>&1; then
+    echo "Missing $QEMU_BIN in PATH" >&2
+    exit 1
+  fi
+
+  if [[ -n "$QEMU_EXTRA_ARGS" && "$HOST_OS/$HOST_ARCH" == "Darwin/arm64" ]]; then
+    if [[ ! -f /opt/homebrew/share/qemu/edk2-aarch64-code.fd ]]; then
+      cat <<EOF >&2
+Missing ARM UEFI firmware: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+Reinstall or upgrade QEMU from Homebrew.
+EOF
+      exit 1
+    fi
+  fi
+}
+
+jump_system_drive_args() {
+  case "$UBUNTU_ARCH" in
+    arm64)
+      echo "-drive if=none,id=system,format=qcow2,file=$JUMPIMG -device virtio-blk-device,drive=system"
+      ;;
+    *)
+      echo "-drive if=virtio,format=qcow2,file=$JUMPIMG"
+      ;;
+  esac
+}
+
+jump_seed_drive_args() {
+  case "$UBUNTU_ARCH" in
+    arm64)
+      echo "-drive if=none,id=seed,format=raw,file=$SEEDIMG,readonly=on -device virtio-blk-device,drive=seed"
+      ;;
+    *)
+      echo "-drive file=$SEEDIMG,format=raw,media=cdrom,readonly=on"
+      ;;
+  esac
+}
+
+jump_make_seed_image() {
+  local seed_dir=$TEMPDIR/seed
+  mkdir -p "$seed_dir"
+  cp "$TEMPDIR/userdata" "$seed_dir/user-data"
+  cp "$TEMPDIR/metadata" "$seed_dir/meta-data"
+  cp "$TEMPDIR/networkconfig" "$seed_dir/network-config"
+
+  if command -v xorriso >/dev/null 2>&1; then
+    xorriso -as mkisofs \
+      -volid cidata \
+      -joliet \
+      -rock \
+      -output "$SEEDIMG" \
+      "$seed_dir" >/dev/null 2>&1
+    return
+  fi
+
+  if command -v mkisofs >/dev/null 2>&1; then
+    mkisofs \
+      -volid cidata \
+      -joliet \
+      -rock \
+      -output "$SEEDIMG" \
+      "$seed_dir" >/dev/null 2>&1
+    return
+  fi
+
+  if command -v hdiutil >/dev/null 2>&1; then
+    hdiutil makehybrid \
+      -iso \
+      -joliet \
+      -default-volume-name cidata \
+      -o "$SEEDIMG" \
+      "$seed_dir" >/dev/null
+    return
+  fi
+
+  cat <<EOF >&2
+No supported ISO builder found for the jump box seed image.
+Install xorriso with Homebrew: brew install xorriso
+EOF
+  exit 1
+}
 
 jump_init() {
   mkdir -p $JUMPHOME
   if [[ ! -f $JUMPHOME/$CLOUDIMG ]]; then
-      wget -O $JUMPHOME/$CLOUDIMG "https://cloud-images.ubuntu.com/jammy/current/$CLOUDIMG"
+      wget -O $JUMPHOME/$CLOUDIMG "https://cloud-images.ubuntu.com/releases/$UBUNTU_RELEASE/release/$CLOUDIMG"
   fi
   cp $JUMPHOME/$CLOUDIMG $JUMPIMG
   qemu-img resize $JUMPIMG 20G
@@ -61,47 +184,50 @@ write_files:
 EOF
 
 cat > $TEMPDIR/networkconfig <<EOF
-#cloud-config
 network:
-  version: 1
-  config:
-    - type: physical
-      name: enp0s2
-      subnets:
-        - type: dhcp
+  version: 2
+  ethernets:
+    internet0:
+      match:
+        macaddress: "$JUMP_NET_MAC_INTERNET"
+      set-name: internet0
+      dhcp4: true
       routes:
-        - network: 10.0.1.0/24
-          gateway: 10.0.1.2
-    - type: physical
-      name: enp0s3
-      subnets:
-        - type: static
-          address: 10.0.2.1/24
-          routes:
-            - network: 10.0.2.0/24
-              gateway: 10.0.2.2
+        - to: 10.0.1.0/24
+          via: 10.0.1.2
+    retronet0:
+      match:
+        macaddress: "$JUMP_NET_MAC_RETRONET"
+      set-name: retronet0
+      addresses:
+        - 10.0.2.1/24
+      routes:
+        - to: 10.0.2.0/24
+          via: 10.0.2.2
 EOF
 
-  cloud-localds $TEMPDIR/seed.img $TEMPDIR/userdata $TEMPDIR/metadata -N $TEMPDIR/networkconfig
+  jump_make_seed_image
 }
 
 jump_run() {
   local seed=""
+  local system_drive
   if [[ ! -f $JUMPIMG ]]; then
     jump_init
-    seed="-drive if=virtio,format=raw,file=$TEMPDIR/seed.img"
+    seed=$(jump_seed_drive_args)
   fi
+  system_drive=$(jump_system_drive_args)
 
-  qemu-system-x86_64 \
+  "$QEMU_BIN" \
     -nographic \
-    -machine accel=kvm,type=q35 \
-    -cpu host \
+    $QEMU_MACHINE_ARGS \
     -m 2G \
     -netdev user,id=internet,net=10.0.1.0/24,hostfwd=tcp::2222-:22 \
-    -device virtio-net-pci,netdev=internet \
+    -device $QEMU_NET_DEVICE,netdev=internet,mac=$JUMP_NET_MAC_INTERNET \
     -netdev socket,id=retronet,listen=:1234 \
-    -device virtio-net-pci,netdev=retronet \
-    -drive if=virtio,format=qcow2,file=$JUMPIMG \
+    -device $QEMU_NET_DEVICE,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET \
+    $system_drive \
+    $QEMU_EXTRA_ARGS \
     $seed \
     $@
 }
@@ -115,8 +241,18 @@ jump_sftp() {
 }
 
 jump_scp() {
-  local params=$(echo $@ | sed 's/\bretro:/retro@localhost:/g')
-  scp -i $JUMPHOME/id_rsa -P 2222 $params
+  local arg
+  local params=()
+
+  for arg in "$@"; do
+    if [[ "$arg" == retro:* ]]; then
+      params+=("retro@localhost:${arg#retro:}")
+    else
+      params+=("$arg")
+    fi
+  done
+
+  scp -i "$JUMPHOME/id_rsa" -P 2222 "${params[@]}"
 }
 
 jump_usage() {
@@ -135,6 +271,9 @@ For scp, 'retro:*' is expanded to 'retro@localhost:*'.
 EOF
 exit 1
 }
+
+jump_configure_platform
+jump_check_platform_prereqs
 
 if [[ $# -ge 1 ]]; then
   COMMAND=$1
