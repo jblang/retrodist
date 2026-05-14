@@ -1,0 +1,6 @@
+disc1.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%201.iso
+disc2.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%202.iso
+disc3.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%203.iso
+disc4.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%204.iso
+disc5.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%205.iso
+disc6.iso https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%206.iso
