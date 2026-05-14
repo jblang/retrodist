@@ -108,7 +108,14 @@ slackware_set_tagfile_package() {
   local STATE=$2
   find install \( -name tagfile -o -name 'tagfile.new' \) -type f | while read -r TAGFILE; do
     if grep -q "^$PKG:" "$TAGFILE"; then
-      sed -i '' -E "s/^($PKG:)[[:space:]]*(ADD|REC|OPT|SKP)$/\\1     $STATE/" "$TAGFILE"
+      local TMPFILE="$TAGFILE.tmp.$$"
+      awk -v pkg="$PKG" -v state="$STATE" '
+        $1 == pkg ":" && $2 ~ /^(ADD|REC|OPT|SKP)$/ {
+          print pkg ":     " state
+          next
+        }
+        { print }
+      ' "$TAGFILE" > "$TMPFILE" && mv "$TMPFILE" "$TAGFILE"
     fi
   done
 }
