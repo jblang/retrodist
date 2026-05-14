@@ -9,27 +9,40 @@ Running retro distros in QEMU has been done many times by many people, but until
 
 ## Prerequisites
 
-The scripts have been developed on Ubuntu 22.04. You will need to install some prerequisites:
+Install the host prerequisites with the package manager for your current OS:
 
 ```
-sudo apt install qemu-system-x86 cloud-image-utils p7zip-full unzip
+./retro prereq
 ```
 
-The scripts should theoretically be portable to any other linux Distro that has the prerequisites installed, but I haven't tested this. If you don't use the Jump Box, `cloud-image-utils` are not required.
+On Windows, the recommended setup is [WSL2 with Ubuntu](https://documentation.ubuntu.com/wsl/latest/howto/install-ubuntu-wsl2/).
+Install Ubuntu under WSL2, clone this repository inside the WSL filesystem, then
+run `./retro prereq` there.
 
-The `package` command (see below) can be used to package the disk images together with a shells script and batch file to start QEMU. This will allow the image to be run on Windows or other operating systems with only QEMU installed. However, the initial preparation needs to be done on Linux.
+- On macOS with Homebrew, this installs `qemu`, `p7zip`, `unzip`, and `wget`.
+Homebrew's `qemu` formula includes both `qemu-system-i386` and `qemu-img`.
+- On Linux, `prereq` installs the distribution packages that provide the QEMU
+system emulators used by `retro` and `jump`, `qemu-img`, a QEMU window display
+backend, `7z`, `unzip`, `wget`, `bchunk`, `xorriso`, and OpenSSH client tools.
+- The `apt`, `dnf`, and Homebrew paths are the intended/tested paths; Arch Linux
+support is best-effort and is not currently tested.
+
+The scripts should theoretically be portable to any other Unix-like OS that has the prerequisites installed.
+
+The `package` command (see below) can be used to package the disk images together with a shell script and batch file to start QEMU. This will allow the image to be run on Windows or other operating systems with only QEMU installed. However, the initial preparation needs to be done on a Unix-like system with all the prereqs installed.
 
 ## Retro Distros
 
 The `retro` script provides commands for downloading, extracting, and running retro distros. All of the commands take a configuration directory as their first argument. If no directory is provided, the current directory is used.
 
 - `boot` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim.
-- `floppy` will start the distro while forcing boot from the floppy drive.
+- `install` will start the distro from install media.
 - `extract` will extract the distro into the `.extract` directory.
 - `download` will download the distro's original files into the config directory's `.download` directory.
 - `reset` will reset the distro's extracted files and QEMU configuration
 - `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
+- `prereq` will install host prerequisites with the current OS package manager.
 
 You won't normally need to run `extract` and `download` manually since `boot` will automatically run each of them in turn.
 
@@ -101,6 +114,12 @@ The `retro` script configures QEMU to run the a distro by doing the following:
    - Create symlinks for any additional files needed by the installation
    - Perform any special-case initialization required by the distro
 3. Creates main hard drive image `hda.img` with size `QEMU_HD_SIZE` and format `QEMU_HD_FORMAT`
+
+By default, `retro` starts QEMU with a native window display backend: `gtk` on
+Linux and `cocoa` on macOS. Override this by setting `QEMU_DISPLAY`, for example
+`QEMU_DISPLAY="-display sdl" ./retro ... boot`. If QEMU reports that the selected
+backend is unavailable, install a QEMU UI backend package such as `qemu-ui-gtk`
+or choose another backend supported by `qemu-system-i386 -display help`.
 
 ### Automatic Installation and Configuration
 

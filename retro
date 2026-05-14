@@ -445,6 +445,65 @@ retro_extract() {
 }
 
 # default QEMU configuration
+qemu_default_display() {
+  case "$(uname -s)" in
+    Darwin)
+      echo "-display cocoa"
+      ;;
+    *)
+      echo "-display gtk"
+      ;;
+  esac
+}
+
+qemu_supports_accel() {
+  local ACCEL=$1
+  $QEMU_SYSTEM -accel help 2>/dev/null | grep -q "^$ACCEL$"
+}
+
+qemu_default_accel() {
+  case "$(uname -s)/$(uname -m)" in
+    Linux/*)
+      if [[ -r /dev/kvm && -w /dev/kvm ]] && qemu_supports_accel kvm; then
+        echo "-accel kvm"
+      else
+        echo "-accel tcg"
+      fi
+      ;;
+    Darwin/x86_64)
+      if qemu_supports_accel hvf; then
+        echo "-accel hvf"
+      else
+        echo "-accel tcg"
+      fi
+      ;;
+    *)
+      echo "-accel tcg"
+      ;;
+  esac
+}
+
+qemu_warn_missing_display_backend() {
+  if [[ -z "$QEMU_DISPLAY" || "$QEMU_DISPLAY" != *"-display "* ]]; then
+    return
+  fi
+
+  local BACKEND=${QEMU_DISPLAY#*-display }
+  BACKEND=${BACKEND%%[ ,]*}
+  BACKEND=${BACKEND%%=*}
+  if [[ -z "$BACKEND" || "$BACKEND" == "none" ]]; then
+    return
+  fi
+
+  local AVAILABLE
+  AVAILABLE=$($QEMU_SYSTEM -display help 2>/dev/null || true)
+  if [[ -n "$AVAILABLE" && "$AVAILABLE" != *"$BACKEND"* ]]; then
+    echo "Warning: $QEMU_SYSTEM does not have the '$BACKEND' display backend installed."
+    echo "Install a QEMU UI backend package, or set QEMU_DISPLAY to another backend."
+    echo
+  fi
+}
+
 qemu_defaults() {
   QEMU_SYSTEM="qemu-system-i386"
   QEMU_MACHINE="type=isapc"
@@ -459,6 +518,8 @@ qemu_defaults() {
   QEMU_FDTYPE_B="144"
   QEMU_INTERNET="" # disabled
   QEMU_BOOT_ORDER=""
+  QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
+  QEMU_ACCEL="${QEMU_ACCEL:-$(qemu_default_accel)}"
   QEMU_RETRONET="
     -netdev socket,id=retronet,connect=:1234
     -device $QEMU_NET_DEVICE,netdev=retronet"
@@ -561,6 +622,7 @@ retro_boot() {
   if [[ -n "$QEMU_FDTYPE_B" ]]; then
     QEMU_GLOBALS="$QEMU_GLOBALS -global isa-fdc.fdtypeB=$QEMU_FDTYPE_B"
   fi
+  qemu_warn_missing_display_backend
 
   # Run QEMU
   QEMU_COMMAND="
@@ -569,6 +631,8 @@ retro_boot() {
       -smp $QEMU_SMP
       -m $QEMU_RAM
       -serial mon:stdio
+      $QEMU_DISPLAY
+      $QEMU_ACCEL
       $QEMU_INTERNET
       $QEMU_RETRONET
       $QEMU_GLOBALS
@@ -621,6 +685,103 @@ retro_reset() {
   fi
 }
 
+retro_install_prereq_packages() {
+  if [[ $# -lt 2 ]]; then
+    echo "Usage: retro_install_prereq_packages PACKAGE_MANAGER PACKAGE..."
+    exit 1
+  fi
+
+  local PACKAGE_MANAGER=$1
+  shift
+  local INSTALL=()
+  case $PACKAGE_MANAGER in
+    brew)
+      INSTALL=(brew install)
+      ;;
+    apt-get)
+      INSTALL=(sudo apt-get install)
+      ;;
+    dnf)
+      INSTALL=(sudo dnf install)
+      ;;
+    pacman)
+      INSTALL=(sudo pacman -S --needed)
+      ;;
+    *)
+      echo "Unsupported package manager: $PACKAGE_MANAGER"
+      exit 1
+      ;;
+  esac
+
+  echo "Installing prerequisites with $PACKAGE_MANAGER:"
+  printf '  %s\n' "$@"
+  echo
+
+  if [[ "${RETRO_PREREQ_DRY_RUN:-0}" == "1" ]]; then
+    printf 'Dry run:'
+    printf ' %q' "${INSTALL[@]}" "$@"
+    echo
+    return
+  fi
+
+  "${INSTALL[@]}" "$@"
+}
+
+retro_prereq() {
+  local DRY_RUN=0
+  if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=1
+    shift
+  fi
+  if [[ $# -gt 0 ]]; then
+    echo "Unknown prereq option: $1"
+    exit 1
+  fi
+
+  case "$(uname -s)" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso
+        return
+      fi
+      ;;
+    Linux)
+      if command -v apt-get >/dev/null 2>&1; then
+        RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso openssh-client
+        return
+      elif command -v dnf >/dev/null 2>&1; then
+        RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso openssh-clients
+        return
+      elif command -v pacman >/dev/null 2>&1; then
+        RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso openssh
+        return
+      fi
+      ;;
+  esac
+
+  if command -v brew >/dev/null 2>&1; then
+    RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso
+  else
+    cat <<EOF
+No supported package manager found.
+
+Install the prerequisites manually:
+  qemu-system-i386
+  qemu-system-x86_64
+  qemu-system-aarch64
+  qemu-img
+  QEMU window display backend
+  7z
+  unzip
+  wget
+  bchunk
+  xorriso
+  ssh, sftp, scp, and ssh-keygen
+EOF
+    exit 1
+  fi
+}
+
 # usage instructions
 retro_usage() {
 cat <<EOF
@@ -634,6 +795,7 @@ Commands:
   download  download source files for the distro or CD-ROM
   patch     patch the boot/root disk for auto-installation.
   package   create a tar with the QEMU image files and startup script
+  prereq    install host prerequisites with the current OS package manager
   reset     remove the QEMU images and extracted files for the distro
 
 Config:
@@ -650,7 +812,7 @@ exit 1
 COMMAND=help
 if [[ $# -ge 1 ]]; then
   case $1 in
-    help | boot | install | extract | download | reset | patch | package)
+    help | boot | install | extract | download | reset | patch | package | prereq)
       COMMAND=$1
       shift
       ;;
@@ -701,6 +863,7 @@ case $COMMAND in
   extract) retro_extract;;
   boot | install) retro_boot $@;;
   package) retro_package $@;;
+  prereq) retro_prereq $@;;
   reset) retro_reset;;
   patch) autoinst_patch;;
 esac
