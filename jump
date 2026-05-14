@@ -5,7 +5,8 @@ SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 JUMPHOME=${JUMPHOME:-$SCRIPTDIR/.retrojump}
 HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
-UBUNTU_RELEASE=26.04
+DEBIAN_CODENAME=trixie
+DEBIAN_RELEASE=13
 JUMP_NET_MAC_INTERNET=52:54:00:12:34:56
 JUMP_NET_MAC_RETRONET=52:54:00:12:34:57
 
@@ -17,28 +18,28 @@ trap 'rm -rf "$TEMPDIR"' EXIT
 jump_configure_platform() {
   case "$HOST_OS/$HOST_ARCH" in
     Linux/*)
-      UBUNTU_ARCH=amd64
+      DEBIAN_ARCH=amd64
       QEMU_BIN=qemu-system-x86_64
       QEMU_MACHINE_ARGS="-machine accel=kvm,type=q35 -cpu host"
       QEMU_NET_DEVICE=virtio-net-pci
       QEMU_EXTRA_ARGS=""
       ;;
     Darwin/x86_64)
-      UBUNTU_ARCH=amd64
+      DEBIAN_ARCH=amd64
       QEMU_BIN=qemu-system-x86_64
       QEMU_MACHINE_ARGS="-machine accel=hvf,type=q35 -cpu host"
       QEMU_NET_DEVICE=virtio-net-pci
       QEMU_EXTRA_ARGS=""
       ;;
     Darwin/arm64)
-      UBUNTU_ARCH=arm64
+      DEBIAN_ARCH=arm64
       QEMU_BIN=qemu-system-aarch64
       QEMU_MACHINE_ARGS="-machine accel=hvf,highmem=off,type=virt -cpu host"
       QEMU_NET_DEVICE=virtio-net-device
       QEMU_EXTRA_ARGS="-bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd"
       ;;
     *)
-      UBUNTU_ARCH=amd64
+      DEBIAN_ARCH=amd64
       QEMU_BIN=qemu-system-x86_64
       QEMU_MACHINE_ARGS="-machine accel=tcg,type=q35 -cpu max"
       QEMU_NET_DEVICE=virtio-net-pci
@@ -46,8 +47,9 @@ jump_configure_platform() {
       ;;
   esac
 
-  CLOUDIMG=ubuntu-$UBUNTU_RELEASE-server-cloudimg-$UBUNTU_ARCH.img
-  JUMPIMG=$JUMPHOME/retrojump-$UBUNTU_RELEASE-$UBUNTU_ARCH.img
+  CLOUDIMG=debian-$DEBIAN_RELEASE-genericcloud-$DEBIAN_ARCH.qcow2
+  CLOUDIMG_URL="https://cloud.debian.org/images/cloud/$DEBIAN_CODENAME/latest/$CLOUDIMG"
+  JUMPIMG=$JUMPHOME/retrojump-$DEBIAN_CODENAME-$DEBIAN_ARCH.qcow2
 }
 
 jump_check_platform_prereqs() {
@@ -68,7 +70,7 @@ EOF
 }
 
 jump_system_drive_args() {
-  case "$UBUNTU_ARCH" in
+  case "$DEBIAN_ARCH" in
     arm64)
       echo "-drive if=none,id=system,format=qcow2,file=$JUMPIMG -device virtio-blk-device,drive=system"
       ;;
@@ -79,7 +81,7 @@ jump_system_drive_args() {
 }
 
 jump_seed_drive_args() {
-  case "$UBUNTU_ARCH" in
+  case "$DEBIAN_ARCH" in
     arm64)
       echo "-drive if=none,id=seed,format=raw,file=$SEEDIMG,readonly=on -device virtio-blk-device,drive=seed"
       ;;
@@ -135,9 +137,7 @@ EOF
 
 jump_init() {
   mkdir -p $JUMPHOME
-  if [[ ! -f $JUMPHOME/$CLOUDIMG ]]; then
-      wget -O $JUMPHOME/$CLOUDIMG "https://cloud-images.ubuntu.com/releases/$UBUNTU_RELEASE/release/$CLOUDIMG"
-  fi
+  wget --timestamping --directory-prefix="$JUMPHOME" "$CLOUDIMG_URL"
   cp $JUMPHOME/$CLOUDIMG $JUMPIMG
   qemu-img resize $JUMPIMG 20G
 
