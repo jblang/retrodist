@@ -27,6 +27,32 @@ fix_perms() {
   fi
 }
 
+retro_msys2_mingw_package_prefix() {
+  case "${MSYSTEM:-}" in
+    MINGW32)
+      echo mingw-w64-i686
+      ;;
+    MINGW64)
+      echo mingw-w64-x86_64
+      ;;
+    UCRT64)
+      echo mingw-w64-ucrt-x86_64
+      ;;
+    CLANG32)
+      echo mingw-w64-clang-i686
+      ;;
+    CLANG64)
+      echo mingw-w64-clang-x86_64
+      ;;
+    CLANGARM64)
+      echo mingw-w64-clang-aarch64
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 retro_install_prereq_packages() {
   if [[ $# -lt 2 ]]; then
     echo "Usage: retro_install_prereq_packages PACKAGE_MANAGER PACKAGE..."
@@ -48,6 +74,9 @@ retro_install_prereq_packages() {
       ;;
     pacman)
       INSTALL=(sudo pacman -S --needed)
+      ;;
+    msys2-pacman)
+      INSTALL=(pacman -S --needed)
       ;;
     *)
       echo "Unsupported package manager: $PACKAGE_MANAGER"
@@ -84,6 +113,22 @@ retro_prereq() {
     Darwin)
       if command -v brew >/dev/null 2>&1; then
         RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso
+        return
+      fi
+      ;;
+    MSYS_NT* | MINGW*_NT* | UCRT*_NT* | CLANG*_NT*)
+      if command -v pacman >/dev/null 2>&1; then
+        local MINGW_PACKAGE_PREFIX
+        if ! MINGW_PACKAGE_PREFIX=$(retro_msys2_mingw_package_prefix); then
+          cat <<EOF
+MSYS2 detected, but no supported MinGW environment is active.
+
+Run this from an MSYS2 MinGW shell such as UCRT64, MINGW64, CLANG64, or
+CLANGARM64 so QEMU can be installed from the matching MinGW package repo.
+EOF
+          exit 1
+        fi
+        RETRO_PREREQ_DRY_RUN=$DRY_RUN retro_install_prereq_packages msys2-pacman "${MINGW_PACKAGE_PREFIX}-qemu" p7zip unzip wget xorriso openssh
         return
       fi
       ;;

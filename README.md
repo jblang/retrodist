@@ -9,23 +9,28 @@ Running retro distros in QEMU has been done many times by many people, but until
 
 ## Prerequisites
 
-Install the host prerequisites with the package manager for your current OS:
+You'll need one of these environments set up prior to using Retro Distro Playground:
+
+- On Windows, use [MSYS2](https://www.msys2.org/) to install dependencies. WSL2 can also be used with the Linux distro of your choice.
+- On macOS, use [Homebrew](https://brew.sh/).
+- On Linux, apt, dnf, and pacman are supported (though Arch support is untested btw).  
+
+Once you have your environment set up, install the host prerequisites for your environment:
 
 ```
 ./retro prereq
 ```
 
-On Windows, the recommended setup is [WSL2 with Ubuntu](https://documentation.ubuntu.com/wsl/latest/howto/install-ubuntu-wsl2/).
-Install Ubuntu under WSL2, clone this repository inside the WSL filesystem, then
-run `./retro prereq` there.
+This should auto-detect your environment and choose the correct package manager and packages:
 
-- On macOS with Homebrew, this installs `qemu`, `p7zip`, `unzip`, and `wget`.
-Homebrew's `qemu` formula includes both `qemu-system-i386` and `qemu-img`.
 - On Linux, `prereq` installs the distribution packages that provide the QEMU
 system emulators used by `retro` and `jump`, `qemu-img`, a QEMU window display
 backend, `7z`, `unzip`, `wget`, `bchunk`, `xorriso`, and OpenSSH client tools.
-- The `apt`, `dnf`, and Homebrew paths are the intended/tested paths; Arch Linux
-support is best-effort and is not currently tested.
+- On macOS with Homebrew, this installs `qemu`, `p7zip`, `unzip`, and `wget`.
+Homebrew's `qemu` formula includes both `qemu-system-i386` and `qemu-img`.
+- On Windows with MSYS2, `prereq` installs QEMU from the package repo for the active MinGW
+environment, plus `p7zip`, `unzip`, `wget`, `xorriso`, and OpenSSH client tools
+from the MSYS repo.
 
 The scripts should theoretically be portable to any other Unix-like OS that has the prerequisites installed.
 
