@@ -1,1 +1,1 @@
-../../7.0/walnut/qemu.sh
+QEMU_PROFILE=linux-2.2

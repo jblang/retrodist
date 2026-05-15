@@ -1,1 +1,1 @@
-../../2.2/infomagic/qemu.sh
+QEMU_PROFILE=linux-1.2

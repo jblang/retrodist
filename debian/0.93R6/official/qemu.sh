@@ -1,0 +1,1 @@
+QEMU_PROFILE=linux-1.2

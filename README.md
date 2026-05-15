@@ -11,11 +11,13 @@ Running retro distros in QEMU has been done many times by many people, but until
 
 You'll need one of these environments set up prior to using Retro Distro Playground:
 
-- On Windows, use [MSYS2](https://www.msys2.org/) to install dependencies. WSL2 can also be used with the Linux distro of your choice.
-- On macOS, use [Homebrew](https://brew.sh/).
 - On Linux, apt, dnf, and pacman are supported (though Arch support is untested btw).  
+- On macOS, use [Homebrew](https://brew.sh/) to install dependencies.
+- On Windows, use [MSYS2](https://www.msys2.org/) to install dependencies. [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) can also be used with the Linux distro of your choice.
 
-Once you have your environment set up, install the host prerequisites for your environment:
+Once you have your environment set up, clone the repo from https://github.com/jblang/retrodist.
+
+From the repo root, run this command to install the host prerequisites for your environment:
 
 ```
 ./retro prereq

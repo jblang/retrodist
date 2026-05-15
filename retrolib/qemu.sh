@@ -10,33 +10,6 @@ qemu_default_display() {
   esac
 }
 
-qemu_supports_accel() {
-  local ACCEL=$1
-  $QEMU_SYSTEM -accel help 2>/dev/null | grep -q "^$ACCEL$"
-}
-
-qemu_default_accel() {
-  case "$(uname -s)/$(uname -m)" in
-    Linux/*)
-      if [[ -r /dev/kvm && -w /dev/kvm ]] && qemu_supports_accel kvm; then
-        echo "-accel kvm"
-      else
-        echo "-accel tcg"
-      fi
-      ;;
-    Darwin/x86_64)
-      if qemu_supports_accel hvf; then
-        echo "-accel hvf"
-      else
-        echo "-accel tcg"
-      fi
-      ;;
-    *)
-      echo "-accel tcg"
-      ;;
-  esac
-}
-
 qemu_warn_missing_display_backend() {
   if [[ -z "$QEMU_DISPLAY" || "$QEMU_DISPLAY" != *"-display "* ]]; then
     return
@@ -58,26 +31,88 @@ qemu_warn_missing_display_backend() {
   fi
 }
 
-qemu_defaults() {
-  QEMU_SYSTEM="qemu-system-i386"
-  QEMU_MACHINE="type=isapc"
-  QEMU_SMP="1"
-  QEMU_RAM="16M"
-  QEMU_HD_SIZE="500M"
-  QEMU_HD_FORMAT="qcow2"
-  QEMU_CDROM="disc1.iso"
-  QEMU_NET_DEVICE="ne2k_isa"
-  QEMU_ATTACH_ROOT_FDB="0"
-  QEMU_FDTYPE_A="144"
-  QEMU_FDTYPE_B="144"
-  QEMU_INTERNET=""
-  QEMU_BOOT_ORDER=""
+qemu_base_defaults() {
+  QEMU_SYSTEM="${QEMU_SYSTEM:-qemu-system-i386}"
+  QEMU_PROFILE="${QEMU_PROFILE:-default}"
+  QEMU_SMP="${QEMU_SMP:-1}"
+  QEMU_HD_FORMAT="${QEMU_HD_FORMAT:-qcow2}"
+  QEMU_HD_CREATE_OPTIONS="${QEMU_HD_CREATE_OPTIONS:-}"
+  QEMU_HDA_OPTIONS="${QEMU_HDA_OPTIONS:-}"
+  QEMU_CDROM="${QEMU_CDROM:-disc1.iso}"
+  QEMU_ATTACH_ROOT_FDB="${QEMU_ATTACH_ROOT_FDB:-0}"
+  QEMU_FDTYPE_A="${QEMU_FDTYPE_A:-144}"
+  QEMU_FDTYPE_B="${QEMU_FDTYPE_B:-144}"
+  QEMU_INTERNET="${QEMU_INTERNET:-}"
+  QEMU_BOOT_ORDER="${QEMU_BOOT_ORDER:-}"
+  QEMU_RETRONET="${QEMU_RETRONET:-}"
+}
+
+qemu_apply_profile() {
+  QEMU_PROFILE=${1:-${QEMU_PROFILE:-default}}
+  case $QEMU_PROFILE in
+    default)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+      QEMU_RAM="${QEMU_RAM:-16M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+      ;;
+    linux-0.99)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+      QEMU_RAM="${QEMU_RAM:-16M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+      ;;
+    linux-1.0)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+      ;;
+    linux-1.2)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+      QEMU_ACCEL="${QEMU_ACCEL:--accel tcg}"
+      ;;
+    linux-2.0-isa)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
+      ;;
+    linux-2.0)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
+      ;;
+    linux-2.2)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
+      ;;
+    linux-2.4)
+      QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
+      QEMU_RAM="${QEMU_RAM:-128M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-8G}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_EXTRA="${QEMU_EXTRA:--vga std}"
+      ;;
+    *)
+      echo "Unknown QEMU_PROFILE '$QEMU_PROFILE'"
+      exit 1
+      ;;
+  esac
+}
+
+qemu_finish_config() {
   QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
-  QEMU_ACCEL="${QEMU_ACCEL:-$(qemu_default_accel)}"
-  QEMU_RETRONET="
-    -netdev socket,id=retronet,connect=:1234
-    -device $QEMU_NET_DEVICE,netdev=retronet"
-  QEMU_EXTRA=""
+  QEMU_ACCEL="${QEMU_ACCEL:--accel tcg}"
+  QEMU_EXTRA="${QEMU_EXTRA:-}"
   if [[ $COMMAND == "install" ]]; then
     if [[ -f "$QEMUDIR/fda.img" ]]; then
       QEMU_BOOT_ORDER="-boot order=a"
@@ -85,13 +120,29 @@ qemu_defaults() {
       QEMU_BOOT_ORDER="-boot order=d"
     fi
   fi
+  if [[ -z "${QEMU_RETRONET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
+    QEMU_RETRONET="
+      -netdev socket,id=retronet,connect=:1234
+      -device $QEMU_NET_DEVICE,netdev=retronet"
+  fi
 }
 
 load_qemu_config() {
-  qemu_defaults
+  local QEMU_PROFILE_ENV_DECL QEMU_PROFILE_ENV
+  QEMU_PROFILE_ENV_DECL=$(declare -p QEMU_PROFILE 2>/dev/null || true)
+  if [[ $QEMU_PROFILE_ENV_DECL == declare\ -*x* ]]; then
+    QEMU_PROFILE_ENV=$QEMU_PROFILE
+  fi
+
+  qemu_base_defaults
   if [[ -f $CONFDIR/qemu.sh ]]; then
     source $CONFDIR/qemu.sh
   fi
+  if [[ ${QEMU_PROFILE_ENV+x} ]]; then
+    QEMU_PROFILE=$QEMU_PROFILE_ENV
+  fi
+  qemu_apply_profile
+  qemu_finish_config
 }
 
 load_distro_config() {
@@ -132,7 +183,11 @@ retro_boot() {
 
   if [[ ! -f hda.img ]]; then
     if [[ -f fda.img || -f hdc.iso ]]; then
-      qemu-img create -f $QEMU_HD_FORMAT hda.img $QEMU_HD_SIZE
+      CREATE_OPTIONS=()
+      if [[ -n "${QEMU_HD_CREATE_OPTIONS:-}" ]]; then
+        CREATE_OPTIONS=(-o "$QEMU_HD_CREATE_OPTIONS")
+      fi
+      qemu-img create -f "$QEMU_HD_FORMAT" "${CREATE_OPTIONS[@]}" hda.img "$QEMU_HD_SIZE"
     else
       echo "No bootable devices"
       if [[ -d $QEMUDIR && -z $(ls -A $QEMUDIR) ]]; then
@@ -156,8 +211,12 @@ retro_boot() {
         FORMAT=raw
       fi
     fi
+    DRIVE_OPTIONS=""
+    if [[ $DRIVE == "hda" && -n "${QEMU_HDA_OPTIONS:-}" ]]; then
+      DRIVE_OPTIONS=",$QEMU_HDA_OPTIONS"
+    fi
     if [[ -f $DRIVE.img ]]; then
-      QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=$FORMAT,file=$DRIVE.img"
+      QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=$FORMAT,file=$DRIVE.img$DRIVE_OPTIONS"
     elif [[ -f $DRIVE.iso ]]; then
       QEMU_DRIVES="$QEMU_DRIVES -drive if=$INTERFACE,index=$INDEX,format=$FORMAT,media=cdrom,file=$DRIVE.iso"
     elif [[ -d $DRIVE ]]; then

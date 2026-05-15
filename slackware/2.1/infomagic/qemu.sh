@@ -1,1 +1,1 @@
-QEMU_RAM=64M
+QEMU_PROFILE=linux-1.0
