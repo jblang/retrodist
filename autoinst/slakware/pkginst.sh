@@ -204,9 +204,9 @@ install_cdrom_link() {
 
 fix_permissions() {
   echo "### fixing permissions..."
-  ( cd $ROOTMOUNT ; chmod 755 ./ )
+    ( cd "$ROOTMOUNT" ; chmod 755 ./ )
   if [ -d "$ROOTMOUNT/var" ]; then
-    ( cd $ROOTMOUNT ; chmod 755 ./var )
+    ( cd "$ROOTMOUNT" ; chmod 755 ./var )
   fi
   if [ -d "$ROOTMOUNT/usr/src/linux" ]; then
     chmod 755 "$ROOTMOUNT/usr/src/linux"
@@ -216,7 +216,7 @@ fix_permissions() {
     chown root.root "$ROOTMOUNT/proc"
   fi
   if [ ! -L "$ROOTMOUNT/lib/cpp" ]; then
-    ( cd $ROOTMOUNT/lib ; ln -sf /usr/lib/gcc-lib/i486-linux/*.*.*/cpp cpp )
+    ( cd "$ROOTMOUNT/lib" ; ln -sf /usr/lib/gcc-lib/i486-linux/*.*.*/cpp cpp )
   fi
   if [ ! -d "$ROOTMOUNT/$SLACK_SPOOL_DIR/uucp" ]; then
     mkdir -p "$ROOTMOUNT/$SLACK_SPOOL_DIR/uucp"
@@ -240,7 +240,7 @@ fix_permissions() {
 set_timezone() {
   if [ -n "$TIMEZONE" -a -d "$ROOTMOUNT/usr/lib/zoneinfo" ]; then
     echo "### setting timezone to $TIMEZONE..."
-    ( cd $ROOTMOUNT/usr/lib/zoneinfo ; ln -sf $TIMEZONE localtime )
+    ( cd "$ROOTMOUNT/usr/lib/zoneinfo" ; ln -sf "$TIMEZONE" localtime )
     move_setup_hook "$SLACK_TIMECONFIG"
   fi
 }
@@ -279,12 +279,12 @@ image = $LILO_IMAGE
 # Linux bootable partition config ends
 EOF
     chmod 644 "$ROOTMOUNT/etc/lilo.conf"
-    if [ -x $ROOTMOUNT/usr/lib/setup/bin/lilo ]; then
+    if [ -x "$ROOTMOUNT/usr/lib/setup/bin/lilo" ]; then
       # On slackware ELF distributions, /sbin/lilo is not usable from the installation
       # environment, so we have to use a.out the version in /usr/lib/setup/bin instead
-      $ROOTMOUNT/usr/lib/setup/bin/lilo -r "$ROOTMOUNT" -m /boot/map -C /etc/lilo.conf
-    elif [ -x $ROOTMOUNT/sbin/lilo ]; then
-      $ROOTMOUNT/sbin/lilo -r "$ROOTMOUNT" -m /boot/map -C /etc/lilo.conf
+      "$ROOTMOUNT/usr/lib/setup/bin/lilo" -r "$ROOTMOUNT" -m /boot/map -C /etc/lilo.conf
+    elif [ -x "$ROOTMOUNT/sbin/lilo" ]; then
+      "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" -m /boot/map -C /etc/lilo.conf
     else
       echo "Warning: could not find lilo binary. System may be unbootable!"
     fi

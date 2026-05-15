@@ -47,6 +47,6 @@ source_script_libraries
 
 echo "### Rebooting"
 # prevent script from running again
-rm -f $SCRIPTNAME
+rm -f "$SCRIPTNAME"
 sync
 reboot

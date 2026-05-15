@@ -13,10 +13,10 @@ enable_serial_console() {
 
         # Prefer the distro's stock serial stanza when one exists.
         if [ -z "$STOCKLINE" ]; then
-            STOCKLINE=`sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $TTYDEV\\([ 	].*\\)\{0,1\}\$/p" $ETCPATH/inittab | sed -n '1p'`
+            STOCKLINE=`sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $TTYDEV\\([ 	].*\\)\{0,1\}\$/p" "$ETCPATH/inittab" | sed -n '1p'`
         fi
         if [ -z "$STOCKLINE" ]; then
-            STOCKLINE=`sed -n '/^#s[0-9]:[0-9][0-9]*:respawn:.* ttyS0\([ 	].*\)\{0,1\}$/p' $ETCPATH/inittab | sed -n '1p'`
+            STOCKLINE=`sed -n '/^#s[0-9]:[0-9][0-9]*:respawn:.* ttyS0\([ 	].*\)\{0,1\}$/p' "$ETCPATH/inittab" | sed -n '1p'`
         fi
 
         # allow per-release overrides for the serial getty implementation
@@ -43,15 +43,15 @@ enable_serial_console() {
         fi
 
         # add serial console in inittab
-        cp $ETCPATH/inittab $ETCPATH/inittab.orig
+        cp "$ETCPATH/inittab" "$ETCPATH/inittab.orig"
         if [ -n "$GETTYLINE" ]; then
-            HAVEGETTY=`sed -n "/^[^#].*respawn:.* $TTYDEV\\([ 	].*\\)\{0,1\}\$/p" $ETCPATH/inittab | sed -n '1p'`
+            HAVEGETTY=`sed -n "/^[^#].*respawn:.* $TTYDEV\\([ 	].*\\)\{0,1\}\$/p" "$ETCPATH/inittab" | sed -n '1p'`
             if [ -z "$HAVEGETTY" ]; then
                 if [ -n "$STOCKLINE" ]; then
-                    sed "s|^$STOCKLINE\$|$GETTYLINE|" $ETCPATH/inittab.orig > $ETCPATH/inittab
+                    sed "s|^$STOCKLINE\$|$GETTYLINE|" "$ETCPATH/inittab.orig" > "$ETCPATH/inittab"
                 else
-                    cp $ETCPATH/inittab.orig $ETCPATH/inittab
-                    echo "$TTYID:$TTYRUNLEVELS:respawn:$GETTYLINE" >> $ETCPATH/inittab
+                    cp "$ETCPATH/inittab.orig" "$ETCPATH/inittab"
+                    echo "$TTYID:$TTYRUNLEVELS:respawn:$GETTYLINE" >> "$ETCPATH/inittab"
                 fi
             fi
         fi
@@ -59,12 +59,12 @@ enable_serial_console() {
         # Comment out CONSOLE line login.defs to use /etc/securetty instead
         # needed for Slackware 1.01
         if [ -f "$ETCPATH/login.defs" ]; then
-            cp $ETCPATH/login.defs $ETCPATH/login.defs.orig
-            sed 's/^CONSOLE/#CONSOLE/' $ETCPATH/login.defs.orig > $ETCPATH/login.defs
+            cp "$ETCPATH/login.defs" "$ETCPATH/login.defs.orig"
+            sed 's/^CONSOLE/#CONSOLE/' "$ETCPATH/login.defs.orig" > "$ETCPATH/login.defs"
         fi
 
         # add ttyS0 to securetty
-        cp $ETCPATH/securetty $ETCPATH/securetty.orig
-        echo "$TTYDEV" >> $ETCPATH/securetty
+        cp "$ETCPATH/securetty" "$ETCPATH/securetty.orig"
+        echo "$TTYDEV" >> "$ETCPATH/securetty"
     fi
 }

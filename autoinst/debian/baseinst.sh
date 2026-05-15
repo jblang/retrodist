@@ -3,8 +3,8 @@ set_debian_baseinst_path() {
 }
 
 set_file_mode() {
-    chown root.root $1
-    chmod 644 $1
+    chown root.root "$1"
+    chmod 644 "$1"
 }
 
 has_cmd() {
@@ -36,7 +36,7 @@ extract_tar_stream() {
 
 prepare_base_system_dinstall() {
     if [ -f /etc/unconf.sh ]; then
-        cp /etc/unconf.sh $ROOTMOUNT/sbin/unconfigured.sh
+        cp /etc/unconf.sh "$ROOTMOUNT/sbin/unconfigured.sh"
     fi
 
     if [ -f "$ROOTMOUNT/etc/inittab" ]; then
@@ -46,7 +46,7 @@ prepare_base_system_dinstall() {
     fi
 
     if [ -f /etc/init_tab ]; then
-        cp /etc/init_tab $ROOTMOUNT/etc/inittab
+        cp /etc/init_tab "$ROOTMOUNT/etc/inittab"
     elif [ -f "$ROOTMOUNT/etc/inittab.real" ]; then
         cp "$ROOTMOUNT/etc/inittab.real" "$ROOTMOUNT/etc/inittab"
     fi
@@ -86,25 +86,25 @@ copy_base_configuration_hooks() {
     fi
 
     if [ -z "$DEBIAN_SKIP_SETUP_SH" ] && [ -f /etc/setup.sh ]; then
-        cp /etc/setup.sh $ROOTMOUNT/sbin/setup.sh
-        chmod 755 $ROOTMOUNT/sbin/setup.sh
+        cp /etc/setup.sh "$ROOTMOUNT/sbin/setup.sh"
+        chmod 755 "$ROOTMOUNT/sbin/setup.sh"
     fi
 
-    rm -f $ROOTMOUNT/sbin/unconfigured.sh
+    rm -f "$ROOTMOUNT/sbin/unconfigured.sh"
 }
 
 extract_base_system() {
     echo "### Installing base system to $ROOTDEV..."
-    cd $ROOTMOUNT
+    cd "$ROOTMOUNT"
     GZIP_EXTRACT=$(gzip_extract_cmd) || return 1
     if [ -n "$DEBIAN_BASE_TARBALL" ]; then
         $GZIP_EXTRACT < "$INSTMOUNT/$DEBIAN_BASE_TARBALL" | extract_tar_stream
     else
         for DISK in $DEBIAN_BASE_DISKS; do
-            dd if=$INSTMOUNT/$DISK.img bs=512 skip=1 2>/dev/null
+            dd if="$INSTMOUNT/$DISK.img" bs=512 skip=1 2>/dev/null
         done | $GZIP_EXTRACT | extract_tar_stream
     fi
-    mv $ROOTMOUNT/fstab.tmp $ROOTMOUNT/etc/fstab
+    mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
 
 install_boot_floppy_kernel() {
@@ -115,18 +115,18 @@ install_boot_floppy_kernel() {
     echo "### Installing boot kernel..."
     if [ -f "$INSTMOUNT/bootflop/install.sh" ]; then
         cd "$INSTMOUNT/bootflop"
-        ./install.sh $ROOTMOUNT
-        cd $ROOTMOUNT
+        ./install.sh "$ROOTMOUNT"
+        cd "$ROOTMOUNT"
     else
         mkdir -p /floppy
         mount -o ro -t msdos /dev/fd0 /floppy
         cd /floppy
         if [ -f ./install.sh ]; then
-            ./install.sh $ROOTMOUNT
+            ./install.sh "$ROOTMOUNT"
         else
-            ./INSTALL.SH $ROOTMOUNT
+            ./INSTALL.SH "$ROOTMOUNT"
         fi
-        cd $ROOTMOUNT
+        cd "$ROOTMOUNT"
         umount /floppy
     fi
 }
@@ -165,13 +165,13 @@ debian_install_lilo() {
     LILO_OK=
 
     if [ -n "$DEBIAN_OPTIONAL_LILO" ]; then
-        if [ ! -x $ROOTMOUNT/sbin/lilo ] || [ ! -x $ROOTMOUNT/sbin/activate ] || [ ! -f $ROOTMOUNT/boot/mbr.b ]; then
+        if [ ! -x "$ROOTMOUNT/sbin/lilo" ] || [ ! -x "$ROOTMOUNT/sbin/activate" ] || [ ! -f "$ROOTMOUNT/boot/mbr.b" ]; then
             return 0
         fi
     fi
 
     echo "### Installing LILO for $ROOTDEV..."
-    cat > $ROOTMOUNT/etc/lilo.conf <<EOF
+    cat > "$ROOTMOUNT/etc/lilo.conf" <<EOF
 boot=$ROOTDEV
 root=$ROOTDEV
 compact
@@ -183,16 +183,16 @@ image=/vmlinuz
 label=Linux
 read-only
 EOF
-    chmod 644 $ROOTMOUNT/etc/lilo.conf
+    chmod 644 "$ROOTMOUNT/etc/lilo.conf"
     if (export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"; \
-      $ROOTMOUNT/sbin/lilo -r $ROOTMOUNT >/dev/null 2>&1); then
+      "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" >/dev/null 2>&1); then
         LILO_OK=1
     elif [ -x /sbin/lilo ]; then
-        if /sbin/lilo -r $ROOTMOUNT -C /etc/lilo.conf >/dev/null 2>&1; then
+        if /sbin/lilo -r "$ROOTMOUNT" -C /etc/lilo.conf >/dev/null 2>&1; then
             LILO_OK=1
         fi
     elif [ -x /usr/sbin/lilo ]; then
-        if /usr/sbin/lilo -r $ROOTMOUNT -C /etc/lilo.conf >/dev/null 2>&1; then
+        if /usr/sbin/lilo -r "$ROOTMOUNT" -C /etc/lilo.conf >/dev/null 2>&1; then
             LILO_OK=1
         fi
     fi
@@ -203,18 +203,18 @@ EOF
     fi
 
     echo "### Installing MBR..."
-    BOOTDEV=$(echo $ROOTDEV | sed -e 's/[0-9]$//')
-    cp $ROOTMOUNT/boot/mbr.b $BOOTDEV
+    BOOTDEV=$(echo "$ROOTDEV" | sed -e 's/[0-9]$//')
+    cp "$ROOTMOUNT/boot/mbr.b" "$BOOTDEV"
 
     echo "### Setting active partition..."
-    BOOTPART=$(echo $ROOTDEV | sed -e 's/^[^0-9]*//')
+    BOOTPART=$(echo "$ROOTDEV" | sed -e 's/^[^0-9]*//')
     if (export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"; \
-      $ROOTMOUNT/sbin/activate $BOOTDEV $BOOTPART >/dev/null 2>&1); then
+      "$ROOTMOUNT/sbin/activate" "$BOOTDEV" "$BOOTPART" >/dev/null 2>&1); then
         return 0
     elif [ -x /sbin/activate ]; then
-        /sbin/activate $BOOTDEV $BOOTPART >/dev/null 2>&1
+        /sbin/activate "$BOOTDEV" "$BOOTPART" >/dev/null 2>&1
     elif [ -x /usr/sbin/activate ]; then
-        /usr/sbin/activate $BOOTDEV $BOOTPART >/dev/null 2>&1
+        /usr/sbin/activate "$BOOTDEV" "$BOOTPART" >/dev/null 2>&1
     fi
 }
 
@@ -240,39 +240,39 @@ debian_install_base_dinstall() {
 debian_install_base_091_style() {
   # unpack the base system
   echo "### Installing base system to $ROOTDEV..."
-  cd $ROOTMOUNT
-  zcat < $INSTMOUNT/basedsk1.img 2>/dev/null | cpio -dimV
-  zcat < $INSTMOUNT/basedsk2.img 2>/dev/null | cpio -dimV
-  mv $ROOTMOUNT/fstab.tmp $ROOTMOUNT/etc/fstab
+  cd "$ROOTMOUNT"
+  zcat < "$INSTMOUNT/basedsk1.img" 2>/dev/null | cpio -dimV
+  zcat < "$INSTMOUNT/basedsk2.img" 2>/dev/null | cpio -dimV
+  mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 
   # change root device in rc scripts
   echo "### Configuring init scripts for $ROOTDEV..."
-  cat $ROOTMOUNT/etc/rc.d/rc.S | 
-    sed "s|/dev/hda3|$ROOTDEV|g" > $ROOTMOUNT/tmp/rc.S
-  chmod 754 $ROOTMOUNT/etc/rc.d/rc.S
-  mv $ROOTMOUNT/tmp/rc.S $ROOTMOUNT/etc/rc.d/rc.S
-  cat $ROOTMOUNT/etc/rc.d/rc.K | 
-    sed "s|/dev/hda3|$ROOTDEV|g" > $ROOTMOUNT/tmp/rc.K
-  mv $ROOTMOUNT/tmp/rc.K $ROOTMOUNT/etc/rc.d/rc.K
-  chmod 754 $ROOTMOUNT/etc/rc.d/rc.S
+  cat "$ROOTMOUNT/etc/rc.d/rc.S" | 
+    sed "s|/dev/hda3|$ROOTDEV|g" > "$ROOTMOUNT/tmp/rc.S"
+  chmod 754 "$ROOTMOUNT/etc/rc.d/rc.S"
+  mv "$ROOTMOUNT/tmp/rc.S" "$ROOTMOUNT/etc/rc.d/rc.S"
+  cat "$ROOTMOUNT/etc/rc.d/rc.K" | 
+    sed "s|/dev/hda3|$ROOTDEV|g" > "$ROOTMOUNT/tmp/rc.K"
+  mv "$ROOTMOUNT/tmp/rc.K" "$ROOTMOUNT/etc/rc.d/rc.K"
+  chmod 754 "$ROOTMOUNT/etc/rc.d/rc.S"
 
   echo "### Configuring lilo for $ROOTDEV..."
   # set root device, read only, and normal vga in kernel
-  $ROOTMOUNT/usr/sbin/rdev $ROOTMOUNT/vmlinuz $ROOTDEV
-  $ROOTMOUNT/usr/sbin/rdev -R $ROOTMOUNT/vmlinuz 1
-  $ROOTMOUNT/usr/sbin/rdev -v $ROOTMOUNT/vmlinuz -1
+  "$ROOTMOUNT/usr/sbin/rdev" "$ROOTMOUNT/vmlinuz" "$ROOTDEV"
+  "$ROOTMOUNT/usr/sbin/rdev" -R "$ROOTMOUNT/vmlinuz" 1
+  "$ROOTMOUNT/usr/sbin/rdev" -v "$ROOTMOUNT/vmlinuz" -1
 
   # change root device in lilo.conf, then install
-  cat $ROOTMOUNT/etc/lilo.conf | 
+  cat "$ROOTMOUNT/etc/lilo.conf" | 
     sed "s|/dev/hda3|$ROOTDEV|g" |
     sed "s|read-only|#read-only|g" |
-    sed "s|delay=20|#delay=20|g" > $ROOTMOUNT/tmp/lilo.conf
-  mv $ROOTMOUNT/tmp/lilo.conf $ROOTMOUNT/etc/lilo.conf
-  $ROOTMOUNT/sbin/lilo -r $ROOTMOUNT -C /etc/lilo.conf
+    sed "s|delay=20|#delay=20|g" > "$ROOTMOUNT/tmp/lilo.conf"
+  mv "$ROOTMOUNT/tmp/lilo.conf" "$ROOTMOUNT/etc/lilo.conf"
+  "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" -C /etc/lilo.conf
 
   # copy configuration script to new filesystem
-  $ROOTMOUNT/bin/cp $INSTMOUNT/autoinst.d/autoconf.sh $ROOTMOUNT/sbin/setup.sh
-  chmod 755 $ROOTMOUNT/sbin/setup.sh
+  "$ROOTMOUNT/bin/cp" "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/sbin/setup.sh"
+  chmod 755 "$ROOTMOUNT/sbin/setup.sh"
 }
 
 debian_install_base() {

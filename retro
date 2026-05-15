@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 # Downloads, extracts, and runs retro distros
 # Entry point: source the retrolib modules, parse CLI args, print config,
 # and dispatch to the selected top-level retro command.
@@ -10,13 +11,14 @@ TEMPDIR=$(mktemp -d)
 trap 'rm -rf "$TEMPDIR"' EXIT
 
 for LIB in "$SCRIPTDIR"/retrolib/*.sh; do
+  # shellcheck source=/dev/null
   source "$LIB"
 done
 
 # usage instructions
 retro_usage() {
 cat <<EOF
-Usage: $(basename $0) [COMMAND] [CONFIG] [OPTIONS]
+Usage: $(basename "$0") [COMMAND] [CONFIG] [OPTIONS]
 
 Commands:
   help      show this help text
@@ -58,7 +60,7 @@ if [[ $# -eq 1 ]]; then
   elif [[ -d "$SCRIPTDIR/$1" ]]; then
     CONFDIR=$(cd "$SCRIPTDIR/$1" && pwd)
     shift
-  elif [[ $1 == \-* ]]; then
+  elif [[ $1 == -* ]]; then
     CONFDIR=$PWD
   else
     echo "Configuration $1 doesn't exist"
@@ -67,7 +69,12 @@ if [[ $# -eq 1 ]]; then
 else
   CONFDIR=$PWD
 fi
-CONFNAME=$(echo $CONFDIR | sed "s|^$SCRIPTDIR/||")
+CONFNAME=$CONFDIR
+case "$CONFNAME" in
+  "$SCRIPTDIR"/*)
+    CONFNAME=${CONFNAME#"$SCRIPTDIR"/}
+    ;;
+esac
 
 ORIGDIR=$CONFDIR/.download
 SLACKBASE=$ORIGDIR
@@ -92,9 +99,9 @@ case $COMMAND in
   help) retro_usage;;
   download) retro_download;;
   extract) retro_extract;;
-  boot | install) retro_boot $@;;
-  package) retro_package $@;;
-  prereq) retro_prereq $@;;
+  boot | install) retro_boot "$@";;
+  package) retro_package "$@";;
+  prereq) retro_prereq "$@";;
   reset) retro_reset;;
   patch) autoinst_patch;;
 esac

@@ -86,6 +86,12 @@ EOF
   fi
 }
 
+jump_append_shell_words() {
+  if [[ -n "${1:-}" ]]; then
+    eval "JUMP_QEMU_ARGS+=( $1 )"
+  fi
+}
+
 jump_system_drive_args() {
   case "$DEBIAN_ARCH" in
     arm64)
@@ -153,24 +159,25 @@ EOF
 }
 
 jump_init() {
-  mkdir -p $JUMPHOME
+  local pubkey
+  mkdir -p "$JUMPHOME"
   wget --timestamping --directory-prefix="$JUMPHOME" "$CLOUDIMG_URL"
-  cp $JUMPHOME/$CLOUDIMG $JUMPIMG
-  qemu-img resize $JUMPIMG 20G
+  cp "$JUMPHOME/$CLOUDIMG" "$JUMPIMG"
+  qemu-img resize "$JUMPIMG" 20G
 
   # remove any old keys
   ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$JUMP_SSH_PORT"
-  if [[ ! -f $JUMPHOME/id_rsa ]]; then
-    ssh-keygen -q -C retro@retrojump -f $JUMPHOME/id_rsa -N ""
+  if [[ ! -f "$JUMPHOME/id_rsa" ]]; then
+    ssh-keygen -q -C retro@retrojump -f "$JUMPHOME/id_rsa" -N ""
   fi
-  local pubkey=$(cat $JUMPHOME/id_rsa.pub)
+  pubkey=$(<"$JUMPHOME/id_rsa.pub")
 
-cat > $TEMPDIR/metadata <<EOF
+cat > "$TEMPDIR/metadata" <<EOF
 instance-id: retrojump-1
 local-hostname: retrojump
 EOF
 
-cat > $TEMPDIR/userdata <<EOF
+cat > "$TEMPDIR/userdata" <<EOF
 #cloud-config
 user: retro
 password: retro
@@ -200,7 +207,7 @@ write_files:
       ssl_enable=NO
 EOF
 
-cat > $TEMPDIR/networkconfig <<EOF
+cat > "$TEMPDIR/networkconfig" <<EOF
 network:
   version: 2
   ethernets:
@@ -227,8 +234,8 @@ EOF
 }
 
 jump_run() {
-  local seed=""
-  local system_drive
+  local seed=
+  local system_drive=
   jump_check_ssh_port_available
   if [[ ! -f $JUMPIMG ]]; then
     jump_init
@@ -236,26 +243,29 @@ jump_run() {
   fi
   system_drive=$(jump_system_drive_args)
 
-  "$QEMU_BIN" \
-    -nographic \
-    $QEMU_MACHINE_ARGS \
-    -m 2G \
-    -netdev user,id=internet,net=10.0.1.0/24,hostfwd=tcp::$JUMP_SSH_PORT-:22 \
-    -device $QEMU_NET_DEVICE,netdev=internet,mac=$JUMP_NET_MAC_INTERNET \
-    -netdev socket,id=retronet,listen=:1234 \
-    -device $QEMU_NET_DEVICE,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET \
-    $system_drive \
-    $QEMU_EXTRA_ARGS \
-    $seed \
-    $@
+  JUMP_QEMU_ARGS=("$QEMU_BIN" -nographic)
+  jump_append_shell_words "$QEMU_MACHINE_ARGS"
+  JUMP_QEMU_ARGS+=(
+    -m 2G
+    -netdev "user,id=internet,net=10.0.1.0/24,hostfwd=tcp::$JUMP_SSH_PORT-:22"
+    -device "$QEMU_NET_DEVICE,netdev=internet,mac=$JUMP_NET_MAC_INTERNET"
+    -netdev "socket,id=retronet,listen=:1234"
+    -device "$QEMU_NET_DEVICE,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET"
+  )
+  jump_append_shell_words "$system_drive"
+  jump_append_shell_words "$QEMU_EXTRA_ARGS"
+  jump_append_shell_words "$seed"
+  JUMP_QEMU_ARGS+=("$@")
+
+  "${JUMP_QEMU_ARGS[@]}"
 }
 
 jump_ssh() {
-  ssh -i $JUMPHOME/id_rsa -p $JUMP_SSH_PORT retro@localhost $@
+  ssh -i "$JUMPHOME/id_rsa" -p "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
 jump_sftp() {
-  sftp -i $JUMPHOME/id_rsa -P $JUMP_SSH_PORT retro@localhost $@
+  sftp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
 jump_scp() {
@@ -270,12 +280,12 @@ jump_scp() {
     fi
   done
 
-  scp -i "$JUMPHOME/id_rsa" -P $JUMP_SSH_PORT "${params[@]}"
+  scp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" "${params[@]}"
 }
 
 jump_usage() {
 cat <<EOF
-Usage: $(basename $0) COMMAND ...
+Usage: $(basename "$0") COMMAND ...
 
 Commands:
   run   start the jumpbox with a serial console
@@ -297,10 +307,10 @@ if [[ $# -ge 1 ]]; then
   COMMAND=$1
   shift
   case $COMMAND in
-    run) jump_run $@;;
-    ssh) jump_ssh $@;;
-    sftp) jump_sftp $@;;
-    scp) jump_scp $@;;
+    run) jump_run "$@";;
+    ssh) jump_ssh "$@";;
+    sftp) jump_sftp "$@";;
+    scp) jump_scp "$@";;
     *) jump_usage;;
   esac
 else

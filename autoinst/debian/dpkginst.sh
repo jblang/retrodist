@@ -5,21 +5,21 @@ debian_install_packages_flat() {
     for FILE in `ls "$INSTMOUNT"/packages/*.deb`; do
         # do this without dpkg to avoid interactive prompts
         # internally, dpkg is a script that runs `zcat | cpio -dim`
-        PKG=$(basename $FILE .deb)
+        PKG=$(basename "$FILE" .deb)
         echo "installing $PKG..."
-        (cd /; zcat $FILE 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
-        if [ -f /var/adm/dpkg/perm/$PKG.perm ]; then
-            fixperms -q $PKG 2> /dev/null
+        (cd /; zcat "$FILE" 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
+        if [ -f "/var/adm/dpkg/perm/$PKG.perm" ]; then
+            fixperms -q "$PKG" 2> /dev/null
         fi
     done
 
     # run install scripts
     for INST in `ls /var/adm/dpkg/inst/*.inst`; do
         # skip any scripts with interactive prompts
-        if ! egrep -q '\<read\>' $INST ; then
-            sh $INST
+        if ! egrep -q '\<read\>' "$INST" ; then
+            sh "$INST"
         fi
-        rm -f $INST
+        rm -f "$INST"
     done
 }
 
@@ -27,18 +27,18 @@ debian_install_packages_tree() {
     echo "### Installing packages..."
 
     find "$INSTMOUNT" -iname '*.deb' | sort | while read FILE; do
-        PKG=$(basename $FILE .deb)
+        PKG=$(basename "$FILE" .deb)
         echo "installing $PKG..."
-        (cd /; zcat $FILE 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
-        if [ -f /var/adm/dpkg/perm/$PKG.perm ]; then
-            fixperms -q $PKG 2> /dev/null
+        (cd /; zcat "$FILE" 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
+        if [ -f "/var/adm/dpkg/perm/$PKG.perm" ]; then
+            fixperms -q "$PKG" 2> /dev/null
         fi
     done
 
     for INST in `ls /var/adm/dpkg/inst/*.inst`; do
-        if ! egrep -q '\<read\>' $INST ; then
-            sh $INST
+        if ! egrep -q '\<read\>' "$INST" ; then
+            sh "$INST"
         fi
-        rm -f $INST
+        rm -f "$INST"
     done
 }

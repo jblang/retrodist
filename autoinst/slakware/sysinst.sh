@@ -18,12 +18,12 @@ slackware_sysinstall() {
 
     echo "## performing $INSTTYPE install; please wait..."
 
-    mkdir -p $ROOTMOUNT/install/installed
-    mkdir -p $ROOTMOUNT/install/disks
-    mkdir -p $ROOTMOUNT/install/scripts
-    mkdir -p $ROOTMOUNT/install/catalog
-    sysinstall -instsrc $INSTSRC -instroot $ROOTMOUNT -$INSTTYPE
-    mv $ROOTMOUNT/fstab.tmp $ROOTMOUNT/etc/fstab
+    mkdir -p "$ROOTMOUNT/install/installed"
+    mkdir -p "$ROOTMOUNT/install/disks"
+    mkdir -p "$ROOTMOUNT/install/scripts"
+    mkdir -p "$ROOTMOUNT/install/catalog"
+    sysinstall -instsrc "$INSTSRC" -instroot "$ROOTMOUNT" -"$INSTTYPE"
+    mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 
     echo '## configuring system...'
 
@@ -31,22 +31,22 @@ slackware_sysinstall() {
     VGAMODE=-1
 
     # Configure kernel with boot device and vga mode
-    echo "FLOPPYA $INSTDEV" >> $ROOTMOUNT/etc/hwconfig
-    echo "ROOTDEV $ROOTDEV" >> $ROOTMOUNT/etc/hwconfig
-    echo "VGAMODE $VGAMODE" >> $ROOTMOUNT/etc/hwconfig
+    echo "FLOPPYA $INSTDEV" >> "$ROOTMOUNT/etc/hwconfig"
+    echo "ROOTDEV $ROOTDEV" >> "$ROOTMOUNT/etc/hwconfig"
+    echo "VGAMODE $VGAMODE" >> "$ROOTMOUNT/etc/hwconfig"
 
     # Skip modem/mouse config and install Linux-only LILO
-    cd $ROOTMOUNT
-    etc/syssetup -instroot $ROOTMOUNT -install <<EOF
+    cd "$ROOTMOUNT"
+    etc/syssetup -instroot "$ROOTMOUNT" -install <<EOF
 n
 n
 2
 EOF
 
     # set up autoconf script to run on first boot
-    cp $INSTMOUNT/autoinst.d/autoconf.sh $ROOTMOUNT/autoconf.sh
-    chmod +x $ROOTMOUNT/autoconf.sh
-    echo "if [ -x /autoconf.sh ]; then" >> $ROOTMOUNT/etc/rc.local
-    echo "  /autoconf.sh" >> $ROOTMOUNT/etc/rc.local
-    echo "fi" >> $ROOTMOUNT/etc/rc.local
+    cp "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/autoconf.sh"
+    chmod +x "$ROOTMOUNT/autoconf.sh"
+    echo "if [ -x /autoconf.sh ]; then" >> "$ROOTMOUNT/etc/rc.local"
+    echo "  /autoconf.sh" >> "$ROOTMOUNT/etc/rc.local"
+    echo "fi" >> "$ROOTMOUNT/etc/rc.local"
 }

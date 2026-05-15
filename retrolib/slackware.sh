@@ -1,24 +1,25 @@
+# shellcheck shell=bash
 # Slackware-specific install media and tagfile preparation helpers.
 slackware_build_tagfiles() {
-  local PKGROOT
-  PKGROOT=$(slackware_staged_pkg_root) || return
+  local pkgroot firstdir seriespkg seriesdir series tgz pkg
+  pkgroot=$(slackware_staged_pkg_root) || return
 
-  find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d | while read -r SERIESDIR; do
-    basename "$SERIESDIR" | sed 's/[0-9][0-9]*$//'
-  done | sort -u | while read -r SERIES; do
-    if [[ -z "$SERIES" ]]; then
+  find "$pkgroot" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r seriesdir; do
+    basename "$seriesdir" | sed 's/[0-9][0-9]*$//'
+  done | sort -u | while IFS= read -r SERIES; do
+    series=$SERIES
+    if [[ -z "$series" ]]; then
       continue
     fi
-    local FIRSTDIR
-    local SERIESPKG=$TEMPDIR/$SERIES.pkgs
-    FIRSTDIR=$(find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | sort | head -n 1)
-    if [[ -z "$FIRSTDIR" ]]; then
+    seriespkg=$TEMPDIR/$series.pkgs
+    firstdir=$(find "$pkgroot" -mindepth 1 -maxdepth 1 -type d -name "${series}[0-9]*" | sort | head -n 1)
+    if [[ -z "$firstdir" ]]; then
       continue
     fi
-    find "$PKGROOT" -mindepth 1 -maxdepth 1 -type d -name "${SERIES}[0-9]*" | while read -r SERIESDIR; do
-      find "$SERIESDIR" -maxdepth 1 -type f \( -name '*.tgz' -o -name '*.tar' \)
-    done | while read -r TGZ; do
-      basename "$TGZ" | sed 's/\.tgz$//' | sed 's/\.tar$//' | awk -F- '{
+    find "$pkgroot" -mindepth 1 -maxdepth 1 -type d -name "${series}[0-9]*" | while IFS= read -r seriesdir; do
+      find "$seriesdir" -maxdepth 1 -type f \( -name '*.tgz' -o -name '*.tar' \)
+    done | while IFS= read -r tgz; do
+      basename "$tgz" | sed 's/\.tgz$//' | sed 's/\.tar$//' | awk -F- '{
         if (NF > 3) {
           for (i = 1; i <= NF - 3; i++) {
             printf "%s%s", $i, (i < NF - 3 ? "-" : ORS)
@@ -27,21 +28,21 @@ slackware_build_tagfiles() {
           print $0
         }
       }'
-    done | sort -u > "$SERIESPKG"
-    cat "$SERIESPKG" | while read -r PKG; do
-      if [[ -n "$PKG" ]]; then
-        printf "%s:     ADD\n" "$PKG"
+    done | sort -u > "$seriespkg"
+    while IFS= read -r pkg; do
+      if [[ -n "$pkg" ]]; then
+        printf "%s:     ADD\n" "$pkg"
       fi
-    done > "$FIRSTDIR/tagfile"
-    cp "$FIRSTDIR/tagfile" "$FIRSTDIR/tagfile.new"
+    done < "$seriespkg" > "$firstdir/tagfile"
+    cp "$firstdir/tagfile" "$firstdir/tagfile.new"
   done
 }
 
 slackware_staged_pkg_root() {
-  local ROOT
-  for ROOT in install/slakware install/slackware install; do
-    if [[ -d "$ROOT" ]] && find "$ROOT" -mindepth 2 -maxdepth 2 -type f \( -name '*.tgz' -o -name '*.tar' \) 2>/dev/null | grep -q .; then
-      printf '%s\n' "$ROOT"
+  local root
+  for root in install/slakware install/slackware install; do
+    if [[ -d "$root" ]] && find "$root" -mindepth 2 -maxdepth 2 -type f \( -name '*.tgz' -o -name '*.tar' \) 2>/dev/null | grep -q .; then
+      printf '%s\n' "$root"
       return 0
     fi
   done
@@ -49,15 +50,15 @@ slackware_staged_pkg_root() {
 }
 
 slackware_iso_tag_root() {
-  local ISO=$1
-  local ROOT
-  for ROOT in slakware slackware; do
-    if 7z l "$ISO" "$ROOT/**/*.tgz" 2>/dev/null | grep -q '\.tgz$'; then
-      printf '%s\n' "$ROOT"
+  local iso=$1
+  local root
+  for root in slakware slackware; do
+    if 7z l "$iso" "$root/**/*.tgz" 2>/dev/null | grep -q '\.tgz$'; then
+      printf '%s\n' "$root"
       return 0
     fi
-    if 7z l "$ISO" "$ROOT/**/*.tar" 2>/dev/null | grep -q '\.tar$'; then
-      printf '%s\n' "$ROOT"
+    if 7z l "$iso" "$root/**/*.tar" 2>/dev/null | grep -q '\.tar$'; then
+      printf '%s\n' "$root"
       return 0
     fi
   done
@@ -65,25 +66,25 @@ slackware_iso_tag_root() {
 }
 
 slackware_build_tagfiles_from_iso() {
-  local ISO=$1
-  local PATHROOT=$2
-  local TAGROOT=install/tagfiles
-  local PKGLIST=$TEMPDIR/slackware-iso-pkgs.txt
+  local iso=$1
+  local pathroot=$2
+  local tagroot=install/tagfiles
+  local pkglist=$TEMPDIR/slackware-iso-pkgs.txt
+  local diskdir tagdir
 
-  rm -rf "$TAGROOT"
-  mkdir -p "$TAGROOT"
-  : > "$PKGLIST"
+  rm -rf "$tagroot"
+  mkdir -p "$tagroot"
+  : > "$pkglist"
 
-  7z l "$ISO" "$PATHROOT/**/*.tgz" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$PKGLIST"
-  7z l "$ISO" "$PATHROOT/**/*.tar" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$PKGLIST"
-  sort -u "$PKGLIST" -o "$PKGLIST"
+  7z l "$iso" "$pathroot/**/*.tgz" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$pkglist"
+  7z l "$iso" "$pathroot/**/*.tar" | awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} / { print $6 }' >> "$pkglist"
+  sort -u "$pkglist" -o "$pkglist"
 
-  awk -F/ 'NF >= 3 { print $2 }' "$PKGLIST" | sort -u | while read -r DISKDIR; do
-    local TAGDIR
-    [ -n "$DISKDIR" ] || continue
-    TAGDIR="$TAGROOT/$DISKDIR"
-    mkdir -p "$TAGDIR"
-    awk -F/ -v disk="$DISKDIR" '
+  awk -F/ 'NF >= 3 { print $2 }' "$pkglist" | sort -u | while IFS= read -r diskdir; do
+    [ -n "$diskdir" ] || continue
+    tagdir="$tagroot/$diskdir"
+    mkdir -p "$tagdir"
+    awk -F/ -v disk="$diskdir" '
       $2 == disk {
         pkg = $3
         sub(/\.tgz$/, "", pkg)
@@ -99,55 +100,58 @@ slackware_build_tagfiles_from_iso() {
           print pkg ":     ADD"
         }
       }
-    ' "$PKGLIST" | sort -u > "$TAGDIR/tagfile"
+    ' "$pkglist" | sort -u > "$tagdir/tagfile"
   done
 }
 
 slackware_set_tagfile_package() {
-  local PKG=$1
-  local STATE=$2
-  find install \( -name tagfile -o -name 'tagfile.new' \) -type f | while read -r TAGFILE; do
-    if grep -q "^$PKG:" "$TAGFILE"; then
-      local TMPFILE="$TAGFILE.tmp.$$"
-      awk -v pkg="$PKG" -v state="$STATE" '
+  local pkg=$1
+  local state=$2
+  local tagfile tmpfile
+  find install \( -name tagfile -o -name 'tagfile.new' \) -type f | while IFS= read -r tagfile; do
+    if grep -q "^$pkg:" "$tagfile"; then
+      tmpfile="$tagfile.tmp.$$"
+      awk -v pkg="$pkg" -v state="$state" '
         $1 == pkg ":" && $2 ~ /^(ADD|REC|OPT|SKP)$/ {
           print pkg ":     " state
           next
         }
         { print }
-      ' "$TAGFILE" > "$TMPFILE" && mv "$TMPFILE" "$TAGFILE"
+      ' "$tagfile" > "$tmpfile" && mv "$tmpfile" "$tagfile"
     fi
   done
 }
 
 slackware_apply_pkgskip() {
-  local PKGSKIP=$CONFDIR/pkgskip.txt
-  if [[ ! -f "$PKGSKIP" ]]; then
+  local pkgskip=$CONFDIR/pkgskip.txt
+  local pkg
+  if [[ ! -f "$pkgskip" ]]; then
     return
   fi
-  cat_newline "$PKGSKIP" | while read -r PKG _; do
-    case "$PKG" in
+  cat_newline "$pkgskip" | while IFS= read -r pkg _; do
+    case "$pkg" in
       "" | \#*) continue ;;
     esac
-    slackware_set_tagfile_package "$PKG" SKP
+    slackware_set_tagfile_package "$pkg" SKP
   done
 }
 
 slackware_prepare_tagfiles() {
-  local SOURCE_ISO="${QEMU_CDROM:-disc1.iso}"
+  local source_iso="${QEMU_CDROM:-disc1.iso}"
+  local tagroot
+  local pkg
 
   if slackware_staged_pkg_root >/dev/null; then
     slackware_build_tagfiles
-  elif [[ -f "$ORIGDIR/$SOURCE_ISO" ]]; then
-    local TAGROOT
-    TAGROOT=$(slackware_iso_tag_root "$ORIGDIR/$SOURCE_ISO") || return
-    slackware_build_tagfiles_from_iso "$ORIGDIR/$SOURCE_ISO" "$TAGROOT"
+  elif [[ -f "$ORIGDIR/$source_iso" ]]; then
+    tagroot=$(slackware_iso_tag_root "$ORIGDIR/$source_iso") || return
+    slackware_build_tagfiles_from_iso "$ORIGDIR/$source_iso" "$tagroot"
   else
     return
   fi
 
-  for PKG in idekern idenet x_svga x311svga; do
-    slackware_set_tagfile_package "$PKG" ADD
+  for pkg in idekern idenet x_svga x311svga; do
+    slackware_set_tagfile_package "$pkg" ADD
   done
 
   slackware_apply_pkgskip

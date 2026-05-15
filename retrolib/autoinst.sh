@@ -1,36 +1,39 @@
+# shellcheck shell=bash
 # Generic autoinstall staging and patching helpers shared by supported distros.
 copy_autoinst_tree() {
-  local SUBDIR=$1
-  find "$AUTOBASE/$SUBDIR" -type f | while read -r SRC; do
-    local REL=${SRC#"$AUTOBASE"/}
-    mkdir -p "$AUTOINSTD/$(dirname "$REL")"
-    cp "$SRC" "$AUTOINSTD/$REL"
+  local subdir=$1
+  find "$AUTOBASE/$subdir" -type f | while IFS= read -r src; do
+    local rel=${src#"$AUTOBASE"/}
+    mkdir -p "$AUTOINSTD/$(dirname "$rel")"
+    cp "$src" "$AUTOINSTD/$rel"
   done
 }
 
 autoinst_patch() {
+  local patchimg=
   retro_extract
   if [[ -f $EXTRACTDIR/root.img ]]; then
-    PATCHIMG=$EXTRACTDIR/root.img
-  elif [ -f $EXTRACTDIR/boot.img ]; then
-    PATCHIMG=$EXTRACTDIR/boot.img
+    patchimg=$EXTRACTDIR/root.img
+  elif [[ -f $EXTRACTDIR/boot.img ]]; then
+    patchimg=$EXTRACTDIR/boot.img
   fi
-  echo "Using sudo to patch $PATCHIMG..."
-  sudo mount $PATCHIMG /mnt
-  sudo cp $AUTOBASE/autoinst.sh /mnt
+  echo "Using sudo to patch $patchimg..."
+  sudo mount "$patchimg" /mnt
+  sudo cp "$AUTOBASE/autoinst.sh" /mnt
   sudo chmod +x /mnt/autoinst.sh
   sudo umount /mnt
 }
 
 autoinst_prep() {
+  local subdir
   AUTOINSTD=$EXTRACTDIR/install/autoinst.d
-  mkdir -p $AUTOINSTD/config
+  mkdir -p "$AUTOINSTD/config"
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
   cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/autoconf.sh"
-  for SUBDIR in common debian slakware; do
-    if [[ -d $AUTOBASE/$SUBDIR ]]; then
-      rm -rf "$AUTOINSTD/$SUBDIR"
-      copy_autoinst_tree "$SUBDIR"
+  for subdir in common debian slakware slackware; do
+    if [[ -d "$AUTOBASE/$subdir" ]]; then
+      rm -rf "${AUTOINSTD:?}/$subdir"
+      copy_autoinst_tree "$subdir"
     fi
   done
   if [[ -f $CONFDIR/autoinst.sh ]]; then

@@ -43,7 +43,7 @@ prepare_disk() {
         exit 1
     fi
 
-    fdisk_commands "$1" "$2" "$3" "$4" | fdisk /dev/$FDDEV > /dev/null
+    fdisk_commands "$1" "$2" "$3" "$4" | fdisk "/dev/$FDDEV" > /dev/null
 }
 
 prepare_disks() {
@@ -51,24 +51,24 @@ prepare_disks() {
     if [ -z "$FDISK_DEVICE" ]; then
         FDISK_DEVICE=hda
     fi
-    prepare_disk $FDISK_DEVICE
+    prepare_disk "$FDISK_DEVICE"
     fdisk -l
 
     echo "### Initializing swap..."
-    mkswap $SWAPDEV $SWAPSIZE
-    swapon $SWAPDEV
+    mkswap "$SWAPDEV" "$SWAPSIZE"
+    swapon "$SWAPDEV"
 
     echo "### Initializing root filesystem..."
     case $ROOTFS in
-        ext2 )  mke2fs $ROOTDEV ;;
+        ext2 )  mke2fs "$ROOTDEV" ;;
         * )     echo "Unknown filesystem $ROOTFS"; exit 1;;
     esac
 
-    mount -t $ROOTFS $ROOTDEV $ROOTMOUNT
-    mkdir -p $ROOTMOUNT/tmp
+    mount -t "$ROOTFS" "$ROOTDEV" "$ROOTMOUNT"
+    mkdir -p "$ROOTMOUNT/tmp"
 
     echo "### Creating fstab..."
-    cat > $ROOTMOUNT/fstab.tmp <<EOF
+    cat > "$ROOTMOUNT/fstab.tmp" <<EOF
 $ROOTDEV		/		$ROOTFS	defaults	0	1
 $SWAPDEV		none		swap		sw		0	0
 none			/proc		proc		defaults	0	0
