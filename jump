@@ -7,6 +7,7 @@ HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
 DEBIAN_CODENAME=trixie
 DEBIAN_RELEASE=13
+JUMP_SSH_PORT=${JUMP_SSH_PORT:-2222}
 JUMP_NET_MAC_INTERNET=52:54:00:12:34:56
 JUMP_NET_MAC_RETRONET=52:54:00:12:34:57
 
@@ -66,6 +67,22 @@ Reinstall or upgrade QEMU from Homebrew.
 EOF
       exit 1
     fi
+  fi
+}
+
+jump_check_ssh_port_available() {
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$JUMP_SSH_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    cat <<EOF >&2
+Host SSH forward port $JUMP_SSH_PORT is already in use.
+Stop the existing process using that port, or run jump with a different port:
+
+  JUMP_SSH_PORT=2223 ./jump run
+
+Then connect with the same port:
+
+  JUMP_SSH_PORT=2223 ./jump ssh
+EOF
+    exit 1
   fi
 }
 
@@ -142,7 +159,7 @@ jump_init() {
   qemu-img resize $JUMPIMG 20G
 
   # remove any old keys
-  ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:2222"
+  ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$JUMP_SSH_PORT"
   if [[ ! -f $JUMPHOME/id_rsa ]]; then
     ssh-keygen -q -C retro@retrojump -f $JUMPHOME/id_rsa -N ""
   fi
@@ -212,6 +229,7 @@ EOF
 jump_run() {
   local seed=""
   local system_drive
+  jump_check_ssh_port_available
   if [[ ! -f $JUMPIMG ]]; then
     jump_init
     seed=$(jump_seed_drive_args)
@@ -222,7 +240,7 @@ jump_run() {
     -nographic \
     $QEMU_MACHINE_ARGS \
     -m 2G \
-    -netdev user,id=internet,net=10.0.1.0/24,hostfwd=tcp::2222-:22 \
+    -netdev user,id=internet,net=10.0.1.0/24,hostfwd=tcp::$JUMP_SSH_PORT-:22 \
     -device $QEMU_NET_DEVICE,netdev=internet,mac=$JUMP_NET_MAC_INTERNET \
     -netdev socket,id=retronet,listen=:1234 \
     -device $QEMU_NET_DEVICE,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET \
@@ -233,11 +251,11 @@ jump_run() {
 }
 
 jump_ssh() {
-  ssh -i $JUMPHOME/id_rsa -p 2222 retro@localhost $@
+  ssh -i $JUMPHOME/id_rsa -p $JUMP_SSH_PORT retro@localhost $@
 }
 
 jump_sftp() {
-  sftp -i $JUMPHOME/id_rsa -P 2222 retro@localhost $@
+  sftp -i $JUMPHOME/id_rsa -P $JUMP_SSH_PORT retro@localhost $@
 }
 
 jump_scp() {
@@ -252,7 +270,7 @@ jump_scp() {
     fi
   done
 
-  scp -i "$JUMPHOME/id_rsa" -P 2222 "${params[@]}"
+  scp -i "$JUMPHOME/id_rsa" -P $JUMP_SSH_PORT "${params[@]}"
 }
 
 jump_usage() {
