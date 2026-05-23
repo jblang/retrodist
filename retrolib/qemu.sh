@@ -185,16 +185,7 @@ load_distro_config() {
   fi
 }
 
-retro_boot() {
-  local create_options index interface format drive_options drive
-  retro_extract
-  mkdir -p "$QEMUDIR"
-
-  load_distro_config
-  load_qemu_config
-
-  pushd "$QEMUDIR" > /dev/null || return
-
+qemu_link_boot_media() {
   if [[ -f $EXTRACTDIR/boot.img && ! -e boot.img ]]; then
     ln -s "$EXTRACTDIR/boot.img" boot.img
   fi
@@ -215,7 +206,10 @@ retro_boot() {
   if [[ -d $EXTRACTDIR/install && ! -d hdb ]]; then
     ln -s "$EXTRACTDIR/install" hdb
   fi
+}
 
+qemu_ensure_primary_disk() {
+  local create_options
   if [[ ! -f hda.img ]]; then
     if [[ -f fda.img || -f hdc.iso ]]; then
       create_options=()
@@ -224,22 +218,25 @@ retro_boot() {
       fi
       qemu-img create -f "$QEMU_HD_FORMAT" "${create_options[@]}" hda.img "$QEMU_HD_SIZE"
     else
-      echo "No bootable devices"
-      if [[ -d $QEMUDIR && -z $(ls -A "$QEMUDIR") ]]; then
-        rmdir "$QEMUDIR"
-      fi
-      exit 1
+      return 1
     fi
   fi
+}
 
+qemu_drive_index() {
+  case "$1" in
+    hda | fda) echo 0 ;;
+    hdb | fdb) echo 1 ;;
+    hdc) echo 2 ;;
+    hdd) echo 3 ;;
+  esac
+}
+
+qemu_build_drives() {
+  local drive index interface format drive_options
   QEMU_DRIVES=()
   for drive in fda fdb hda hdb hdc hdd; do
-    case "$drive" in
-      fda | hda) index=0 ;;
-      fdb | hdb) index=1 ;;
-      hdc) index=2 ;;
-      hdd) index=3 ;;
-    esac
+    index=$(qemu_drive_index "$drive")
     if [[ $drive = fd* ]]; then
       interface=floppy
       format=raw
@@ -263,7 +260,9 @@ retro_boot() {
       QEMU_DRIVES+=(-drive "if=$interface,index=$index,format=raw,file=fat:rw:$drive")
     fi
   done
+}
 
+qemu_build_globals() {
   QEMU_GLOBALS=()
   if [[ -n "$QEMU_FDTYPE_A" ]]; then
     QEMU_GLOBALS+=(-global "isa-fdc.fdtypeA=$QEMU_FDTYPE_A")
@@ -271,8 +270,9 @@ retro_boot() {
   if [[ -n "$QEMU_FDTYPE_B" ]]; then
     QEMU_GLOBALS+=(-global "isa-fdc.fdtypeB=$QEMU_FDTYPE_B")
   fi
-  qemu_warn_missing_display_backend
+}
 
+qemu_build_args() {
   QEMU_ARGS=(
     "$QEMU_SYSTEM"
     -machine "$QEMU_MACHINE"
@@ -290,6 +290,36 @@ retro_boot() {
   qemu_append_shell_words "${QEMU_EXTRA:-}"
   QEMU_ARGS+=("$@")
   QEMU_COMMAND=$(qemu_render_command_sh)
+}
+
+qemu_cleanup_empty_dir() {
+  if [[ -d $QEMUDIR && -z $(ls -A "$QEMUDIR") ]]; then
+    rmdir "$QEMUDIR"
+  fi
+}
+
+retro_boot() {
+  retro_extract
+  mkdir -p "$QEMUDIR"
+
+  load_distro_config
+  load_qemu_config
+
+  pushd "$QEMUDIR" > /dev/null || return
+
+  qemu_link_boot_media
+  if ! qemu_ensure_primary_disk; then
+    echo "No bootable devices"
+    popd > /dev/null || return
+    qemu_cleanup_empty_dir
+    exit 1
+  fi
+
+  qemu_build_drives
+  qemu_build_globals
+  qemu_warn_missing_display_backend
+
+  qemu_build_args "$@"
 
   echo
   echo "QEMU command: $QEMU_COMMAND"
