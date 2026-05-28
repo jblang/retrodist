@@ -3,7 +3,7 @@
 qemu_default_display() {
   case "$(uname -s)" in
     Darwin)
-      echo "-display cocoa"
+      echo "-display cocoa,zoom-to-fit=on,zoom-interpolation=on"
       ;;
     *)
       echo "-display gtk"
