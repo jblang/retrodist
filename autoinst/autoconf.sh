@@ -25,7 +25,8 @@ source_script_libraries() {
     for SCRIPTDIR in \
         "$INSTMOUNT/autoinst.d/common" \
         "$INSTMOUNT/autoinst.d/debian" \
-        "$INSTMOUNT/autoinst.d/slakware"
+        "$INSTMOUNT/autoinst.d/slakware" \
+        "$INSTMOUNT/autoinst.d/sls"
     do
         if [ -d "$SCRIPTDIR" ]; then
             for SCRIPTFILE in $SCRIPTDIR/*.sh $SCRIPTDIR/*/*.sh; do

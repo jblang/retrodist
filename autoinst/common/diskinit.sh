@@ -104,7 +104,7 @@ fdisk_partition() {
         sync
         echo
         echo "### Partition table written; reboot required."
-        echo "### Press Ctrl-Alt-Del in the VM to reboot."
+        echo "### Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
         exit 0
     fi
 }

@@ -1,0 +1,65 @@
+# This file tracks changes to the SLS distribution file 
+# Perms.fix no longer exists.  To do upgrades, read this 
+# file and obtain all the packages that have been listed
+# as changed.  Most important among these are the z?fix.taz
+# packages, which aren't really packages as much as they are
+# collections of patches and fixes.  To apply, just download
+# onto your linux disk and use:
+# 	
+# 	sysinstall -install zafix.taz
+# 	sysinstall -install zbfix.taz
+# 	...
+# 
+# And all should be well.  If you are getting SLS for the
+# first time, this will all be done for you automatically.
+# 
+# Hopefully, this will greatly reduce the amount of internet
+# traffic in order to apply simple permission type fixes, or
+# single executable replacement amoung large collections.
+# It also allows people to just fix those series that they
+# have installed, so if they don't have X, no problems.
+# 
+# Peter
+# pmacdona@sanjuan.uvic.ca
+
+920901:	Initial release (.96p4).  Didn't use jump tables though.
+
+921007:	Release .98p0.  Jump tables used.
+
+921011: menus.taz: new sysinstall and sysbuild.
+	a1: New .98p1 image with new sysinstall
+	a2: New rootdisk
+       	image.taz: 0.98p1 kernel, Fixed top.
+	devs.taz:  modified /dev directory
+	image.taz: Linux .98p1 image, ps, etc.
+	lx96p1.taz: Linux source for .98p1 (replaces lx98.taz).
+	tcpip.taz: Telnet and fpt 2.2.2 binaries.
+       	c4/: Added new disk, clisp to compiler series.
+	x*: Reorganized and fixed double compressed fonts.
+
+921017: Permission problems fixed, mainly by the files a4/zafiz.taz,
+	x7/zafix.taz.  Or just get Perms.fix.   Serial ports were
+	renamed to be 0's based (ttys0, ttys1, ...).  Added link
+	of linux source include to /usr/include.  If missing .h files
+	like <linux/types.h>, look in /usr/src/linux/include.  Note
+	C++ must be linked "cc -nojump" for now.  TCP is there but
+	kernel must be recompiled (no whining please).  Also telnet/
+	ftp are linked 2.2.2.  Couldn't find source.  Fix dev/kmem
+	permission to fix ps/top, etc.
+
+921023: b5/*: New disk added to provide Man pages that got omitted.
+	Remove b4/install.end.  Added a new series 't' containing TeX.
+
+921101: a4/zafix.taz:Fixed bad emacs soft link, do mkdir usr/tmp,
+	updated versions of mount, mkefs, and efsck.  Provide shell
+	script frontends for lex and yacc.  Change etc/mtools to use
+	autodetection. Uudecode replaces mistaken link to uuencode.
+	x7/zxfix.taz:Remove usr/bin/X11/xdvi, which is now in TeX series.
+	c2/f2c.taz:New version of usr/bin/f2c that works :-).
+	Perms.fix is gone, use the z?fix.taz files instead.
+	b5/zbfix.taz: Moved the tcpip stuff from etc/ to etc/inet/.
+
+921104: i1/*:  Contains Interviews, idraw and iclass images.
+
+921105: a4:zfix.taz: Hopefully fixed the permission problems in root.
+	b5:ghostscr.taz: Ghostscript compiled with most drivers.

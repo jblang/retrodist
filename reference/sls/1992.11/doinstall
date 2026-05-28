@@ -1,0 +1,79 @@
+#
+# copywrite Softlanding Software 1992.  Distribute freely, don't restrict.
+
+function usage()  {
+	echo "usage: doinstall PART        "
+	echo "where: PART is the partition to install to, for example"
+	echo "       doinstall /dev/hda2"
+}
+
+if [ $# != 1 ]; then
+	usage;
+	exit 1
+elif [ ! -b $1 ]; then
+	usage;
+	exit 2
+fi
+echo 'You must have a freshly formatted floppy to complete this install.'
+echo -n 'If not, type ^C to exit now, obtain one, and restart installation.'
+read ans;
+echo 'Ok continuing, but you should be able to use ^C to exit at any time.'
+echo 'You also can ignore any magic match failure messages.'
+echo " "
+while [ 0 ]; do
+	echo '1 - Install a minimal system (6 Meg)'
+	echo '2 - Install the full base system (20 Meg)'
+	echo '3 - Install base system + X11 (45 Meg)'
+	echo " "
+	echo -n 'Enter type of install (1/2/3)'
+	read ans;
+	if [ $ans = 1 ]; then
+		INSTTYPE="mini"
+		break;
+	elif [ $ans = 2 ]; then
+		INSTTYPE="base"
+		break;
+	elif [ $ans = 3 ]; then
+		INSTTYPE="all"
+		break;
+	fi
+done
+INSTDEV=`sh instdev`
+umount $INSTDEV >& /dev/null
+umount $1 >& /dev/null
+echo -n 'Are you using the Extended FS, instead of the default minix? (y/n)'
+read ans
+if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	MOUNTTYPE="ext"
+else
+	MOUNTTYPE="minix"
+fi
+mount -t $MOUNTTYPE $1 /root
+MNTSTAT=$?;
+if [ $MNTSTAT != 0 ]; then
+	echo "Error: can not mount $1.  Did you use: mkfs $1 SIZE"
+	echo "where SIZE is the number of blocks shown by fdisk?"
+	exit 1;
+fi
+mkdir -p /root/install/installed
+mkdir -p /root/install/scripts
+sysinstall -instdev $INSTDEV -instroot /root -$INSTTYPE
+echo "$1	/		$MOUNTTYPE	defaults" > /root/etc/fstab
+echo -n 'Do you have a 387 coprocessor or 486 DX (y/n): '
+read ans
+if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	/root/bin/rm /root/lib/libm.so.4
+	(cd /root/lib; /root/usr/bin/ln -s libhard.so.4.? libm.so.4)
+fi
+echo -n 'Now put the freshly formatted floppy into your A: drive and hit enter: '
+if [ $INSTDEV =  /dev/fd1H1440 ]; then
+	INSTDEV=/dev/fd0h1200;
+elif [ $INSTDEV =  /dev/fd1h1200 ]; then
+	INSTDEV=/dev/fd0H1440;
+fi
+read ans;
+dd if=/root/Image of=$INSTDEV
+rootdev $INSTDEV $1
+sync
+echo "Installation is complete.  You may now use this newly created boot disk to"
+echo "start Linux from your hard drive.  Please reboot now, then logon as root"

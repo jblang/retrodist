@@ -30,7 +30,7 @@ autoinst_prep() {
   mkdir -p "$AUTOINSTD/config"
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
   cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/autoconf.sh"
-  for subdir in common debian slakware slackware; do
+  for subdir in common debian slakware slackware sls; do
     if [[ -d "$AUTOBASE/$subdir" ]]; then
       rm -rf "${AUTOINSTD:?}/$subdir"
       copy_autoinst_tree "$subdir"
