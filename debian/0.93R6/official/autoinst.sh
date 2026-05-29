@@ -1,12 +1,6 @@
 #!/bin/sh
 
-SWAPDEV=/dev/hda1
-SWAPSIZE=65536
-ROOTDEV=/dev/hda2
-ROOTFS=ext2
-
-FDISK_GEOM="$FDISK_GEOM_500M"
-prepare_disks
+init_disk $FDISK_GEOM_500M
 
 DEBIAN_PREPARE_FUNCTION=prepare_base_system_093r6
 DEBIAN_OPTIONAL_LILO=1

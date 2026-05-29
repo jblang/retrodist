@@ -1,12 +1,6 @@
 #!/bin/sh
 
-SWAPDEV=/dev/hda1
-SWAPSIZE=16384
-ROOTDEV=/dev/hda2
-ROOTFS=ext2
-
-FDISK_GEOM="$FDISK_GEOM_2G"
-prepare_disks
+init_disk $FDISK_GEOM_2G
 
 SETS="a ap d e f i iv n oop t tcl x xap xd xv y"
 TIMEZONE=US/Central

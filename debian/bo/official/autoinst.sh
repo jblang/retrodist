@@ -1,12 +1,6 @@
 #!/bin/sh
 
-SWAPDEV=/dev/hda1
-SWAPSIZE=65536
-ROOTDEV=/dev/hda2
-ROOTFS=ext2
-
-FDISK_GEOM="$FDISK_GEOM_500M"
-prepare_disks
+init_disk $FDISK_GEOM_2G
 
 DEBIAN_BASE_TARBALL=base1_3.tgz
 DEBIAN_INITTAB_FALLBACK=etc/init.d/inittab
