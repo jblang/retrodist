@@ -1,0 +1,1 @@
+sls-1993.03.tar.gz https://mirror.math.princeton.edu/pub/oldlinux/Linux.old/distributions/SLS/sls-1993.03.tar.gz
