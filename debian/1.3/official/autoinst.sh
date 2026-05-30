@@ -9,7 +9,7 @@ DEBIAN_INSTALL_DRIVERS=1
 DEBIAN_SKIP_SETUP_SH=1
 debian_install_base
 
-HOSTNAME=debra
-IPADDR=10.0.2.93
+HOSTNAME=bo
+IPADDR=10.0.2.113
 ETCPATH=$ROOTMOUNT/etc
 configure_networking

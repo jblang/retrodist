@@ -6,7 +6,7 @@ DEBIAN_ROOT_HOOK=.bash_profile
 DEBIAN_INSTALL_DRIVERS=1
 debian_install_base
 
-HOSTNAME=debra
-IPADDR=10.0.2.92
+HOSTNAME=rex
+IPADDR=10.0.2.112
 ETCPATH=$ROOTMOUNT/etc
 configure_networking
