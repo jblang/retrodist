@@ -1,0 +1,1 @@
+sls-1.0.tar.bz2 https://mirror.math.princeton.edu/pub/oldlinux/Linux.old/distributions/SLS/sls-1.0.tar.bz2
