@@ -263,7 +263,7 @@ public wrappers in `common.sh` are:
    `X11`, or `mini` from the source tree.
 3. Creates the target `install/` bookkeeping directories.
 4. Runs `sysinstall -instsrc ... -instroot ... -$INSTTYPE`.
-5. Moves `fstab.tmp` into the target `/etc/fstab`.
+5. Moves `fstab.tmp` into the target `/etc/fstab` when present.
 6. Writes `FLOPPYA`, `ROOTDEV`, and `VGAMODE` entries to `/etc/hwconfig`.
 7. Runs `etc/syssetup` with canned answers. The `sls103` profile uses a
    slightly different answer sequence.
