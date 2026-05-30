@@ -1,5 +1,3 @@
-#!/bin/sh
-
 PATH=$PATH:/retro/bin
 
 ROOTFS=ext

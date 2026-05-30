@@ -1,5 +1,3 @@
-#!/bin/sh
-
 init_disk $FDISK_GEOM_500M
 
 DEBIAN_BASE_STYLE=091

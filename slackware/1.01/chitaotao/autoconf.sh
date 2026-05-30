@@ -1,5 +1,3 @@
-#!/bin/sh
-
 enable_serial_console
 
 HOSTNAME=darkstar

@@ -1,5 +1,3 @@
-#!/bin/sh
-
 debian_install_packages_flat
 
 enable_serial_console

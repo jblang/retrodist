@@ -1,5 +1,3 @@
-#!/bin/sh
-
 init_disk $FDISK_GEOM_500M
 
 slackware_sysinstall
