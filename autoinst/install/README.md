@@ -174,23 +174,28 @@ detect either spelling when reading staged or CD-ROM package sources.
 
 ### Install Flow
 
-1. Normalizes `SETS` so spaces, semicolons, and commas become the `pkgtool`
+1. Selects the Slackware layout for the target release:
+   `/usr/adm` and `/usr/spool` for the 1.1.1-era wrapper, or `/var/adm` and
+   `/var/spool` for later releases.
+2. Normalizes `SETS` so spaces, semicolons, and commas become the `pkgtool`
    `#` separator.
-2. Locates a staged `slakware/` or `slackware/` package tree under
+3. Locates a staged `slakware/` or `slackware/` package tree under
    `$INSTMOUNT`; if none exists, mounts `CD_DEVICE` on `CD_MOUNT` and searches
    there.
-3. Selects the best available `pkgtool` binary from the installer environment.
-4. Uses staged `tagfiles/` when present. Otherwise it uses the `.new` tagfile
+4. Selects the best available `pkgtool` binary from the installer environment.
+5. Uses staged `tagfiles/` when present. Otherwise it uses the `.new` tagfile
    extension mode expected by generated tagfiles.
-5. Runs `pkgtool` with `-source_mounted`, `-source_dir`, `-target_dir`, and
+6. Runs `pkgtool` with `-source_mounted`, `-source_dir`, `-target_dir`, and
    `-sets`.
-6. Writes the root device, installs `fstab`, adds `/proc`, and preserves a
+7. Removes temporary setup state, unmounts any CD-ROM source mounted by the
+   helper, and exits if `pkgtool` failed.
+8. Writes the root device, installs `fstab`, adds `/proc`, and preserves a
    `/cdrom` entry when a CD-ROM source was mounted.
-7. Creates `/dev/cdrom` when `CD_DEVICE` is set.
-8. Fixes selected target permissions and compatibility symlinks.
-9. Sets the timezone when `TIMEZONE` is set and zoneinfo is available.
-10. Writes and installs LILO when a target LILO binary is available.
-11. Installs the first-boot `autoconf.sh` hook through `/etc/rc.d/rc.local`.
+9. Creates `/dev/cdrom` when `CD_DEVICE` is set.
+10. Fixes selected target permissions and compatibility symlinks.
+11. Sets the timezone when `TIMEZONE` is set and zoneinfo is available.
+12. Writes and installs LILO when a target LILO binary is available.
+13. Installs the first-boot `autoconf.sh` hook through `/etc/rc.d/rc.local`.
 
 ### Package Skips
 
