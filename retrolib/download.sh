@@ -138,7 +138,7 @@ download_all() {
   if [[ -f $1/cdrom.txt ]]; then
     cdrom=$(<"$1/cdrom.txt")
     cdrom_dir=$(cd "$SCRIPTDIR/cdrom/$cdrom" && pwd)
-    cdrom_download=$cdrom_dir/.download
+    cdrom_download=$cdrom_dir/download.d
     download_all "$cdrom_dir" "$cdrom_download"
     for file in "$cdrom_download"/*; do
       if [[ -e "$file" ]]; then

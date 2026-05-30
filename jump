@@ -2,7 +2,7 @@
 # Runs a jumpbox for retro Linux distros to talk to
 set -euo pipefail
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-JUMPHOME=${JUMPHOME:-$SCRIPTDIR/.retrojump}
+JUMPHOME=${JUMPHOME:-$SCRIPTDIR/jump.d}
 HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
 DEBIAN_CODENAME=trixie

@@ -1,4 +1,4 @@
-.retrojump
-**/.download
-**/.extract
-**/.qemu
+jump.d
+**/download.d
+**/extract.d
+**/qemu.d

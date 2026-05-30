@@ -15,7 +15,7 @@ Automatic installation is currently untested and expected not to work end-to-end
 Use the original installer flow for now.
 
 - Boot the installer and follow the onscreen steps to partition the disk, initialize swap, format the root partition, and install the base system.
-- When the installer asks for the additional base floppies, use the QEMU monitor to swap in the extracted images from `.extract/`.
+- When the installer asks for the additional base floppies, use the QEMU monitor to swap in the extracted images from `extract.d/`.
 - Complete the remaining installer steps manually.
 
 Refer to [autoinst.sh](autoinst.sh) for the install-time network settings used by the automated flow.

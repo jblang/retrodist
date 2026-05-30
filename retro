@@ -76,11 +76,11 @@ case "$CONFNAME" in
     ;;
 esac
 
-ORIGDIR=$CONFDIR/.download
+ORIGDIR=$CONFDIR/download.d
 SLACKBASE=$ORIGDIR
 DEBIANBASE=$ORIGDIR
-EXTRACTDIR=$CONFDIR/.extract
-QEMUDIR=$CONFDIR/.qemu
+EXTRACTDIR=$CONFDIR/extract.d
+QEMUDIR=$CONFDIR/qemu.d
 
 # output configuration details
 cat <<EOF

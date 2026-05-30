@@ -42,10 +42,10 @@ The `package` command (see below) can be used to package the disk images togethe
 
 The `retro` script provides commands for downloading, extracting, and running retro distros. All of the commands take a configuration directory as their first argument. If no directory is provided, the current directory is used.
 
-- `boot` will start the distro using the disk images in the `.qemu` directory. Any additional arguments are passed to QEMU verbatim.
+- `boot` will start the distro using the disk images in the `qemu.d` directory. Any additional arguments are passed to QEMU verbatim.
 - `install` will start the distro from install media.
-- `extract` will extract the distro into the `.extract` directory.
-- `download` will download the distro's original files into the config directory's `.download` directory.
+- `extract` will extract the distro into the `extract.d` directory.
+- `download` will download the distro's original files into the config directory's `download.d` directory.
 - `reset` will reset the distro's extracted files and QEMU configuration
 - `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
