@@ -1,13 +1,5 @@
 # shellcheck shell=bash
 # Generic autoinstall staging and patching helpers shared by supported distros.
-copy_autoinst_tree() {
-  local subdir=$1
-  find "$AUTOBASE/$subdir" -type f | while IFS= read -r src; do
-    local rel=${src#"$AUTOBASE"/}
-    mkdir -p "$AUTOINSTD/$(dirname "$rel")"
-    cp "$src" "$AUTOINSTD/$rel"
-  done
-}
 
 autoinst_patch() {
   local patchimg=
@@ -25,22 +17,15 @@ autoinst_patch() {
 }
 
 autoinst_prep() {
-  local subdir
-  AUTOINSTD=$EXTRACTDIR/install/autoinst.d
-  mkdir -p "$AUTOINSTD/config"
+  local autoinst_d=$EXTRACTDIR/install/autoinst.d
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
-  cp "$AUTOBASE/autoconf.sh" "$AUTOINSTD/autoconf.sh"
-  for subdir in common debian slakware slackware sls; do
-    if [[ -d "$AUTOBASE/$subdir" ]]; then
-      rm -rf "${AUTOINSTD:?}/$subdir"
-      copy_autoinst_tree "$subdir"
-    fi
-  done
+  cp -R "$AUTOBASE" "$autoinst_d"
+  mkdir -p "$autoinst_d/distro"
   if [[ -f $CONFDIR/autoinst.sh ]]; then
-    cp "$CONFDIR/autoinst.sh" "$AUTOINSTD/config/autoinst.sh"
+    cp "$CONFDIR/autoinst.sh" "$autoinst_d/distro/autoinst.sh"
   fi
   if [[ -f $CONFDIR/autoconf.sh ]]; then
-    cp "$CONFDIR/autoconf.sh" "$AUTOINSTD/config/autoconf.sh"
+    cp "$CONFDIR/autoconf.sh" "$autoinst_d/distro/autoconf.sh"
   fi
   slackware_prepare_tagfiles
 }

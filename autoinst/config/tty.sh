@@ -1,4 +1,4 @@
-enable_serial_console() {
+_enable_serial_console() {
     TTYDEV=${TTYDEV:-ttyS0}
     TTYBAUD=${TTYBAUD:-9600}
 

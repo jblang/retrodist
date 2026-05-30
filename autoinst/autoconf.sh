@@ -16,35 +16,22 @@ fi
 mount -t msdos /dev/hdb1 "$INSTMOUNT"
 
 # make sure an install scripts directory exists
-if [ ! -d "$INSTMOUNT/autoinst.d" ]; then
+AUTOINST_D="$INSTMOUNT/autoinst.d"
+if [ ! -d "$AUTOINST_D" ]; then
     echo "No autoinst.d directory found; aborting."
     exit 1
 fi
 
-source_script_libraries() {
-    for SCRIPTDIR in \
-        "$INSTMOUNT/autoinst.d/common" \
-        "$INSTMOUNT/autoinst.d/debian" \
-        "$INSTMOUNT/autoinst.d/slakware" \
-        "$INSTMOUNT/autoinst.d/sls"
-    do
-        if [ -d "$SCRIPTDIR" ]; then
-            for SCRIPTFILE in $SCRIPTDIR/*.sh $SCRIPTDIR/*/*.sh; do
-                if [ -f "$SCRIPTFILE" ]; then
-                    . "$SCRIPTFILE"
-                fi
-            done
-        fi
-    done
-}
+# define common helper functions
+. "$AUTOINST_D/common.sh"
 
-if [ ! -f "$INSTMOUNT/autoinst.d/config/autoconf.sh" ]; then
-    echo "No autoconf manifest found; aborting."
+# run distro-specific configuration
+if [ -f "$AUTOINST_D/distro/autoconf.sh" ]; then
+    . "$AUTOINST_D/distro/autoconf.sh"
+else
+    echo "No distro-specific autoconf script found; aborting."
     exit 1
 fi
-
-source_script_libraries
-. "$INSTMOUNT/autoinst.d/config/autoconf.sh"
 
 echo "### Rebooting"
 # prevent script from running again

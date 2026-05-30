@@ -1,4 +1,4 @@
-configure_networking() {
+_configure_networking() {
     echo '### Configuring networking...'
 
     NETMASK=${NETMASK:-255.255.255.0}

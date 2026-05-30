@@ -1,6 +1,6 @@
 # installer for pkgtool-based Slackware versions
 
-slackware_pkgtool_install_111() {
+_slackware_pkgtool_install_111() {
   SLACK_ADM_DIR=usr/adm
   SLACK_SPOOL_DIR=usr/spool
   SLACK_TIMECONFIG=$SLACK_ADM_DIR/setup/setup.timeconfig
@@ -11,7 +11,7 @@ slackware_pkgtool_install_111() {
   slackware_install_with_pkgtool
 }
 
-slackware_pkgtool_install() {
+_slackware_pkgtool_install() {
   SLACK_ADM_DIR=var/adm
   SLACK_SPOOL_DIR=var/spool
   SLACK_TIMECONFIG=$SLACK_ADM_DIR/setup/setup.timeconfig

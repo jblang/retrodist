@@ -323,7 +323,7 @@ ModeDB
 EOF
 }
 
-configure_x11() {
+_configure_x11() {
   echo "### Configuring X11..."
 
   # Pick mouse defaults once for all X server variants while preserving

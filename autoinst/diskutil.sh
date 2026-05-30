@@ -2,6 +2,35 @@ FDISK_GEOM_500M="1 128 129 1015"
 FDISK_GEOM_2G="1 17 18 520"
 FDISK_GEOM_8G="1 17 18 1044"
 
+make_boot_floppy() {
+    BOOTFLOPPYDEV=${BOOTFLOPPYDEV:-/dev/fd0}
+    BOOTKERNEL=${BOOTKERNEL:-$ROOTMOUNT/Image}
+    echo "### Creating boot floppy on $BOOTFLOPPYDEV..."
+
+    if [ ! -f "$BOOTKERNEL" ]; then
+        echo "Installed kernel $BOOTKERNEL not found."
+        return 1
+    fi
+    
+    umount /user >/dev/null 2>&1
+    echo "Reattach boot.img and press ENTER."
+    read line
+
+    dd if="$BOOTKERNEL" of="$BOOTFLOPPYDEV"
+    if [ $? -ne 0 ]; then
+        echo "Boot floppy write failed."
+        return 1
+    fi
+
+    rootdev "$BOOTFLOPPYDEV" "$ROOTDEV"
+    if [ $? -ne 0 ]; then
+        echo "rootdev failed for $BOOTFLOPPYDEV."
+        return 1
+    fi
+
+    return 0
+}
+
 fdisk_list_partitions() {
     # workaround for missing -l option on ancient fdisk
     (echo p; echo q) | fdisk $1

@@ -1,4 +1,4 @@
-configure_mail() {
+_configure_mail() {
     echo '### Configuring mail...'
 
     ETCPATH=/etc

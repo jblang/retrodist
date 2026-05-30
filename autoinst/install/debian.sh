@@ -275,7 +275,7 @@ debian_install_base_091_style() {
   chmod 755 "$ROOTMOUNT/sbin/setup.sh"
 }
 
-debian_install_base() {
+_debian_install_base() {
   DEBIAN_BASE_STYLE=${DEBIAN_BASE_STYLE:-dinstall}
 
   case $DEBIAN_BASE_STYLE in
@@ -296,4 +296,49 @@ debian_install_base() {
       exit 1
       ;;
   esac
+}
+
+_debian_install_packages_flat() {
+    echo "### Installing packages..."
+
+    # install packages
+    for FILE in `ls "$INSTMOUNT"/packages/*.deb`; do
+        # do this without dpkg to avoid interactive prompts
+        # internally, dpkg is a script that runs `zcat | cpio -dim`
+        PKG=$(basename "$FILE" .deb)
+        echo "installing $PKG..."
+        (cd /; zcat "$FILE" 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
+        if [ -f "/var/adm/dpkg/perm/$PKG.perm" ]; then
+            fixperms -q "$PKG" 2> /dev/null
+        fi
+    done
+
+    # run install scripts
+    for INST in `ls /var/adm/dpkg/inst/*.inst`; do
+        # skip any scripts with interactive prompts
+        if ! egrep -q '\<read\>' "$INST" ; then
+            sh "$INST"
+        fi
+        rm -f "$INST"
+    done
+}
+
+debian_install_packages_tree() {
+    echo "### Installing packages..."
+
+    find "$INSTMOUNT" -iname '*.deb' | sort | while read FILE; do
+        PKG=$(basename "$FILE" .deb)
+        echo "installing $PKG..."
+        (cd /; zcat "$FILE" 2>>/var/adm/dpkg/dpkg.log | cpio -dim) 2> /dev/null
+        if [ -f "/var/adm/dpkg/perm/$PKG.perm" ]; then
+            fixperms -q "$PKG" 2> /dev/null
+        fi
+    done
+
+    for INST in `ls /var/adm/dpkg/inst/*.inst`; do
+        if ! egrep -q '\<read\>' "$INST" ; then
+            sh "$INST"
+        fi
+        rm -f "$INST"
+    done
 }

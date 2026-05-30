@@ -24,35 +24,22 @@ else
 fi
 
 # make sure an install scripts directory exists
-if [ ! -d "$INSTMOUNT/autoinst.d" ]; then
+AUTOINST_D="$INSTMOUNT/autoinst.d"
+if [ ! -d "$AUTOINST_D" ]; then
     echo "No autoinst.d directory found; aborting."
     exit 1
 fi
 
-source_script_libraries() {
-    for SCRIPTDIR in \
-        "$INSTMOUNT/autoinst.d/common" \
-        "$INSTMOUNT/autoinst.d/debian" \
-        "$INSTMOUNT/autoinst.d/slakware" \
-        "$INSTMOUNT/autoinst.d/sls"
-    do
-        if [ -d "$SCRIPTDIR" ]; then
-            for SCRIPTFILE in $SCRIPTDIR/*.sh $SCRIPTDIR/*/*.sh; do
-                if [ -f "$SCRIPTFILE" ]; then
-                    . "$SCRIPTFILE"
-                fi
-            done
-        fi
-    done
-}
+# define common helper functions
+. "$AUTOINST_D/common.sh"
 
-if [ ! -f "$INSTMOUNT/autoinst.d/config/autoinst.sh" ]; then
-    echo "No autoinst manifest found; aborting."
+# run distro-specific installation
+if [ -f "$AUTOINST_D/distro/autoinst.sh" ]; then
+    . "$AUTOINST_D/distro/autoinst.sh"
+else
+    echo "No distro-specific autoinst script found; aborting."
     exit 1
 fi
-
-source_script_libraries
-. "$INSTMOUNT/autoinst.d/config/autoinst.sh"
 
 echo "### Rebooting..."
 echo "Press ENTER to reboot."

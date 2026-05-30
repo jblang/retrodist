@@ -1,37 +1,182 @@
 # Autoinstall Scripts
 
-This directory contains scripts that automate installation and configuration of various distros.
+This directory contains the shared runtime copied onto staged installer media
+for automated distro installation and first-boot configuration.
 
-## Directory Layout
+`retrolib/autoinst.sh` stages this tree with `autoinst_prep`: it copies the
+main install runner to `install/autoinst`, copies this directory to
+`install/autoinst.d`, and copies each distro's manifests to
+`install/autoinst.d/distro/`.
 
-- `autoinst.sh`: main installation script
-- `autoconf.sh`: main configuration script
-- `common`: scripts that can be used for multiple distros
-- `distro`: scripts specific to a particular distro (e.g., `slackware`)
-- `common/diskinit.sh`: shared disk layout constants and fdisk command generation
+## Compatibility Notes
 
-## Preparation
+- These scripts run in very old installer and target-system environments. Keep
+  shell code portable and avoid modern shell features.
 
-If a distro supports automated installation and/or configuration, it should:
+- Install scripts run from the installer media with a limited command set. `sed`
+  and `cut` are usually available; tools such as `grep`, `awk`, `which`, and
+  `command -v` may be missing.
 
-- Call the `autoinst_prep` function from its `extract.sh` script to copy the appropriate scripts to the distro's installation media.
+- Configuration scripts run after the base system has been installed, so more
+  commands are usually available, but they are old versions and may lack modern
+  options.
 
-- Supply an `autoinst.sh` manifest which sets install-time variables and calls the install helper functions in the correct order.
+- Some installers mount the staged disk as plain `msdos`, so helper filenames
+  and directory layout need to remain DOS-friendly.
 
-- Supply an `autoconf.sh` manifest which sets post-install variables and calls the configuration helper functions in the correct order.
+## `autoinst.sh`
 
-- Keep helper logic under `autoinst/common`, `autoinst/debian`, or `autoinst/slakware` as function-only scripts so the main runners can source them up front.
+`autoinst.sh` is the install-time runner. It is copied to the staged installer
+as `install/autoinst`.
 
-## Notes
+At runtime it:
 
-- Install scripts will run from the installation root floppy so the commands available are very limited. `sed` and `cut` are typically available, but other commands such as `grep`, `awk`, etc. are missing.  `sed` can be used to simulate many grep commands.
+1. Extends `PATH` with common installer binary locations.
+2. Derives `INSTMOUNT` from the runner's own path so the staged media can be
+   mounted anywhere.
+3. Selects `ROOTMOUNT` from known historical installer layouts:
+   `/target`, `/var/adm/mount` with `/mnt`, or `/root`.
+4. Verifies that `autoinst.d` exists under the staged media.
+5. Sources `autoinst.d/common.sh`.
+6. Sources `autoinst.d/distro/autoinst.sh`.
+7. Prompts for ENTER, syncs, and reboots.
 
-- Config scripts run after the base system has been installed so most commands should be available, but they are old versions and likely to be missing some new features.
+The distro `autoinst.sh` manifest is responsible for setting install-time
+variables and calling wrapper functions such as `init_disk`,
+`debian_install_base`, `slackware_pkgtool_install`, or `sls_sysinstall`.
 
-- Some distro directories have their own README files with additional implementation notes. For Debian-specific script layout and generation notes, see [debian/README.md](/Users/jblang/repos/retrodist/autoinst/debian/README.md).
+## `autoconf.sh`
 
-- The main runners source the helper trees from `autoinst.d`, then source `autoinst.d/config/autoinst.sh` or `autoinst.d/config/autoconf.sh` to set variables and call the desired helper functions.
+`autoconf.sh` is the first-boot configuration runner. Distro install paths that
+need a post-install configuration pass copy it into the target system and
+arrange for it to run on boot.
 
-- Helper trees such as `common/`, `debian/`, and `slakware/` are copied recursively into `autoinst.d` rather than symlinked. This matters for old installers that see the staged disk through a DOS-backed filesystem export.
+At runtime it:
 
-- Some older installers mount the staged disk as plain `msdos`, so helper filenames and directory layout need to remain DOS-friendly.
+1. Extends `PATH` with common installed-system binary locations.
+2. Mounts the staged install disk from `/dev/hdb1` at `/retro`.
+3. Verifies that `/retro/autoinst.d` exists.
+4. Sources `/retro/autoinst.d/common.sh`.
+5. Sources `/retro/autoinst.d/distro/autoconf.sh`.
+6. Removes the running script so it does not run again.
+7. Syncs and reboots.
+
+The distro `autoconf.sh` manifest is responsible for setting configuration
+variables and calling wrappers such as `enable_serial_console`,
+`configure_networking`, `configure_mail`, and `configure_x11`.
+
+## `common.sh`
+
+`common.sh` is sourced by both main runners. It sources `diskutil.sh` and
+defines public wrapper functions that load the implementation scripts on demand.
+
+Install wrappers:
+
+- `slackware_sysinstall`
+  Loads `install/sysinst.sh` and calls `_slackware_sysinstall`.
+
+- `slackware_pkgtool_install_111`
+  Loads `install/pkgtool.sh` and calls `_slackware_pkgtool_install_111`.
+
+- `slackware_pkgtool_install`
+  Loads `install/pkgtool.sh` and calls `_slackware_pkgtool_install`.
+
+- `sls_sysinstall`
+  Loads `install/sysinst.sh` and calls `_sls_sysinstall`.
+
+- `debian_install_base`
+  Loads `install/debian.sh` and calls `_debian_install_base`.
+
+- `debian_install_packages_flat`
+  Loads `install/debian.sh` and calls `_debian_install_packages_flat`.
+
+Configuration wrappers:
+
+- `configure_networking`
+  Loads `config/net.sh` and calls `_configure_networking`.
+
+- `configure_x11`
+  Loads `config/x11.sh` and calls `_configure_x11`.
+
+- `enable_serial_console`
+  Loads `config/tty.sh` and calls `_enable_serial_console`.
+
+- `configure_mail`
+  Loads `config/mail.sh` and calls `_configure_mail`.
+
+## `diskutil.sh`
+
+`diskutil.sh` contains shared disk preparation helpers and is loaded by
+`common.sh`.
+
+It provides canned fdisk geometries:
+
+- `FDISK_GEOM_500M`
+- `FDISK_GEOM_2G`
+- `FDISK_GEOM_8G`
+
+It also provides:
+
+- `init_disk`
+  Detects or creates the default swap/root partition layout, formats swap,
+  formats and mounts the root filesystem, and creates `fstab.tmp`.
+
+- `make_boot_floppy`
+  Writes the installed kernel to a boot floppy and sets its root device.
+
+Common disk variables:
+
+- `DISKDEV`
+  Target disk. Defaults to `/dev/hda`.
+
+- `SWAPPART`
+  Swap partition number. Defaults to `1`.
+
+- `ROOTPART`
+  Root partition number. Defaults to `2`.
+
+- `SWAPDEV`
+  Swap device. Defaults to `$DISKDEV$SWAPPART`.
+
+- `ROOTDEV`
+  Root device. Defaults to `$DISKDEV$ROOTPART`.
+
+- `ROOTFS`
+  Root filesystem type. Defaults to `ext2`; `ext` is also supported.
+
+- `FDISK_REBOOT`
+  When set, `init_disk` exits after writing a new partition table so the VM can
+  be rebooted before formatting.
+
+- `BOOTFLOPPYDEV`
+  Boot floppy device for `make_boot_floppy`. Defaults to `/dev/fd0`.
+
+- `BOOTKERNEL`
+  Kernel image for `make_boot_floppy`. Defaults to `$ROOTMOUNT/Image`.
+
+## `install/`
+
+`install/` contains distro-specific install helpers loaded through `common.sh`.
+See [install/README.md](install/README.md)
+for details.
+
+## `config/`
+
+`config/` contains first-boot configuration helpers loaded through `common.sh`.
+See [config/README.md](config/README.md)
+for details.
+
+## Distro Manifests
+
+Each supported distro directory can provide:
+
+- `autoinst.sh`
+  Install-time manifest copied to `autoinst.d/distro/autoinst.sh`.
+
+- `autoconf.sh`
+  First-boot configuration manifest copied to
+  `autoinst.d/distro/autoconf.sh`.
+
+The manifests should set only the variables needed by that distro and call the
+public wrappers from `common.sh`. Helper implementation code should stay in this
+directory as function-only scripts so it can be sourced safely by the runners.
