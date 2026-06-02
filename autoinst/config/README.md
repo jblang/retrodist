@@ -55,9 +55,9 @@ It then chooses one of three target layouts:
 
 2. `init.d/network` layout
    Used by later early-Debian systems. The helper writes `hostname`, `networks`,
-   `resolv.conf`, `hosts`, and a replacement `init.d/network` script. When
-   `DEBIAN_GUARD_ETH0` is set, the generated network script only adds `eth0`
-   routes if `ifconfig eth0 ...` succeeds.
+   `resolv.conf`, `hosts`, and a replacement `init.d/network` script. The
+   generated network script only adds `eth0` routes if `ifconfig eth0 ...`
+   succeeds.
 
 3. `rc.net` layout
    Used by SLS. The helper updates `/etc/hosts` entries for the host, network,
@@ -100,10 +100,6 @@ line and using I/O address `0x300`.
 
 - `RCPATH`
   Target rc script path. Defaults to `$ETCPATH/rc.d`.
-
-- `DEBIAN_GUARD_ETH0`
-  When set, generated Debian `init.d/network` scripts guard `eth0`
-  configuration so systems without the expected NIC can still boot cleanly.
 
 ## `x11.sh`
 

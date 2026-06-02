@@ -87,8 +87,11 @@ Install wrappers:
 - `debian_install_base`
   Loads `install/debian.sh` and calls `_debian_install_base`.
 
-- `debian_install_packages_flat`
-  Loads `install/debian.sh` and calls `_debian_install_packages_flat`.
+- `debian_091_install_base`
+  Loads `install/deb091.sh` and calls `_debian_091_install_base`.
+
+- `debian_091_install_packages`
+  Loads `install/deb091.sh` and calls `_debian_091_install_packages`.
 
 Configuration wrappers:
 

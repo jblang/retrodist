@@ -1,4 +1,3 @@
 init_disk $FDISK_GEOM_500M
 
-DEBIAN_BASE_STYLE=091
-debian_install_base
+debian_091_install_base

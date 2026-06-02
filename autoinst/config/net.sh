@@ -102,20 +102,12 @@ NETWORK=$NETWORK
 BROADCAST=$BROADCAST
 GATEWAY=$GATEWAY
 EOF
-        if [ -n "$DEBIAN_GUARD_ETH0" ]; then
-            cat >> "$ETCPATH/init.d/network" <<EOF
+        cat >> "$ETCPATH/init.d/network" <<EOF
 if ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST} >/dev/null 2>&1; then
 route add -net \${NETWORK}
 route add default gw \${GATEWAY} metric 1
 fi
 EOF
-        else
-            cat >> "$ETCPATH/init.d/network" <<EOF
-ifconfig eth0 \${IPADDR} netmask \${NETMASK} broadcast \${BROADCAST}
-route add -net \${NETWORK}
-route add default gw \${GATEWAY} metric 1
-EOF
-        fi
         chmod 755 "$ETCPATH/init.d/network"
 
         echo "127.0.0.1	localhost" > "$ETCPATH/hosts"

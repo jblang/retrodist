@@ -27,9 +27,14 @@ debian_install_base() {
     _debian_install_base "$@"
 }
 
-debian_install_packages_flat() {
-    . "$AUTOINST_D/install/debian.sh"
-    _debian_install_packages_flat "$@"
+debian_091_install_base() {
+    . "$AUTOINST_D/install/deb091.sh"
+    _debian_091_install_base "$@"
+}
+
+debian_091_install_packages() {
+    . "$AUTOINST_D/install/deb091.sh"
+    _debian_091_install_packages "$@"
 }
 
 configure_networking() {
