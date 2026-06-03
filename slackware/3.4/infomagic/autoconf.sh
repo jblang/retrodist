@@ -1,9 +1,9 @@
 enable_serial_console
 
-HOSTNAME=darkstar
-IPADDR=10.0.2.34
-SLACKWARE_ETH_MODULE='ne io=0x300'
-configure_networking
+NET_HOSTNAME=darkstar
+NET_IPADDR=10.0.2.34
+NET_MODULE='ne io=0x300'
+net_config
 
 configure_mail
 

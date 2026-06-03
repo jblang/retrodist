@@ -237,12 +237,9 @@ permission metadata is present, runs non-interactive `.inst` scripts from
 4. Installs the temporary first-boot `inittab`.
 5. Installs the boot kernel from the staged `bootflop/install.sh`.
 6. Installs driver modules when staged `drivers/install.sh` exists.
-7. Seeds Ethernet module configuration only when `DEBIAN_ETH_MODULE` is set,
-   creating module config files when driver modules are present and the base
-   system did not provide them.
-8. Copies first-boot setup hooks into the target, unpacking
+7. Copies first-boot setup hooks into the target, unpacking
    `/etc/root.sh.tar.gz` when present.
-9. Writes and installs a target LILO configuration, copies the MBR, and
+8. Writes and installs a target LILO configuration, copies the MBR, and
    activates the target partition.
 
 ### Variables
@@ -259,15 +256,6 @@ Common manifest variables:
 
 - `DEBIAN_ROOT_HOOK`
   Name of the file created in `/root/` to continue configuration on first boot.
-
-- `DEBIAN_ETH_MODULE`
-  Optional Ethernet module to add to `/etc/modules` and alias as `eth0` in
-  `/etc/conf.modules`. Leave unset when the target kernel has a suitable
-  built-in driver.
-
-- `DEBIAN_ETH_MODULE_OPTIONS`
-  Optional arguments for `DEBIAN_ETH_MODULE`, written both on the `/etc/modules`
-  line and as an `options` line in `/etc/conf.modules`.
 
 ### Version Notes
 

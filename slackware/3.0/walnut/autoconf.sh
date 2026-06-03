@@ -1,8 +1,8 @@
 enable_serial_console
 
-HOSTNAME=darkstar
-IPADDR=10.0.2.30
-configure_networking
+NET_HOSTNAME=darkstar
+NET_IPADDR=10.0.2.30
+net_config
 
 configure_mail
 

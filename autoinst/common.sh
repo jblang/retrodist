@@ -37,9 +37,9 @@ debian_091_install_packages() {
     _debian_091_install_packages "$@"
 }
 
-configure_networking() {
+net_config() {
     . "$AUTOINST_D/config/net.sh"
-    _configure_networking "$@"
+    _net_config "$@"
 }
 
 configure_x11() {

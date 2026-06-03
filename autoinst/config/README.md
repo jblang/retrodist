@@ -17,9 +17,10 @@ implementation functions here.
 - Keep shell code portable. Prefer simple `test`, `sed`, `cp`, and shell
   redirection patterns that work on old `/bin/sh` implementations.
 
-- Most helpers overwrite generated configuration files after saving `.orig`
-  copies where practical. They are intended for first-boot automation, not
-  repeated interactive reconfiguration.
+- Helpers generally save a backup before replacing or appending to generated
+  configuration files. Backup suffixes are helper-specific (`~`, `.orig`, or
+  Debian's `modules.old` marker). They are intended for first-boot automation,
+  not repeated interactive reconfiguration.
 
 ## `net.sh`
 
@@ -28,88 +29,127 @@ implementation functions here.
 `net.sh` configures basic networking for Debian, Slackware, and SLS target
 layouts. The public wrapper in `common.sh` is:
 
-- `configure_networking`
-  Sources `config/net.sh` and calls `_configure_networking`.
+- `net_config`
+  Sources `config/net.sh` and calls `_net_config`.
 
 ### Configuration Flow
 
-`_configure_networking` first sets defaults for the QEMU user-networking
+`_net_config` first sets defaults for the QEMU user-networking
 environment:
 
-- `NETMASK=255.255.255.0`
-- `NETWORK=10.0.2.0`
-- `BROADCAST=10.0.2.255`
-- `GATEWAY=10.0.2.1`
-- `NAMESERVER=10.0.2.1`
-- `DOMAINNAME=retro.net`
-- `ETCPATH=/etc`
-- `RCPATH=$ETCPATH/rc.d`
+- `NET_NETMASK=255.255.255.0`
+- `NET_NETWORK=10.0.2.0`
+- `NET_BROADCAST=10.0.2.255`
+- `NET_GATEWAY=10.0.2.1`
+- `NET_NAMESERVER=10.0.2.1`
+- `NET_DOMAINNAME=retro.net`
+- `NET_IFCONFIG_PATH` auto-detected
+- `NET_ROUTE_PATH` auto-detected
+- `NET_ETCPATH=/etc`
+- `NET_RCPATH=$NET_ETCPATH/rc.d`
+- `NET_MODULE=tulip`
+- `NET_HOSTNAME_INIT_SET` unset
 
-It then chooses one of three target layouts:
+It then detects target paths:
 
-1. `rc.inet1` layout
-   Used by Slackware-style systems and some early Debian-derived layouts. The
-   helper rewrites `HOSTNAME`, replaces `rc.inet1`, configures loopback and
-   `eth0`, writes default routing, rewrites `hosts` and `resolv.conf`, and
-   writes `networks` for the Debian `debra.debian.org` layout. Slackware
-   receives an explicit `-net ... netmask ...` route because older
-   `route` versions do not reliably infer the connected Ethernet network from
-   `route add 10.0.2.0`.
+- Hostname file: `$NET_ETCPATH/HOSTNAME` when present, otherwise
+  `$NET_ETCPATH/hostname`.
+- Command paths: `NET_IFCONFIG_PATH` and `NET_ROUTE_PATH` are preserved when
+  already set; otherwise `/sbin`, then `/etc`, then the unqualified command
+  name are used for each command independently.
+- Startup path: `$NET_RCPATH/rc.inet1` first, then
+  `$NET_ETCPATH/init.d/network` when `$NET_ETCPATH/init.d` exists, then
+  `$NET_ETCPATH/rc.net`.
 
-2. `init.d/network` layout
-   Used by later early-Debian systems. The helper writes `hostname`, `networks`,
-   `resolv.conf`, `hosts`, and a replacement `init.d/network` script. The
-   generated network script only adds `eth0` routes if `ifconfig eth0 ...`
-   succeeds.
+It then applies the detected configuration:
 
-3. `rc.net` layout
-   Used by SLS. The helper updates `/etc/hosts` entries for the host, network,
-   and router because this layout does not use the same startup networking files
-   as Debian or Slackware.
+- When an init-script path is detected:
+  - Writes the hostname file, generated init script, `hosts`, and
+    `resolv.conf`.
+  - When `NET_HOSTNAME_INIT_SET=1`, the generated init script calls
+    `hostname -S` before configuring network interfaces.
+  - Appends `localnet $NET_NETWORK` to `/etc/networks` unless
+    `NET_ANCIENT_ROUTE=1`.
+- When `rc.net` is selected:
+  - Updates `/etc/hosts` entries for the host, network, and router.
 
-After layout-specific configuration, the helper enables an Ethernet driver in
-Slackware `rc.modules` when that file exists. It appends a `/sbin/modprobe`
-line for `SLACKWARE_ETH_MODULE`, which may include module arguments and defaults
-to `tulip` for PCI-era profiles. Set `SLACKWARE_ETH_MODULE=none` to skip this.
+After networking configuration, the helper enables a network driver when a
+known module loader layout exists:
+
+- Debian-style `$NET_ETCPATH/init.d/modules`: splits `NET_MODULE` into a module
+  name and optional arguments, appends only the module name to
+  `$NET_ETCPATH/modules`, appends the `eth0` alias and any options to
+  `$NET_ETCPATH/conf.modules`, and creates `$NET_ETCPATH/modules.old` as the
+  historical Debian module-configuration marker.
+- Slackware-style `$NET_RCPATH/rc.modules`: appends a `/sbin/modprobe` line for
+  `NET_MODULE`.
+
+Set `NET_MODULE=none` to skip module loading.
+
+`net.sh` preserves the first backup it creates rather than refreshing backups
+on later runs. Most network files use a `~` suffix; Debian module setup uses
+`conf.modules~` plus the `modules.old` marker.
 
 ### Variables
 
-- `HOSTNAME`
+- `NET_HOSTNAME`
   Target host name. This should normally be set by the distro manifest.
 
-- `IPADDR`
+- `NET_IPADDR`
   Target IPv4 address. This should normally be set by the distro manifest.
 
-- `DOMAINNAME`
+- `NET_DOMAINNAME`
   DNS domain. Defaults to `retro.net`; set to empty or `none` for layouts that
   should not write domain/search records.
 
-- `NETMASK`
+- `NET_NETMASK`
   IPv4 netmask. Defaults to `255.255.255.0`.
 
-- `NETWORK`
+- `NET_NETWORK`
   IPv4 network address. Defaults to `10.0.2.0`.
 
-- `SLACKWARE_ETH_MODULE`
-  Optional Slackware Ethernet module line to load from `rc.modules` when that
-  file exists, including any module arguments. Defaults to `tulip`; set to
-  `none` to skip module loading. Older ISA NE2000 profiles should set
-  `SLACKWARE_ETH_MODULE='ne io=0x300'`.
+- `NET_ANCIENT_ROUTE`
+  Set to `1` for systems whose `route` command needs ancient syntax. This
+  changes loopback routing to `route add 127.0.0.1`, changes the Ethernet
+  network route to `route -n add $NETWORK`, and prevents generated init-script
+  layouts from creating `/etc/networks`.
 
-- `BROADCAST`
+- `NET_MODULE`
+  Optional network module line to load when a supported module loader exists.
+  It may include module arguments. Defaults to `tulip`; set to `none` to skip
+  module loading. Debian writes the module name to `/etc/modules` and writes
+  arguments to `/etc/conf.modules` as an `options` line. Slackware passes the
+  full value to `/sbin/modprobe` in `rc.modules`. ISA NE2000 profiles should
+  set `NET_MODULE='ne io=0x300'`.
+
+- `NET_HOSTNAME_INIT_SET`
+  Set to `1` when the generated init script should call `hostname -S` before
+  configuring network interfaces. Debian 0.91 uses this.
+
+- `NET_BROADCAST`
   IPv4 broadcast address. Defaults to `10.0.2.255`.
 
-- `GATEWAY`
+- `NET_GATEWAY`
   Default gateway. Defaults to `10.0.2.1`.
 
-- `NAMESERVER`
+- `NET_NAMESERVER`
   DNS server. Defaults to `10.0.2.1`.
 
-- `ETCPATH`
+- `NET_IFCONFIG_PATH`
+  Path or command name used for generated `ifconfig` lines. If unset,
+  networking path detection probes `/sbin/ifconfig` and `/etc/ifconfig`, then
+  falls back to `ifconfig`.
+
+- `NET_ROUTE_PATH`
+  Path or command name used for generated `route` lines. If unset, networking
+  path detection probes `/sbin/route` and `/etc/route`, then falls back to
+  `route`.
+
+- `NET_ETCPATH`
   Target `/etc` path. Defaults to `/etc`.
 
-- `RCPATH`
-  Target rc script path. Defaults to `$ETCPATH/rc.d`.
+- `NET_RCPATH`
+  Target rc script path. Defaults to `$NET_ETCPATH/rc.d`.
 
 ## `x11.sh`
 
