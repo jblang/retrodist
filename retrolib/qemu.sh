@@ -115,21 +115,21 @@ qemu_apply_profile() {
       QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
       QEMU_RAM="${QEMU_RAM:-64M}"
       QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
-      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-tulip}"
       QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
       ;;
     linux-2.2)
       QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
       QEMU_RAM="${QEMU_RAM:-64M}"
       QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
-      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-tulip}"
       QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
       ;;
     linux-2.4)
       QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
       QEMU_RAM="${QEMU_RAM:-128M}"
       QEMU_HD_SIZE="${QEMU_HD_SIZE:-8G}"
-      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_pci}"
+      QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-tulip}"
       QEMU_EXTRA="${QEMU_EXTRA:--vga std}"
       ;;
     *)

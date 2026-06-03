@@ -11,7 +11,7 @@ mount -t msdos /dev/hdb1 /mnt
 /mnt/autoinst
 ```
 
-- The script will automatically partition and format the hard drive, install the base system, install the boot kernel and driver modules, configure networking, and install LILO.
+- The script will automatically partition and format the hard drive, install the base system, install the boot kernel and driver modules, use the kernel's built-in PCnet driver for the default QEMU PCI NIC, configure networking, and install LILO.
 - This release uses the same automated base-install path as the other Debian 1.x entries in the repo, with Bo-specific handling for its rescue environment and root hook tarball.
 - `autoconf` is not implemented yet for this release, so only the base installation is automated at present.
 

@@ -66,17 +66,43 @@ debian_install_driver_modules() {
 }
 
 debian_configure_driver_modules() {
-    if [ -f "$ROOTMOUNT/etc/modules" ]; then
-        echo ne >> "$ROOTMOUNT/etc/modules"
+    if [ -z "$DEBIAN_ETH_MODULE" ]; then
+        return 0
     fi
 
-    if [ -f "$ROOTMOUNT/etc/conf.modules" ]; then
-        echo 'alias eth0 ne' >> "$ROOTMOUNT/etc/conf.modules"
-        echo 'options ne io=0x300 irq=9' >> "$ROOTMOUNT/etc/conf.modules"
+    DEBIAN_ETH_MODULE_OPTIONS=${DEBIAN_ETH_MODULE_OPTIONS:-}
+
+    if [ ! -d "$ROOTMOUNT/lib/modules" ]; then
+        return 0
     fi
 
-    if [ -f "$ROOTMOUNT/etc/modules" ] && [ ! -f "$ROOTMOUNT/etc/modules.old" ]; then
+    if [ ! -d "$ROOTMOUNT/etc" ]; then
+        mkdir "$ROOTMOUNT/etc"
+    fi
+
+    if [ ! -f "$ROOTMOUNT/etc/modules" ]; then
+        : > "$ROOTMOUNT/etc/modules"
+        chmod 644 "$ROOTMOUNT/etc/modules"
+    fi
+
+    if [ ! -f "$ROOTMOUNT/etc/conf.modules" ]; then
+        : > "$ROOTMOUNT/etc/conf.modules"
+        chmod 644 "$ROOTMOUNT/etc/conf.modules"
+    fi
+
+    if [ ! -f "$ROOTMOUNT/etc/modules.old" ]; then
         cp "$ROOTMOUNT/etc/modules" "$ROOTMOUNT/etc/modules.old"
+    fi
+
+    if [ -n "$DEBIAN_ETH_MODULE_OPTIONS" ]; then
+        echo "$DEBIAN_ETH_MODULE $DEBIAN_ETH_MODULE_OPTIONS" >> "$ROOTMOUNT/etc/modules"
+    else
+        echo "$DEBIAN_ETH_MODULE" >> "$ROOTMOUNT/etc/modules"
+    fi
+
+    echo "alias eth0 $DEBIAN_ETH_MODULE" >> "$ROOTMOUNT/etc/conf.modules"
+    if [ -n "$DEBIAN_ETH_MODULE_OPTIONS" ]; then
+        echo "options $DEBIAN_ETH_MODULE $DEBIAN_ETH_MODULE_OPTIONS" >> "$ROOTMOUNT/etc/conf.modules"
     fi
 }
 

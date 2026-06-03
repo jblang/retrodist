@@ -4,7 +4,7 @@ _configure_networking() {
     NETMASK=${NETMASK:-255.255.255.0}
     NETWORK=${NETWORK:-10.0.2.0}
     BROADCAST=${BROADCAST:-10.0.2.255}
-    GATEWAY=${GATEWAY:-10.0.2.2}
+    GATEWAY=${GATEWAY:-10.0.2.1}
     NAMESERVER=${NAMESERVER:-10.0.2.1}
     DOMAINNAME=${DOMAINNAME:-retro.net}
 
@@ -52,7 +52,7 @@ _configure_networking() {
                 echo "$ROUTE add $NETWORK" >> "$RCPATH/rc.inet1"
             else
                 # slackware
-                echo "$ROUTE -n add $NETWORK" >> "$RCPATH/rc.inet1"
+                echo "$ROUTE add -net $NETWORK netmask $NETMASK" >> "$RCPATH/rc.inet1"
             fi
             echo "$ROUTE add default gw $GATEWAY metric 1" >> "$RCPATH/rc.inet1"
 
@@ -76,7 +76,8 @@ _configure_networking() {
                 echo "localnet $NETWORK" > "$ETCPATH/networks"
             fi
         fi
-    elif [ -f "$ETCPATH/init.d/network" ]; then
+    elif [ -d "$ETCPATH/init.d" ] &&
+         { [ -f "$ETCPATH/init.d/network" ] || [ -f "$ETCPATH/init.d/netbase" ]; }; then
         echo "$HOSTNAME" > "$ETCPATH/hostname"
         chmod 644 "$ETCPATH/hostname"
 
@@ -95,7 +96,7 @@ _configure_networking() {
         cat > "$ETCPATH/init.d/network" <<EOF
 #!	/bin/sh
 ifconfig lo 127.0.0.1
-route add -net 127.0.0.0
+route add -net 127.0.0.0 dev lo
 IPADDR=$IPADDR
 NETMASK=$NETMASK
 NETWORK=$NETWORK
@@ -129,10 +130,14 @@ EOF
         mv "$ETCPATH/hosts.1" "$ETCPATH/hosts"
     fi
 
-    # enable the NE2000 driver on versions of slackware with loadable modules
+    # enable the Ethernet driver on versions of slackware with loadable modules
     if [ -f "$RCPATH/rc.modules" ]; then
+        SLACKWARE_ETH_MODULE=${SLACKWARE_ETH_MODULE:-tulip}
+
         cp "$RCPATH/rc.modules" "$RCPATH/rc.modules.orig"
-        sed 's|^#/sbin/modprobe ne io=0x\(NNN\|300\)\([[:space:]]*#.*\)\?$|/sbin/modprobe ne io=0x300\2|' \
-            "$RCPATH/rc.modules.orig" > "$RCPATH/rc.modules"
+        cp "$RCPATH/rc.modules.orig" "$RCPATH/rc.modules"
+        if [ "$SLACKWARE_ETH_MODULE" != "none" ]; then
+            echo "/sbin/modprobe $SLACKWARE_ETH_MODULE" >> "$RCPATH/rc.modules"
+        fi
     fi
 }

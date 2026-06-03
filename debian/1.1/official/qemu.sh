@@ -1,1 +1,2 @@
 QEMU_PROFILE=linux-2.0
+QEMU_NET_DEVICE=ne2k_isa

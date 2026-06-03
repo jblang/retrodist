@@ -39,7 +39,7 @@ environment:
 - `NETMASK=255.255.255.0`
 - `NETWORK=10.0.2.0`
 - `BROADCAST=10.0.2.255`
-- `GATEWAY=10.0.2.2`
+- `GATEWAY=10.0.2.1`
 - `NAMESERVER=10.0.2.1`
 - `DOMAINNAME=retro.net`
 - `ETCPATH=/etc`
@@ -51,7 +51,10 @@ It then chooses one of three target layouts:
    Used by Slackware-style systems and some early Debian-derived layouts. The
    helper rewrites `HOSTNAME`, replaces `rc.inet1`, configures loopback and
    `eth0`, writes default routing, rewrites `hosts` and `resolv.conf`, and
-   writes `networks` for the Debian `debra.debian.org` layout.
+   writes `networks` for the Debian `debra.debian.org` layout. Slackware
+   receives an explicit `-net ... netmask ...` route because older
+   `route` versions do not reliably infer the connected Ethernet network from
+   `route add 10.0.2.0`.
 
 2. `init.d/network` layout
    Used by later early-Debian systems. The helper writes `hostname`, `networks`,
@@ -64,9 +67,10 @@ It then chooses one of three target layouts:
    and router because this layout does not use the same startup networking files
    as Debian or Slackware.
 
-After layout-specific configuration, the helper enables the NE2000 driver in
-`rc.modules` when that file exists by uncommenting a matching `modprobe ne`
-line and using I/O address `0x300`.
+After layout-specific configuration, the helper enables an Ethernet driver in
+Slackware `rc.modules` when that file exists. It appends a `/sbin/modprobe`
+line for `SLACKWARE_ETH_MODULE`, which may include module arguments and defaults
+to `tulip` for PCI-era profiles. Set `SLACKWARE_ETH_MODULE=none` to skip this.
 
 ### Variables
 
@@ -86,11 +90,17 @@ line and using I/O address `0x300`.
 - `NETWORK`
   IPv4 network address. Defaults to `10.0.2.0`.
 
+- `SLACKWARE_ETH_MODULE`
+  Optional Slackware Ethernet module line to load from `rc.modules` when that
+  file exists, including any module arguments. Defaults to `tulip`; set to
+  `none` to skip module loading. Older ISA NE2000 profiles should set
+  `SLACKWARE_ETH_MODULE='ne io=0x300'`.
+
 - `BROADCAST`
   IPv4 broadcast address. Defaults to `10.0.2.255`.
 
 - `GATEWAY`
-  Default gateway. Defaults to `10.0.2.2`.
+  Default gateway. Defaults to `10.0.2.1`.
 
 - `NAMESERVER`
   DNS server. Defaults to `10.0.2.1`.

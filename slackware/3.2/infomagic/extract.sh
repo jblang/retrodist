@@ -1,4 +1,4 @@
-7z e $ORIGDIR/disc1.iso \
+7z e $ORIGDIR/disc2.iso \
     bootdsks.144/bare.i \
     rootdsks/color.gz > /dev/null
 mv bare.i boot.img

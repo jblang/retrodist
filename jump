@@ -7,6 +7,7 @@ HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
 DEBIAN_CODENAME=trixie
 DEBIAN_RELEASE=13
+JUMP_IMAGE_FLAVOR=${JUMP_IMAGE_FLAVOR:-generic}
 JUMP_SSH_PORT=${JUMP_SSH_PORT:-2222}
 JUMP_NET_MAC_INTERNET=52:54:00:12:34:56
 JUMP_NET_MAC_RETRONET=52:54:00:12:34:57
@@ -48,9 +49,10 @@ jump_configure_platform() {
       ;;
   esac
 
-  CLOUDIMG=debian-$DEBIAN_RELEASE-genericcloud-$DEBIAN_ARCH.qcow2
+  QEMU_NET_DEVICE_RETRONET="${QEMU_NET_DEVICE_RETRONET:-e1000}"
+  CLOUDIMG=debian-$DEBIAN_RELEASE-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
   CLOUDIMG_URL="https://cloud.debian.org/images/cloud/$DEBIAN_CODENAME/latest/$CLOUDIMG"
-  JUMPIMG=$JUMPHOME/retrojump-$DEBIAN_CODENAME-$DEBIAN_ARCH.qcow2
+  JUMPIMG=$JUMPHOME/retrojump-$DEBIAN_CODENAME-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
 }
 
 jump_check_platform_prereqs() {
@@ -225,9 +227,6 @@ network:
       set-name: retronet0
       addresses:
         - 10.0.2.1/24
-      routes:
-        - to: 10.0.2.0/24
-          via: 10.0.2.2
 EOF
 
   jump_make_seed_image
@@ -245,13 +244,14 @@ jump_run() {
 
   JUMP_QEMU_ARGS=("$QEMU_BIN" -nographic)
   jump_append_shell_words "$QEMU_MACHINE_ARGS"
+  JUMP_RETRONET="${JUMP_RETRONET:--netdev socket,id=retronet,listen=:1234}"
   JUMP_QEMU_ARGS+=(
     -m 2G
     -netdev "user,id=internet,net=10.0.1.0/24,hostfwd=tcp::$JUMP_SSH_PORT-:22"
     -device "$QEMU_NET_DEVICE,netdev=internet,mac=$JUMP_NET_MAC_INTERNET"
-    -netdev "socket,id=retronet,listen=:1234"
-    -device "$QEMU_NET_DEVICE,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET"
   )
+  jump_append_shell_words "$JUMP_RETRONET"
+  JUMP_QEMU_ARGS+=(-device "$QEMU_NET_DEVICE_RETRONET,netdev=retronet,mac=$JUMP_NET_MAC_RETRONET")
   jump_append_shell_words "$system_drive"
   jump_append_shell_words "$QEMU_EXTRA_ARGS"
   jump_append_shell_words "$seed"

@@ -11,7 +11,7 @@ mount -t msdos /dev/hdb1 /mnt
 /mnt/autoinst
 ```
 
-- The script will automatically partition and format the hard drive, install the base system, install the kernel and driver modules, seed module configuration for the default QEMU NE2000 ISA NIC, configure networking, and install LILO.
+- The script will automatically partition and format the hard drive, install the base system, install the kernel and driver modules, use the kernel's built-in PCnet driver for the default QEMU PCI NIC, configure networking, and install LILO.
 - After the VM reboots, the installed system should boot successfully from the hard drive with Ethernet working.
 - `autoconf` is not implemented yet for this release, so only the base installation is fully automated right now.
 

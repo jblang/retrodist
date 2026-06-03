@@ -69,6 +69,12 @@ Old distributions are riddled with security holes and have no business being on 
 
 `jump` will start a modern Debian VM configured as a jump box with an FTP server and other niceties to interact with your retro boxes. This VM has a connection to the internet but also a second private network interface that all the retro boxes can talk to. By default its SSH port is forwarded to `2222` on the host, and convenience commands are provided to ssh, sftp, and scp. Set `JUMP_SSH_PORT` to use a different host port if needed. It is accessible to the retro distros via FTP to `10.0.2.1`. The username and password is `retro`/`retro`.  
 
+The jump box uses Debian's `generic` cloud image by default and attaches the
+private retro network with QEMU's `e1000` device. This avoids short-frame
+receive problems seen by some older Linux network drivers when the jump side
+uses virtio. Override `JUMP_IMAGE_FLAVOR` or `QEMU_NET_DEVICE_RETRONET` if you
+need to test a different jump image or private NIC model.
+
 ```
 Usage: jump COMMAND ...
 

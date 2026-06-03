@@ -13,6 +13,11 @@ main install runner to `install/autoinst`, copies this directory to
 - These scripts run in very old installer and target-system environments. Keep
   shell code portable and avoid modern shell features.
 
+- Do not use shell reserved-word negation such as `if ! command; then`.
+  Some old Debian installer Bash versions treat `!` as a command and print
+  `!: not found`. `test` negation such as `[ ! -f file ]` is fine; use
+  explicit status checks instead when negating a command.
+
 - Install scripts run from the installer media with a limited command set. `sed`
   and `cut` are usually available; tools such as `grep`, `awk`, `which`, and
   `command -v` may be missing.
