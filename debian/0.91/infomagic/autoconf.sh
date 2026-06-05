@@ -1,6 +1,6 @@
 debian_091_install_packages
 
-enable_serial_console
+tty_config
 
 NET_HOSTNAME=debra
 NET_IPADDR=10.0.2.191

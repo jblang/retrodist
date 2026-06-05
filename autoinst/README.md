@@ -67,8 +67,8 @@ At runtime it:
 7. Syncs and reboots.
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
-variables and calling wrappers such as `enable_serial_console`,
-`net_config`, `configure_mail`, and `x11_config`.
+variables and calling wrappers such as `tty_config`,
+`net_config`, `configure_mail`, and `configure_x11`.
 
 ## `common.sh`
 
@@ -106,8 +106,8 @@ Configuration wrappers:
 - `x11_config`
   Loads `config/x11.sh` and calls `_x11_config`.
 
-- `enable_serial_console`
-  Loads `config/tty.sh` and calls `_enable_serial_console`.
+- `tty_config`
+  Loads `config/tty.sh` and calls `_tty_config`.
 
 - `configure_mail`
   Loads `config/mail.sh` and calls `_configure_mail`.

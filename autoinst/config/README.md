@@ -235,53 +235,63 @@ Supported paths:
 
 `tty.sh` enables a serial login console. The public wrapper in `common.sh` is:
 
-- `enable_serial_console`
-  Sources `config/tty.sh` and calls `_enable_serial_console`.
+- `tty_config`
+  Sources `config/tty.sh` and calls `_tty_config`.
 
 ### Configuration Flow
 
-`_enable_serial_console`:
+`_tty_config`:
 
-1. Sets serial defaults for `TTYDEV` and `TTYBAUD`.
-2. Reads `/etc/inittab` if present.
-3. Looks for a commented stock serial getty line matching the requested TTY,
-   falling back to a stock `ttyS0` line.
-4. Reuses that stock line when found, updating the baud rate and TTY device.
-5. Otherwise builds a getty line from either `agetty` or a getty_ps-compatible
-   `getty`.
-6. Saves `/etc/inittab.orig` and adds or enables the serial getty when one is
-   not already active.
-7. Comments out `CONSOLE` in `/etc/login.defs` when present so
-   `/etc/securetty` controls root login devices.
-8. Saves `/etc/securetty.orig` and appends the serial TTY to `securetty`.
+1. Sets serial defaults for `TTY_DEV` and `TTY_BAUD`.
+2. Detects target paths under `TTY_ETCPATH` and reads `inittab` if present.
+3. Leaves `inittab` unchanged and logs a warning when an active getty line
+   already exists for the requested TTY.
+4. Looks for a commented stock serial getty line matching the requested TTY.
+5. Detects the first available getty binary in this order: `/sbin/agetty`,
+   `/sbin/getty`, then `/etc/getty`.
+6. Builds a getty line from the detected binary. When a stock comment was found,
+   its id and runlevels are reused; otherwise `TTY_ID` and `TTY_RUNLEVELS` are
+   used.
+7. Saves `inittab.orig` and inserts the generated line after the matching stock
+   comment, or appends it when no matching stock comment exists.
+8. Comments out `CONSOLE` in `login.defs` when present so `securetty` controls
+   root login devices.
+9. Saves `securetty.orig` when `securetty` already exists and appends the serial
+   TTY when it is not already listed.
 
 ### Variables
 
-- `TTYDEV`
+- `TTY_DEV`
   Serial device name. Defaults to `ttyS0`.
 
-- `TTYBAUD`
+- `TTY_BAUD`
   Serial baud rate. Defaults to `9600`.
 
-- `TTYID`
-  Inittab identifier for newly appended getty lines. Defaults to `s0`.
+- `TTY_ID`
+  Inittab identifier for newly appended getty lines. Defaults to the serial
+  device suffix (`s0` for `ttyS0`/`ttys0`, `s1` for `ttyS1`/`ttys1`, and so on).
 
-- `TTYRUNLEVELS`
+- `TTY_RUNLEVELS`
   Runlevels for newly appended getty lines. Defaults to `123456`.
 
-- `TTYGETTY_STYLE`
-  Set to `agetty` to force an `agetty`-style getty line when no stock line is
-  available. Otherwise the helper uses `/sbin/getty` or `/etc/getty`.
-
-- `TTYTERM`
+- `TTY_TERM`
   Terminal type for generated `agetty` lines. Defaults to `vt100`.
+
+- `TTY_ETCPATH`
+  Target `/etc` path. Defaults to `/etc`.
 
 ### Behavior Notes
 
-- If `/etc/inittab` is missing, the helper does nothing.
+- If `$TTY_ETCPATH/inittab` is missing, the helper does nothing.
 
-- The helper does not de-duplicate `/etc/securetty`; it appends `TTYDEV` after
-  saving the original file.
+- `ttyS` and older `ttys` serial device spellings are treated as equivalent
+  when matching existing `inittab` lines.
+
+- The helper preserves the first `.orig` backup it creates and does not refresh
+  that backup on later runs.
+
+- TTY-specific failures are logged as warnings and do not stop later
+  `autoconf.sh` helpers from running.
 
 ## `mail.sh`
 

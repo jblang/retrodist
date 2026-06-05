@@ -1,4 +1,4 @@
-enable_serial_console
+tty_config
 
 NET_HOSTNAME=darkstar
 NET_IPADDR=10.0.2.31

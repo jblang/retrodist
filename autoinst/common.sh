@@ -47,14 +47,9 @@ x11_config() {
     _x11_config "$@"
 }
 
-enable_serial_console() {
+tty_config() {
     . "$AUTOINST_D/config/tty.sh"
-    _enable_serial_console "$@"
-}
-
-enable_serial_console() {
-    . "$AUTOINST_D/config/tty.sh"
-    _enable_serial_console "$@"
+    _tty_config "$@"
 }
 
 configure_mail() {
