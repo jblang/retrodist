@@ -7,4 +7,4 @@ net_config
 
 configure_mail
 
-configure_x11
+x11_config

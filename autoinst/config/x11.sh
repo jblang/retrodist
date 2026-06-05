@@ -1,69 +1,82 @@
-install_startx_setfont_wrapper() {
-  for STARTX in /usr/bin/startx /usr/X386/bin/startx; do
-    if [ -f "$STARTX" ] && [ ! -L "$STARTX" ] && [ ! -f "$STARTX.real" ]; then
-      mv "$STARTX" "$STARTX.real"
-      cat > "$STARTX" <<'EOF'
+# Emit a startx wrapper that restores console fonts after early XFree86 exits.
+x11_build_startx_setfont_wrapper() {
+    cat <<'EOF'
 #!/bin/sh
 "$(dirname "$0")/startx.real" "$@"
-STATUS=$?
+X11_STATUS=$?
 # reset font to fix black screen after XFree86 1.x/2.x runs
 if command -v setfont >/dev/null 2>&1; then
   setfont >/dev/null 2>&1
 fi
-exit $STATUS
+exit $X11_STATUS
 EOF
-      chmod 755 "$STARTX"
-    fi
-  done
 }
 
-detect_mouse_defaults() {
-  if [ -z "$MOUSEDEV" ]; then
-    if [ -c /dev/psaux ]; then
-      MOUSEDEV=/dev/psaux
-    elif [ -c /dev/ps2aux ]; then
-      MOUSEDEV=/dev/ps2aux
-    else
-      MOUSEDEV=/dev/cua1
-    fi
-  fi
+# Emit an Xconfig for XFree86 monochrome servers.
+x11_build_1x2x_mono_config() {
+    cat <<EOF
+# Shared resource paths.
+RGBPath     "/usr/X386/lib/X11/rgb"
+FontPath    "/usr/X386/lib/X11/fonts/misc/"
+FontPath    "/usr/X386/lib/X11/fonts/Type1/"
+FontPath    "/usr/X386/lib/X11/fonts/Speedo/"
+FontPath    "/usr/X386/lib/X11/fonts/75dpi/"
 
-  if [ -z "$MOUSETYPE" ]; then
-    case "$MOUSEDEV" in
-      /dev/psaux|/dev/ps2aux)
-        MOUSETYPE="PS/2"
-        ;;
-      /dev/cua1)
-        MOUSETYPE="Microsoft"
-        ;;
-    esac
-  fi
+# Keyboard settings.
+Keyboard
+  AutoRepeat 500 5
+  ServerNumLock
+
+# Mouse settings.
+$X11_MOUSETYPE "$X11_MOUSEDEV"
+  Emulate3Buttons
+
+# Mono server mode selection.
+VGA2
+  Modes     $X11_MODES
+
+# Video mode database.
+ModeDB
+"640x480"   25   640  664  760  800   480  491  493  525
+"800x600"   40   800  840  968 1056   600  601  605  628 +hsync +vsync
+EOF
 }
 
-configure_x11r6_svga() {
-  SERVER=/usr/X11R6/bin/XF86_SVGA
-  echo "Found X11 server at $SERVER"
+# Emit an Xconfig for XFree86 1.x and 2.x SVGA servers.
+x11_build_1x2x_svga_config() {
+    cat <<EOF
+# Shared resource paths.
+RGBPath     "/usr/X386/lib/X11/rgb"
+FontPath    "/usr/X386/lib/X11/fonts/misc/"
+FontPath    "/usr/X386/lib/X11/fonts/Type1/"
+FontPath    "/usr/X386/lib/X11/fonts/Speedo/"
+FontPath    "/usr/X386/lib/X11/fonts/75dpi/"
 
-  if [ -d /var/X11R6/bin ]; then
-    (cd /var/X11R6/bin; ln -sf "$SERVER" X)
-  fi
+# Keyboard settings.
+Keyboard
+  AutoRepeat 500 5
+  ServerNumLock
 
-  for X11PATH in /usr/X11R6/lib/X11 /var/X11R6/lib /etc; do
-    if [ -d "$X11PATH" ]; then
-      break
-    fi
-  done
+# Mouse settings.
+$X11_MOUSETYPE "$X11_MOUSEDEV"
+  Emulate3Buttons
 
-  XFREECFG="$X11PATH/XF86Config"
-  XFREECFG_ETC=/etc/XF86Config
+# Cirrus SVGA mode selection.
+VGA256
+  Chipset   "clgd5422"
+  Modes     $X11_MODES
 
-  echo "Creating XF86Config in $XFREECFG"
+# Video mode database.
+ModeDB
+"640x480"   25   640  664  760  800   480  491  493  525
+"800x600"   40   800  840  968 1056   600  601  605  628 +hsync +vsync
+"1024x768"  65  1024 1032 1176 1344   768  771  777  806 -hsync -vsync
+EOF
+}
 
-  if [ -f "$XFREECFG" ]; then
-    cp "$XFREECFG" "$XFREECFG.orig"
-  fi
-
-  cat > "$XFREECFG" <<EOF
+# Emit an XF86Config for XFree86 3.x SVGA servers.
+x11_build_3x_config() {
+    cat <<EOF
 # File and font paths.
 Section "Files"
     RgbPath     "/usr/X11R6/lib/X11/rgb"
@@ -86,8 +99,8 @@ EndSection
 
 # Mouse settings.
 Section "Pointer"
-    Protocol    "$MOUSETYPE"
-    Device      "$MOUSEDEV"
+    Protocol    "$X11_MOUSETYPE"
+    Device      "$X11_MOUSEDEV"
     Emulate3Buttons
 EndSection
 
@@ -114,53 +127,29 @@ Section "Screen"
     Driver      "svga"
     Device      "QEMU"
     Monitor     "QEMU"
+    DefaultColorDepth $X11_DEPTH
     Subsection "Display"
         Depth       8
-        Modes       "1024x768"
+        Modes       $X11_MODES
         ViewPort    0 0
     EndSubsection
     Subsection "Display"
         Depth       16
-        Modes       "1024x768"
+        Modes       $X11_MODES
         ViewPort    0 0
     EndSubsection
     Subsection "Display"
         Depth       32
-        Modes       "1024x768"
+        Modes       $X11_MODES
         ViewPort    0 0
     EndSubsection
 EndSection
 EOF
-
-  if [ "$XFREECFG" != "$XFREECFG_ETC" ]; then
-    cp "$XFREECFG" "$XFREECFG_ETC"
-  fi
 }
 
-configure_x11r6_xfree86_4() {
-  SERVER=/usr/X11R6/bin/XFree86
-  echo "Found X11 server at $SERVER"
-
-  if [ -d /var/X11R6/bin ]; then
-    (cd /var/X11R6/bin; ln -sf "$SERVER" X)
-  fi
-
-  for X11PATH in /etc/X11 /etc /usr/X11R6/lib/X11; do
-    if [ -d "$X11PATH" ]; then
-      break
-    fi
-  done
-
-  XFREECFG="$X11PATH/XF86Config"
-  XFREECFG_ETC=/etc/XF86Config
-
-  echo "Creating XFree86 4.x XF86Config in $XFREECFG"
-
-  if [ -f "$XFREECFG" ]; then
-    cp "$XFREECFG" "$XFREECFG.orig"
-  fi
-
-  cat > "$XFREECFG" <<EOF
+# Emit an XF86Config for XFree86 4.x servers.
+x11_build_4x_config() {
+    cat <<EOF
 Section "Files"
     RgbPath     "/usr/X11R6/lib/X11/rgb"
     FontPath    "/usr/X11R6/lib/X11/fonts/misc/"
@@ -179,8 +168,8 @@ EndSection
 Section "InputDevice"
     Identifier  "Mouse0"
     Driver      "mouse"
-    Option      "Protocol" "$MOUSETYPE"
-    Option      "Device" "$MOUSEDEV"
+    Option      "Protocol" "$X11_MOUSETYPE"
+    Option      "Device" "$X11_MOUSEDEV"
     Option      "Emulate3Buttons"
 EndSection
 
@@ -199,18 +188,18 @@ Section "Screen"
     Identifier  "Screen0"
     Device      "QEMU"
     Monitor     "QEMU"
-    DefaultDepth 16
+    DefaultDepth $X11_DEPTH
     SubSection "Display"
         Depth       8
-        Modes       "1024x768" "800x600" "640x480"
+        Modes       $X11_MODES
     EndSubSection
     SubSection "Display"
         Depth       16
-        Modes       "1024x768" "800x600" "640x480"
+        Modes       $X11_MODES
     EndSubSection
     SubSection "Display"
         Depth       24
-        Modes       "1024x768" "800x600" "640x480"
+        Modes       $X11_MODES
     EndSubSection
 EndSection
 
@@ -221,126 +210,152 @@ Section "ServerLayout"
     InputDevice "Mouse0" "CorePointer"
 EndSection
 EOF
-
-  if [ "$XFREECFG" != "$XFREECFG_ETC" ]; then
-    cp "$XFREECFG" "$XFREECFG_ETC"
-  fi
 }
 
-configure_x386_svga() {
-  SERVER=/usr/X386/bin/XF86_SVGA
-  echo "Found X11 server at $SERVER"
-  (cd "$(dirname "$SERVER")"; ln -sf "$(basename "$SERVER")" X)
-
-  for X11PATH in /etc/X11 /var/X11/lib/X11 /usr/X386/lib/X11; do
-    if [ -d "$X11PATH" ]; then
-      break
+# Back up an existing X11 config file using the legacy ".orig" suffix.
+x11_backup_orig() {
+    if [ -f "$1" ]; then
+        cp "$1" "$1.orig"
     fi
-  done
-
-  echo "Creating Xconfig in $X11PATH"
-
-  if [ -f "$X11PATH/Xconfig" ]; then
-    cp "$X11PATH/Xconfig" "$X11PATH/Xconfig.orig"
-  fi
-
-  cat > "$X11PATH/Xconfig" <<EOF
-# Shared resource paths.
-RGBPath     "/usr/X386/lib/X11/rgb"
-FontPath    "/usr/X386/lib/X11/fonts/misc/"
-FontPath    "/usr/X386/lib/X11/fonts/Type1/"
-FontPath    "/usr/X386/lib/X11/fonts/Speedo/"
-FontPath    "/usr/X386/lib/X11/fonts/75dpi/"
-
-# Keyboard settings.
-Keyboard
-  AutoRepeat 500 5
-  ServerNumLock
-
-# Mouse settings.
-$MOUSETYPE "$MOUSEDEV"
-  Emulate3Buttons
-
-# Cirrus SVGA mode selection.
-VGA256
-  Chipset   "clgd5422"
-  Modes     "1024x768"
-
-# Video mode database.
-ModeDB
-"640x480"   25   640  664  760  800   480  491  493  525
-"800x600"   40   800  840  968 1056   600  601  605  628 +hsync +vsync
-"1024x768"  65  1024 1032 1176 1344   768  771  777  806 -hsync -vsync
-EOF
 }
 
-configure_x386_mono() {
-  if [ -x /usr/X386/bin/XF86_mono ]; then
-    SERVER=/usr/X386/bin/XF86_mono
-  else
-    SERVER=/usr/X386/bin/X386mono
-  fi
-  echo "Found X11 server at $SERVER"
-  (cd "$(dirname "$SERVER")"; ln -sf "$(basename "$SERVER")" X)
-
-  for X11PATH in /etc/X11 /var/X11/lib/X11 /usr/X386/lib/X11; do
-    if [ -d "$X11PATH" ]; then
-      break
+# Fill unset mouse variables with defaults that work in QEMU.
+x11_detect_mouse_defaults() {
+    if [ -z "$X11_MOUSEDEV" ]; then
+        if [ -c /dev/psaux ]; then
+            X11_MOUSEDEV=/dev/psaux
+        elif [ -c /dev/ps2aux ]; then
+            X11_MOUSEDEV=/dev/ps2aux
+        else
+            X11_MOUSEDEV=/dev/cua1
+        fi
     fi
-  done
 
-  echo "Creating mono Xconfig in $X11PATH"
-
-  if [ -f "$X11PATH/Xconfig" ]; then
-    cp "$X11PATH/Xconfig" "$X11PATH/Xconfig.orig"
-  fi
-
-  cat > "$X11PATH/Xconfig" <<EOF
-# Shared resource paths.
-RGBPath     "/usr/X386/lib/X11/rgb"
-FontPath    "/usr/X386/lib/X11/fonts/misc/"
-FontPath    "/usr/X386/lib/X11/fonts/Type1/"
-FontPath    "/usr/X386/lib/X11/fonts/Speedo/"
-FontPath    "/usr/X386/lib/X11/fonts/75dpi/"
-
-# Keyboard settings.
-Keyboard
-  AutoRepeat 500 5
-  ServerNumLock
-
-# Mouse settings.
-$MOUSETYPE "$MOUSEDEV"
-  Emulate3Buttons
-
-# Mono server mode selection.
-VGA2
-  Modes     "640x480"
-
-# Video mode database.
-ModeDB
-"640x480"   25   640  664  760  800   480  491  493  525
-"800x600"   40   800  840  968 1056   600  601  605  628 +hsync +vsync
-EOF
+    if [ -z "$X11_MOUSETYPE" ]; then
+        case "$X11_MOUSEDEV" in
+            /dev/psaux|/dev/ps2aux)
+                X11_MOUSETYPE="PS/2"
+                ;;
+            /dev/cua1)
+                X11_MOUSETYPE="Microsoft"
+                ;;
+        esac
+    fi
 }
 
-_configure_x11() {
-  echo "### Configuring X11..."
+# Choose the first existing directory from a caller-provided list.
+x11_detect_path() {
+    X11_PATH=
+    for X11_CANDIDATE in "$@"; do
+        if [ -d "$X11_CANDIDATE" ]; then
+            X11_PATH="$X11_CANDIDATE"
+            return 0
+        fi
+    done
+    return 1
+}
 
-  # Pick mouse defaults once for all X server variants while preserving
-  # any values that were already supplied by the installer environment.
-  detect_mouse_defaults
+# Link an X server into a target directory when that layout exists.
+x11_link_var_x11r6_bin() {
+    if [ -d /var/X11R6/bin ]; then
+        (cd /var/X11R6/bin; ln -sf "$X11_SERVER" X)
+    fi
+}
 
-  # XFree86 4.x uses a monolithic XFree86 server. XFree86 3.1 uses XF86_SVGA.
-  if [ -x /usr/X11R6/bin/XFree86 ]; then
-    configure_x11r6_xfree86_4
-  elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
-    configure_x11r6_svga
-  elif [ -x /usr/X386/bin/XF86_SVGA ]; then
-    configure_x386_svga
-    install_startx_setfont_wrapper
-  elif [ -x /usr/X386/bin/X386mono ]; then
-    configure_x386_mono
-  else
-    echo "No supported X11 server found."
-  fi
+# Install the startx wrapper around eligible legacy startx scripts.
+x11_install_startx_setfont_wrapper() {
+    for X11_STARTX in /usr/bin/startx /usr/X386/bin/startx; do
+        if [ -f "$X11_STARTX" ] && [ ! -L "$X11_STARTX" ] && [ ! -f "$X11_STARTX.real" ]; then
+            mv "$X11_STARTX" "$X11_STARTX.real"
+            x11_build_startx_setfont_wrapper > "$X11_STARTX"
+            chmod 755 "$X11_STARTX"
+        fi
+    done
+}
+
+# Write XF86Config and mirror it to /etc/XF86Config when needed.
+x11_write_xf86config() {
+    X11_XFREECFG="$1/XF86Config"
+    X11_XFREECFG_ETC=/etc/XF86Config
+
+    x11_backup_orig "$X11_XFREECFG"
+    cat > "$X11_XFREECFG"
+
+    if [ "$X11_XFREECFG" != "$X11_XFREECFG_ETC" ]; then
+        ln -sf "$X11_XFREECFG" "$X11_XFREECFG_ETC"
+    fi
+}
+
+# Prepare the common XF86Config target for XFree86 3.x and 4.x servers.
+x11_3x4x_common_config() {
+    X11_DEPTH=${X11_DEPTH:-16}
+    X11_MODES=${X11_MODES:-'"1024x768" "800x600" "640x480"'}
+    echo "Found X11 server at $X11_SERVER"
+    x11_link_var_x11r6_bin
+
+    x11_detect_path "$@" || return 1
+    echo "XF86Config path is $X11_PATH/XF86Config"
+}
+
+# Configure XFree86 3.x using the SVGA server.
+x11_3x_config() {
+    X11_SERVER=/usr/X11R6/bin/XF86_SVGA
+    x11_3x4x_common_config /usr/X11R6/lib/X11 /var/X11R6/lib /etc || return 1
+    x11_build_3x_config | x11_write_xf86config "$X11_PATH"
+}
+
+# Configure XFree86 4.x using its monolithic XFree86 server.
+x11_4x_config() {
+    X11_SERVER=/usr/X11R6/bin/XFree86
+    x11_3x4x_common_config /etc/X11 /etc /usr/X11R6/lib/X11 || return 1
+    x11_build_4x_config | x11_write_xf86config "$X11_PATH"
+}
+
+# Prepare the common Xconfig target for XFree86 1.x and 2.x servers.
+x11_1x2x_common_config() {
+    echo "Found X11 server at $X11_SERVER"
+    (cd "$(dirname "$X11_SERVER")"; ln -sf "$(basename "$X11_SERVER")" X)
+
+    x11_detect_path /etc/X11 /var/X11/lib/X11 /usr/X386/lib/X11 || return 1
+    X11_XCONFIG="$X11_PATH/Xconfig"
+    echo "Xconfig path is $X11_XCONFIG"
+
+    x11_backup_orig "$X11_XCONFIG"
+}
+
+# Configure XFree86 1.x and 2.x using the SVGA server.
+x11_1x2x_svga_config() {
+    X11_SERVER=/usr/X386/bin/XF86_SVGA
+    X11_MODES=${X11_MODES:-'"1024x768" "800x600" "640x480"'}
+    x11_1x2x_common_config || return 1
+    x11_build_1x2x_svga_config > "$X11_XCONFIG"
+    x11_install_startx_setfont_wrapper
+}
+
+# Configure XFree86 1.x and 2.x using a monochrome server.
+x11_1x2x_mono_config() {
+    X11_SERVER=/usr/X386/bin/X386mono
+    X11_MODES=${X11_MODES:-'"640x480"'}
+    x11_1x2x_common_config || return 1
+    x11_build_1x2x_mono_config > "$X11_XCONFIG"
+}
+
+# Entry point for applying target X11 configuration.
+_x11_config() {
+    echo "### Configuring X11..."
+
+    x11_detect_mouse_defaults
+
+    # Detect the variant of X11 based on the existence of server binaries.
+    if [ -x /usr/X11R6/bin/XFree86 ]; then
+        x11_4x_config
+    elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
+        x11_3x_config
+    elif [ -x /usr/X386/bin/XF86_SVGA ]; then
+        x11_1x2x_svga_config
+    elif [ -x /usr/X386/bin/X386mono ]; then
+        x11_1x2x_mono_config
+    else
+        echo "No supported X11 server found."
+    fi
 }

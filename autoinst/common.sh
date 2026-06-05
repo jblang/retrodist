@@ -42,9 +42,9 @@ net_config() {
     _net_config "$@"
 }
 
-configure_x11() {
+x11_config() {
     . "$AUTOINST_D/config/x11.sh"
-    _configure_x11 "$@"
+    _x11_config "$@"
 }
 
 enable_serial_console() {

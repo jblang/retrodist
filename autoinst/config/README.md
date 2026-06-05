@@ -158,25 +158,25 @@ on later runs. Most network files use a `~` suffix; Debian module setup uses
 `x11.sh` generates XFree86 configuration for supported historical X11 server
 layouts. The public wrapper in `common.sh` is:
 
-- `configure_x11`
-  Sources `config/x11.sh` and calls `_configure_x11`.
+- `x11_config`
+  Sources `config/x11.sh` and calls `_x11_config`.
 
 The generated configurations target QEMU-style Cirrus/VESA graphics and a
 basic two- or three-button mouse setup.
 
 ### Configuration Flow
 
-`_configure_x11`:
+`_x11_config`:
 
-1. Detects mouse defaults once, preserving any manifest-supplied `MOUSEDEV` and
-   `MOUSETYPE` values.
+1. Detects mouse defaults once, preserving any manifest-supplied
+   `X11_MOUSEDEV` and `X11_MOUSETYPE` values.
 2. Selects the first supported X server in this order:
    `/usr/X11R6/bin/XFree86`, `/usr/X11R6/bin/XF86_SVGA`,
    `/usr/X386/bin/XF86_SVGA`, then `/usr/X386/bin/X386mono`.
 3. Writes the matching X configuration file.
 4. Installs an `X` symlink for layouts that require it.
-5. Copies `XF86Config` to `/etc/XF86Config` for X11R6 layouts when the primary
-   config path is elsewhere.
+5. Links `/etc/XF86Config` to the generated `XF86Config` for X11R6 layouts
+   when the primary config path is elsewhere.
 6. Installs the `startx` font-reset wrapper for `/usr/X386/bin/XF86_SVGA`.
 
 Supported paths:
@@ -189,25 +189,33 @@ Supported paths:
   Uses `/usr/X11R6/bin/XF86_SVGA`, writes `XF86Config`, and configures the
   `svga` screen with QEMU/Cirrus-safe options.
 
-- X386/XFree86 SVGA
-  Uses `/usr/X386/bin/XF86_SVGA`, writes the older `Xconfig` format, configures
-  the `clgd5422` chipset, and wraps `startx` so `setfont` is run after X exits
-  when available.
+- XFree86 1.x/2.x SVGA under `/usr/X386`
+  Uses `/usr/X386/bin/XF86_SVGA`, writes the older `Xconfig` format, links the
+  server as `X` in `/usr/X386/bin`, configures the `clgd5422` chipset, and
+  wraps `startx` so `setfont` is run after X exits when available.
 
-- X386 mono
-  Selected when `/usr/X386/bin/X386mono` exists. The helper then uses
-  `/usr/X386/bin/XF86_mono` when present, otherwise `/usr/X386/bin/X386mono`.
-  It writes the older `Xconfig` format and selects the mono `VGA2` mode.
+- XFree86 1.x/2.x mono under `/usr/X386`
+  Selected when `/usr/X386/bin/X386mono` exists. It writes the older `Xconfig`
+  format, links the server as `X` in `/usr/X386/bin`, and selects the mono
+  `VGA2` mode.
 
 ### Variables
 
-- `MOUSEDEV`
+- `X11_MOUSEDEV`
   Mouse device. If unset, the helper prefers `/dev/psaux`, then `/dev/ps2aux`,
   then `/dev/cua1`.
 
-- `MOUSETYPE`
+- `X11_MOUSETYPE`
   Mouse protocol. If unset, PS/2 devices use `PS/2` and `/dev/cua1` uses
   `Microsoft`.
+
+- `X11_DEPTH`
+  Default display depth for XFree86 3.x and 4.x `XF86Config`. Defaults to `16`.
+
+- `X11_MODES`
+  Quoted X mode list for generated `Modes` lines. XFree86 3.x, XFree86 4.x,
+  and XFree86 1.x/2.x SVGA default to `"1024x768" "800x600" "640x480"`.
+  XFree86 1.x/2.x mono defaults to `"640x480"`.
 
 ### Behavior Notes
 

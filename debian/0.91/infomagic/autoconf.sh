@@ -7,5 +7,5 @@ NET_IPADDR=10.0.2.191
 NET_HOSTNAME_INIT_SET=1
 net_config
 
-MOUSEDEV=/dev/cua1
-configure_x11
+X11_MOUSEDEV=/dev/cua1
+x11_config
