@@ -20,7 +20,7 @@ Once you have your environment set up, clone the repo from https://github.com/jb
 From the repo root, run this command to install the host prerequisites for your environment:
 
 ```
-./retro prereq
+retro prereq
 ```
 
 This should auto-detect your environment and choose the correct package manager and packages:
@@ -63,32 +63,56 @@ Throughout the 90s, companies sold CD-ROMs with distros on them, usually for les
 
 Configuration files are provided in the [cdrom](cdrom) directory for downloading and extracting CD ISOs.
 
-## Jump Box
+## Display
 
-Old distributions are riddled with security holes and have no business being on the internet. If you were to connect them, they often do not support modern network protocols, so you can't do much.  Yes, you *can* put Slackware 1.0 on the internet and `ping www.google.com`, but that's about it, and that's probably a good thing. Even its FTP client won't work from behind a firewall because it doesn't support passive mode.
+By default, `retro` starts QEMU with a native window display backend: `gtk` on
+Linux and `cocoa` on macOS. Override this by setting `QEMU_DISPLAY`, for example
+`QEMU_DISPLAY="-display sdl" retro ... boot`. If QEMU reports that the selected
+backend is unavailable, install a QEMU UI backend package such as `qemu-ui-gtk`
+or choose another backend supported by `qemu-system-i386 -display help`.
 
-`jump` will start a modern Debian VM configured as a jump box with an FTP server and other niceties to interact with your retro boxes. This VM has a connection to the internet but also a second private network interface that all the retro boxes can talk to. By default its SSH port is forwarded to `2222` on the host, and convenience commands are provided to ssh, sftp, and scp. Set `JUMP_SSH_PORT` to use a different host port if needed. It is accessible to the retro distros via FTP to `10.0.2.1`. The username and password is `retro`/`retro`.  
+## Monitor and Serial Telnet Ports
 
-The jump box uses Debian's `generic` cloud image by default and attaches the
-private retro network with QEMU's `e1000` device. This avoids short-frame
-receive problems seen by some older Linux network drivers when the jump side
-uses virtio. Override `JUMP_IMAGE_FLAVOR` or `QEMU_NET_DEVICE_RETRONET` if you
-need to test a different jump image or private NIC model.
+By default, QEMU exposes its monitor and serial ports as local telnet listeners:
 
-```
-Usage: jump COMMAND ...
+- [QEMU monitor](https://qemu-project.gitlab.io/qemu/system/monitor.html): `telnet 127.0.0.1 2309`
+- [QMP protocol](https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html): `nc 127.0.0.1 2308`
 
-Commands:
-  run     start the jump box with a serial console
-  ssh     ssh into jump box
-  sftp    sftp into jump box
-  scp     scp file into into jump box
+- `/dev/ttyS0`: `telnet 127.0.0.1 2300`
+- `/dev/ttyS1`: `telnet 127.0.0.1 2301`
+- `/dev/ttyS2`: `telnet 127.0.0.1 2302`
+- `/dev/ttyS3`: `telnet 127.0.0.1 2303`
 
-Additional parameters are passed verbatim to ssh/sftp/scp.
-For scp, 'retro:*' is expanded to 'retro@localhost:*'.
-```
+Automated installs that call `enable_serial_console` enable a getty on
+`/dev/ttyS0`, which is mapped port 2300 by default. 
 
-To shut down the jump box, run `sudo poweroff` from the serial console or ssh session.
+### Telnet Port Overrides
+
+Override the above ports with:
+
+- `QEMU_TELNET_BASE_TTY`: number of serial telnet ports to expose (default: 4)
+- `QEMU_TELNET_BASE_PORT`: changes the base telnet port (default: 2300)
+- `QEMU_QMP_PORT`: QMP protocol port (default: 2308, or `QEMU_TELNET_BASE_PORT` + 8)
+- `QEMU_MONITOR_PORT`: QEMU monitor port (default: 2309, or `QEMU_TELNET_BASE_PORT` + 9)
+
+### QMP CLI Tool
+
+The `qmp` helper script is a CLI tool for interacting with the functions
+defined in `retrolib/qmp.sh`. It connects to `127.0.0.1:2308` by default.
+Set `QMP_PORT`, `QEMU_QMP_PORT`, or `QEMU_TELNET_BASE_PORT` to use a different
+QMP port.
+
+- `qmp dump-screen`: dump the full VGA text memory range as text.
+- `qmp dump-screen -n`: prefix rows with line numbers.
+- `qmp grep-screen 'boot:'`: print matching VGA text memory lines and return
+  success if any matched.
+- `qmp grep-screen -q 'boot:'`: check for matching VGA text memory lines
+  without printing them.
+- `qmp send-key ret`: send a literal QEMU sendkey key sequence.
+- `printf 'ramdisk' | qmp send-stdin`: type stdin into the VM.
+- `qmp send-text -n 'ramdisk'`: type text into the VM and press ENTER.
+- `qmp change-floppy root.img`: change the first floppy drive image.
+- `qmp eject-floppy`: eject the first floppy drive image.
 
 ## Adding Distros
 
@@ -128,15 +152,59 @@ The `retro` script configures QEMU to run the a distro by doing the following:
    - Perform any special-case initialization required by the distro
 3. Creates main hard drive image `hda.img` with size `QEMU_HD_SIZE` and format `QEMU_HD_FORMAT`
 
-By default, `retro` starts QEMU with a native window display backend: `gtk` on
-Linux and `cocoa` on macOS. Override this by setting `QEMU_DISPLAY`, for example
-`QEMU_DISPLAY="-display sdl" ./retro ... boot`. If QEMU reports that the selected
-backend is unavailable, install a QEMU UI backend package such as `qemu-ui-gtk`
-or choose another backend supported by `qemu-system-i386 -display help`.
-
 ### Automatic Installation and Configuration
 
 Support may optionally be provided for automatically installing and configuring a distro. Refer to the README in the [autoinst](autoinst) directory for more information.
+
+### Scripting Installs
+
+If a config directory contains `script.sh`, `retro install` starts QEMU, initializes
+QMP, then sources that script to drive the installer. These scripts are not
+standalone entry points; they call functions from `retrolib/qmp.sh` and
+`retrolib/script.sh`.
+
+Common install-script helpers include:
+
+- `script_boot_lilo`: wait for the `boot:` prompt and press ENTER.
+- `script_change_floppy TEXT [IMAGE]`: wait for screen text, change the first
+  floppy image, then press ENTER. `IMAGE` defaults to `root.img`.
+- `script_press_enter_on_screen TEXT`: wait for screen text and press ENTER.
+- `script_login PROMPT [USER]`: wait for a login prompt and type the user.
+  `USER` defaults to `root`.
+- `script_run_autoinst PROMPT`: wait for a shell prompt, mount `/dev/hdb1` at
+  `/retro`, and run `/retro/autoinst`.
+- `script_run_autoinst_when_screen TEXT`: run the same installer command after
+  screen text appears.
+- `script_finish_reboot [TEXT] [SECONDS]`: wait for the final reboot prompt,
+  set the next boot to hard disk with `boot_set c`, then press ENTER. `TEXT`
+  defaults to `Press ENTER to reboot.` and `SECONDS` defaults to `600`.
+
+## Jump Box
+
+Old distributions are riddled with security holes and have no business being on the internet. If you were to connect them, they often do not support modern network protocols, so you can't do much.  Yes, you *can* put Slackware 1.0 on the internet and `ping www.google.com`, but that's about it, and that's probably a good thing. Even its FTP client won't work from behind a firewall because it doesn't support passive mode.
+
+`jump` will start a modern Debian VM configured as a jump box with an FTP server and other niceties to interact with your retro boxes. This VM has a connection to the internet but also a second private network interface that all the retro boxes can talk to. By default its SSH port is forwarded to `2222` on the host, and convenience commands are provided to ssh, sftp, and scp. Set `JUMP_SSH_PORT` to use a different host port if needed. It is accessible to the retro distros via FTP to `10.0.2.1`. The username and password is `retro`/`retro`.  
+
+The jump box uses Debian's `generic` cloud image by default and attaches the
+private retro network with QEMU's `e1000` device. This avoids short-frame
+receive problems seen by some older Linux network drivers when the jump side
+uses virtio. Override `JUMP_IMAGE_FLAVOR` or `QEMU_NET_DEVICE_RETRONET` if you
+need to test a different jump image or private NIC model.
+
+```
+Usage: jump COMMAND ...
+
+Commands:
+  run     start the jump box with a serial console
+  ssh     ssh into jump box
+  sftp    sftp into jump box
+  scp     scp file into into jump box
+
+Additional parameters are passed verbatim to ssh/sftp/scp.
+For scp, 'retro:*' is expanded to 'retro@localhost:*'.
+```
+
+To shut down the jump box, run `sudo poweroff` from the serial console or ssh session.
 
 ## Credits
 

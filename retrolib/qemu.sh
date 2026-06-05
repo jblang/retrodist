@@ -75,6 +75,12 @@ qemu_base_defaults() {
   QEMU_INTERNET="${QEMU_INTERNET:-}"
   QEMU_BOOT_ORDER="${QEMU_BOOT_ORDER:-}"
   QEMU_RETRONET="${QEMU_RETRONET:-}"
+  QEMU_TELNET_BASE_TTY="${QEMU_TELNET_BASE_TTY:-4}"
+  QEMU_SERIAL_TELNET_HOST="${QEMU_SERIAL_TELNET_HOST:-127.0.0.1}"
+  QEMU_TELNET_BASE_PORT="${QEMU_TELNET_BASE_PORT:-2300}"
+  QEMU_MONITOR_PORT="${QEMU_MONITOR_PORT:-$((QEMU_TELNET_BASE_PORT + 9))}"
+  QEMU_QMP_PORT="${QEMU_QMP_PORT:-$((QEMU_TELNET_BASE_PORT + 8))}"
+  QEMU_INSTALL_SCRIPT="${QEMU_INSTALL_SCRIPT:-}"
 }
 
 qemu_apply_profile() {
@@ -149,12 +155,44 @@ qemu_finish_config() {
     else
       QEMU_BOOT_ORDER="-boot order=d"
     fi
+    if [[ -z "${QEMU_INSTALL_SCRIPT:-}" && -f "$CONFDIR/script.sh" ]]; then
+      QEMU_INSTALL_SCRIPT="$CONFDIR/script.sh"
+    fi
   fi
   if [[ -z "${QEMU_RETRONET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
     QEMU_RETRONET="
       -netdev socket,id=retronet,connect=:1234
       -device $QEMU_NET_DEVICE,netdev=retronet"
   fi
+}
+
+qemu_run_with_install_script() {
+  local qemu_pid script_status qemu_status
+  qemu_status=0
+
+  "${QEMU_ARGS[@]}" &
+  qemu_pid=$!
+
+  if ! qmp_init; then
+    kill "$qemu_pid" 2>/dev/null || true
+    wait "$qemu_pid" 2>/dev/null || true
+    return 1
+  fi
+
+  (
+    set -e
+    # shellcheck source=/dev/null
+    source "$QEMU_INSTALL_SCRIPT"
+  )
+  script_status=$?
+  if [[ $script_status -ne 0 ]]; then
+    kill "$qemu_pid" 2>/dev/null || true
+    wait "$qemu_pid" 2>/dev/null || true
+    return "$script_status"
+  fi
+
+  wait "$qemu_pid" || qemu_status=$?
+  return "$qemu_status"
 }
 
 load_qemu_config() {
@@ -272,14 +310,29 @@ qemu_build_globals() {
   fi
 }
 
+qemu_build_serials() {
+  local i port
+  QEMU_SERIALS=()
+  for ((i = 0; i < QEMU_TELNET_BASE_TTY; i++)); do
+    port=$((QEMU_TELNET_BASE_PORT + i))
+    QEMU_SERIALS+=(-serial "telnet:$QEMU_SERIAL_TELNET_HOST:$port,server=on,wait=off")
+  done
+}
+
 qemu_build_args() {
   QEMU_ARGS=(
     "$QEMU_SYSTEM"
     -machine "$QEMU_MACHINE"
     -smp "$QEMU_SMP"
     -m "$QEMU_RAM"
-    -serial mon:stdio
   )
+  if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
+    QEMU_ARGS+=(-monitor "telnet:127.0.0.1:$QEMU_MONITOR_PORT,server=on,wait=off")
+  fi
+  if [[ -n "${QEMU_QMP_PORT:-}" && "$QEMU_QMP_PORT" != "none" ]]; then
+    QEMU_ARGS+=(-qmp "tcp:127.0.0.1:$QEMU_QMP_PORT,server=on,wait=off")
+  fi
+  QEMU_ARGS+=("${QEMU_SERIALS[@]}")
   qemu_append_shell_words "${QEMU_DISPLAY:-}"
   qemu_append_shell_words "${QEMU_ACCEL:-}"
   qemu_append_shell_words "${QEMU_INTERNET:-}"
@@ -299,6 +352,9 @@ qemu_cleanup_empty_dir() {
 }
 
 retro_boot() {
+  local run_status
+  run_status=0
+
   retro_extract
   mkdir -p "$QEMUDIR"
 
@@ -317,6 +373,7 @@ retro_boot() {
 
   qemu_build_drives
   qemu_build_globals
+  qemu_build_serials
   qemu_warn_missing_display_backend
 
   qemu_build_args "$@"
@@ -324,10 +381,13 @@ retro_boot() {
   echo
   echo "QEMU command: $QEMU_COMMAND"
   echo
-  if [[ $COMMAND == "boot" || $COMMAND == "install" ]]; then
-    "${QEMU_ARGS[@]}"
+  if [[ $COMMAND == "install" && -n "${QEMU_INSTALL_SCRIPT:-}" ]]; then
+    qemu_run_with_install_script || run_status=$?
+  elif [[ $COMMAND == "boot" || $COMMAND == "install" ]]; then
+    "${QEMU_ARGS[@]}" || run_status=$?
   fi
   popd > /dev/null || return
+  return "$run_status"
 }
 
 retro_package() {

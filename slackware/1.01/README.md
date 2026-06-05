@@ -31,32 +31,3 @@ When the zips in the `a1` directory are extracted, they display an ad for the Ch
 [chitaotao](https://archive.org/details/slackware101) uploaded another version to archive.org in December 2021.  The archive contains floppy images for the complete `a1-a13`, `t1-t3`, and `x1-x10` series as well as a hard drive image for an installed system.  
 
 The files in the `a` series are identical to those from the official mirror, except that `a10` is missing `smail.tgz`.  However, the files from the `x` and `t` series are actually those from SLS 1.03.
-
-## Automatic Installation
-
-Automatic installation is supported (and recommended) for 1.0x and 1.1.x versions.
-
-Log in as `root` when prompted. Ignore the rest of the instructions and enter the following intead:
-
-```
-mount -t msdos /dev/hdb1 /mnt
-/mnt/autoinst
-```
-
-- Marvel as cryptic text scrolls by much faster than it would have on a real PC in 1993. When the installation is done, the VM will reboot.
-- The scripts will configure your system and then reboot again.
-- Log in as `root` once again. You've now got a fully-loaded Slackware 1.01 system, with properly configured X, networking, and serial console. Have fun! :^)
-
-## Manual Installation
-
-If you really want the authentic 1993 Slackware installation experience...
-
-- *Carefully* read the instructions printed out before the login prompt. 
-- If you need more guidance on partitioning, run `install.info` after logging in.
-- Partition your disk, initialize the swap, and format the root partition.
-- Run `doinstall /dev/hda2` (or your root partition). Answer the questions when prompted. 
-- Once you get to the following prompts, enter the responses in bold:
-  - Where will you be installing Linux from? **2**
-  - Enter the partition that the source is on (eg. /dev/hda1): **/dev/hdb1** 
-  - Enter the type of filesystem (minix/ext2/msdos) **msdos**
-- Be prepared to answer y/n approximately 100 times about whether you want to install each individual package. 

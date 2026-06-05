@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# Test CLI for QMP helpers.
+set -euo pipefail
+
+SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# shellcheck source=retrolib/qmp.sh
+source "$SCRIPTDIR/retrolib/qmp.sh"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") COMMAND [OPTIONS] [ARGS]
+
+Commands:
+  dump-screen        dump the full VGA text memory range
+  grep-screen TEXT   print matching VGA text memory lines
+  send-key KEY       send a literal QEMU sendkey key sequence
+  send-stdin         type stdin into the guest using QEMU sendkey commands
+  send-text TEXT     type TEXT into the guest using QEMU sendkey commands
+  change-floppy IMG  change the floppy0 image
+  eject-floppy       eject the floppy0 image
+  help               show this help text
+
+Common options:
+  -h HOST     QMP host. Default: 127.0.0.1
+  -p PORT     QMP port. Default: QEMU_TELNET_BASE_PORT + 8, normally 2308
+  -a ADDR     VGA text buffer address. Default: 0xb8000
+  -c COLS     Screen columns. Default: 80
+  -r ROWS     Screen rows. Default: 25
+  -m BYTES    VGA text memory bytes for dump-screen. Default: 32768
+  -w SECONDS  nc idle timeout. Default: 1
+
+dump-screen options:
+  -n          Prefix rows with line numbers.
+
+grep-screen options:
+  -q          Suppress matching line output.
+
+send-text options:
+  -n          send Enter after TEXT
+
+change-floppy options:
+  -d DEVICE   floppy device. Default: floppy0
+
+eject-floppy options:
+  -d DEVICE   floppy device. Default: floppy0
+
+Environment variables with the same names are also supported:
+QMP_HOST, QMP_PORT, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT,
+VGA_LINE_NUMBERS. QEMU_QMP_PORT and QEMU_TELNET_BASE_PORT may also set the
+default QMP port.
+EOF
+}
+
+qmp_parse_options() {
+  local optstring
+  optstring=$1
+  shift
+
+  OPTIND=1
+  while getopts "$optstring" opt; do
+    case "$opt" in
+      h) QMP_HOST=$OPTARG ;;
+      p) QMP_PORT=$OPTARG ;;
+      a) VGA_ADDR=$OPTARG ;;
+      c) VGA_COLS=$OPTARG ;;
+      r) VGA_ROWS=$OPTARG ;;
+      m) VGA_MEM_BYTES=$OPTARG ;;
+      w) QMP_TIMEOUT=$OPTARG ;;
+      n)
+        if [ "${QMP_PARSE_N_MODE:-line-numbers}" = "send-newline" ]; then
+          QMP_SEND_NEWLINE=1
+        else
+          VGA_LINE_NUMBERS=1
+        fi
+        ;;
+      q) QMP_GREP_QUIET=1 ;;
+      d) QMP_FLOPPY_DEVICE=$OPTARG ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+  QMP_REMAINING_ARGS=("$@")
+}
+
+qmp_set_defaults
+QMP_SEND_NEWLINE=${QMP_SEND_NEWLINE:-0}
+QMP_GREP_QUIET=${QMP_GREP_QUIET:-0}
+
+command_name=${1:-help}
+case "$command_name" in
+  help | --help)
+    usage
+    exit 0
+    ;;
+  dump-screen | grep-screen | send-key | send-stdin | send-text | change-floppy | eject-floppy)
+    shift || true
+    ;;
+  *)
+    echo "Unknown qmp command: $command_name" >&2
+    echo >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+case "$command_name" in
+  dump-screen)
+    qmp_parse_options "h:p:a:c:r:m:w:n" "$@"
+    ;;
+  grep-screen)
+    qmp_parse_options "h:p:a:c:r:m:w:q" "$@"
+    ;;
+  send-key)
+    qmp_parse_options "h:p:w:" "$@"
+    ;;
+  send-stdin)
+    qmp_parse_options "h:p:w:" "$@"
+    ;;
+  send-text)
+    QMP_PARSE_N_MODE=send-newline
+    qmp_parse_options "h:p:w:n" "$@"
+    unset QMP_PARSE_N_MODE
+    ;;
+  change-floppy)
+    qmp_parse_options "h:p:w:d:" "$@"
+    ;;
+  eject-floppy)
+    qmp_parse_options "h:p:w:d:" "$@"
+    ;;
+esac
+set +u
+set -- "${QMP_REMAINING_ARGS[@]}"
+set -u
+
+qmp_check_prereqs
+qmp_vga_validate_config
+
+case "$command_name" in
+  dump-screen)
+    if [ $# -ne 0 ]; then
+      echo "$command_name does not take positional arguments" >&2
+      exit 1
+    fi
+    qmp_vga_text
+    ;;
+  grep-screen)
+    if [ $# -ne 1 ]; then
+      echo "Usage: $(basename "$0") grep-screen [OPTIONS] TEXT" >&2
+      exit 1
+    fi
+    if [ "$QMP_GREP_QUIET" = "1" ]; then
+      qmp_vga_memory_has_text "$1"
+    else
+      qmp_vga_memory_grep_text "$1"
+    fi
+    ;;
+  send-key)
+    if [ $# -ne 1 ]; then
+      echo "Usage: $(basename "$0") send-key [OPTIONS] KEY" >&2
+      exit 1
+    fi
+    qmp_sendkey "$1"
+    ;;
+  send-stdin)
+    if [ $# -ne 0 ]; then
+      echo "Usage: INPUT | $(basename "$0") send-stdin [OPTIONS]" >&2
+      exit 1
+    fi
+    qmp_send_stdin
+    ;;
+  send-text)
+    if [ $# -ne 1 ]; then
+      echo "Usage: $(basename "$0") send-text [OPTIONS] TEXT" >&2
+      exit 1
+    fi
+    qmp_send_string "$1"
+    if [ "$QMP_SEND_NEWLINE" = "1" ]; then
+      qmp_send_return
+    fi
+    ;;
+  change-floppy)
+    if [ $# -ne 1 ]; then
+      echo "Usage: $(basename "$0") change-floppy [OPTIONS] IMAGE" >&2
+      exit 1
+    fi
+    qmp_change_floppy "$1"
+    ;;
+  eject-floppy)
+    if [ $# -ne 0 ]; then
+      echo "Usage: $(basename "$0") eject-floppy [OPTIONS]" >&2
+      exit 1
+    fi
+    qmp_eject_floppy
+    ;;
+esac
