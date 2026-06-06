@@ -130,19 +130,19 @@ CLANGARM64 so QEMU can be installed from the matching MinGW package repo.
 EOF
           exit 1
         fi
-        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso openssh
+        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof openssh
         return
       fi
       ;;
     Linux)
       if command -v apt-get >/dev/null 2>&1; then
-        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso openssh-client
+        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof openssh-client
         return
       elif command -v dnf >/dev/null 2>&1; then
-        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso openssh-clients
+        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof openssh-clients
         return
       elif command -v pacman >/dev/null 2>&1; then
-        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso openssh
+        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof openssh
         return
       fi
       ;;
@@ -165,6 +165,7 @@ Install the prerequisites manually:
   wget
   bchunk
   xorriso
+  lsof
   ssh, sftp, scp, and ssh-keygen
 EOF
     exit 1

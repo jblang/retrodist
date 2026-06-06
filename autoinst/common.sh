@@ -43,14 +43,14 @@ net_config() {
     _net_config "$@"
 }
 
-x11_config() {
-    . "$AUTOINST_D/config/x11.sh"
-    _x11_config "$@"
-}
-
 tty_config() {
     . "$AUTOINST_D/config/tty.sh"
     _tty_config "$@"
+}
+
+x11_config() {
+    . "$AUTOINST_D/config/x11.sh"
+    _x11_config "$@"
 }
 
 configure_mail() {

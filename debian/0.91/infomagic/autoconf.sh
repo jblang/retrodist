@@ -3,7 +3,6 @@ debian_091_install_packages
 tty_config
 
 NET_HOSTNAME=debra
-NET_IPADDR=10.0.2.191
 NET_HOSTNAME_INIT_SET=1
 net_config
 

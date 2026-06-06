@@ -5,7 +5,6 @@ DEBIAN_ROOT_HOOK=.configure
 debian_install_base
 
 NET_HOSTNAME=buzz
-NET_IPADDR=10.0.2.111
 NET_ETCPATH=$ROOTMOUNT/etc
 NET_MODULE='ne io=0x300 irq=9'
 net_config

@@ -237,8 +237,12 @@ x11_detect_mouse_defaults() {
             /dev/psaux|/dev/ps2aux)
                 X11_MOUSETYPE="PS/2"
                 ;;
-            /dev/cua1)
+            /dev/cua*)
                 X11_MOUSETYPE="Microsoft"
+                ;;
+            *)
+                log_error "Unknown mouse device: $X11_MOUSEDEV"
+                exit 1
                 ;;
         esac
     fi

@@ -1,10 +1,11 @@
 # Fill unset network configuration variables with QEMU-friendly defaults.
 net_set_defaults() {
+    NET_IPADDR=${NET_IPADDR:-10.0.2.15}
     NET_NETMASK=${NET_NETMASK:-255.255.255.0}
     NET_NETWORK=${NET_NETWORK:-10.0.2.0}
     NET_BROADCAST=${NET_BROADCAST:-10.0.2.255}
-    NET_GATEWAY=${NET_GATEWAY:-10.0.2.1}
-    NET_NAMESERVER=${NET_NAMESERVER:-10.0.2.1}
+    NET_GATEWAY=${NET_GATEWAY:-10.0.2.2}
+    NET_NAMESERVER=${NET_NAMESERVER:-10.0.2.3}
     NET_DOMAINNAME=${NET_DOMAINNAME:-retro.net}
 
     NET_ETCPATH=${NET_ETCPATH:-/etc}
@@ -25,15 +26,6 @@ net_set_defaults() {
     log_debug "  NET_RCPATH=$NET_RCPATH"
 }
 
-# Emit the hostname file contents, including a domain when configured.
-net_build_etc_hostname() {
-    if [ -z "$NET_DOMAINNAME" ]; then
-        echo "$NET_HOSTNAME"
-    else
-        echo "$NET_HOSTNAME.$NET_DOMAINNAME"
-    fi
-}
-
 # Emit /etc/hosts entries for localhost and the configured host.
 net_build_etc_hosts() {
     echo "127.0.0.1	localhost"
@@ -46,8 +38,8 @@ net_build_etc_hosts() {
 
 # Emit resolver configuration for the configured domain and nameserver.
 net_build_resolv_conf() {
-    echo "domain $NET_DOMAINNAME"
-    echo "search $NET_DOMAINNAME"
+    echo "# domain $NET_DOMAINNAME"
+    echo "# search $NET_DOMAINNAME"
     if [ -n "$NET_NAMESERVER" ]; then
         echo "nameserver $NET_NAMESERVER"
     fi
@@ -209,7 +201,7 @@ net_detect_paths() {
 net_config_standard() {
     net_backup_suffix "$NET_HOSTNAME_PATH"
     log_info "Creating file: $NET_HOSTNAME_PATH"
-    net_build_etc_hostname > "$NET_HOSTNAME_PATH"
+    echo "$NET_HOSTNAME" > "$NET_HOSTNAME_PATH"
     chmod 644 "$NET_HOSTNAME_PATH"
 
     net_backup_suffix "$NET_INIT_SCRIPT_PATH"
@@ -245,6 +237,27 @@ net_config_rc_net() {
     net_backup_suffix "$NET_HOSTS_PATH"
     log_info "Creating file: $NET_HOSTS_PATH"
     net_build_sls_hosts > "$NET_HOSTS_PATH"
+
+    # SLS uses /etc/host (singular) for hostname
+    NET_HOST_PATH="$NET_ETCPATH/host"
+    net_backup_suffix "$NET_HOST_PATH"
+    log_info "Creating file: $NET_HOST_PATH"
+    echo "$NET_HOSTNAME" > "$NET_HOST_PATH"
+    chmod 644 "$NET_HOST_PATH"
+
+    # SLS uses /etc/domain for domain name
+    if [ -n "$NET_DOMAINNAME" ] && [ "$NET_DOMAINNAME" != "none" ]; then
+        NET_DOMAIN_PATH="$NET_ETCPATH/domain"
+        net_backup_suffix "$NET_DOMAIN_PATH"
+        log_info "Creating file: $NET_DOMAIN_PATH"
+        echo "$NET_DOMAINNAME" > "$NET_DOMAIN_PATH"
+        chmod 644 "$NET_DOMAIN_PATH"
+    fi
+
+    net_backup_suffix "$NET_RESOLV_CONF_PATH"
+    log_info "Creating file: $NET_RESOLV_CONF_PATH"
+    net_build_resolv_conf > "$NET_RESOLV_CONF_PATH"
+    chmod 644 "$NET_RESOLV_CONF_PATH"
 }
 
 # Enable the selected network module on Debian modutils-based systems.

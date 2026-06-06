@@ -4,6 +4,5 @@ DEBIAN_BASE_TARBALL=base1_2.tgz
 debian_install_base
 
 NET_HOSTNAME=rex
-NET_IPADDR=10.0.2.112
 NET_ETCPATH=$ROOTMOUNT/etc
 net_config

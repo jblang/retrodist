@@ -63,13 +63,16 @@ tty_find_active_line_for_device() {
     sed -n '1p'
 }
 
-# Emit the first matching stock getty comment for a device.
-tty_find_stock_line_for_device() {
-    sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $1\\([ 	].*\\)\{0,1\}\$/p" "$TTY_INITTAB" |
-    sed -n '1p'
+# Find the first commented getty line for ttyS0, ttyS1, ttys0, or ttys1.
+tty_find_serial_getty_line() {
+    # Look for any commented line with getty or agetty (not uugetty) for serial ports 0 or 1
+    # Match both ttyS and ttys with either case
+    # Pattern matches both "getty 9600 ttyS0" and "getty ttyS0 9600" formats
+    # Use grep to exclude uugetty, then take first match
+    grep '^#.*:.*:respawn:.*getty.*tty[Ss][01]' "$TTY_INITTAB" | grep -v 'uugetty' | head -1
 }
 
-# Set TTY_STOCK_LINE to the first stock getty line, or fail when one is active.
+# Set TTY_STOCK_LINE to a serial getty line, or fail when one is already active.
 tty_find_getty_line() {
     # Avoid shell read loops here; Slackware 3.0's /bin/sh can segfault in read.
     # shellcheck disable=SC2006
@@ -82,81 +85,43 @@ tty_find_getty_line() {
         return 1
     fi
 
-    TTY_STOCK_DEV=$TTY_DEV
+    # Find any serial getty line for ports 0 or 1
     # shellcheck disable=SC2006
-    TTY_STOCK_LINE=`tty_find_stock_line_for_device "$TTY_DEV"`
-    if [ -z "$TTY_STOCK_LINE" ] && [ -n "$TTY_DEV_ALT" ]; then
-        TTY_STOCK_DEV=$TTY_DEV_ALT
-        # shellcheck disable=SC2006
-        TTY_STOCK_LINE=`tty_find_stock_line_for_device "$TTY_DEV_ALT"`
-    fi
-}
-
-# Detect the preferred available getty binary.
-tty_detect_getty() {
-    for TTY_GETTY in /sbin/agetty /sbin/getty /etc/getty; do
-        if [ -x "$TTY_GETTY" ]; then
-            log_info "Detected getty command: $TTY_GETTY"
-            return 0
-        fi
-    done
-
-    log_warn "No getty binary found for $TTY_DEV; leaving inittab unchanged"
-    return 1
-}
-
-# Emit the getty command used by the inittab serial entry.
-tty_build_getty_command() {
-    if tty_detect_getty; then
-        :
-    else
-        return 0
-    fi
-
-    case "$TTY_GETTY" in
-        agetty|*/agetty)
-            echo "$TTY_GETTY $TTY_BAUD $TTY_DEV ${TTY_TERM:-vt100}"
-            ;;
-        *)
-            echo "$TTY_GETTY $TTY_DEV $TTY_BAUD"
-            ;;
-    esac
-}
-
-# Emit the full inittab line used for the configured getty.
-tty_build_inittab_line() {
+    TTY_STOCK_LINE=`tty_find_serial_getty_line`
     if [ -n "$TTY_STOCK_LINE" ]; then
-        # Reuse the stock id/runlevels/action, but build the command separately.
-        TTY_STOCK_ACTIVE=${TTY_STOCK_LINE#\#}
-        # shellcheck disable=SC2006
-        TTY_STOCK_PREFIX=`echo "$TTY_STOCK_ACTIVE" | sed 's/:[^:]*$//'`
+        log_debug "Found serial getty line: $TTY_STOCK_LINE"
+        # Determine which device to use based on what we want
+        TTY_STOCK_DEV=$TTY_DEV
     else
-        TTY_STOCK_PREFIX="$TTY_ID:$TTY_RUNLEVELS:respawn"
+        log_debug "No serial getty line found in inittab"
     fi
-
-    echo "$TTY_STOCK_PREFIX:$TTY_GETTY_COMMAND"
 }
 
-# Insert after a stock commented serial line or append a new serial getty entry.
+# Uncomment and adapt a serial getty line for the target device.
 tty_write_inittab() {
     if [ -n "$TTY_STOCK_LINE" ]; then
-        log_info "Enabling stock serial getty entry for $TTY_STOCK_DEV"
-        # Rewrite the current file, not .orig; .orig is only the first-run backup.
-        # Avoid shell read loops here; Slackware 3.0's /bin/sh can segfault in read.
-        sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $TTY_STOCK_DEV\\([ 	].*\\)\{0,1\}\$/{
-p
-a\\
-$TTY_INITTAB_LINE
-:copy
-n
-p
-b copy
-}
-p" "$TTY_INITTAB" > "$TTY_INITTAB_NEW"
+        log_info "Enabling serial getty entry for $TTY_STOCK_DEV"
+        # Uncomment the line
+        TTY_UNCOMMENTED=${TTY_STOCK_LINE#\#}
+        # Extract the getty command part (everything after the third colon)
+        # shellcheck disable=SC2006
+        TTY_GETTY_CMD=`echo "$TTY_UNCOMMENTED" | sed 's/^[^:]*:[^:]*:[^:]*://'`
+        # Replace any ttyS[01] or ttys[01] with our target device in the command
+        # shellcheck disable=SC2006
+        TTY_GETTY_CMD=`echo "$TTY_GETTY_CMD" | sed "s/tty[Ss][01]/$TTY_STOCK_DEV/g"`
+        # Build new line with our runlevels (12345) and the adapted getty command
+        TTY_NEW_LINE="$TTY_ID:$TTY_RUNLEVELS:respawn:$TTY_GETTY_CMD"
+        log_debug "Generated line: $TTY_NEW_LINE"
+        # Append the new line after the stock line
+        # shellcheck disable=SC2006
+        TTY_ESCAPED_STOCK=`echo "$TTY_STOCK_LINE" | sed 's/[\/&]/\\\\&/g'`
+        sed "/^$TTY_ESCAPED_STOCK\$/a\\
+$TTY_NEW_LINE\\
+" "$TTY_INITTAB" > "$TTY_INITTAB_NEW"
         mv "$TTY_INITTAB_NEW" "$TTY_INITTAB"
     else
-        log_info "Appending serial getty entry to $TTY_INITTAB"
-        echo "$TTY_INITTAB_LINE" >> "$TTY_INITTAB"
+        log_warn "No serial getty line found; leaving inittab unchanged"
+        return 1
     fi
 }
 
@@ -179,17 +144,7 @@ tty_config_inittab() {
         return 0
     fi
 
-    # shellcheck disable=SC2006
-    TTY_GETTY_COMMAND=`tty_build_getty_command`
     tty_backup_orig "$TTY_INITTAB"
-    if [ -z "$TTY_GETTY_COMMAND" ]; then
-        log_warn "No getty command generated; leaving $TTY_INITTAB unchanged"
-        return 0
-    fi
-    # shellcheck disable=SC2006
-    TTY_INITTAB_LINE=`tty_build_inittab_line`
-    log_debug "Generated inittab line: $TTY_INITTAB_LINE"
-
     tty_write_inittab
 }
 

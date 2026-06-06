@@ -228,7 +228,6 @@ Supported paths:
 - The `startx` wrapper is only installed when using the older
   `/usr/X386/bin/XF86_SVGA` path and only when `startx` is a regular file that
   has not already been wrapped.
-
 ## `tty.sh`
 
 ### Purpose
@@ -246,17 +245,16 @@ Supported paths:
 2. Detects target paths under `TTY_ETCPATH` and reads `inittab` if present.
 3. Leaves `inittab` unchanged and logs a warning when an active getty line
    already exists for the requested TTY.
-4. Looks for a commented stock serial getty line matching the requested TTY.
-5. Detects the first available getty binary in this order: `/sbin/agetty`,
-   `/sbin/getty`, then `/etc/getty`.
-6. Builds a getty line from the detected binary. When a stock comment was found,
-   its id and runlevels are reused; otherwise `TTY_ID` and `TTY_RUNLEVELS` are
-   used.
-7. Saves `inittab.orig` and inserts the generated line after the matching stock
-   comment, or appends it when no matching stock comment exists.
-8. Comments out `CONSOLE` in `login.defs` when present so `securetty` controls
+4. Looks for a commented stock serial getty line for serial ports 0 or 1
+   (matching `ttyS[01]` or `ttys[01]`).
+5. Uncomments and adapts the stock serial getty line, replacing the device name
+   with the target device and using `TTY_ID` and `TTY_RUNLEVELS` for the
+   inittab entry.
+6. Saves `inittab.orig` and inserts the generated line after the matching stock
+   comment.
+7. Comments out `CONSOLE` in `login.defs` when present so `securetty` controls
    root login devices.
-9. Saves `securetty.orig` when `securetty` already exists and appends the serial
+8. Saves `securetty.orig` when `securetty` already exists and appends the serial
    TTY when it is not already listed.
 
 ### Variables
@@ -274,9 +272,6 @@ Supported paths:
 - `TTY_RUNLEVELS`
   Runlevels for newly appended getty lines. Defaults to `123456`.
 
-- `TTY_TERM`
-  Terminal type for generated `agetty` lines. Defaults to `vt100`.
-
 - `TTY_ETCPATH`
   Target `/etc` path. Defaults to `/etc`.
 
@@ -292,6 +287,10 @@ Supported paths:
 
 - TTY-specific failures are logged as warnings and do not stop later
   `autoconf.sh` helpers from running.
+
+- The helper requires a commented stock serial getty line in `inittab` to work.
+  If no such line is found, it logs a warning and leaves `inittab` unchanged.
+
 
 ## `mail.sh`
 

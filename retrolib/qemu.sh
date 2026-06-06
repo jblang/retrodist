@@ -38,6 +38,38 @@ qemu_append_shell_words() {
   fi
 }
 
+qemu_port_listening() {
+  local port
+  port=$1
+  lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+qemu_require_lsof() {
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "Missing lsof in PATH; cannot allocate QEMU ports." >&2
+    return 1
+  fi
+}
+
+qemu_find_available_port() {
+  local base label offset port
+  label=$1
+  base=$2
+  for ((offset = 0; offset <= 99; offset++)); do
+    port=$((base + offset))
+    if ! qemu_port_listening "$port"; then
+      printf '%s\n' "$port"
+      return 0
+    fi
+  done
+  echo "No available $label port found from $base through $((base + 99))." >&2
+  return 1
+}
+
+qemu_default_internet_enabled() {
+  [[ "$QEMU_NET_TYPE" == "user" && -z "${QEMU_INTERNET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]
+}
+
 qemu_render_command_sh() {
   local rendered=
   printf -v rendered '%q ' "${QEMU_ARGS[@]}"
@@ -62,9 +94,12 @@ qemu_render_command_cmd() {
 }
 
 qemu_base_defaults() {
+  # System options
   QEMU_SYSTEM="${QEMU_SYSTEM:-qemu-system-i386}"
   QEMU_PROFILE="${QEMU_PROFILE:-default}"
   QEMU_SMP="${QEMU_SMP:-1}"
+
+  # Storage options
   QEMU_HD_FORMAT="${QEMU_HD_FORMAT:-qcow2}"
   QEMU_HD_CREATE_OPTIONS="${QEMU_HD_CREATE_OPTIONS:-}"
   QEMU_HDA_OPTIONS="${QEMU_HDA_OPTIONS:-}"
@@ -72,14 +107,34 @@ qemu_base_defaults() {
   QEMU_ATTACH_ROOT_FDB="${QEMU_ATTACH_ROOT_FDB:-0}"
   QEMU_FDTYPE_A="${QEMU_FDTYPE_A:-144}"
   QEMU_FDTYPE_B="${QEMU_FDTYPE_B:-144}"
-  QEMU_INTERNET="${QEMU_INTERNET:-}"
   QEMU_BOOT_ORDER="${QEMU_BOOT_ORDER:-}"
+
+  # Network options
+  QEMU_NET_TYPE="${QEMU_NET_TYPE:-user}"
   QEMU_RETRONET="${QEMU_RETRONET:-}"
-  QEMU_TELNET_BASE_TTY="${QEMU_TELNET_BASE_TTY:-4}"
-  QEMU_SERIAL_TELNET_HOST="${QEMU_SERIAL_TELNET_HOST:-127.0.0.1}"
-  QEMU_TELNET_BASE_PORT="${QEMU_TELNET_BASE_PORT:-2300}"
-  QEMU_MONITOR_PORT="${QEMU_MONITOR_PORT:-$((QEMU_TELNET_BASE_PORT + 9))}"
-  QEMU_QMP_PORT="${QEMU_QMP_PORT:-$((QEMU_TELNET_BASE_PORT + 8))}"
+  QEMU_INTERNET="${QEMU_INTERNET:-}"
+
+  # Serial/parallel ports (chardev)
+  QEMU_SERIAL_SOCKET_COUNT="${QEMU_SERIAL_SOCKET_COUNT:-4}"
+  QEMU_SERIAL_SOCKET_PREFIX="${QEMU_SERIAL_SOCKET_PREFIX:-ttyS}"
+  QEMU_PARALLEL_SOCKET_COUNT="${QEMU_PARALLEL_SOCKET_COUNT:-1}"
+  QEMU_PARALLEL_SOCKET_PREFIX="${QEMU_PARALLEL_SOCKET_PREFIX:-lp}"
+
+  # QEMU monitor and QMP ports
+  QEMU_MONITOR_BASE="${QEMU_MONITOR_BASE:-5555}"
+  QEMU_MONITOR_PORT="${QEMU_MONITOR_PORT:-}"
+  QEMU_QMP_BASE="${QEMU_QMP_BASE:-4444}"
+  QEMU_QMP_PORT="${QEMU_QMP_PORT:-}"
+
+  # Guest port forwards
+  QEMU_SSH_BASE="${QEMU_SSH_BASE:-2200}"
+  QEMU_SSH_PORT="${QEMU_SSH_PORT:-}"
+  QEMU_TELNET_BASE="${QEMU_TELNET_BASE:-2300}"
+  QEMU_TELNET_PORT="${QEMU_TELNET_PORT:-}"
+  QEMU_HTTP_BASE="${QEMU_HTTP_BASE:-8000}"
+  QEMU_HTTP_PORT="${QEMU_HTTP_PORT:-}"
+  
+  # Install scripting
   QEMU_INSTALL_SCRIPT="${QEMU_INSTALL_SCRIPT:-}"
 }
 
@@ -145,7 +200,40 @@ qemu_apply_profile() {
   esac
 }
 
+qemu_assign_port() {
+  local label base current
+  label=$1
+  base=$2
+  current=$3
+
+  if [[ "$current" == "none" ]]; then
+    return 0
+  fi
+  qemu_require_lsof || return 1
+  if [[ -n "$current" ]]; then
+    if qemu_port_listening "$current"; then
+      echo "Requested $label port $current is already in use." >&2
+      return 1
+    fi
+    printf '%s\n' "$current"
+    return 0
+  fi
+  qemu_find_available_port "$label" "$base"
+}
+
+qemu_assign_ports() {
+  if [[ "$QEMU_NET_TYPE" == "user" ]]; then
+    QEMU_SSH_PORT=$(qemu_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
+    QEMU_TELNET_PORT=$(qemu_assign_port telnet "$QEMU_TELNET_BASE" "$QEMU_TELNET_PORT") || return 1
+    QEMU_HTTP_PORT=$(qemu_assign_port http "$QEMU_HTTP_BASE" "$QEMU_HTTP_PORT") || return 1
+  fi
+  QEMU_QMP_PORT=$(qemu_assign_port qmp "$QEMU_QMP_BASE" "$QEMU_QMP_PORT") || return 1
+  QEMU_MONITOR_PORT=$(qemu_assign_port monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
+}
+
 qemu_finish_config() {
+  local qemu_internet_netdev
+
   QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
   QEMU_ACCEL="${QEMU_ACCEL:--accel tcg}"
   QEMU_EXTRA="${QEMU_EXTRA:-}"
@@ -159,10 +247,45 @@ qemu_finish_config() {
       QEMU_INSTALL_SCRIPT="$CONFDIR/script.sh"
     fi
   fi
-  if [[ -z "${QEMU_RETRONET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
-    QEMU_RETRONET="
-      -netdev socket,id=retronet,connect=:1234
-      -device $QEMU_NET_DEVICE,netdev=retronet"
+  # Validate QEMU_NET_TYPE
+  case "$QEMU_NET_TYPE" in
+    user|jump|none)
+      ;;
+    *)
+      echo "Invalid QEMU_NET_TYPE '$QEMU_NET_TYPE'. Valid values: user, jump, none" >&2
+      exit 1
+      ;;
+  esac
+
+  # Configure network based on QEMU_NET_TYPE (unless explicitly overridden)
+  if [[ -z "${QEMU_INTERNET:-}" && -z "${QEMU_RETRONET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
+    case "$QEMU_NET_TYPE" in
+      user)
+        # User networking with port forwards (default behavior)
+        qemu_internet_netdev="user,id=internet"
+        if [[ -n "${QEMU_SSH_PORT:-}" && "$QEMU_SSH_PORT" != "none" ]]; then
+          qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_SSH_PORT-:22"
+        fi
+        if [[ -n "${QEMU_TELNET_PORT:-}" && "$QEMU_TELNET_PORT" != "none" ]]; then
+          qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_TELNET_PORT-:23"
+        fi
+        if [[ -n "${QEMU_HTTP_PORT:-}" && "$QEMU_HTTP_PORT" != "none" ]]; then
+          qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_HTTP_PORT-:80"
+        fi
+        QEMU_INTERNET="
+          -netdev $qemu_internet_netdev
+          -device $QEMU_NET_DEVICE,netdev=internet"
+        ;;
+      jump)
+        # Socket connection to jumpbox
+        QEMU_RETRONET="
+          -netdev socket,id=jumpnet,connect=:1234
+          -device $QEMU_NET_DEVICE,netdev=jumpnet"
+        ;;
+      none)
+        # No networking
+        ;;
+    esac
   fi
 }
 
@@ -216,6 +339,7 @@ load_qemu_config() {
     QEMU_PROFILE=$qemu_profile_env
   fi
   qemu_apply_profile
+  qemu_assign_ports || exit 1
   qemu_finish_config
 }
 
@@ -313,13 +437,28 @@ qemu_build_globals() {
   fi
 }
 
-qemu_build_serials() {
-  local i port
-  QEMU_SERIALS=()
-  for ((i = 0; i < QEMU_TELNET_BASE_TTY; i++)); do
-    port=$((QEMU_TELNET_BASE_PORT + i))
-    QEMU_SERIALS+=(-serial "telnet:$QEMU_SERIAL_TELNET_HOST:$port,server=on,wait=off")
+qemu_build_socket_chardevs() {
+  local array_name=$1
+  local option=$2
+  local count=$3
+  local prefix=$4
+  local i socket
+
+  echo "Creating $count serial ports"
+  eval "$array_name=()"
+  for ((i = 0; i < count; i++)); do
+    socket="$prefix$i.sock"
+    rm -f "$socket"
+    eval "$array_name+=( \"\$option\" \"unix:\$socket,server=on,wait=off\" )"
   done
+}
+
+qemu_build_serials() {
+  qemu_build_socket_chardevs QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX"
+}
+
+qemu_build_parallels() {
+  qemu_build_socket_chardevs QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX"
 }
 
 qemu_build_args() {
@@ -329,13 +468,14 @@ qemu_build_args() {
     -smp "$QEMU_SMP"
     -m "$QEMU_RAM"
   )
-  if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
-    QEMU_ARGS+=(-monitor "telnet:127.0.0.1:$QEMU_MONITOR_PORT,server=on,wait=off")
-  fi
   if [[ -n "${QEMU_QMP_PORT:-}" && "$QEMU_QMP_PORT" != "none" ]]; then
     QEMU_ARGS+=(-qmp "tcp:127.0.0.1:$QEMU_QMP_PORT,server=on,wait=off")
   fi
+  if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
+    QEMU_ARGS+=(-monitor "telnet:127.0.0.1:$QEMU_MONITOR_PORT,server=on,wait=off")
+  fi
   QEMU_ARGS+=("${QEMU_SERIALS[@]}")
+  QEMU_ARGS+=("${QEMU_PARALLELS[@]}")
   qemu_append_shell_words "${QEMU_DISPLAY:-}"
   qemu_append_shell_words "${QEMU_ACCEL:-}"
   qemu_append_shell_words "${QEMU_INTERNET:-}"
@@ -346,6 +486,27 @@ qemu_build_args() {
   qemu_append_shell_words "${QEMU_EXTRA:-}"
   QEMU_ARGS+=("$@")
   QEMU_COMMAND=$(qemu_render_command_sh)
+}
+
+qemu_print_ports() {
+  echo "QEMU ports:"
+  if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
+    echo "  Monitor: localhost:$QEMU_MONITOR_PORT"
+  fi
+  if [[ -n "${QEMU_QMP_PORT:-}" && "$QEMU_QMP_PORT" != "none" ]]; then
+    echo "  QMP:     localhost:$QEMU_QMP_PORT"
+  fi
+  echo
+  echo "Guest ports:"
+  if [[ -n "${QEMU_SSH_PORT:-}" && "$QEMU_SSH_PORT" != "none" ]]; then
+    echo "  SSH:     localhost:$QEMU_SSH_PORT -> guest :22"
+  fi
+  if [[ -n "${QEMU_TELNET_PORT:-}" && "$QEMU_TELNET_PORT" != "none" ]]; then
+    echo "  Telnet:  localhost:$QEMU_TELNET_PORT -> guest :23"
+  fi
+  if [[ -n "${QEMU_HTTP_PORT:-}" && "$QEMU_HTTP_PORT" != "none" ]]; then
+    echo "  HTTP:    localhost:$QEMU_HTTP_PORT -> guest :80"
+  fi
 }
 
 qemu_cleanup_empty_dir() {
@@ -377,10 +538,13 @@ retro_boot() {
   qemu_build_drives
   qemu_build_globals
   qemu_build_serials
+  qemu_build_parallels
   qemu_warn_missing_display_backend
 
   qemu_build_args "$@"
 
+  echo
+  qemu_print_ports
   echo
   echo "QEMU command: $QEMU_COMMAND"
   echo

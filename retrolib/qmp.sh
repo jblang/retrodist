@@ -7,7 +7,7 @@ QMP_VGA_DECODE_AWK=${QMP_VGA_DECODE_AWK:-$QMP_LIBDIR/vgadecode.awk}
 # Sets default QMP connection and VGA dump settings.
 qmp_set_defaults() {
   QMP_HOST=${QMP_HOST:-127.0.0.1}
-  QMP_PORT=${QMP_PORT:-${QEMU_QMP_PORT:-$(( ${QEMU_TELNET_BASE_PORT:-2300} + 8 ))}}
+  QMP_PORT=${QMP_PORT:-${QEMU_QMP_PORT:-${QEMU_QMP_BASE:-4000}}}
   QMP_TIMEOUT=${QMP_TIMEOUT:-1}
 
   VGA_ADDR=${VGA_ADDR:-0xb8000}

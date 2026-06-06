@@ -21,7 +21,7 @@ Commands:
 
 Common options:
   -h HOST     QMP host. Default: 127.0.0.1
-  -p PORT     QMP port. Default: QEMU_TELNET_BASE_PORT + 8, normally 2308
+  -p PORT     QMP port. Default: QEMU_QMP_BASE, normally 4444
   -a ADDR     VGA text buffer address. Default: 0xb8000
   -c COLS     Screen columns. Default: 80
   -r ROWS     Screen rows. Default: 25
@@ -39,7 +39,7 @@ change-image options:
 
 Environment variables with the same names are also supported:
 QMP_HOST, QMP_PORT, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
-QEMU_QMP_PORT and QEMU_TELNET_BASE_PORT may also set the default QMP port.
+QEMU_QMP_PORT and QEMU_QMP_BASE may also set the default QMP port.
 EOF
 }
 
