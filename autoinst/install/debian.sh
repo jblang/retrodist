@@ -1,17 +1,22 @@
 debian_gzip_extract() {
     if [ -x /bin/gunzip ] || [ -x /usr/bin/gunzip ]; then
+        log_debug "Using gunzip for compressed archive extraction"
         gunzip
     else
+        log_debug "Using zcat for compressed archive extraction"
         zcat
     fi
 }
 
 debian_install_first_boot_init() {
     if [ -f "$ROOTMOUNT/etc/inittab" ]; then
+        log_info "Creating backup file: $ROOTMOUNT/etc/inittab.real"
         mv "$ROOTMOUNT/etc/inittab" "$ROOTMOUNT/etc/inittab.real"
     else
+        log_info "Creating backup file: $ROOTMOUNT/etc/inittab.real"
         mv "$ROOTMOUNT/etc/init.d/inittab" "$ROOTMOUNT/etc/inittab.real"
     fi
+    log_info "Creating file: $ROOTMOUNT/etc/inittab"
     cp /etc/init_tab "$ROOTMOUNT/etc/inittab"
     chmod 755 "$ROOTMOUNT/etc/inittab"
     chown root.root "$ROOTMOUNT/etc/inittab"
@@ -19,17 +24,23 @@ debian_install_first_boot_init() {
 
 debian_copy_base_configuration_hooks() {
     if [ -f /etc/root.sh.tar.gz ]; then
+        log_info "Using root.sh.tar.gz configuration hook"
         mkdir -p "$ROOTMOUNT/root"
         if [ ! -f "$ROOTMOUNT/root/$DEBIAN_ROOT_HOOK.real" ]; then
+            log_info "Creating backup file: $ROOTMOUNT/root/$DEBIAN_ROOT_HOOK.real"
             mv "$ROOTMOUNT/root/$DEBIAN_ROOT_HOOK" "$ROOTMOUNT/root/$DEBIAN_ROOT_HOOK.real"
         fi
+        log_info "Extracting configuration hook archive into $ROOTMOUNT/root"
         (
             cd "$ROOTMOUNT/root" &&
             debian_gzip_extract < /etc/root.sh.tar.gz | star
         )
         chown -R root.root "$ROOTMOUNT/root"
     else
+        log_info "Using plain root/setup configuration hooks"
+        log_info "Creating file: $ROOTMOUNT/root/$DEBIAN_ROOT_HOOK"
         cp /etc/root.sh "$ROOTMOUNT/root/$DEBIAN_ROOT_HOOK"
+        log_info "Creating file: $ROOTMOUNT/sbin/setup.sh"
         cp /etc/setup.sh "$ROOTMOUNT/sbin/setup.sh"
         chmod 755 "$ROOTMOUNT/root/$DEBIAN_ROOT_HOOK"
         chmod 755 "$ROOTMOUNT/sbin/setup.sh"
@@ -37,18 +48,19 @@ debian_copy_base_configuration_hooks() {
 }
 
 debian_extract_base_system() {
-    echo "### Installing base system to $ROOTDEV..."
+    log_info "Installing base system to $ROOTDEV..."
     cd "$ROOTMOUNT"
     if [ -z "$DEBIAN_BASE_TARBALL" ]; then
-        echo "DEBIAN_BASE_TARBALL is not set."
+        log_error "DEBIAN_BASE_TARBALL is not set."
         exit 1
     fi
     debian_gzip_extract < "$INSTMOUNT/$DEBIAN_BASE_TARBALL" | star
+    log_info "Creating file: $ROOTMOUNT/etc/fstab"
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
 
 debian_install_boot_floppy_kernel() {
-    echo "### Installing boot kernel..."
+    log_info "Installing boot kernel..."
     cd "$INSTMOUNT/bootflop"
     ./install.sh "$ROOTMOUNT"
     cd "$ROOTMOUNT"
@@ -59,7 +71,7 @@ debian_install_driver_modules() {
         return 0
     fi
 
-    echo "### Installing driver modules..."
+    log_info "Installing driver modules..."
     cd "$INSTMOUNT/drivers"
     sh ./install.sh "$ROOTMOUNT"
     cd "$ROOTMOUNT"
@@ -76,7 +88,8 @@ debian_activate_partition() {
 }
 
 debian_install_lilo() {
-    echo "### Installing LILO for $ROOTDEV..."
+    log_info "Installing LILO for $ROOTDEV..."
+    log_info "Creating file: $ROOTMOUNT/etc/lilo.conf"
     cat > "$ROOTMOUNT/etc/lilo.conf" <<EOF
 boot=$ROOTDEV
 root=$ROOTDEV
@@ -92,24 +105,38 @@ EOF
     chmod 644 "$ROOTMOUNT/etc/lilo.conf"
     debian_run_lilo
     if [ $? -ne 0 ]; then
-        echo "Warning: LILO install failed for $ROOTDEV. Use the rescue floppy to boot."
+        log_warn "LILO install failed for $ROOTDEV. Use the rescue floppy to boot."
         return 0
     fi
 
     BOOTDEV=$(echo "$ROOTDEV" | sed -e 's/[0-9]$//')
+    log_info "Installing MBR to $BOOTDEV"
     cp "$ROOTMOUNT/boot/mbr.b" "$BOOTDEV"
 
     BOOTPART=$(echo "$ROOTDEV" | sed -e 's/^[^0-9]*//')
+    log_info "Debian boot configuration:"
+    log_info "  BOOTDEV=$BOOTDEV"
+    log_info "  BOOTPART=$BOOTPART"
+    log_info "  ROOTDEV=$ROOTDEV"
     debian_activate_partition "$BOOTDEV" "$BOOTPART"
 }
 
 _debian_install_base() {
+    log_div
+    log_info "Installing Debian base system"
     PATH=/usr/bin:/bin:/usr/sbin:/sbin
     DEBIAN_ROOT_HOOK=${DEBIAN_ROOT_HOOK:-.bash_profile}
+    log_info "Debian install configuration:"
+    log_info "  ROOTMOUNT=$ROOTMOUNT"
+    log_info "  ROOTDEV=$ROOTDEV"
+    log_info "  INSTMOUNT=$INSTMOUNT"
+    log_info "  DEBIAN_ROOT_HOOK=$DEBIAN_ROOT_HOOK"
+    log_info "  DEBIAN_BASE_TARBALL=$DEBIAN_BASE_TARBALL"
 
     debian_extract_base_system
 
-    echo "### Configuring base system..."
+    log_div
+    log_info "Configuring base system..."
     debian_install_first_boot_init
 
     debian_install_boot_floppy_kernel

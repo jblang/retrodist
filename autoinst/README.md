@@ -43,8 +43,11 @@ At runtime it:
    `/target`, `/var/adm/mount` with `/mnt`, or `/root`.
 4. Verifies that `autoinst.d` exists under the staged media.
 5. Sources `autoinst.d/common.sh`.
-6. Sources `autoinst.d/distro/autoinst.sh`.
-7. Prompts for ENTER, syncs, and reboots.
+6. Initializes logging with `AUTOINST_DEBUG=0` unless overridden and
+   `AUTOINST_LOG=${TMPDIR:-/tmp}/autoinst.log` unless overridden.
+7. Sources `autoinst.d/distro/autoinst.sh`.
+8. Copies the install log to `$ROOTMOUNT/autoinst.log`.
+9. Prompts for ENTER, syncs, and reboots.
 
 The distro `autoinst.sh` manifest is responsible for setting install-time
 variables and calling wrapper functions such as `init_disk`,
@@ -62,9 +65,11 @@ At runtime it:
 2. Mounts the staged install disk from `/dev/hdb1` at `/retro`.
 3. Verifies that `/retro/autoinst.d` exists.
 4. Sources `/retro/autoinst.d/common.sh`.
-5. Sources `/retro/autoinst.d/distro/autoconf.sh`.
-6. Removes the running script so it does not run again.
-7. Syncs and reboots.
+5. Initializes logging with `AUTOINST_DEBUG=0` unless overridden and
+   `AUTOINST_LOG=/autoinst.log` unless overridden.
+6. Sources `/retro/autoinst.d/distro/autoconf.sh`.
+7. Removes the running script so it does not run again.
+8. Syncs and reboots.
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `tty_config`,
@@ -72,8 +77,9 @@ variables and calling wrappers such as `tty_config`,
 
 ## `common.sh`
 
-`common.sh` is sourced by both main runners. It sources `diskutil.sh` and
-defines public wrapper functions that load the implementation scripts on demand.
+`common.sh` is sourced by both main runners. It sources `logging.sh` and
+`diskutil.sh`, then defines public wrapper functions that load the
+implementation scripts on demand.
 
 Install wrappers:
 
@@ -111,6 +117,33 @@ Configuration wrappers:
 
 - `configure_mail`
   Loads `config/mail.sh` and calls `_configure_mail`.
+
+## `logging.sh`
+
+`logging.sh` provides portable echo-based logging helpers. Messages are written
+to stderr with bright ANSI-colored prefixes, and are appended without color to
+`$AUTOINST_LOG` when that variable is set.
+
+Logging helpers:
+
+- `log_debug`
+  Logs a `DEBUG:` message only when `AUTOINST_DEBUG=1`.
+
+- `log_info`
+  Logs an `INFO:` message.
+
+- `log_warn`
+  Logs a `WARN:` message.
+
+- `log_error`
+  Logs an `ERROR:` message.
+
+- `log_attention`
+  Logs an `ATTN:` message for interactive prompts or important operator
+  attention.
+
+- `log_div`
+  Logs an 80-column divider line.
 
 ## `diskutil.sh`
 

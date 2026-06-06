@@ -10,16 +10,25 @@ tty_set_defaults() {
         ttyS[0-9]*)
             TTY_DEV_ALT=ttys${TTY_DEV#ttyS}
             TTY_ID=${TTY_ID:-s${TTY_DEV#ttyS}}
+            log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
             ;;
         ttys[0-9]*)
             TTY_DEV_ALT=ttyS${TTY_DEV#ttys}
             TTY_ID=${TTY_ID:-s${TTY_DEV#ttys}}
+            log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
             ;;
         *)
             TTY_DEV_ALT=
             TTY_ID=${TTY_ID:-s0}
             ;;
     esac
+    log_info "TTY configuration:"
+    log_info "  TTY_DEV=$TTY_DEV"
+    log_info "  TTY_DEV_ALT=$TTY_DEV_ALT"
+    log_info "  TTY_ID=$TTY_ID"
+    log_info "  TTY_BAUD=$TTY_BAUD"
+    log_info "  TTY_RUNLEVELS=$TTY_RUNLEVELS"
+    log_info "  TTY_ETCPATH=$TTY_ETCPATH"
 }
 
 # Populate target paths for serial-console configuration files.
@@ -31,13 +40,19 @@ tty_detect_paths() {
     TTY_SECURETTY="$TTY_ETCPATH/securetty"
 
     if [ ! -f "$TTY_INITTAB" ]; then
+        log_warn "No inittab found at $TTY_INITTAB; skipping serial console configuration"
         return 1
     fi
+    log_debug "TTY paths:"
+    log_debug "  inittab=$TTY_INITTAB"
+    log_debug "  login_defs=$TTY_LOGIN_DEFS"
+    log_debug "  securetty=$TTY_SECURETTY"
 }
 
 # Copy a file to a .orig backup before replacing it, preserving the first copy.
 tty_backup_orig() {
     if [ -f "$1" ] && [ ! -f "$1.orig" ]; then
+        log_debug "Creating backup file: $1.orig"
         cp "$1" "$1.orig"
     fi
 }
@@ -45,13 +60,13 @@ tty_backup_orig() {
 # Emit the first matching active getty line for a device.
 tty_find_active_line_for_device() {
     sed -n "/^[^#].*:respawn:.* $1\\([ 	].*\\)\{0,1\}\$/p" "$TTY_INITTAB" |
-        sed -n '1p'
+    sed -n '1p'
 }
 
 # Emit the first matching stock getty comment for a device.
 tty_find_stock_line_for_device() {
     sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $1\\([ 	].*\\)\{0,1\}\$/p" "$TTY_INITTAB" |
-        sed -n '1p'
+    sed -n '1p'
 }
 
 # Set TTY_STOCK_LINE to the first stock getty line, or fail when one is active.
@@ -81,11 +96,12 @@ tty_find_getty_line() {
 tty_detect_getty() {
     for TTY_GETTY in /sbin/agetty /sbin/getty /etc/getty; do
         if [ -x "$TTY_GETTY" ]; then
+            log_info "Detected getty command: $TTY_GETTY"
             return 0
         fi
     done
 
-    echo "Warning: no getty binary found for $TTY_DEV; leaving inittab unchanged" >&2
+    log_warn "No getty binary found for $TTY_DEV; leaving inittab unchanged"
     return 1
 }
 
@@ -124,6 +140,7 @@ tty_build_inittab_line() {
 # Insert after a stock commented serial line or append a new serial getty entry.
 tty_write_inittab() {
     if [ -n "$TTY_STOCK_LINE" ]; then
+        log_info "Enabling stock serial getty entry for $TTY_STOCK_DEV"
         # Rewrite the current file, not .orig; .orig is only the first-run backup.
         # Avoid shell read loops here; Slackware 3.0's /bin/sh can segfault in read.
         sed -n "/^#s[0-9]:[0-9][0-9]*:respawn:.* $TTY_STOCK_DEV\\([ 	].*\\)\{0,1\}\$/{
@@ -138,6 +155,7 @@ b copy
 p" "$TTY_INITTAB" > "$TTY_INITTAB_NEW"
         mv "$TTY_INITTAB_NEW" "$TTY_INITTAB"
     else
+        log_info "Appending serial getty entry to $TTY_INITTAB"
         echo "$TTY_INITTAB_LINE" >> "$TTY_INITTAB"
     fi
 }
@@ -147,7 +165,7 @@ tty_run_step() {
     if "$1"; then
         :
     else
-        echo "Warning: $1 failed for $TTY_DEV; skipping remaining tty configuration" >&2
+        log_warn "$1 failed for $TTY_DEV; skipping remaining tty configuration"
         return 1
     fi
 }
@@ -157,7 +175,7 @@ tty_config_inittab() {
     if tty_find_getty_line; then
         :
     else
-        echo "Warning: active getty line already exists for $TTY_DEV; leaving inittab unchanged" >&2
+        log_warn "Active getty line already exists for $TTY_DEV; leaving inittab unchanged"
         return 0
     fi
 
@@ -165,10 +183,12 @@ tty_config_inittab() {
     TTY_GETTY_COMMAND=`tty_build_getty_command`
     tty_backup_orig "$TTY_INITTAB"
     if [ -z "$TTY_GETTY_COMMAND" ]; then
+        log_warn "No getty command generated; leaving $TTY_INITTAB unchanged"
         return 0
     fi
     # shellcheck disable=SC2006
     TTY_INITTAB_LINE=`tty_build_inittab_line`
+    log_debug "Generated inittab line: $TTY_INITTAB_LINE"
 
     tty_write_inittab
 }
@@ -177,9 +197,12 @@ tty_config_inittab() {
 tty_config_login_defs() {
     if [ -f "$TTY_LOGIN_DEFS" ]; then
         tty_backup_orig "$TTY_LOGIN_DEFS"
+        log_info "Creating file: $TTY_LOGIN_DEFS"
         # Work from the current file so reruns preserve unrelated local edits.
         sed 's/^CONSOLE/#CONSOLE/' "$TTY_LOGIN_DEFS" > "$TTY_LOGIN_DEFS_NEW"
         mv "$TTY_LOGIN_DEFS_NEW" "$TTY_LOGIN_DEFS"
+    else
+        log_debug "No login.defs found at $TTY_LOGIN_DEFS"
     fi
 }
 
@@ -188,16 +211,19 @@ tty_config_securetty() {
     tty_backup_orig "$TTY_SECURETTY"
     if [ -f "$TTY_SECURETTY" ]; then
         if grep "^$TTY_DEV\$" "$TTY_SECURETTY" >/dev/null 2>&1; then
+            log_info "$TTY_DEV already present in $TTY_SECURETTY"
             return 0
         fi
     fi
+    log_info "Updating file: $TTY_SECURETTY"
     echo "$TTY_DEV" >> "$TTY_SECURETTY"
 }
 
 # Entry point for enabling the target serial login console.
 _tty_config() {
+    log_div
     tty_set_defaults
-    echo "### Enabling serial console on $TTY_DEV..."
+    log_info "Configuring serial console on $TTY_DEV..."
 
     if tty_detect_paths; then
         tty_run_step tty_config_inittab &&

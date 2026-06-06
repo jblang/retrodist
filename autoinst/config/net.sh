@@ -10,6 +10,19 @@ net_set_defaults() {
     NET_ETCPATH=${NET_ETCPATH:-/etc}
     NET_RCPATH=${NET_RCPATH:-$NET_ETCPATH/rc.d}
     NET_MODULE=${NET_MODULE:-tulip}
+    log_info "Network configuration:"
+    log_info "  HOSTNAME=$NET_HOSTNAME"
+    log_info "  IPADDR=$NET_IPADDR"
+    log_info "  DOMAIN=$NET_DOMAINNAME"
+    log_info "  NETMASK=$NET_NETMASK"
+    log_info "  NETWORK=$NET_NETWORK"
+    log_info "  BROADCAST=$NET_BROADCAST"
+    log_info "  GATEWAY=$NET_GATEWAY"
+    log_info "  NAMESERVER=$NET_NAMESERVER"
+    log_info "  MODULE=$NET_MODULE"
+    log_debug "Network path configuration:"
+    log_debug "  NET_ETCPATH=$NET_ETCPATH"
+    log_debug "  NET_RCPATH=$NET_RCPATH"
 }
 
 # Emit the hostname file contents, including a domain when configured.
@@ -103,11 +116,15 @@ net_parse_module() {
     NET_MODULE_NAME=$1
     shift
     NET_MODULE_OPTIONS="$*"
+    log_debug "Parsed network module:"
+    log_debug "  name=$NET_MODULE_NAME"
+    log_debug "  options=$NET_MODULE_OPTIONS"
 }
 
 # Copy a source file to a destination only once, preserving the first backup.
 net_backup_file() {
     if [ -f "$1" ] && [ ! -f "$2" ]; then
+        log_debug "Creating backup file: $2"
         cp "$1" "$2"
     fi
 }
@@ -128,6 +145,7 @@ net_detect_hostname_path() {
     else
         NET_HOSTNAME_PATH="$NET_ETCPATH/hostname"
     fi
+    log_debug "Detected hostname file: $NET_HOSTNAME_PATH"
 }
 
 # Choose an ifconfig path available to the installer environment.
@@ -141,6 +159,7 @@ net_detect_ifconfig_path() {
             NET_IFCONFIG_PATH=ifconfig
         fi
     fi
+    log_debug "Detected ifconfig command: $NET_IFCONFIG_PATH"
 }
 
 # Choose a route path available to the installer environment.
@@ -154,17 +173,22 @@ net_detect_route_path() {
             NET_ROUTE_PATH=route
         fi
     fi
+    log_debug "Detected route command: $NET_ROUTE_PATH"
 }
 
 # Detect which network initialization style this target system uses.
 net_detect_init_path() {
     if [ -f "$NET_RCPATH/rc.inet1" ]; then
         NET_INIT_SCRIPT_PATH="$NET_RCPATH/rc.inet1"
+        log_info "Detected network style: rc.inet1"
     elif [ -d "$NET_ETCPATH/init.d" ]; then
         NET_INIT_SCRIPT_PATH="$NET_ETCPATH/init.d/network"
+        log_info "Detected network style: SysV init.d"
     elif [ -f "$NET_ETCPATH/rc.net" ]; then
         NET_RC_NET_PATH="$NET_ETCPATH/rc.net"
+        log_info "Detected network style: SLS rc.net"
     else
+        log_warn "No supported network init layout found."
         return 1
     fi
 }
@@ -184,46 +208,58 @@ net_detect_paths() {
 # Write hostname, init script, hosts, resolver, and networks files.
 net_config_standard() {
     net_backup_suffix "$NET_HOSTNAME_PATH"
+    log_info "Creating file: $NET_HOSTNAME_PATH"
     net_build_etc_hostname > "$NET_HOSTNAME_PATH"
     chmod 644 "$NET_HOSTNAME_PATH"
 
     net_backup_suffix "$NET_INIT_SCRIPT_PATH"
+    log_info "Creating file: $NET_INIT_SCRIPT_PATH"
     net_build_init_script > "$NET_INIT_SCRIPT_PATH"
     chmod 755 "$NET_INIT_SCRIPT_PATH"
 
     net_backup_suffix "$NET_HOSTS_PATH"
+    log_info "Creating file: $NET_HOSTS_PATH"
     net_build_etc_hosts > "$NET_HOSTS_PATH"
     chmod 644 "$NET_HOSTS_PATH"
 
     net_backup_suffix "$NET_RESOLV_CONF_PATH"
+    log_info "Creating file: $NET_RESOLV_CONF_PATH"
     net_build_resolv_conf > "$NET_RESOLV_CONF_PATH"
     chmod 644 "$NET_RESOLV_CONF_PATH"
 
     if [ "$NET_ANCIENT_ROUTE" != "1" ]; then
         net_backup_suffix "$NET_NETWORKS_PATH"
+        log_info "Updating file: $NET_NETWORKS_PATH"
         net_build_etc_networks >> "$NET_NETWORKS_PATH"
         chmod 644 "$NET_NETWORKS_PATH"
+    else
+        log_info "Skipping $NET_NETWORKS_PATH because NET_ANCIENT_ROUTE=1"
     fi
 }
 
 # Configure SLS networking through its non-standard /etc/hosts flow.
 net_config_rc_net() {
     # SLS's non-standard network configuration via /etc/hosts only
-    echo '## Configuring networking via hosts...'
+    log_info "Configuring networking via hosts..."
 
     net_backup_suffix "$NET_HOSTS_PATH"
+    log_info "Creating file: $NET_HOSTS_PATH"
     net_build_sls_hosts > "$NET_HOSTS_PATH"
 }
 
 # Enable the selected network module on Debian modutils-based systems.
 net_enable_module_debian() {
     if [ "$NET_MODULE" = "none" ]; then
+        log_info "Skipping network module configuration because NET_MODULE=none"
         return 0
     fi
 
+    log_info "Configuring Debian network module files"
     net_parse_module
     net_backup_suffix "$NET_ETCPATH/conf.modules"
+    log_info "Updating file: $NET_ETCPATH/modules"
     echo "$NET_MODULE_NAME" >> "$NET_ETCPATH/modules"
+    log_info "Updating file: $NET_ETCPATH/conf.modules"
     net_build_conf_modules >> "$NET_ETCPATH/conf.modules"
     # suffix must be .old because rc scripts key off its existence
     net_backup_suffix "$NET_ETCPATH/modules" ".old"
@@ -232,31 +268,42 @@ net_enable_module_debian() {
 
 # Enable the selected network module through Slackware rc.modules.
 net_enable_module_slackware() {
+    log_info "Configuring Slackware network module startup"
     net_backup_suffix "$NET_RCPATH/rc.modules"
+    log_info "Updating file: $NET_RCPATH/rc.modules"
     net_build_rc_modules >> "$NET_RCPATH/rc.modules"
 }
 
 # Dispatch network module setup based on the target module loader layout.
 net_enable_module() {
     if [ -f "$NET_ETCPATH/init.d/modules" ]; then
+        log_info "Detected Debian-style module configuration"
         net_enable_module_debian
     elif [ -f "$NET_RCPATH/rc.modules" ]; then
+        log_info "Detected Slackware-style module configuration"
         net_enable_module_slackware
+    else
+        log_info "No supported network module startup file found; skipping module configuration"
     fi
 }
 
 # Entry point for applying target network configuration.
 _net_config() {
-    echo '### Configuring networking...'
+    log_div
+    log_info "Configuring networking..."
 
     net_set_defaults
 
     if net_detect_paths; then
         if [ -n "$NET_INIT_SCRIPT_PATH" ]; then
+            log_info "Using standard network configuration flow"
             net_config_standard
         elif [ -n "$NET_RC_NET_PATH" ]; then
+            log_info "Using SLS hosts-based network configuration flow"
             net_config_rc_net
         fi
+    else
+        log_warn "Skipping network file configuration because paths were not detected"
     fi
 
     net_enable_module

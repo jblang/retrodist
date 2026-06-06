@@ -1,25 +1,26 @@
 # common scripts
+. "$AUTOINST_D/logging.sh"
 . "$AUTOINST_D/diskutil.sh"
 
 # helper functions that load helper scripts
 slackware_sysinstall() {
     . "$AUTOINST_D/install/sysinst.sh"
-    _slackware_sysinstall "@"
+    _slackware_sysinstall "$@"
 }
 
 slackware_pkgtool_install_111() {
     . "$AUTOINST_D/install/pkgtool.sh"
-    _slackware_pkgtool_install_111 "@"
+    _slackware_pkgtool_install_111 "$@"
 }
 
 slackware_pkgtool_install() {
     . "$AUTOINST_D/install/pkgtool.sh"
-    _slackware_pkgtool_install "@"
+    _slackware_pkgtool_install "$@"
 }
 
 sls_sysinstall() {
     . "$AUTOINST_D/install/sysinst.sh"
-    _sls_sysinstall "@"
+    _sls_sysinstall "$@"
 }
 
 debian_install_base() {

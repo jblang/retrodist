@@ -5,26 +5,30 @@ FDISK_GEOM_8G="1 17 18 1044"
 make_boot_floppy() {
     BOOTFLOPPYDEV=${BOOTFLOPPYDEV:-/dev/fd0}
     BOOTKERNEL=${BOOTKERNEL:-$ROOTMOUNT/Image}
-    echo "### Creating boot floppy on $BOOTFLOPPYDEV..."
+    log_info "Creating boot floppy on $BOOTFLOPPYDEV..."
+    log_info "Boot floppy configuration:"
+    log_info "  BOOTFLOPPYDEV=$BOOTFLOPPYDEV"
+    log_info "  BOOTKERNEL=$BOOTKERNEL"
+    log_info "  ROOTDEV=$ROOTDEV"
 
     if [ ! -f "$BOOTKERNEL" ]; then
-        echo "Installed kernel $BOOTKERNEL not found."
+        log_error "Installed kernel $BOOTKERNEL not found."
         return 1
     fi
     
     umount /user >/dev/null 2>&1
-    echo "Reattach boot.img and press ENTER."
+    log_attention "Reattach boot.img and press ENTER."
     read line
 
     dd if="$BOOTKERNEL" of="$BOOTFLOPPYDEV"
     if [ $? -ne 0 ]; then
-        echo "Boot floppy write failed."
+        log_error "Boot floppy write failed."
         return 1
     fi
 
     rootdev "$BOOTFLOPPYDEV" "$ROOTDEV"
     if [ $? -ne 0 ]; then
-        echo "rootdev failed for $BOOTFLOPPYDEV."
+        log_error "rootdev failed for $BOOTFLOPPYDEV."
         return 1
     fi
 
@@ -33,6 +37,7 @@ make_boot_floppy() {
 
 fdisk_list_partitions() {
     # workaround for missing -l option on ancient fdisk
+    log_debug "Listing partitions on $1"
     (echo p; echo q) | fdisk $1
 }
 
@@ -44,6 +49,14 @@ fdisk_get_header() {
 fdisk_get_partition() {
     # filter fdisk output for the specified partition
     sed -n "\\|^$1[ 	]|p"
+}
+
+fdisk_log_output() {
+    log_info "fdisk output:"
+    echo "$1" >&2
+    if [ -n "$AUTOINST_LOG" ]; then
+        echo "$1" >> "$AUTOINST_LOG"
+    fi
 }
 
 fdisk_detect_format() {
@@ -74,23 +87,27 @@ fdisk_parse_blocks() {
 }
 
 fdisk_parse_partitions() {
-    echo "### Checking existing partitions on $DISKDEV..."
+    log_info "Checking existing partitions on $DISKDEV..."
     # parse the existing partitions from fdisk output
     FDISK_OUTPUT=$(fdisk_list_partitions $1)
     FDISK_HEADER=$(echo "$FDISK_OUTPUT" | fdisk_get_header)
+    log_debug "Detected fdisk header: $FDISK_HEADER"
     FDISK_SWAPLINE=$(echo "$FDISK_OUTPUT" | fdisk_get_partition $SWAPDEV)
+    FDISK_ROOTLINE=$(echo "$FDISK_OUTPUT" | fdisk_get_partition $ROOTDEV)
+    if [ -n "$FDISK_SWAPLINE" -a -n "$FDISK_ROOTLINE" ]; then
+        fdisk_log_output "$FDISK_OUTPUT"
+    fi
     if [ -n "$FDISK_SWAPLINE" ]; then
         SWAPBLOCKS=$(fdisk_parse_blocks $FDISK_SWAPLINE)
-        echo "Found existing swap partition $SWAPDEV with $SWAPBLOCKS blocks."
+        log_info "Found existing swap partition $SWAPDEV with $SWAPBLOCKS blocks."
     else
-        echo "No existing swap partition found on $DISKDEV."
+        log_info "No existing swap partition found on $DISKDEV."
     fi
-    FDISK_ROOTLINE=$(echo "$FDISK_OUTPUT" | fdisk_get_partition $ROOTDEV)
     if [ -n "$FDISK_ROOTLINE" ]; then
         ROOTBLOCKS=$(fdisk_parse_blocks $FDISK_ROOTLINE)
-        echo "Found existing root partition $ROOTDEV with $ROOTBLOCKS blocks."
+        log_info "Found existing root partition $ROOTDEV with $ROOTBLOCKS blocks."
     else
-        echo "No existing root partition found on $DISKDEV."
+        log_info "No existing root partition found on $DISKDEV."
     fi
 }
 
@@ -120,60 +137,85 @@ fdisk_commands() {
 }
 
 fdisk_partition() {
-    echo "### Creating partitions..."
+    log_info "Creating partitions..."
 
     if [ $# -ne 4 ]; then
-        echo "Invalid geometry: '$*'; must be 'swapstart swapend rootstart rootend'."
+        log_error "Invalid geometry: '$*'; must be 'swapstart swapend rootstart rootend'."
         exit 1
     fi
 
-    fdisk_commands "$@" | fdisk $DISKDEV
+    log_info "Partition geometry:"
+    log_info "  swap=$1-$2"
+    log_info "  root=$3-$4"
+    log_info "Running: fdisk $DISKDEV"
+    if [ "$AUTOINST_DEBUG" = "1" ]; then
+        fdisk_commands "$@" | fdisk $DISKDEV
+    else
+        fdisk_commands "$@" | fdisk $DISKDEV >/dev/null 2>&1
+    fi
 
     if [ -n "$FDISK_REBOOT" ]; then
+        log_div
         sync
-        echo
-        echo "### Partition table written; reboot required."
-        echo "### Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
+        log_attention "Partition table written; reboot required."
+        log_attention "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
         exit 0
     fi
 }
 
 format_swap() {
     if [ -z "$SWAPBLOCKS" ]; then
-        echo "Error formatting swap on $SWAPDEV: SWAPBLOCKS not set"
+        log_error "Error formatting swap on $SWAPDEV: SWAPBLOCKS not set"
         exit 1
     fi
-    echo "### Formatting swap partition..."
-    mkswap "$SWAPDEV" "$SWAPBLOCKS"
+    log_info "Formatting swap partition..."
+    if [ "$AUTOINST_DEBUG" = "1" ]; then
+        mkswap "$SWAPDEV" "$SWAPBLOCKS"
+    else
+        mkswap "$SWAPDEV" "$SWAPBLOCKS" >/dev/null 2>&1
+    fi
     swapon "$SWAPDEV"
 }
 
 format_root() {
-    echo "### Formatting root filesystem $ROOTDEV..."
+    log_info "Formatting root filesystem $ROOTDEV..."
     if [ -z "$ROOTBLOCKS" ]; then
-        echo "Error formatting root filesystem on $ROOTDEV: ROOTBLOCKS not set"
+        log_error "Error formatting root filesystem on $ROOTDEV: ROOTBLOCKS not set"
         exit 1
     fi
     case $ROOTFS in
-        ext2 )  mke2fs "$ROOTDEV" ;;
-        ext )   mkefs "$ROOTDEV" "$ROOTBLOCKS" ;;
-        * )     echo "Unknown filesystem $ROOTFS"; exit 1;;
+        ext2 )
+            if [ "$AUTOINST_DEBUG" = "1" ]; then
+                mke2fs "$ROOTDEV"
+            else
+                mke2fs "$ROOTDEV" >/dev/null 2>&1
+            fi
+            ;;
+        ext )
+            if [ "$AUTOINST_DEBUG" = "1" ]; then
+                mkefs "$ROOTDEV" "$ROOTBLOCKS"
+            else
+                mkefs "$ROOTDEV" "$ROOTBLOCKS" >/dev/null 2>&1
+            fi
+            ;;
+        * )     log_error "Unknown filesystem $ROOTFS"; exit 1;;
     esac
     if [ $? -ne 0 ]; then
-        echo "Error running creating root filesystem."
+        log_error "Error running creating root filesystem."
         exit 1
     fi
-    echo "### Mounting root filesystem $ROOTDEV on $ROOTMOUNT..."
+    log_info "Mounting root filesystem $ROOTDEV on $ROOTMOUNT..."
     mount -t "$ROOTFS" "$ROOTDEV" "$ROOTMOUNT"
     if [ $? -ne 0 ]; then
-        echo "Error mounting root filesystem."
+        log_error "Error mounting root filesystem."
         exit 1
     fi
+    log_debug "Ensuring directory exists: $ROOTMOUNT/tmp"
     mkdir -p "$ROOTMOUNT/tmp"
  }
 
 create_fstab() {
-    echo "### Creating fstab..."
+    log_info "Creating file: $ROOTMOUNT/fstab.tmp"
     cat > "$ROOTMOUNT/fstab.tmp" <<EOF
 $ROOTDEV		/		$ROOTFS	defaults	0	1
 $SWAPDEV		none		swap		sw		0	0
@@ -188,12 +230,23 @@ init_disk() {
     SWAPDEV=${SWAPDEV:-$DISKDEV$SWAPPART}
     ROOTDEV=${ROOTDEV:-$DISKDEV$ROOTPART}
     ROOTFS=${ROOTFS:-ext2}
+    log_info "Disk configuration:"
+    log_info "  DISKDEV=$DISKDEV"
+    log_info "  SWAPPART=$SWAPPART"
+    log_info "  ROOTPART=$ROOTPART"
+    log_info "  SWAPDEV=$SWAPDEV"
+    log_info "  ROOTDEV=$ROOTDEV"
+    log_info "  ROOTFS=$ROOTFS"
+    log_div
     fdisk_parse_partitions "$DISKDEV"
     if [  -z "$SWAPBLOCKS" -o -z "$ROOTBLOCKS" ]; then
+        log_div
+        log_info "Initializing partitions..."
         # partition if root and swap filesystems don't already exist
         fdisk_partition "$@"
         fdisk_parse_partitions "$DISKDEV"
     fi
+    log_div
     format_swap
     format_root
     create_fstab

@@ -215,6 +215,7 @@ EOF
 # Back up an existing X11 config file using the legacy ".orig" suffix.
 x11_backup_orig() {
     if [ -f "$1" ]; then
+        log_debug "Creating backup file: $1.orig"
         cp "$1" "$1.orig"
     fi
 }
@@ -241,14 +242,19 @@ x11_detect_mouse_defaults() {
                 ;;
         esac
     fi
+    log_info "X11 mouse configuration:"
+    log_info "  X11_MOUSEDEV=$X11_MOUSEDEV"
+    log_info "  X11_MOUSETYPE=$X11_MOUSETYPE"
 }
 
 # Choose the first existing directory from a caller-provided list.
 x11_detect_path() {
     X11_PATH=
     for X11_CANDIDATE in "$@"; do
+        log_debug "Checking X11 config directory: $X11_CANDIDATE"
         if [ -d "$X11_CANDIDATE" ]; then
             X11_PATH="$X11_CANDIDATE"
+            log_info "Selected X11 config directory: $X11_PATH"
             return 0
         fi
     done
@@ -258,7 +264,10 @@ x11_detect_path() {
 # Link an X server into a target directory when that layout exists.
 x11_link_var_x11r6_bin() {
     if [ -d /var/X11R6/bin ]; then
+        log_info "Creating symlink: /var/X11R6/bin/X -> $X11_SERVER"
         (cd /var/X11R6/bin; ln -sf "$X11_SERVER" X)
+    else
+        log_debug "No /var/X11R6/bin directory; skipping X server symlink"
     fi
 }
 
@@ -266,9 +275,13 @@ x11_link_var_x11r6_bin() {
 x11_install_startx_setfont_wrapper() {
     for X11_STARTX in /usr/bin/startx /usr/X386/bin/startx; do
         if [ -f "$X11_STARTX" ] && [ ! -L "$X11_STARTX" ] && [ ! -f "$X11_STARTX.real" ]; then
+            log_info "Creating backup file: $X11_STARTX.real"
             mv "$X11_STARTX" "$X11_STARTX.real"
+            log_info "Creating file: $X11_STARTX"
             x11_build_startx_setfont_wrapper > "$X11_STARTX"
             chmod 755 "$X11_STARTX"
+        else
+            log_debug "Skipping startx wrapper candidate: $X11_STARTX"
         fi
     done
 }
@@ -279,9 +292,11 @@ x11_write_xf86config() {
     X11_XFREECFG_ETC=/etc/XF86Config
 
     x11_backup_orig "$X11_XFREECFG"
+    log_info "Creating file: $X11_XFREECFG"
     cat > "$X11_XFREECFG"
 
     if [ "$X11_XFREECFG" != "$X11_XFREECFG_ETC" ]; then
+        log_info "Creating symlink: $X11_XFREECFG_ETC -> $X11_XFREECFG"
         ln -sf "$X11_XFREECFG" "$X11_XFREECFG_ETC"
     fi
 }
@@ -290,16 +305,20 @@ x11_write_xf86config() {
 x11_3x4x_common_config() {
     X11_DEPTH=${X11_DEPTH:-16}
     X11_MODES=${X11_MODES:-'"1024x768" "800x600" "640x480"'}
-    echo "Found X11 server at $X11_SERVER"
+    log_info "X11 configuration:"
+    log_info "  X11_DEPTH=$X11_DEPTH"
+    log_info "  X11_MODES=$X11_MODES"
+    log_info "Found X11 server at $X11_SERVER"
     x11_link_var_x11r6_bin
 
     x11_detect_path "$@" || return 1
-    echo "XF86Config path is $X11_PATH/XF86Config"
+    log_info "XF86Config path is $X11_PATH/XF86Config"
 }
 
 # Configure XFree86 3.x using the SVGA server.
 x11_3x_config() {
     X11_SERVER=/usr/X11R6/bin/XF86_SVGA
+    log_info "Using X11 configuration style: XFree86 3.x SVGA"
     x11_3x4x_common_config /usr/X11R6/lib/X11 /var/X11R6/lib /etc || return 1
     x11_build_3x_config | x11_write_xf86config "$X11_PATH"
 }
@@ -307,18 +326,20 @@ x11_3x_config() {
 # Configure XFree86 4.x using its monolithic XFree86 server.
 x11_4x_config() {
     X11_SERVER=/usr/X11R6/bin/XFree86
+    log_info "Using X11 configuration style: XFree86 4.x"
     x11_3x4x_common_config /etc/X11 /etc /usr/X11R6/lib/X11 || return 1
     x11_build_4x_config | x11_write_xf86config "$X11_PATH"
 }
 
 # Prepare the common Xconfig target for XFree86 1.x and 2.x servers.
 x11_1x2x_common_config() {
-    echo "Found X11 server at $X11_SERVER"
+    log_info "Found X11 server at $X11_SERVER"
+    log_info "Creating symlink: $(dirname "$X11_SERVER")/X -> $(basename "$X11_SERVER")"
     (cd "$(dirname "$X11_SERVER")"; ln -sf "$(basename "$X11_SERVER")" X)
 
     x11_detect_path /etc/X11 /var/X11/lib/X11 /usr/X386/lib/X11 || return 1
     X11_XCONFIG="$X11_PATH/Xconfig"
-    echo "Xconfig path is $X11_XCONFIG"
+    log_info "Xconfig path is $X11_XCONFIG"
 
     x11_backup_orig "$X11_XCONFIG"
 }
@@ -327,7 +348,11 @@ x11_1x2x_common_config() {
 x11_1x2x_svga_config() {
     X11_SERVER=/usr/X386/bin/XF86_SVGA
     X11_MODES=${X11_MODES:-'"1024x768" "800x600" "640x480"'}
+    log_info "Using X11 configuration style: XFree86 1.x/2.x SVGA"
+    log_info "X11 configuration:"
+    log_info "  X11_MODES=$X11_MODES"
     x11_1x2x_common_config || return 1
+    log_info "Creating file: $X11_XCONFIG"
     x11_build_1x2x_svga_config > "$X11_XCONFIG"
     x11_install_startx_setfont_wrapper
 }
@@ -336,26 +361,35 @@ x11_1x2x_svga_config() {
 x11_1x2x_mono_config() {
     X11_SERVER=/usr/X386/bin/X386mono
     X11_MODES=${X11_MODES:-'"640x480"'}
+    log_info "Using X11 configuration style: XFree86 1.x/2.x monochrome"
+    log_info "X11 configuration:"
+    log_info "  X11_MODES=$X11_MODES"
     x11_1x2x_common_config || return 1
+    log_info "Creating file: $X11_XCONFIG"
     x11_build_1x2x_mono_config > "$X11_XCONFIG"
 }
 
 # Entry point for applying target X11 configuration.
 _x11_config() {
-    echo "### Configuring X11..."
+    log_div
+    log_info "Configuring X11..."
 
     x11_detect_mouse_defaults
 
     # Detect the variant of X11 based on the existence of server binaries.
     if [ -x /usr/X11R6/bin/XFree86 ]; then
+        log_info "Detected XFree86 4.x server"
         x11_4x_config
     elif [ -x /usr/X11R6/bin/XF86_SVGA ]; then
+        log_info "Detected XFree86 3.x SVGA server"
         x11_3x_config
     elif [ -x /usr/X386/bin/XF86_SVGA ]; then
+        log_info "Detected XFree86 1.x/2.x SVGA server"
         x11_1x2x_svga_config
     elif [ -x /usr/X386/bin/X386mono ]; then
+        log_info "Detected XFree86 1.x/2.x monochrome server"
         x11_1x2x_mono_config
     else
-        echo "No supported X11 server found."
+        log_warn "No supported X11 server found."
     fi
 }
