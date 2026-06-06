@@ -104,15 +104,11 @@ QMP port.
 
 - `qmp dump-screen`: dump the full VGA text memory range as text.
 - `qmp dump-screen -n`: prefix rows with line numbers.
-- `qmp grep-screen 'boot:'`: print matching VGA text memory lines and return
-  success if any matched.
-- `qmp grep-screen -q 'boot:'`: check for matching VGA text memory lines
-  without printing them.
 - `qmp send-key ret`: send a literal QEMU sendkey key sequence.
 - `printf 'ramdisk' | qmp send-stdin`: type stdin into the VM.
 - `qmp send-text -n 'ramdisk'`: type text into the VM and press ENTER.
-- `qmp change-floppy root.img`: change the first floppy drive image.
-- `qmp eject-floppy`: eject the first floppy drive image.
+- `qmp change-image root.img`: change the default floppy drive image.
+- `qmp eject-disk`: eject the default floppy drive image.
 
 ## Adding Distros
 
@@ -168,13 +164,10 @@ Common install-script helpers include:
 - `script_boot_lilo`: wait for the `boot:` prompt and press ENTER.
 - `script_change_floppy TEXT [IMAGE]`: wait for screen text, change the first
   floppy image, then press ENTER. `IMAGE` defaults to `root.img`.
-- `script_press_enter_on_screen TEXT`: wait for screen text and press ENTER.
 - `script_login PROMPT [USER]`: wait for a login prompt and type the user.
   `USER` defaults to `root`.
-- `script_run_autoinst PROMPT`: wait for a shell prompt, mount `/dev/hdb1` at
+- `script_run_autoinst TEXT`: wait for screen text, mount `/dev/hdb1` at
   `/retro`, and run `/retro/autoinst`.
-- `script_run_autoinst_when_screen TEXT`: run the same installer command after
-  screen text appears.
 - `script_finish_reboot [TEXT] [SECONDS]`: wait for the final reboot prompt,
   set the next boot to hard disk with `boot_set c`, then press ENTER. `TEXT`
   defaults to `Press ENTER to reboot.` and `SECONDS` defaults to `600`.

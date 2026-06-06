@@ -1,26 +1,15 @@
 script_wait_screen "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
 script_press_key spc
-script_wait_screen "Enter Drive You Will Be Doing The Installation From"
-qmp_change_floppy root.img
-sleep 1
-qmp_send_line "1"
-script_wait_screen "#"
-qmp_send_line "mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
+script_change_floppy "Enter Drive You Will Be Doing The Installation From" root.img "1"
+script_run_autoinst "#"
 script_wait_screen "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
-qmp_change_floppy boot.img
+qmp_change_image boot.img
 sleep 1
 script_press_key ctrl-alt-delete
-
 script_wait_screen "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
 script_press_key spc
-script_wait_screen "Enter Drive You Will Be Doing The Installation From"
-qmp_change_floppy root.img
-sleep 1
-qmp_send_line "1"
-script_wait_screen "#"
-qmp_send_line "mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
-script_wait_screen "Reattach boot.img and press ENTER."
-qmp_change_floppy boot.img
-sleep 1
-script_press_key ret
-script_finish_reboot
+script_change_floppy "Enter Drive You Will Be Doing The Installation From" root.img "1"
+script_run_autoinst "#"
+script_change_floppy "Reattach boot.img and press ENTER." boot.img
+script_finish_reboot a
+script_press_key ctrl-alt-delete

@@ -30,7 +30,7 @@ retro install debian/1.2/official
 
 `retro install` starts QEMU, uses the variant's `script.sh` to handle installer prompts and run `/retro/autoinst`, then switches the next boot to the hard disk for the final reboot. After the installer and post-install configuration finish, the VM will reboot into the installed system.
 
-If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-floppy` command to mount the required image.
+If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-image` command to mount the required image.
 
 ## Version Notes
 

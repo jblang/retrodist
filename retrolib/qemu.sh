@@ -172,6 +172,8 @@ qemu_run_with_install_script() {
 
   "${QEMU_ARGS[@]}" &
   qemu_pid=$!
+  # shellcheck disable=SC2034 # Read by sourced install script helpers.
+  QEMU_PID=$qemu_pid
 
   if ! qmp_init; then
     kill "$qemu_pid" 2>/dev/null || true
@@ -180,13 +182,14 @@ qemu_run_with_install_script() {
   fi
 
   (
-    set -e
     # shellcheck source=/dev/null
     source "$QEMU_INSTALL_SCRIPT"
   )
   script_status=$?
   if [[ $script_status -ne 0 ]]; then
-    kill "$qemu_pid" 2>/dev/null || true
+    if qmp_qemu_running; then
+      echo "Install script aborted due to timeout." >&2
+    fi
     wait "$qemu_pid" 2>/dev/null || true
     return "$script_status"
   fi

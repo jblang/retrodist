@@ -11,14 +11,13 @@ usage() {
 Usage: $(basename "$0") COMMAND [OPTIONS] [ARGS]
 
 Commands:
-  dump-screen        dump the full VGA text memory range
-  grep-screen TEXT   print matching VGA text memory lines
-  send-key KEY       send a literal QEMU sendkey key sequence
-  send-stdin         type stdin into the guest using QEMU sendkey commands
-  send-text TEXT     type TEXT into the guest using QEMU sendkey commands
-  change-floppy IMG  change the floppy0 image
-  eject-floppy       eject the floppy0 image
-  help               show this help text
+  dump-screen             dump the full VGA text memory range
+  send-key KEY            send a literal QEMU sendkey key sequence
+  send-stdin              type stdin into the guest using QEMU sendkey commands
+  send-text [-n] TEXT     type TEXT into the guest using QEMU sendkey commands
+  change-image IMG        change attached image on device (defaults to floppy0)
+  eject-disk [DEV]        eject disk image (defaults to floppy0)
+  help                    show this help text
 
 Common options:
   -h HOST     QMP host. Default: 127.0.0.1
@@ -32,23 +31,20 @@ Common options:
 dump-screen options:
   -n          Prefix rows with line numbers.
 
-grep-screen options:
-  -q          Suppress matching line output.
-
 send-text options:
   -n          send Enter after TEXT
 
-change-floppy options:
-  -d DEVICE   floppy device. Default: floppy0
-
-eject-floppy options:
-  -d DEVICE   floppy device. Default: floppy0
+change-image options:
+  -d DEVICE   device to change. Default: floppy0
 
 Environment variables with the same names are also supported:
-QMP_HOST, QMP_PORT, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT,
-VGA_LINE_NUMBERS. QEMU_QMP_PORT and QEMU_TELNET_BASE_PORT may also set the
-default QMP port.
+QMP_HOST, QMP_PORT, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
+QEMU_QMP_PORT and QEMU_TELNET_BASE_PORT may also set the default QMP port.
 EOF
+}
+
+qmp_number_lines() {
+  awk '{ printf "%02d: %s\n", NR, $0 }'
 }
 
 qmp_parse_options() {
@@ -70,11 +66,10 @@ qmp_parse_options() {
         if [ "${QMP_PARSE_N_MODE:-line-numbers}" = "send-newline" ]; then
           QMP_SEND_NEWLINE=1
         else
-          VGA_LINE_NUMBERS=1
+          QMP_DUMP_LINE_NUMBERS=1
         fi
         ;;
-      q) QMP_GREP_QUIET=1 ;;
-      d) QMP_FLOPPY_DEVICE=$OPTARG ;;
+      d) QMP_DISK=$OPTARG ;;
       *)
         usage >&2
         exit 1
@@ -86,8 +81,9 @@ qmp_parse_options() {
 }
 
 qmp_set_defaults
+QMP_DUMP_LINE_NUMBERS=${QMP_DUMP_LINE_NUMBERS:-0}
 QMP_SEND_NEWLINE=${QMP_SEND_NEWLINE:-0}
-QMP_GREP_QUIET=${QMP_GREP_QUIET:-0}
+QMP_DISK=${QMP_DISK:-floppy0}
 
 command_name=${1:-help}
 case "$command_name" in
@@ -95,7 +91,7 @@ case "$command_name" in
     usage
     exit 0
     ;;
-  dump-screen | grep-screen | send-key | send-stdin | send-text | change-floppy | eject-floppy)
+  dump-screen | send-key | send-stdin | send-text | change-image | eject-disk)
     shift || true
     ;;
   *)
@@ -110,9 +106,6 @@ case "$command_name" in
   dump-screen)
     qmp_parse_options "h:p:a:c:r:m:w:n" "$@"
     ;;
-  grep-screen)
-    qmp_parse_options "h:p:a:c:r:m:w:q" "$@"
-    ;;
   send-key)
     qmp_parse_options "h:p:w:" "$@"
     ;;
@@ -124,10 +117,10 @@ case "$command_name" in
     qmp_parse_options "h:p:w:n" "$@"
     unset QMP_PARSE_N_MODE
     ;;
-  change-floppy)
+  change-image)
     qmp_parse_options "h:p:w:d:" "$@"
     ;;
-  eject-floppy)
+  eject-disk)
     qmp_parse_options "h:p:w:d:" "$@"
     ;;
 esac
@@ -144,17 +137,10 @@ case "$command_name" in
       echo "$command_name does not take positional arguments" >&2
       exit 1
     fi
-    qmp_vga_text
-    ;;
-  grep-screen)
-    if [ $# -ne 1 ]; then
-      echo "Usage: $(basename "$0") grep-screen [OPTIONS] TEXT" >&2
-      exit 1
-    fi
-    if [ "$QMP_GREP_QUIET" = "1" ]; then
-      qmp_vga_memory_has_text "$1"
+    if [ "$QMP_DUMP_LINE_NUMBERS" = "1" ]; then
+      qmp_vga_dump_text | qmp_number_lines
     else
-      qmp_vga_memory_grep_text "$1"
+      qmp_vga_dump_text
     fi
     ;;
   send-key)
@@ -181,18 +167,21 @@ case "$command_name" in
       qmp_send_return
     fi
     ;;
-  change-floppy)
+  change-image)
     if [ $# -ne 1 ]; then
-      echo "Usage: $(basename "$0") change-floppy [OPTIONS] IMAGE" >&2
+      echo "Usage: $(basename "$0") change-image [OPTIONS] IMAGE" >&2
       exit 1
     fi
-    qmp_change_floppy "$1"
+    qmp_change_image "$1" "$QMP_DISK"
     ;;
-  eject-floppy)
-    if [ $# -ne 0 ]; then
-      echo "Usage: $(basename "$0") eject-floppy [OPTIONS]" >&2
+  eject-disk)
+    if [ $# -gt 1 ]; then
+      echo "Usage: $(basename "$0") eject-disk [OPTIONS] [DEVICE]" >&2
       exit 1
     fi
-    qmp_eject_floppy
+    if [ $# -eq 1 ]; then
+      QMP_DISK=$1
+    fi
+    qmp_eject_disk "$QMP_DISK"
     ;;
 esac

@@ -85,4 +85,4 @@ retro install slackware/3.6/linuxmall
 
 `retro install` starts QEMU, uses the variant's `script.sh` to handle boot prompts, root-disk swaps, login, and `/retro/autoinst`, then switches the next boot to the hard disk for the final reboot. After the installer and post-install configuration finish, the VM will reboot into the installed system.
 
-If you want the original manual install flow instead, use the `retro boot` command instead, and follow the original installation instructions for the version you are installing.  When prompted to change disks, use the `qmp change-floppy` command to mount the required image.
+If you want the original manual install flow instead, use the `retro boot` command instead, and follow the original installation instructions for the version you are installing.  When prompted to change disks, use the `qmp change-image` command to mount the required image.

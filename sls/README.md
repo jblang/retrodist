@@ -38,4 +38,4 @@ retro install sls/1993.03/princeton
 
 `retro install` starts QEMU, uses the variant's `script.sh` to handle the SVGA prompt, root-disk swap, `/retro/autoinst`, fdisk reboot, boot-floppy write, and final reboot. After the installer finishes, the VM will reboot into the installed system.
 
-If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-floppy` command to mount the required image.
+If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-image` command to mount the required image.
