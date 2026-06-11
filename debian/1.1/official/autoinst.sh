@@ -1,4 +1,5 @@
-init_disk $FDISK_GEOM_2G
+DISK_SWAP_MB=64
+disk_init
 
 DEBIAN_BASE_TARBALL=base1_1.tgz
 DEBIAN_ROOT_HOOK=.configure

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 BUZZBASE=$DEBIANBASE/buzz/main
-DISKDIR=$BUZZBASE/disks-i386/1996_6_16
+DISKDIR=$BUZZBASE/disks-i386/current
 
 cp -lR "$BUZZBASE/msdos-i386" install
 cp -l "$DISKDIR/base1_1.tgz" install/

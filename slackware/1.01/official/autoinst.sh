@@ -1,3 +1,4 @@
-init_disk $FDISK_GEOM_500M
+DISK_SWAP_MB=64
+disk_init
 
 slackware_sysinstall

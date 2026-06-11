@@ -1,7 +1,4 @@
-FDISK_GEOM_500M="1 128 129 1015"
-FDISK_GEOM_2G="1 17 18 520"
-FDISK_GEOM_8G="1 17 18 1044"
-
+# Write the installed kernel to a boot floppy and set its root device.
 make_boot_floppy() {
     BOOTFLOPPYDEV=${BOOTFLOPPYDEV:-/dev/fd0}
     BOOTKERNEL=${BOOTKERNEL:-$ROOTMOUNT/Image}
@@ -35,22 +32,23 @@ make_boot_floppy() {
     return 0
 }
 
+# List fdisk partitions with the geometry for the requested disk.
 fdisk_list_partitions() {
-    # workaround for missing -l option on ancient fdisk
     log_debug "Listing partitions on $1"
-    (echo p; echo q) | fdisk $1
+    (echo p; echo q) | fdisk $1 2>&1
 }
 
+# Extract the partition table header from fdisk output.
 fdisk_get_header() {
-    # filter fdisk output for the header
     sed -n '/^[ 	]*Device[ 	]/p'    
 }
 
+# Extract one partition line from fdisk output.
 fdisk_get_partition() {
-    # filter fdisk output for the specified partition
     sed -n "\\|^$1[ 	]|p"
 }
 
+# Log raw fdisk output to stderr and the install log.
 fdisk_log_output() {
     log_info "fdisk output:"
     echo "$1" >&2
@@ -59,8 +57,8 @@ fdisk_log_output() {
     fi
 }
 
+# Detect the old or new fdisk partition table column format.
 fdisk_detect_format() {
-    # detect the fdisk partition table's format using position of Blocks column
     if [ "$5" = "Blocks" ]; then
         echo "new"
     elif [ "$6" = "Blocks" ]; then
@@ -70,6 +68,7 @@ fdisk_detect_format() {
     fi
 }
 
+# Parse a partition block count from one fdisk partition line.
 fdisk_parse_blocks() {
     # eat the boot column's asterisk if it exists
     if [ "$2" = "*" ]; then
@@ -86,9 +85,9 @@ fdisk_parse_blocks() {
     return 0
 }
 
+# Parse existing swap and root partition metadata from fdisk output.
 fdisk_parse_partitions() {
     log_info "Checking existing partitions on $DISKDEV..."
-    # parse the existing partitions from fdisk output
     FDISK_OUTPUT=$(fdisk_list_partitions $1)
     FDISK_HEADER=$(echo "$FDISK_OUTPUT" | fdisk_get_header)
     log_debug "Detected fdisk header: $FDISK_HEADER"
@@ -111,20 +110,23 @@ fdisk_parse_partitions() {
     fi
 }
 
+# Emit fdisk commands to create one primary partition.
 fdisk_new_primary() {
     echo "n"    # add a new partition
     echo "p"    # make primary partition
     echo "$1"   # partition number
-    echo "$2"   # start cylender
-    echo "$3"   # end cylender
+    echo "$2"   # start cylinder
+    echo "$3"   # end cylinder
 }
 
+# Emit fdisk commands to set a partition type.
 fdisk_set_type() {
     echo "t"    # change partition type
     echo $1     # partition number
     echo $2     # partition type
 }
 
+# Emit the full fdisk command stream for the swap/root layout.
 fdisk_commands() {
     fdisk_new_primary 1 $1 $2
     fdisk_new_primary 2 $3 $4
@@ -136,6 +138,115 @@ fdisk_commands() {
     echo        # submit a final blank line to fdisk
 }
 
+# Return success when the argument contains only decimal digits.
+fdisk_is_number() {
+    case "$1" in
+        ""|*[!0123456789]* ) return 1 ;;
+        * ) return 0 ;;
+    esac
+}
+
+# Parse heads, sectors, and cylinders for the requested disk.
+fdisk_parse_disk_geometry() {
+    FDISK_GEOM_DEV="$1:"
+    shift
+    FDISK_HEADS=
+    FDISK_SECTORS=
+    FDISK_CYLINDERS=
+    while [ $# -gt 0 ]; do
+        if [ "$1" = "Disk" -a "$2" = "$FDISK_GEOM_DEV" ]; then
+            FDISK_HEADS=$3
+            FDISK_SECTORS=$5
+            FDISK_CYLINDERS=$7
+            return 0
+        fi
+        shift
+    done
+    return 1
+}
+
+# Return the next cylinder for known auto-partition split points.
+fdisk_next_cylinder() {
+    case "$1" in
+        8 ) echo 9 ;;
+        16 ) echo 17 ;;
+        17 ) echo 18 ;;
+        32 ) echo 33 ;;
+        33 ) echo 34 ;;
+        65 ) echo 66 ;;
+        128 ) echo 129 ;;
+        130 ) echo 131 ;;
+        260 ) echo 261 ;;
+        * ) echo "" ;;
+    esac
+}
+
+# Look up the closest swap end cylinder for common QEMU CHS layouts.
+fdisk_default_swap_end() {
+    FDISK_HEADS=$1
+    FDISK_SECTORS=$2
+    if [ -n "$FDISK_SWAP_CYLINDERS" ]; then
+        echo "$FDISK_SWAP_CYLINDERS"
+        return 0
+    fi
+
+    DISK_SWAP_MB=${DISK_SWAP_MB:-128}
+    case "$FDISK_HEADS:$FDISK_SECTORS:$DISK_SWAP_MB" in
+        16:63:64 ) echo 130 ;;
+        16:63:128 ) echo 260 ;;
+        32:63:64 ) echo 65 ;;
+        32:63:128 ) echo 130 ;;
+        64:63:64 ) echo 33 ;;
+        64:63:128 ) echo 65 ;;
+        128:63:64 ) echo 16 ;;
+        128:63:128 ) echo 33 ;;
+        240:63:64 ) echo 9 ;;
+        240:63:128 ) echo 17 ;;
+        255:63:64 ) echo 8 ;;
+        255:63:128 ) echo 16 ;;
+        * ) echo "" ;;
+    esac
+}
+
+# Detect the default swap/root fdisk geometry for a disk.
+fdisk_detect_geometry() {
+    log_info "Detecting disk geometry for $1..."
+    FDISK_DETECT_DISK=$1
+    FDISK_OUTPUT=$(fdisk_list_partitions $1)
+    FDISK_HEADS=
+    FDISK_SECTORS=
+    FDISK_CYLINDERS=
+    FDISK_SWAP_END=
+    set -- $FDISK_OUTPUT
+
+    fdisk_parse_disk_geometry "$FDISK_DETECT_DISK" "$@"
+    if [ -n "$FDISK_HEADS" -a -n "$FDISK_SECTORS" -a -n "$FDISK_CYLINDERS" ]; then
+        FDISK_SWAP_END=$(fdisk_default_swap_end $FDISK_HEADS $FDISK_SECTORS $FDISK_CYLINDERS)
+    else
+        FDISK_SWAP_END=${FDISK_SWAP_CYLINDERS:-17}
+    fi
+
+    if [ -z "$FDISK_CYLINDERS" ]; then
+        fdisk_log_output "$FDISK_OUTPUT"
+        log_error "Unable to detect disk cylinders from fdisk output."
+        return 1
+    fi
+    if [ -z "$FDISK_SWAP_END" -o "$FDISK_SWAP_END" -lt 1 -o "$FDISK_SWAP_END" -ge "$FDISK_CYLINDERS" ]; then
+        log_error "Invalid detected geometry: swap end '$FDISK_SWAP_END', cylinders '$FDISK_CYLINDERS'."
+        return 1
+    fi
+
+    FDISK_ROOT_START=$(fdisk_next_cylinder "$FDISK_SWAP_END")
+    if [ -z "$FDISK_ROOT_START" ]; then
+        log_error "Unable to calculate root partition start cylinder."
+        return 1
+    fi
+
+    log_info "Detected geometry: heads=$FDISK_HEADS sectors=$FDISK_SECTORS cylinders=$FDISK_CYLINDERS"
+    echo "1 $FDISK_SWAP_END $FDISK_ROOT_START $FDISK_CYLINDERS"
+}
+
+# Create swap and root partitions using explicit fdisk geometry.
 fdisk_partition() {
     log_info "Creating partitions..."
 
@@ -163,6 +274,7 @@ fdisk_partition() {
     fi
 }
 
+# Format and enable the swap partition.
 format_swap() {
     if [ -z "$SWAPBLOCKS" ]; then
         log_error "Error formatting swap on $SWAPDEV: SWAPBLOCKS not set"
@@ -177,6 +289,7 @@ format_swap() {
     swapon "$SWAPDEV"
 }
 
+# Format and mount the root filesystem.
 format_root() {
     log_info "Formatting root filesystem $ROOTDEV..."
     if [ -z "$ROOTBLOCKS" ]; then
@@ -214,6 +327,7 @@ format_root() {
     mkdir -p "$ROOTMOUNT/tmp"
  }
 
+# Write the temporary fstab used by install helpers.
 create_fstab() {
     log_info "Creating file: $ROOTMOUNT/fstab.tmp"
     cat > "$ROOTMOUNT/fstab.tmp" <<EOF
@@ -223,7 +337,8 @@ none			/proc		proc		defaults	0	0
 EOF
 }
 
-init_disk() {
+# Detect, partition, format, mount, and initialize the target disk.
+disk_init() {
     DISKDEV=${DISKDEV:-/dev/hda}
     SWAPPART=${SWAPPART:-1}
     ROOTPART=${ROOTPART:-2}
@@ -243,7 +358,15 @@ init_disk() {
         log_div
         log_info "Initializing partitions..."
         # partition if root and swap filesystems don't already exist
-        fdisk_partition "$@"
+        if [ $# -eq 0 ]; then
+            FDISK_PARTITION_GEOMETRY=$(fdisk_detect_geometry "$DISKDEV")
+            if [ $? -ne 0 ]; then
+                exit 1
+            fi
+            fdisk_partition $FDISK_PARTITION_GEOMETRY
+        else
+            fdisk_partition "$@"
+        fi
         fdisk_parse_partitions "$DISKDEV"
     fi
     log_div

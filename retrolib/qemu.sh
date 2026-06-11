@@ -149,14 +149,14 @@ qemu_apply_profile() {
       ;;
     linux-0.99)
       QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
-      QEMU_RAM="${QEMU_RAM:-16M}"
+      QEMU_RAM="${QEMU_RAM:-64M}"
       QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
       QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
       ;;
     linux-1.0)
       QEMU_MACHINE="${QEMU_MACHINE:-type=isapc}"
       QEMU_RAM="${QEMU_RAM:-64M}"
-      QEMU_HD_SIZE="${QEMU_HD_SIZE:-500M}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-512M}"
       QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-ne2k_isa}"
       ;;
     linux-1.2)
@@ -175,14 +175,14 @@ qemu_apply_profile() {
     linux-2.0)
       QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
       QEMU_RAM="${QEMU_RAM:-64M}"
-      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-8G}"
       QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-tulip}"
       QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
       ;;
     linux-2.2)
       QEMU_MACHINE="${QEMU_MACHINE:-type=pc}"
       QEMU_RAM="${QEMU_RAM:-64M}"
-      QEMU_HD_SIZE="${QEMU_HD_SIZE:-2G}"
+      QEMU_HD_SIZE="${QEMU_HD_SIZE:-8G}"
       QEMU_NET_DEVICE="${QEMU_NET_DEVICE:-tulip}"
       QEMU_EXTRA="${QEMU_EXTRA:--vga cirrus}"
       ;;

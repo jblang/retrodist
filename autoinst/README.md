@@ -50,7 +50,7 @@ At runtime it:
 9. Prompts for ENTER, syncs, and reboots.
 
 The distro `autoinst.sh` manifest is responsible for setting install-time
-variables and calling wrapper functions such as `init_disk`,
+variables and calling wrapper functions such as `disk_init`,
 `debian_install_base`, `slackware_pkgtool_install`, or `sls_sysinstall`.
 
 ## `autoconf.sh`
@@ -147,17 +147,19 @@ Logging helpers:
 `diskutil.sh` contains shared disk preparation helpers and is loaded by
 `common.sh`.
 
-It provides canned fdisk geometries:
+When `disk_init` is called without partition geometry arguments, it detects the
+target disk geometry from the interactive `p`/`q` fdisk listing for `DISKDEV`.
 
-- `FDISK_GEOM_500M`
-- `FDISK_GEOM_2G`
-- `FDISK_GEOM_8G`
+Manifests may still pass explicit geometry as
+`swapstart swapend rootstart rootend` when needed.
 
 It also provides:
 
-- `init_disk`
+- `disk_init`
   Detects or creates the default swap/root partition layout, formats swap,
-  formats and mounts the root filesystem, and creates `fstab.tmp`.
+  formats and mounts the root filesystem, and creates `fstab.tmp`. Four
+  optional arguments may be provided as `swapstart swapend rootstart rootend`;
+  otherwise fdisk geometry is autodetected.
 
 - `make_boot_floppy`
   Writes the installed kernel to a boot floppy and sets its root device.
@@ -183,8 +185,16 @@ Common disk variables:
   Root filesystem type. Defaults to `ext2`; `ext` is also supported.
 
 - `FDISK_REBOOT`
-  When set, `init_disk` exits after writing a new partition table so the VM can
+  When set, `disk_init` exits after writing a new partition table so the VM can
   be rebooted before formatting.
+
+- `DISK_SWAP_MB`
+  Swap size used when autodetecting partition geometry. Defaults to `128`.
+  Common QEMU CHS layouts are supported without relying on shell arithmetic.
+
+- `FDISK_SWAP_CYLINDERS`
+  Swap cylinder count used when autodetecting partition geometry. Overrides
+  `DISK_SWAP_MB`.
 
 - `BOOTFLOPPYDEV`
   Boot floppy device for `make_boot_floppy`. Defaults to `/dev/fd0`.

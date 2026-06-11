@@ -1,4 +1,5 @@
-init_disk $FDISK_GEOM_2G
+DISK_SWAP_MB=64
+disk_init
 
 SETS="a ap d des e f gtk k kde n t tcl x xap xd xv y"
 TIMEZONE=US/Central

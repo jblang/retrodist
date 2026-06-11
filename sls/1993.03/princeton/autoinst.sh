@@ -3,7 +3,8 @@ PATH=$PATH:/retro/bin
 ROOTFS=ext
 FDISK_REBOOT=1
 
-init_disk $FDISK_GEOM_500M
+DISK_SWAP_MB=64
+disk_init
 
 SLS_INSTALL_MODE=all
 sls_sysinstall
