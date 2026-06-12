@@ -19,7 +19,9 @@ net_set_defaults() {
     log_info "  NETWORK=$NET_NETWORK"
     log_info "  BROADCAST=$NET_BROADCAST"
     log_info "  GATEWAY=$NET_GATEWAY"
+    log_info "  GATEWAY_HWADDR=$NET_GATEWAY_HWADDR"
     log_info "  NAMESERVER=$NET_NAMESERVER"
+    log_info "  NAMESERVER_HWADDR=$NET_NAMESERVER_HWADDR"
     log_info "  MODULE=$NET_MODULE"
     log_debug "Network path configuration:"
     log_debug "  NET_ETCPATH=$NET_ETCPATH"
@@ -33,6 +35,12 @@ net_build_etc_hosts() {
         echo "$NET_IPADDR		$NET_HOSTNAME.$NET_DOMAINNAME	$NET_HOSTNAME"
     else
         echo "$NET_IPADDR		$NET_HOSTNAME"
+    fi
+    if [ -n "$NET_GATEWAY" ]; then
+        echo "$NET_GATEWAY		gateway"
+    fi
+    if [ -n "$NET_NAMESERVER" ]; then
+        echo "$NET_NAMESERVER		nameserver"
     fi
 }
 
@@ -63,20 +71,25 @@ net_build_init_script() {
     if [ "$NET_HOSTNAME_INIT_SET" = "1" ]; then
         echo "hostname -S"
     fi
-    cat <<EOF
-$NET_IFCONFIG_PATH lo 127.0.0.1
-$NET_ROUTE_LOOPBACK
-
-IPADDR=$NET_IPADDR
-NETMASK=$NET_NETMASK
-NETWORK=$NET_NETWORK
-BROADCAST=$NET_BROADCAST
-GATEWAY=$NET_GATEWAY
-
-$NET_IFCONFIG_PATH eth0 \$IPADDR netmask \$NETMASK broadcast \$BROADCAST
-$NET_ROUTE_NETWORK
-$NET_ROUTE_PATH add default gw \$GATEWAY metric 1
-EOF
+    echo "$NET_IFCONFIG_PATH lo 127.0.0.1"
+    echo "$NET_ROUTE_LOOPBACK"
+    echo
+    echo "IPADDR=$NET_IPADDR"
+    echo "NETMASK=$NET_NETMASK"
+    echo "NETWORK=$NET_NETWORK"
+    echo "BROADCAST=$NET_BROADCAST"
+    echo "GATEWAY=$NET_GATEWAY"
+    echo "NAMESERVER=$NET_NAMESERVER"
+    echo
+    echo "$NET_IFCONFIG_PATH eth0 \$IPADDR netmask \$NETMASK broadcast \$BROADCAST"
+    echo "$NET_ROUTE_NETWORK"
+    if [ -n "$NET_GATEWAY_HWADDR" ]; then
+        echo "$NET_ARP_PATH -s \$GATEWAY $NET_GATEWAY_HWADDR"
+    fi
+    if [ -n "$NET_NAMESERVER_HWADDR" ]; then
+        echo "$NET_ARP_PATH -s \$NAMESERVER $NET_NAMESERVER_HWADDR"
+    fi
+    echo "$NET_ROUTE_PATH add default gw \$GATEWAY metric 1"
 }
 
 # Rewrite an SLS /etc/hosts file with host, network, and router entries.
@@ -168,6 +181,20 @@ net_detect_route_path() {
     log_debug "Detected route command: $NET_ROUTE_PATH"
 }
 
+# Choose an arp path available to the target system.
+net_detect_arp_path() {
+    if [ -z "$NET_ARP_PATH" ]; then
+        if [ -x "/usr/sbin/arp" ]; then
+            NET_ARP_PATH="/usr/sbin/arp"
+        elif [ -x "/sbin/arp" ]; then
+            NET_ARP_PATH="/sbin/arp"
+        else
+            NET_ARP_PATH=arp
+        fi
+    fi
+    log_debug "Detected arp command: $NET_ARP_PATH"
+}
+
 # Detect which network initialization style this target system uses.
 net_detect_init_path() {
     if [ -f "$NET_RCPATH/rc.inet1" ]; then
@@ -194,6 +221,7 @@ net_detect_paths() {
     net_detect_hostname_path
     net_detect_ifconfig_path
     net_detect_route_path
+    net_detect_arp_path
     net_detect_init_path
 }
 

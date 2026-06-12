@@ -40,11 +40,12 @@ environment:
 - `NET_NETMASK=255.255.255.0`
 - `NET_NETWORK=10.0.2.0`
 - `NET_BROADCAST=10.0.2.255`
-- `NET_GATEWAY=10.0.2.1`
-- `NET_NAMESERVER=10.0.2.1`
+- `NET_GATEWAY=10.0.2.2`
+- `NET_NAMESERVER=10.0.2.3`
 - `NET_DOMAINNAME=retro.net`
 - `NET_IFCONFIG_PATH` auto-detected
 - `NET_ROUTE_PATH` auto-detected
+- `NET_ARP_PATH` auto-detected
 - `NET_ETCPATH=/etc`
 - `NET_RCPATH=$NET_ETCPATH/rc.d`
 - `NET_MODULE=tulip`
@@ -54,9 +55,9 @@ It then detects target paths:
 
 - Hostname file: `$NET_ETCPATH/HOSTNAME` when present, otherwise
   `$NET_ETCPATH/hostname`.
-- Command paths: `NET_IFCONFIG_PATH` and `NET_ROUTE_PATH` are preserved when
-  already set; otherwise `/sbin`, then `/etc`, then the unqualified command
-  name are used for each command independently.
+- Command paths: `NET_IFCONFIG_PATH`, `NET_ROUTE_PATH`, and `NET_ARP_PATH`
+  are preserved when already set; otherwise compatible default locations are
+  probed before falling back to the unqualified command name.
 - Startup path: `$NET_RCPATH/rc.inet1` first, then
   `$NET_ETCPATH/init.d/network` when `$NET_ETCPATH/init.d` exists, then
   `$NET_ETCPATH/rc.net`.
@@ -126,14 +127,25 @@ on later runs. Most network files use a `~` suffix; Debian module setup uses
   Set to `1` when the generated init script should call `hostname -S` before
   configuring network interfaces. Debian 0.91 uses this.
 
+- `NET_GATEWAY_HWADDR`
+  Optional Ethernet address for a static ARP entry for `$NET_GATEWAY`. Debian
+  1.2 uses this because its ARP exchange with QEMU user networking can fail
+  repeatedly after boot until enough outbound probes have been sent. QEMU
+  slirp's gateway address is `52:55:0a:00:02:02`.
+
+- `NET_NAMESERVER_HWADDR`
+  Optional Ethernet address for a static ARP entry for `$NET_NAMESERVER`.
+  Debian 1.2 sets this to QEMU slirp's nameserver address,
+  `52:55:0a:00:02:03`.
+
 - `NET_BROADCAST`
   IPv4 broadcast address. Defaults to `10.0.2.255`.
 
 - `NET_GATEWAY`
-  Default gateway. Defaults to `10.0.2.1`.
+  Default gateway. Defaults to `10.0.2.2`.
 
 - `NET_NAMESERVER`
-  DNS server. Defaults to `10.0.2.1`.
+  DNS server. Defaults to `10.0.2.3`.
 
 - `NET_IFCONFIG_PATH`
   Path or command name used for generated `ifconfig` lines. If unset,
@@ -144,6 +156,11 @@ on later runs. Most network files use a `~` suffix; Debian module setup uses
   Path or command name used for generated `route` lines. If unset, networking
   path detection probes `/sbin/route` and `/etc/route`, then falls back to
   `route`.
+
+- `NET_ARP_PATH`
+  Path or command name used for generated static ARP entries. If unset,
+  networking path detection probes `/usr/sbin/arp` and `/sbin/arp`, then falls
+  back to `arp`.
 
 - `NET_ETCPATH`
   Target `/etc` path. Defaults to `/etc`.
