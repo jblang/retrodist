@@ -1,8 +1,11 @@
-unzip -q $ORIGDIR/slackware.zip -d $TEMPDIR
-mkdir -p install/install/a1
-mv $TEMPDIR/a1.img install/install/a1/a1disk
-for IMG in $TEMPDIR/[atx]*.img; do
-  DISK=$(basename $IMG .img)
-  7z x $IMG -oinstall/install/$DISK > /dev/null
+unzip -q "$ORIGDIR/slackware.zip" -d "$TEMPDIR"
+for IMG in "$TEMPDIR"/[atx]*.img; do
+  DISK=$(basename "$IMG" .img)
+  if [[ "$DISK" != "a1" ]]; then
+    mkdir -p "$TEMPDIR/packages/$DISK"
+    7z x -y -o"$TEMPDIR/packages/$DISK" "$IMG" > /dev/null
+  fi
 done
-cp install/install/a1/a1disk boot.img
+EXTRACT_BOOT_IMAGE=$TEMPDIR/a1.img
+EXTRACT_PACKAGES=$TEMPDIR/packages
+extract_install_files

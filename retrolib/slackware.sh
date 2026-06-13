@@ -1,5 +1,7 @@
 # shellcheck shell=bash
 # Slackware-specific install media and tagfile preparation helpers.
+
+# Builds default ADD tagfiles from staged Slackware package directories.
 slackware_build_tagfiles() {
   local pkgroot firstdir seriespkg seriesdir series tgz pkg
   pkgroot=$(slackware_staged_pkg_root) || return
@@ -38,9 +40,10 @@ slackware_build_tagfiles() {
   done
 }
 
+# Finds the staged Slackware package root on FAT media.
 slackware_staged_pkg_root() {
   local root
-  for root in install/slakware install/slackware install; do
+  for root in fat/packages fat; do
     if [[ -d "$root" ]] && find "$root" -mindepth 2 -maxdepth 2 -type f \( -name '*.tgz' -o -name '*.tar' \) 2>/dev/null | grep -q .; then
       printf '%s\n' "$root"
       return 0
@@ -49,6 +52,7 @@ slackware_staged_pkg_root() {
   return 1
 }
 
+# Finds the Slackware package root inside an ISO.
 slackware_iso_tag_root() {
   local iso=$1
   local root
@@ -65,10 +69,11 @@ slackware_iso_tag_root() {
   return 1
 }
 
+# Builds tagfiles by reading package names directly from an ISO.
 slackware_build_tagfiles_from_iso() {
   local iso=$1
   local pathroot=$2
-  local tagroot=install/tagfiles
+  local tagroot=fat/tagfiles
   local pkglist=$TEMPDIR/slackware-iso-pkgs.txt
   local diskdir tagdir
 
@@ -104,11 +109,12 @@ slackware_build_tagfiles_from_iso() {
   done
 }
 
+# Sets one package's state in every staged Slackware tagfile.
 slackware_set_tagfile_package() {
   local pkg=$1
   local state=$2
   local tagfile tmpfile
-  find install \( -name tagfile -o -name 'tagfile.new' \) -type f | while IFS= read -r tagfile; do
+  find fat \( -name tagfile -o -name 'tagfile.new' \) -type f | while IFS= read -r tagfile; do
     if grep -q "^$pkg:" "$tagfile"; then
       tmpfile="$tagfile.tmp.$$"
       awk -v pkg="$pkg" -v state="$state" '
@@ -122,12 +128,11 @@ slackware_set_tagfile_package() {
   done
 }
 
+# Applies package skip rules from pkgskip.txt.
 slackware_apply_pkgskip() {
-  local pkgskip=$CONFDIR/pkgskip.txt
+  local pkgskip
   local pkg
-  if [[ ! -f "$pkgskip" ]]; then
-    return
-  fi
+  pkgskip=$(retro_config_file pkgskip.txt) || return
   cat_newline "$pkgskip" | while IFS= read -r pkg _; do
     case "$pkg" in
       "" | \#*) continue ;;
@@ -136,16 +141,20 @@ slackware_apply_pkgskip() {
   done
 }
 
+# Prepares Slackware tagfiles from staged packages or install ISO contents.
 slackware_prepare_tagfiles() {
-  local source_iso="${QEMU_CDROM:-disc1.iso}"
+  local source_iso=install.iso
   local tagroot
   local pkg
 
   if slackware_staged_pkg_root >/dev/null; then
     slackware_build_tagfiles
-  elif [[ -f "$ORIGDIR/$source_iso" ]]; then
-    tagroot=$(slackware_iso_tag_root "$ORIGDIR/$source_iso") || return
-    slackware_build_tagfiles_from_iso "$ORIGDIR/$source_iso" "$tagroot"
+  elif [[ -f "$source_iso" ]]; then
+    tagroot=$(slackware_iso_tag_root "$source_iso") || return
+    slackware_build_tagfiles_from_iso "$source_iso" "$tagroot"
+  elif [[ -f "$ORIGDIR/disc1.iso" ]]; then
+    tagroot=$(slackware_iso_tag_root "$ORIGDIR/disc1.iso") || return
+    slackware_build_tagfiles_from_iso "$ORIGDIR/disc1.iso" "$tagroot"
   else
     return
   fi

@@ -1,9 +1,5 @@
-7z x $ORIGDIR/disc1.iso \
-    slakware \
-    slakinst/boot144/bare \
-    slakinst/root144/color144 > /dev/null
-mkdir -p install
-mv slakware install
-mv slakinst/boot144/bare boot.img
-mv slakinst/root144/color144 root.img
-rm -rf slakinst
+EXTRACT_SOURCE=disc1.iso
+EXTRACT_BOOT_IMAGE=slakinst/boot144/bare
+EXTRACT_ROOT_IMAGE=slakinst/root144/color144
+EXTRACT_PACKAGES=slakware
+extract_install_files

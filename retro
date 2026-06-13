@@ -23,7 +23,7 @@ Usage: $(basename "$0") [COMMAND] [CONFIG] [OPTIONS]
 Commands:
   help      show this help text
   boot      boot the distro in QEMU; calls extract
-  install   boot the distro from install media in QEMU; use fda.img if present, otherwise hdc.iso
+  install   boot the distro from install media in QEMU; use boot.img as fda and install.iso as hdc
   extract   extract files for the distro; calls download
   download  download source files for the distro or CD-ROM
   patch     patch the boot/root disk for auto-installation.
@@ -76,11 +76,15 @@ case "$CONFNAME" in
     ;;
 esac
 
-ORIGDIR=$CONFDIR/download.d
+QEMUDIR=$CONFDIR/qemu.d
+EXTRACTDIR=$QEMUDIR
+if retro_config_file cdrom.txt >/dev/null; then
+  ORIGDIR=$QEMUDIR
+else
+  ORIGDIR=$CONFDIR/download.d
+fi
 SLACKBASE=$ORIGDIR
 DEBIANBASE=$ORIGDIR
-EXTRACTDIR=$CONFDIR/extract.d
-QEMUDIR=$CONFDIR/qemu.d
 
 # output configuration details
 cat <<EOF

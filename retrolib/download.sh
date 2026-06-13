@@ -1,5 +1,7 @@
 # shellcheck shell=bash
 # Download helpers for mirrors, per-distro manifests, and recursive asset fetches.
+
+# Downloads files listed as filename/url pairs in a manifest.
 download_list() {
   local file url dest
   if [[ $# -ne 2 ]]; then
@@ -18,6 +20,7 @@ download_list() {
   done
 }
 
+# Downloads named files from a base URL into a destination directory.
 download_files() {
   local url_base dest_base file
   if [[ $# -lt 3 ]]; then
@@ -40,6 +43,7 @@ download_files() {
   done
 }
 
+# Recursively downloads named directories from a base URL.
 download_directories() {
   local url_base dest_base cut_dirs dir
   if [[ $# -lt 3 ]]; then
@@ -68,6 +72,7 @@ download_directories() {
   done
 }
 
+# Downloads a Slackware release tree from the official mirror.
 download_slackware() {
   local slack_base
   if [[ $# -ne 1 ]]; then
@@ -90,6 +95,7 @@ download_slackware() {
   fi
 }
 
+# Downloads a Debian release tree from archive.debian.org.
 download_debian() {
   local debian_base rel_base rel_url files dirs
   if [[ $# -ne 1 ]]; then
@@ -132,39 +138,71 @@ download_debian() {
   download_directories "$rel_url" "$rel_base" "${dirs[@]}"
 }
 
-download_all() {
-  local cdrom cdrom_dir cdrom_download file ver rel
-  mkdir -p "$2"
-  if [[ -f $1/cdrom.txt ]]; then
-    cdrom=$(<"$1/cdrom.txt")
-    cdrom_dir=$(cd "$SCRIPTDIR/cdrom/$cdrom" && pwd)
-    cdrom_download=$cdrom_dir/download.d
-    download_all "$cdrom_dir" "$cdrom_download"
-    for file in "$cdrom_download"/*; do
-      if [[ -e "$file" ]]; then
-        ln -sf "$file" "$2"
-      fi
-    done
+# Resolves a distro's cdrom.txt reference to a cdrom config directory.
+cdrom_config_dir() {
+  local cdrom cdrom_file
+  cdrom_file=$(retro_config_file "$1" cdrom.txt) || return 1
+  if [[ ! -f "$cdrom_file" ]]; then
+    return 1
   fi
-  if [[ -f "$1/download.txt" ]]; then
-    download_list "$1/download.txt" "$2"
+  cdrom=$(<"$cdrom_file")
+  cd "$SCRIPTDIR/cdrom/$cdrom" && pwd
+}
+
+# Runs all configured download mechanisms for a config directory.
+download_config_assets() {
+  local ver rel config_file
+  if config_file=$(retro_config_file "$1" download.txt); then
+    download_list "$config_file" "$2"
   fi
-  if [[ -f "$1/slackmirror.txt" ]]; then
-    ver=$(<"$1/slackmirror.txt")
+  if config_file=$(retro_config_file "$1" slackmirror.txt); then
+    ver=$(<"$config_file")
     (cd "$2" || exit; download_slackware "$ver")
   fi
-  if [[ -f "$1/debmirror.txt" ]]; then
-    rel=$(<"$1/debmirror.txt")
+  if config_file=$(retro_config_file "$1" debmirror.txt); then
+    rel=$(<"$config_file")
     (cd "$2" || exit; download_debian "$rel")
   fi
-  if [[ -f "$1/download.sh" ]]; then
+  if config_file=$(retro_config_file "$1" download.sh); then
     pushd "$2" > /dev/null || return
     # shellcheck source=/dev/null
-    source "$1/download.sh"
+    source "$config_file"
     popd > /dev/null || return
   fi
 }
 
+# Downloads assets for the CD-ROM config referenced by a distro.
+download_cdrom_assets() {
+  local cdrom_dir cdrom_download
+  cdrom_dir=$(cdrom_config_dir "$1") || return 0
+  cdrom_download=$cdrom_dir/download.d
+  mkdir -p "$cdrom_download"
+  download_config_assets "$cdrom_dir" "$cdrom_download"
+}
+
+# Links downloaded CD-ROM ISO files into a distro extraction directory.
+link_cdrom_isos() {
+  local cdrom_dir cdrom_download file
+  cdrom_dir=$(cdrom_config_dir "$1") || return 0
+  cdrom_download=$cdrom_dir/download.d
+  mkdir -p "$2"
+  find "$cdrom_download" -maxdepth 1 -type f -iname '*.iso' -print | while IFS= read -r file; do
+    ln -sf "$file" "$2/${file##*/}"
+  done
+}
+
+# Downloads both referenced CD-ROM assets and distro-specific assets.
+download_all() {
+  local cdrom_file
+  mkdir -p "$2"
+  if cdrom_file=$(retro_config_file "$1" cdrom.txt); then
+    download_cdrom_assets "$1"
+    link_cdrom_isos "$1" "$2"
+  fi
+  download_config_assets "$1" "$2"
+}
+
+# Top-level retro command handler for downloading a distro.
 retro_download() {
   download_all "$CONFDIR" "$ORIGDIR"
 }

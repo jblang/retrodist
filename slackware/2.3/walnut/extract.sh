@@ -1,5 +1,4 @@
-7z e $ORIGDIR/disc1.iso . \
-    bootdsks.144/idecd \
-    rootdsks.144/color144 > /dev/null
-mv idecd boot.img
-mv color144 root.img
+EXTRACT_SOURCE=disc1.iso
+EXTRACT_BOOT_IMAGE=bootdsks.144/idecd
+EXTRACT_ROOT_IMAGE=rootdsks.144/color144
+extract_install_files

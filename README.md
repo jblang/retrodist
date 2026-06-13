@@ -43,12 +43,12 @@ The `package` command (see below) can be used to package the disk images togethe
 
 ## Retro Distros
 
-The `retro` script provides commands for downloading, extracting, and running retro distros. All of the commands take a configuration directory as their first argument. If no directory is provided, the current directory is used.
+The `retro` script provides commands for downloading, extracting, and running retro distros. Commands are passed first, followed by an optional configuration directory. If no directory is provided, the current directory is used.
 
 - `boot` will start the distro using the disk images in the `qemu.d` directory. Any additional arguments are passed to QEMU verbatim.
 - `install` will start the distro from install media and run the scripted install if `script.sh` is provided.
-- `extract` will extract the distro into the `extract.d` directory.
-- `download` will download the distro's original files into the config directory's `download.d` directory.
+- `extract` will extract the distro into the `qemu.d` directory.
+- `download` will download the distro's original files. CD-ROM based distros link ISO files into `qemu.d`; other distros use the config directory's `download.d` directory.
 - `reset` will reset the distro's extracted files and QEMU configuration
 - `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
@@ -72,7 +72,7 @@ Configuration files are provided in the [cdrom](cdrom) directory for downloading
 
 By default, `retro` starts QEMU with a native window display backend: `gtk` on
 Linux and `cocoa` on macOS. Override this by setting `QEMU_DISPLAY`, for example
-`QEMU_DISPLAY="-display sdl" retro ... boot`. If QEMU reports that the selected
+`QEMU_DISPLAY="-display sdl" retro boot ...`. If QEMU reports that the selected
 backend is unavailable, install a QEMU UI backend package such as `qemu-ui-gtk`
 or choose another backend supported by `qemu-system-i386 -display help`.
 
@@ -91,17 +91,17 @@ You can control the network configuration by setting the `QEMU_NET_TYPE` environ
 
 Boot with default user-mode networking:
 ```bash
-retro slackware/3.0/walnut boot
+retro boot slackware/3.0/walnut
 ```
 
 Boot connected to jump box:
 ```bash
-QEMU_NET_TYPE=jump retro slackware/3.0/walnut boot
+QEMU_NET_TYPE=jump retro boot slackware/3.0/walnut
 ```
 
 Boot with no networking:
 ```bash
-QEMU_NET_TYPE=none retro slackware/3.0/walnut boot
+QEMU_NET_TYPE=none retro boot slackware/3.0/walnut
 ```
 
 You can also set `QEMU_NET_TYPE` in a distro's `qemu.sh` configuration file to make it persistent.
@@ -189,7 +189,7 @@ To use the jump box with a retro VM, start the jump box first, then start your r
 ./jump run
 
 # Terminal 2: Start retro VM connected to jump box
-QEMU_NET_TYPE=jump retro slackware/3.0/walnut boot
+QEMU_NET_TYPE=jump retro boot slackware/3.0/walnut
 ```
 
 Note that multiple retro guests cannot connect to the jump box simultaneously. If you start multiple retro VMs with `QEMU_NET_TYPE=jump`, networking may stop working, and you'll have to stop all the retro guests and then restart only one.
@@ -257,37 +257,97 @@ To add support for a new distro, create a new `distro/version/variant` configura
 
 ### Downloading
 
-Downloads are configured using one of the following files, in order of precedence:
+Downloads are configured with one or more of the following files in the config
+directory or its parent directory. When multiple files exist, they run in this
+order:
 
-- `download.sh` executes as a general script to handle special cases.
 - `download.txt` contains a list of files to download in the format `filename url` with one file per line.
 - `slackmirror.txt` contains the version to download from Slackware's [official mirror](https://mirrors.slackware.com/slackware/).
 - `debmirror.txt` contains the Debian release directory to download from the [Debian archive dists tree](https://archive.debian.org/debian/dists/).
+- `download.sh` executes as a general script to handle special cases.
+
+When a config uses `cdrom.txt`, `retro download` first downloads the referenced
+CD-ROM config under [cdrom](cdrom), then links every downloaded ISO into the
+distro's `qemu.d` directory. CD-ROM based distro downloads and extraction use
+`qemu.d` as `ORIGDIR`; non-CD-ROM distros use the config directory's
+`download.d` directory.
 
 ### Extraction
 
-Extraction is configured by files in the distro's config directory:
-- `cdrom.txt` specifies the CD-ROM that the distro comes from, relative to the `cdrom` directory.
-- `extract.sh` performs distro-specific extraction...
-  - If the distro doesn't support installing from an IDE CD-ROM, extract package files to the `install` directory. This will be mounted as a FAT partition to `/dev/hdb1`.
-  - If a boot floppy is required, copy it to `boot.img`.
-  - If a root floppy is required, copy it to `root.img`.
-  - Extract any additional files required for installation.
+`retro extract` always calls `download` first. It then creates `qemu.d`, runs
+`extract.sh` from the config or parent directory if one exists, prepares
+automatic-install files if `autoinst.sh` exists, and writes
+`qemu.d/.extracted` so later runs can reuse the same extracted tree.
+
+Extraction is configured by files in the distro's config directory or parent
+directory:
+
+- `cdrom.txt` names the CD-ROM config, relative to [cdrom](cdrom). Its ISO
+  files are linked into `qemu.d` before `extract.sh` runs.
+- `extract.sh` performs distro-specific extraction into `qemu.d`.
+- `autoinst.sh` and optional `autoconf.sh` are copied into
+  `qemu.d/fat/autoinst.d/distro` when present. The shared autoinstall runtime is
+  copied into `qemu.d/fat`, and `qemu.d/fat` is later exposed to the guest as a
+  writable FAT disk.
+
+For the common case, set these variables and call `extract_install_files`:
+
+- `EXTRACT_SOURCE`: optional archive or directory to extract from, resolved relative to `ORIGDIR`; when empty, files are copied from `ORIGDIR`.
+- `EXTRACT_BOOT_IMAGE`: boot image path. The original file is extracted or copied
+  to `qemu.d`, and `boot.img` is updated to point at it.
+- `EXTRACT_ROOT_IMAGE`: root image path. The original file is extracted or copied
+  to `qemu.d`, and `root.img` is updated to point at it.
+- `EXTRACT_EXTRA_IMAGES`: optional array of additional image files to place at
+  the top level of `qemu.d`.
+- `EXTRACT_FAT_FILES`: optional array of individual files to place in
+  `qemu.d/fat`.
+- `EXTRACT_PACKAGES`: optional source package directory to place in
+  `qemu.d/fat/packages`.
+
+Unset `EXTRACT_*` variables default to empty, and `extract_install_files` clears
+them after each call. When `EXTRACT_SOURCE` names an ISO, extraction also updates
+`install.iso` to point at that ISO. This is the default CD-ROM image used by
+`boot` and `install` unless a config provides `hdc.iso`.
+
+Helpers are available for common post-processing:
+
+- `debian_extract_fat_image IMAGE DEST FILE...` recreates `DEST`, extracts only
+  the named files from a FAT floppy image, and lowercases filenames for the guest.
 
 ### Preparation
 
-The `retro` script configures QEMU to run a distro by doing the following:
+`retro boot` and `retro install` both call `extract` first, then prepare QEMU
+from the files in `qemu.d`:
 
-1. Sets `QEMU_*` variables with the default hardware configuration and creates symlinks to attach installation files to the appropriate device:
-   - `boot.img` -> `fda.img`: first floppy drive (`/dev/fd0`)
-   - `root.img` -> `fdb.img`: second floppy drive (`/dev/fd1`)
-   - `install` -> `hdb`: FAT partition on second IDE drive (`/dev/hdb1`)
-   - `disc1.iso` -> `hdc.img`: CD-ROM drive (`/dev/hdc`)
-2. Sources the distro's `qemu.sh` file if it exists. This file should:
-   - Override `QEMU_*` variables for non-default hardware configuration
-   - Create symlinks for any additional files needed by the installation
-   - Perform any special-case initialization required by the distro
-3. Creates main hard drive image `hda.img` with size `QEMU_HD_SIZE` and format `QEMU_HD_FORMAT`
+1. Load `config.sh` from the config or parent directory if present.
+2. Set default `QEMU_*` values, source `qemu.sh` from the config or parent
+   directory if present, apply the selected `QEMU_PROFILE`, assign host ports,
+   and finish network/display configuration.
+3. Select command-specific install media:
+   - During `install`, `boot.img` is attached to the first floppy drive as
+     `/dev/fd0`, overriding `fda.img` for that command.
+   - During `boot` and `install`, `install.iso` is attached to `/dev/hdc` when
+     `hdc.iso` does not exist.
+   - During `install`, the boot order is set to floppy when floppy install media
+     exists, otherwise CD-ROM when CD-ROM install media exists.
+4. Create `hda.img` with `QEMU_HD_SIZE`, `QEMU_HD_FORMAT`, and optional
+   `QEMU_HD_CREATE_OPTIONS` when it does not exist and startup media is present.
+5. Attach guest disks from existing files and directories:
+   - `fda.img` and `fdb.img` attach as floppy drives.
+   - `hda.img`, `hdb.img`, `hdc.img`, and `hdd.img` attach as IDE disks.
+   - `hda.iso`, `hdb.iso`, `hdc.iso`, and `hdd.iso` attach as IDE CD-ROMs.
+   - `fat` attaches as a writable FAT disk on the second IDE drive when no `hdb`
+     image or ISO exists. Guests usually mount it as `/dev/hdb1`.
+   - Directories named `fda`, `fdb`, `hda`, `hdb`, `hdc`, or `hdd` attach as
+     writable FAT-backed drives.
+6. Create serial and parallel Unix socket chardevs, build the QEMU command, and
+   print assigned QEMU ports, guest port forwards, guest disks, guest character
+   devices, and the final QEMU command.
+
+`qemu.sh` should be limited to hardware and QEMU behavior: profile, RAM, disk
+size, network device, display/acceleration, boot order, extra QEMU arguments,
+or explicit device images such as `fda.img` and `hdc.iso`. General install media
+links should be created by extraction, not by `qemu.sh`.
 
 ### Automatic Installation and Configuration
 
@@ -295,10 +355,10 @@ Support may optionally be provided for automatically installing and configuring 
 
 ### Scripting Installs
 
-If a config directory contains `script.sh`, `retro install` starts QEMU, initializes
-QMP, then sources that script to drive the installer. These scripts are not
-standalone entry points; they call functions from `retrolib/qmp.sh` and
-`retrolib/script.sh`.
+If the selected config directory or its parent contains `script.sh`, `retro
+install` starts QEMU, initializes QMP, then sources that script to drive the
+installer. These scripts are not standalone entry points; they call functions
+from `retrolib/qmp.sh` and `retrolib/script.sh`.
 
 Common install-script helpers include:
 

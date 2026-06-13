@@ -1,10 +1,13 @@
 # shellcheck shell=bash
 # Shared shell helpers used across download, extract, autoinstall, and QEMU code.
+
+# Prints a file followed by one extra newline.
 cat_newline() {
   cat "$1"
   echo
 }
 
+# Counts path components in a URL for wget cut-dirs.
 url_path_depth() {
   local url_path=${1#*://}
   url_path=${url_path#*/}
@@ -18,16 +21,37 @@ url_path_depth() {
   fi
 }
 
-fix_perms() {
-  sudo chown -R "$USER:$USER" "$1"
-  chmod -R ugo+r "$1"
-  chmod -R u+w "$1"
-  chmod -R go-w "$1"
-  if [[ -d "$1" ]]; then
-    find "$1" -type d -exec chmod ugo+x {} +
+# Finds a config file in the config directory or its parent.
+retro_config_file() {
+  local dir name path parent
+  if [[ $# -eq 1 ]]; then
+    dir=$CONFDIR
+    name=$1
+  elif [[ $# -eq 2 ]]; then
+    dir=$1
+    name=$2
+  else
+    echo "Usage: retro_config_file [DIR] FILE" >&2
+    return 1
   fi
+
+  path=$dir/$name
+  if [[ -f "$path" ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+
+  parent=$(dirname "$dir")
+  path=$parent/$name
+  if [[ "$parent" != "$dir" && -f "$path" ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+
+  return 1
 }
 
+# Maps the active MSYS2 environment to its MinGW package prefix.
 retro_msys2_mingw_package_prefix() {
   case "${MSYSTEM:-}" in
     MINGW32)
@@ -54,6 +78,7 @@ retro_msys2_mingw_package_prefix() {
   esac
 }
 
+# Installs prerequisite packages using the selected package manager.
 retro_install_prereq_packages() {
   local package_manager install
   if [[ $# -lt 2 ]]; then
@@ -100,6 +125,7 @@ retro_install_prereq_packages() {
   "${install[@]}" "$@"
 }
 
+# Top-level retro command handler for installing host prerequisites.
 retro_prereq() {
   local dry_run=0
   local mingw_package_prefix

@@ -1,10 +1,13 @@
-7z x $ORIGDIR/disc1.iso \
-    distributions/debian/dist > /dev/null
-mv distributions/debian/dist/base/* .
-mkdir -p install/packages
-mv distributions/debian/dist/packages/*/*.deb install/packages
-rm -rf distributions
+DISTDIR=distributions/debian/dist
+EXTRACT_SOURCE=disc1.iso
+EXTRACT_EXTRA_IMAGES=(
+    $DISTDIR/base/bootdisk.gz
+    $DISTDIR/base/basedsk1.gz
+    $DISTDIR/base/basedsk2.gz
+)
+EXTRACT_PACKAGES=$DISTDIR/packages
+extract_install_files
 gunzip *.gz
-mv bootdisk boot.img
-mv basedsk1 install/basedsk1.img
-mv basedsk2 install/basedsk2.img
+retro_link_boot_root bootdisk
+mv basedsk1 fat/basedsk1.img
+mv basedsk2 fat/basedsk2.img

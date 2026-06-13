@@ -1,1 +1,0 @@
-QEMU_PROFILE=linux-0.99

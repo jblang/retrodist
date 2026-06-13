@@ -69,6 +69,7 @@ qmp_hmp_command() {
   } | nc -w "$QMP_TIMEOUT" "$QMP_HOST" "$QMP_PORT"
 }
 
+# Ejects media from a QEMU block device.
 qmp_eject_disk() {
   local device
   device=${1:-floppy0}

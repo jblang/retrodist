@@ -69,7 +69,7 @@ _slackware_sysinstall() {
     # installer for SLS sysinstall-based Slackware versions
     log_div
     log_info "Installing Slackware with sysinstall"
-    INSTSRC=${SYSINSTALL_INSTSRC:-$INSTMOUNT/install}
+    INSTSRC=${SYSINSTALL_INSTSRC:-$INSTMOUNT/packages}
     log_info "Slackware sysinstall configuration:"
     log_info "  INSTSRC=$INSTSRC"
     log_info "  ROOTMOUNT=$ROOTMOUNT"
@@ -123,9 +123,9 @@ sls_install_mounted_disk() {
 sls_install_series() {
     SERIES=$1
     if [ "$SERIES" = "a" ]; then
-        DISKPATTERN="$INSTMOUNT/install/a[2-9] $INSTMOUNT/install/a[1-9][0-9]"
+        DISKPATTERN="$INSTMOUNT/packages/a[2-9] $INSTMOUNT/packages/a[1-9][0-9]"
     else
-        DISKPATTERN="$INSTMOUNT/install/$SERIES[1-9] $INSTMOUNT/install/$SERIES[1-9][0-9]"
+        DISKPATTERN="$INSTMOUNT/packages/$SERIES[1-9] $INSTMOUNT/packages/$SERIES[1-9][0-9]"
     fi
     log_info "Installing SLS series $SERIES"
 
@@ -140,10 +140,10 @@ sls_detect_install_mode() {
     if [ -n "$SLS_INSTALL_MODE" ]; then
         log_info "Using configured SLS_INSTALL_MODE=$SLS_INSTALL_MODE"
         echo "$SLS_INSTALL_MODE"
-    elif [ -d "$INSTMOUNT/install/x1" -o -d "$INSTMOUNT/install/x2" ]; then
+    elif [ -d "$INSTMOUNT/packages/x1" -o -d "$INSTMOUNT/packages/x2" ]; then
         log_info "Detected SLS install mode: all"
         echo all
-    elif [ -d "$INSTMOUNT/install/b1" -o -d "$INSTMOUNT/install/c1" ]; then
+    elif [ -d "$INSTMOUNT/packages/b1" -o -d "$INSTMOUNT/packages/c1" ]; then
         log_info "Detected SLS install mode: base"
         echo base
     else

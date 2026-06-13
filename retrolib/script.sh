@@ -30,11 +30,13 @@ script_wait_screen() {
   done
 }
 
+# Waits for a LILO prompt and presses Return.
 script_boot_lilo() {
   script_wait_screen "${1:-boot:}"
   qmp_send_return
 }
 
+# Waits for a prompt and sends an optional answer.
 script_answer_prompt() {
   local prompt answer
   prompt=$1
@@ -47,6 +49,7 @@ script_answer_prompt() {
   fi
 }
 
+# Swaps the first floppy image while answering an installer prompt.
 script_change_floppy() {
   local prompt image answer
   prompt=$1
@@ -62,14 +65,17 @@ script_change_floppy() {
   qmp_send_return
 }
 
+# Sends one QEMU sendkey token to the guest.
 script_press_key() {
   qmp_sendkey "$1"
 }
 
+# Sends Return to the guest.
 script_send_return() {
   qmp_send_return
 }
 
+# Waits for a login prompt and enters a username.
 script_login() {
   local prompt user
   prompt=$1
@@ -79,11 +85,13 @@ script_login() {
   qmp_send_line "$user"
 }
 
+# Mounts the staged FAT media and launches the autoinstall script.
 script_run_autoinst() {
   script_wait_screen "$1"
   qmp_send_line "mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
 }
 
+# Sets the next boot device and confirms the final reboot prompt.
 script_finish_reboot() {
   local disk prompt timeout
   disk="${1:-c}"

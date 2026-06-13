@@ -1,11 +1,12 @@
-mkdir -p install
-cp -lR $SLACKBASE/slackware-pre-1.0-beta install/install
-mkdir -p install/install/a1
-mv install/install/diska01 install/install/a1/a1disk
-for DISK in install/install/diska*; do
+cp -pR $SLACKBASE/slackware-pre-1.0-beta "$TEMPDIR/packages"
+mkdir -p "$TEMPDIR/packages/a1"
+mv "$TEMPDIR/packages/diska01" "$TEMPDIR/packages/a1/a1disk"
+for DISK in "$TEMPDIR"/packages/diska*; do
   NUM=$(basename "$DISK" | sed 's/diska0*//')
   if [[ -d "$DISK" ]]; then
-    mv "$DISK" "install/install/a$NUM"
+    mv "$DISK" "$TEMPDIR/packages/a$NUM"
   fi
 done
-cp install/install/a1/a1disk boot.img
+EXTRACT_BOOT_IMAGE=$TEMPDIR/packages/a1/a1disk
+EXTRACT_PACKAGES=$TEMPDIR/packages
+extract_install_files

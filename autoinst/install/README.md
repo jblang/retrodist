@@ -38,7 +38,7 @@ public wrappers in `common.sh` are:
 
 `_slackware_sysinstall` handles Slackware 1.01-style installs:
 
-1. Selects `SYSINSTALL_INSTSRC` or defaults to `$INSTMOUNT/install`.
+1. Selects `SYSINSTALL_INSTSRC` or defaults to `$INSTMOUNT/packages`.
 2. Chooses the install mode from `SYSINSTALL_MODE`, or auto-detects `tex`,
    `X11`, or `mini` from the source tree.
 3. Creates the target `install/` bookkeeping directories.
@@ -64,7 +64,7 @@ public wrappers in `common.sh` are:
 ### Variables
 
 - `SYSINSTALL_INSTSRC`
-  Optional Slackware `sysinstall` source path. Defaults to `$INSTMOUNT/install`.
+  Optional Slackware `sysinstall` source path. Defaults to `$INSTMOUNT/packages`.
 
 - `SYSINSTALL_MODE`
   Optional Slackware install mode. Supported historical modes include `mini`,
@@ -203,7 +203,7 @@ install helpers. The public wrappers in `common.sh` are:
 
 ### Package Install Flow
 
-`_debian_091_install_packages` installs every `.deb` found under `$INSTMOUNT`.
+`_debian_091_install_packages` installs every `.deb` found under `$INSTMOUNT/packages`.
 It unpacks packages directly with `zcat | cpio`, runs `fixperms` when package
 permission metadata is present, runs non-interactive `.inst` scripts from
 `/var/adm/dpkg/inst`, and removes each `.inst` script after handling it.

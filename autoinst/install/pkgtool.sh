@@ -84,15 +84,10 @@ find_cdrom_source_path() {
 }
 
 find_staged_source_path() {
-    for SOURCE in \
-        "$INSTMOUNT/slakware" \
-        "$INSTMOUNT/slackware"
-    do
-        if [ -d "$SOURCE" ]; then
-            echo "$SOURCE"
-            return 0
-        fi
-    done
+    if [ -d "$INSTMOUNT/packages" ]; then
+        echo "$INSTMOUNT/packages"
+        return 0
+    fi
     return 1
 }
 

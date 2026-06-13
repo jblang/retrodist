@@ -9,7 +9,7 @@ This table summarizes the SLS releases currently scripted in this repo. The data
 | Release | Date | SLS version | Kernel | C library | Compiler | X |
 | --- | --- | --- | --- | --- | --- | --- |
 | [1992.11](./1992.11/neozeede/README.txt) | [1992-11](./1992.11/neozeede/ChangeLog.txt) | .98 | 0.98p1 | - | gcc/g++ | X11 |
-| [1993.03](./1993.03/princeton/extract.d/install/install/README) | [1993-03](./1993.03/princeton/extract.d/install/install/HISTORY) | .99p2 | 0.99p4 | libc 4.2/4.3 | gcc 2.3.3 | XFree 1.2 |
+| [1993.03](./1993.03/princeton/qemu.d/fat/packages/README) | [1993-03](./1993.03/princeton/qemu.d/fat/packages/HISTORY) | .99p2 | 0.99p4 | libc 4.2/4.3 | gcc 2.3.3 | XFree 1.2 |
 
 ## Milestones
 
@@ -36,6 +36,6 @@ For example:
 retro install sls/1993.03/princeton
 ```
 
-`retro install` starts QEMU, uses the variant's `script.sh` to handle the SVGA prompt, root-disk swap, `/retro/autoinst`, fdisk reboot, boot-floppy write, and final reboot. After the installer finishes, the VM will reboot into the installed system.
+`retro install` starts QEMU, uses `script.sh` from the selected config directory or its parent to handle the SVGA prompt, root-disk swap, `/retro/autoinst`, fdisk reboot, boot-floppy write, and final reboot. After the installer finishes, the VM will reboot into the installed system.
 
 If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-image` command to mount the required image.

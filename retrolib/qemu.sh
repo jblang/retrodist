@@ -1,5 +1,7 @@
 # shellcheck shell=bash
 # QEMU configuration, boot, packaging, prerequisite install, and reset helpers.
+
+# Chooses the default QEMU display backend for the host OS.
 qemu_default_display() {
   case "$(uname -s)" in
     Darwin)
@@ -11,6 +13,7 @@ qemu_default_display() {
   esac
 }
 
+# Warns when the configured QEMU display backend is unavailable.
 qemu_warn_missing_display_backend() {
   local backend available
   if [[ -z "$QEMU_DISPLAY" || "$QEMU_DISPLAY" != *"-display "* ]]; then
@@ -32,18 +35,21 @@ qemu_warn_missing_display_backend() {
   fi
 }
 
-qemu_append_shell_words() {
+# Appends a shell-style argument string to QEMU_ARGS.
+qemu_append_args_string() {
   if [[ -n "${1:-}" ]]; then
     eval "QEMU_ARGS+=( $1 )"
   fi
 }
 
+# Tests whether a TCP port already has a listener.
 qemu_port_listening() {
   local port
   port=$1
   lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
 }
 
+# Verifies that lsof is available for port allocation.
 qemu_require_lsof() {
   if ! command -v lsof >/dev/null 2>&1; then
     echo "Missing lsof in PATH; cannot allocate QEMU ports." >&2
@@ -51,6 +57,7 @@ qemu_require_lsof() {
   fi
 }
 
+# Finds the first available port in a 100-port range.
 qemu_find_available_port() {
   local base label offset port
   label=$1
@@ -66,16 +73,14 @@ qemu_find_available_port() {
   return 1
 }
 
-qemu_default_internet_enabled() {
-  [[ "$QEMU_NET_TYPE" == "user" && -z "${QEMU_INTERNET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]
-}
-
+# Renders QEMU_ARGS as a POSIX shell command line.
 qemu_render_command_sh() {
   local rendered=
   printf -v rendered '%q ' "${QEMU_ARGS[@]}"
   printf '%s\n' "${rendered% }"
 }
 
+# Renders QEMU_ARGS as a Windows cmd command line.
 qemu_render_command_cmd() {
   local arg
   local rendered=
@@ -93,6 +98,7 @@ qemu_render_command_cmd() {
   printf '%s\n' "${rendered# }"
 }
 
+# Sets baseline QEMU defaults before distro overrides are sourced.
 qemu_base_defaults() {
   # System options
   QEMU_SYSTEM="${QEMU_SYSTEM:-qemu-system-i386}"
@@ -103,8 +109,6 @@ qemu_base_defaults() {
   QEMU_HD_FORMAT="${QEMU_HD_FORMAT:-qcow2}"
   QEMU_HD_CREATE_OPTIONS="${QEMU_HD_CREATE_OPTIONS:-}"
   QEMU_HDA_OPTIONS="${QEMU_HDA_OPTIONS:-}"
-  QEMU_CDROM="${QEMU_CDROM:-disc1.iso}"
-  QEMU_ATTACH_ROOT_FDB="${QEMU_ATTACH_ROOT_FDB:-0}"
   QEMU_FDTYPE_A="${QEMU_FDTYPE_A:-144}"
   QEMU_FDTYPE_B="${QEMU_FDTYPE_B:-144}"
   QEMU_BOOT_ORDER="${QEMU_BOOT_ORDER:-}"
@@ -138,6 +142,7 @@ qemu_base_defaults() {
   QEMU_INSTALL_SCRIPT="${QEMU_INSTALL_SCRIPT:-}"
 }
 
+# Applies hardware defaults for a named distro-era profile.
 qemu_apply_profile() {
   QEMU_PROFILE=${1:-${QEMU_PROFILE:-default}}
   case $QEMU_PROFILE in
@@ -200,6 +205,7 @@ qemu_apply_profile() {
   esac
 }
 
+# Assigns or validates one host port.
 qemu_assign_port() {
   local label base current
   label=$1
@@ -221,6 +227,7 @@ qemu_assign_port() {
   qemu_find_available_port "$label" "$base"
 }
 
+# Assigns all monitor, QMP, and guest forwarding ports.
 qemu_assign_ports() {
   if [[ "$QEMU_NET_TYPE" == "user" ]]; then
     QEMU_SSH_PORT=$(qemu_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
@@ -231,20 +238,17 @@ qemu_assign_ports() {
   QEMU_MONITOR_PORT=$(qemu_assign_port monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
 }
 
+# Finalizes display, install script, and network configuration.
 qemu_finish_config() {
   local qemu_internet_netdev
+  local install_script
 
   QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
   QEMU_ACCEL="${QEMU_ACCEL:--accel tcg}"
   QEMU_EXTRA="${QEMU_EXTRA:-}"
   if [[ $COMMAND == "install" ]]; then
-    if [[ -f "$QEMUDIR/fda.img" ]]; then
-      QEMU_BOOT_ORDER="-boot order=a"
-    else
-      QEMU_BOOT_ORDER="-boot order=d"
-    fi
-    if [[ -z "${QEMU_INSTALL_SCRIPT:-}" && -f "$CONFDIR/script.sh" ]]; then
-      QEMU_INSTALL_SCRIPT="$CONFDIR/script.sh"
+    if [[ -z "${QEMU_INSTALL_SCRIPT:-}" ]] && install_script=$(retro_config_file script.sh); then
+      QEMU_INSTALL_SCRIPT="$install_script"
     fi
   fi
   # Validate QEMU_NET_TYPE
@@ -289,6 +293,7 @@ qemu_finish_config() {
   fi
 }
 
+# Runs QEMU while a QMP-driven install script controls it.
 qemu_run_with_install_script() {
   local qemu_pid script_status qemu_status
   qemu_status=0
@@ -321,9 +326,11 @@ qemu_run_with_install_script() {
   return "$qemu_status"
 }
 
+# Loads QEMU defaults, distro overrides, profile settings, and ports.
 load_qemu_config() {
   local qemu_profile_env_decl qemu_profile_env=
   local qemu_profile_env_set=
+  local qemu_config
   qemu_profile_env_decl=$(declare -p QEMU_PROFILE 2>/dev/null || true)
   if [[ $qemu_profile_env_decl == declare\ -*x* ]]; then
     qemu_profile_env=$QEMU_PROFILE
@@ -331,9 +338,9 @@ load_qemu_config() {
   fi
 
   qemu_base_defaults
-  if [[ -f $CONFDIR/qemu.sh ]]; then
+  if qemu_config=$(retro_config_file qemu.sh); then
     # shellcheck source=/dev/null
-    source "$CONFDIR/qemu.sh"
+    source "$qemu_config"
   fi
   if [[ -n "$qemu_profile_env_set" ]]; then
     QEMU_PROFILE=$qemu_profile_env
@@ -343,40 +350,59 @@ load_qemu_config() {
   qemu_finish_config
 }
 
+# Loads optional distro-wide configuration.
 load_distro_config() {
-  if [[ -f $CONFDIR/config.sh ]]; then
+  local distro_config
+  if distro_config=$(retro_config_file config.sh); then
     # shellcheck source=/dev/null
-    source "$CONFDIR/config.sh"
+    source "$distro_config"
   fi
 }
 
-qemu_link_boot_media() {
-  if [[ -f $EXTRACTDIR/boot.img && ! -e boot.img ]]; then
-    ln -s "$EXTRACTDIR/boot.img" boot.img
+# Selects install-time media overrides and boot order.
+qemu_select_command_media() {
+  QEMU_FDA_OVERRIDE=
+  QEMU_HDC_OVERRIDE=
+
+  if [[ ( $COMMAND == "install" || $COMMAND == "boot" ) && -f boot.img ]]; then
+    QEMU_FDA_OVERRIDE=boot.img
   fi
-  if [[ -f $EXTRACTDIR/root.img && ! -e root.img ]]; then
-    ln -s "$EXTRACTDIR/root.img" root.img
+
+  if [[ ( $COMMAND == "install" || $COMMAND == "boot" ) && ! -f hdc.iso && -f install.iso ]]; then
+    QEMU_HDC_OVERRIDE=install.iso
   fi
-  if [[ -f $EXTRACTDIR/boot.img && ! -f fda.img ]]; then
-    ln -s "$EXTRACTDIR/boot.img" fda.img
+
+  if [[ $COMMAND != "install" ]]; then
+    return
   fi
-  if [[ -f $EXTRACTDIR/root.img && $QEMU_ATTACH_ROOT_FDB == "1" && ! -f fdb.img ]]; then
-    ln -s "$EXTRACTDIR/root.img" fdb.img
-  fi
-  if [[ -n "${QEMU_CDROM:-}" && -f "$ORIGDIR/$QEMU_CDROM" && ! -f hdc.iso ]]; then
-    ln -s "$ORIGDIR/$QEMU_CDROM" hdc.iso
-  elif [[ -f $ORIGDIR/disc1.iso && ! -f hdc.iso ]]; then
-    ln -s "$ORIGDIR/disc1.iso" hdc.iso
-  fi
-  if [[ -d $EXTRACTDIR/install && ! -d hdb ]]; then
-    ln -s "$EXTRACTDIR/install" hdb
+
+  if qemu_has_fda_media; then
+    QEMU_BOOT_ORDER="-boot order=a"
+  elif qemu_has_hdc_media; then
+    QEMU_BOOT_ORDER="-boot order=d"
   fi
 }
 
+# Tests whether the first floppy has default or override media.
+qemu_has_fda_media() {
+  [[ -f fda.img || -n "${QEMU_FDA_OVERRIDE:-}" ]]
+}
+
+# Tests whether the CD-ROM has default or override media.
+qemu_has_hdc_media() {
+  [[ -f hdc.iso || -n "${QEMU_HDC_OVERRIDE:-}" ]]
+}
+
+# Tests whether any bootable startup media exists.
+qemu_has_startup_media() {
+  qemu_has_fda_media || qemu_has_hdc_media
+}
+
+# Creates the primary hard disk when startup media is available.
 qemu_ensure_primary_disk() {
   local create_options
   if [[ ! -f hda.img ]]; then
-    if [[ -f fda.img || -f hdc.iso ]]; then
+    if qemu_has_startup_media; then
       create_options=()
       if [[ -n "${QEMU_HD_CREATE_OPTIONS:-}" ]]; then
         create_options=(-o "$QEMU_HD_CREATE_OPTIONS")
@@ -388,6 +414,7 @@ qemu_ensure_primary_disk() {
   fi
 }
 
+# Maps drive names to QEMU interface indexes.
 qemu_drive_index() {
   case "$1" in
     hda | fda) echo 0 ;;
@@ -397,17 +424,37 @@ qemu_drive_index() {
   esac
 }
 
+# Adds one -drive argument to QEMU_DRIVES.
+qemu_add_drive() {
+  local interface=$1
+  local index=$2
+  local format=$3
+  local options=$4
+
+  QEMU_DRIVES+=(-drive "if=$interface,index=$index,format=$format,$options")
+}
+
+# Builds drive attachments from existing images, ISOs, and FAT directories.
 qemu_build_drives() {
-  local drive index interface format drive_options
+  local drive index interface format drive_options image_file iso_file
   QEMU_DRIVES=()
   for drive in fda fdb hda hdb hdc hdd; do
+    image_file=$drive.img
+    iso_file=$drive.iso
+    if [[ $drive == "fda" && -n "${QEMU_FDA_OVERRIDE:-}" ]]; then
+      image_file=$QEMU_FDA_OVERRIDE
+    elif [[ $drive == "hdc" && -n "${QEMU_HDC_OVERRIDE:-}" ]]; then
+      image_file=
+      iso_file=$QEMU_HDC_OVERRIDE
+    fi
+
     index=$(qemu_drive_index "$drive")
     if [[ $drive = fd* ]]; then
       interface=floppy
       format=raw
     else
       interface=ide
-      if [[ -f $drive.img ]]; then
+      if [[ -n "$image_file" && -f $image_file ]]; then
         format=$QEMU_HD_FORMAT
       else
         format=raw
@@ -417,16 +464,19 @@ qemu_build_drives() {
     if [[ $drive == "hda" && -n "${QEMU_HDA_OPTIONS:-}" ]]; then
       drive_options=",$QEMU_HDA_OPTIONS"
     fi
-    if [[ -f $drive.img ]]; then
-      QEMU_DRIVES+=(-drive "if=$interface,index=$index,format=$format,file=$drive.img$drive_options")
-    elif [[ -f $drive.iso ]]; then
-      QEMU_DRIVES+=(-drive "if=$interface,index=$index,format=$format,media=cdrom,file=$drive.iso")
+    if [[ -n "$image_file" && -f $image_file ]]; then
+      qemu_add_drive "$interface" "$index" "$format" "file=$image_file$drive_options"
+    elif [[ -f $iso_file ]]; then
+      qemu_add_drive "$interface" "$index" "$format" "media=cdrom,file=$iso_file"
+    elif [[ $drive == "hdb" && -d fat ]]; then
+      qemu_add_drive "$interface" "$index" raw "file=fat:rw:fat"
     elif [[ -d $drive ]]; then
-      QEMU_DRIVES+=(-drive "if=$interface,index=$index,format=raw,file=fat:rw:$drive")
+      qemu_add_drive "$interface" "$index" raw "file=fat:rw:$drive"
     fi
   done
 }
 
+# Builds global floppy-controller options.
 qemu_build_globals() {
   QEMU_GLOBALS=()
   if [[ -n "$QEMU_FDTYPE_A" ]]; then
@@ -437,14 +487,16 @@ qemu_build_globals() {
   fi
 }
 
+# Builds Unix socket chardev arguments for serial or parallel ports.
 qemu_build_socket_chardevs() {
   local array_name=$1
   local option=$2
   local count=$3
   local prefix=$4
+  local label=${5:-chardev}
   local i socket
 
-  echo "Creating $count serial ports"
+  echo "Creating $count $label chardevs"
   eval "$array_name=()"
   for ((i = 0; i < count; i++)); do
     socket="$prefix$i.sock"
@@ -453,14 +505,17 @@ qemu_build_socket_chardevs() {
   done
 }
 
+# Builds guest serial socket arguments.
 qemu_build_serials() {
-  qemu_build_socket_chardevs QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX"
+  qemu_build_socket_chardevs QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX" serial
 }
 
+# Builds guest parallel socket arguments.
 qemu_build_parallels() {
-  qemu_build_socket_chardevs QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX"
+  qemu_build_socket_chardevs QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX" parallel
 }
 
+# Assembles the final QEMU argument array.
 qemu_build_args() {
   QEMU_ARGS=(
     "$QEMU_SYSTEM"
@@ -476,18 +531,19 @@ qemu_build_args() {
   fi
   QEMU_ARGS+=("${QEMU_SERIALS[@]}")
   QEMU_ARGS+=("${QEMU_PARALLELS[@]}")
-  qemu_append_shell_words "${QEMU_DISPLAY:-}"
-  qemu_append_shell_words "${QEMU_ACCEL:-}"
-  qemu_append_shell_words "${QEMU_INTERNET:-}"
-  qemu_append_shell_words "${QEMU_RETRONET:-}"
+  qemu_append_args_string "${QEMU_DISPLAY:-}"
+  qemu_append_args_string "${QEMU_ACCEL:-}"
+  qemu_append_args_string "${QEMU_INTERNET:-}"
+  qemu_append_args_string "${QEMU_RETRONET:-}"
   QEMU_ARGS+=("${QEMU_GLOBALS[@]}")
   QEMU_ARGS+=("${QEMU_DRIVES[@]}")
-  qemu_append_shell_words "${QEMU_BOOT_ORDER:-}"
-  qemu_append_shell_words "${QEMU_EXTRA:-}"
+  qemu_append_args_string "${QEMU_BOOT_ORDER:-}"
+  qemu_append_args_string "${QEMU_EXTRA:-}"
   QEMU_ARGS+=("$@")
   QEMU_COMMAND=$(qemu_render_command_sh)
 }
 
+# Prints assigned QEMU and guest TCP ports.
 qemu_print_ports() {
   echo "QEMU ports:"
   if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
@@ -509,12 +565,66 @@ qemu_print_ports() {
   fi
 }
 
+# Prints guest disk and character device attachments.
+qemu_print_guest_devices() {
+  qemu_print_guest_disks
+  echo
+  qemu_print_guest_chardevs
+}
+
+# Prints the guest disk attachments.
+qemu_print_guest_disks() {
+  local i option value
+  echo "Guest disks:"
+  if [[ ${#QEMU_DRIVES[@]} -eq 0 ]]; then
+    echo "  none"
+  else
+    for ((i = 0; i < ${#QEMU_DRIVES[@]}; i += 2)); do
+      option=${QEMU_DRIVES[$i]}
+      value=${QEMU_DRIVES[$((i + 1))]:-}
+      echo "  $option $value"
+    done
+  fi
+}
+
+# Prints exported guest character devices.
+qemu_print_guest_chardevs() {
+  local printed_chardev=0
+
+  echo "Guest character devices:"
+  qemu_print_guest_chardev_args "${QEMU_SERIALS[@]}" && printed_chardev=1
+  qemu_print_guest_chardev_args "${QEMU_PARALLELS[@]}" && printed_chardev=1
+  if [[ $printed_chardev -eq 0 ]]; then
+    echo "  none"
+  fi
+}
+
+# Prints chardev arguments that expose Unix sockets or pipes.
+qemu_print_guest_chardev_args() {
+  local option printed=1 value
+
+  while [[ $# -ge 2 ]]; do
+    option=$1
+    value=${2:-}
+    case "$value" in
+      unix:* | pipe:*)
+        echo "  $option $value"
+        printed=0
+        ;;
+    esac
+    shift 2
+  done
+  return "$printed"
+}
+
+# Removes an empty qemu.d directory left by failed preparation.
 qemu_cleanup_empty_dir() {
   if [[ -d $QEMUDIR && -z $(ls -A "$QEMUDIR") ]]; then
     rmdir "$QEMUDIR"
   fi
 }
 
+# Top-level retro command handler for booting or installing a distro.
 retro_boot() {
   local run_status
   run_status=0
@@ -527,7 +637,7 @@ retro_boot() {
 
   pushd "$QEMUDIR" > /dev/null || return
 
-  qemu_link_boot_media
+  qemu_select_command_media
   if ! qemu_ensure_primary_disk; then
     echo "No bootable devices"
     popd > /dev/null || return
@@ -546,6 +656,8 @@ retro_boot() {
   echo
   qemu_print_ports
   echo
+  qemu_print_guest_devices
+  echo
   echo "QEMU command: $QEMU_COMMAND"
   echo
   if [[ $COMMAND == "install" && -n "${QEMU_INSTALL_SCRIPT:-}" ]]; then
@@ -557,6 +669,7 @@ retro_boot() {
   return "$run_status"
 }
 
+# Packages prepared QEMU files with runnable host scripts.
 retro_package() {
   local files tarname package_root package_dir item
   if [[ $# -ge 1 && $1 == "--hda" ]]; then
@@ -597,6 +710,7 @@ retro_package() {
   ls -lh "$tarname.tar.gz"
 }
 
+# Top-level retro command handler for deleting extracted QEMU files.
 retro_reset() {
   read -p "Really remove QEMU images and extracted files for $CONFNAME? " -n 1 -r
   echo

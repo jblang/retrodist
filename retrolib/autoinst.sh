@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Generic autoinstall staging and patching helpers shared by supported distros.
 
+# Patches the extracted boot or root image so it runs the autoinst entrypoint.
 autoinst_patch() {
   local patchimg=
   retro_extract
@@ -16,16 +17,18 @@ autoinst_patch() {
   sudo umount /mnt
 }
 
+# Stages the shared and distro-specific autoinstall files on the FAT media.
 autoinst_prep() {
-  local autoinst_d=$EXTRACTDIR/install/autoinst.d
-  cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/install/autoinst"
+  local autoinst_d=$EXTRACTDIR/fat/autoinst.d
+  local autoinst_file autoconf_file
+  cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
   cp -R "$AUTOBASE" "$autoinst_d"
   mkdir -p "$autoinst_d/distro"
-  if [[ -f $CONFDIR/autoinst.sh ]]; then
-    cp "$CONFDIR/autoinst.sh" "$autoinst_d/distro/autoinst.sh"
+  if autoinst_file=$(retro_config_file autoinst.sh); then
+    cp "$autoinst_file" "$autoinst_d/distro/autoinst.sh"
   fi
-  if [[ -f $CONFDIR/autoconf.sh ]]; then
-    cp "$CONFDIR/autoconf.sh" "$autoinst_d/distro/autoconf.sh"
+  if autoconf_file=$(retro_config_file autoconf.sh); then
+    cp "$autoconf_file" "$autoinst_d/distro/autoconf.sh"
   fi
   slackware_prepare_tagfiles
 }

@@ -77,9 +77,9 @@ debian_091_run_package_scripts() {
 _debian_091_install_packages() {
     log_div
     log_info "Installing Debian 0.91 packages"
-    log_info "Searching for packages under $INSTMOUNT"
+    log_info "Searching for packages under $INSTMOUNT/packages"
 
-    find "$INSTMOUNT" -iname '*.deb' | sort | while read FILE; do
+    find "$INSTMOUNT/packages" -iname '*.deb' | sort | while read FILE; do
         debian_091_install_one_package "$FILE"
     done
 

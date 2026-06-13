@@ -1,4 +1,6 @@
-cp -lR $SLACKBASE/slackware-3.6 install
-cp install/bootdsks.144/bare.i boot.img
-truncate -s1440k boot.img
-cp install/rootdsks/text.gz root.img
+SLACKDIR=$SLACKBASE/slackware-3.6
+EXTRACT_BOOT_IMAGE=$SLACKDIR/bootdsks.144/bare.i
+EXTRACT_ROOT_IMAGE=$SLACKDIR/rootdsks/text.gz
+EXTRACT_PACKAGES=$SLACKDIR
+extract_install_files
+truncate -s1440k bare.i

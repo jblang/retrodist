@@ -1,23 +1,7 @@
-#!/usr/bin/env bash
-
-BUZZBASE=$DEBIANBASE/buzz/main
-DISKDIR=$BUZZBASE/disks-i386/current
-
-cp -lR "$BUZZBASE/msdos-i386" install
-cp -l "$DISKDIR/base1_1.tgz" install/
-
-cp "$DISKDIR/boot1440.bin" boot.img
-cp "$DISKDIR/root.bin" root.img
-mkdir -p install/bootflop
-7z x -y -oinstall/bootflop boot.img LINUX INSTALL.SH RDEV.SH SYS_MAP.GZ MODULES.TGZ >/dev/null
-for FILE in install/bootflop/*; do
-    LOWER=$(echo "$(basename "$FILE")" | tr '[:upper:]' '[:lower:]')
-    if [ "$(basename "$FILE")" != "$LOWER" ]; then
-        mv "$FILE" "install/bootflop/$LOWER"
-    fi
-done
-cp "$DISKDIR"/base14-*.bin .
-
-ln -sf ../base14-1.bin install/basedsk1.img
-ln -sf ../base14-2.bin install/basedsk2.img
-ln -sf ../base14-3.bin install/basedsk3.img
+DISKDIR=$DEBIANBASE/buzz/main/disks-i386/1996_6_16
+EXTRACT_BOOT_IMAGE=$DISKDIR/boot1440.bin
+EXTRACT_ROOT_IMAGE=$DISKDIR/root.bin
+EXTRACT_EXTRA_IMAGES=("$DISKDIR"/base14-*.bin)
+EXTRACT_FAT_FILES=("$DISKDIR/base1_1.tgz")
+extract_install_files
+debian_extract_fat_image boot.img fat/bootflop LINUX INSTALL.SH RDEV.SH SYS_MAP.GZ MODULES.TGZ

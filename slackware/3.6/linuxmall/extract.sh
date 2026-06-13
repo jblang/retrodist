@@ -2,3 +2,4 @@
 bchunk "$EXTRACTDIR/SLK3609118-1.bin" "$EXTRACTDIR/SLK3609118-1.cue" "$EXTRACTDIR/SLK3609118-1" > /dev/null
 rm "$EXTRACTDIR/SLK3609118-1.bin" "$EXTRACTDIR/SLK3609118-1.cue"
 mv "$EXTRACTDIR/SLK3609118-101.iso" "$ORIGDIR/disc1.iso"
+extract_link_install_iso "$ORIGDIR/disc1.iso"
