@@ -86,6 +86,14 @@ extract_link_install_iso() {
   esac
 }
 
+# Normalizes extracted boot floppy images to a 1.44M disk size.
+extract_truncate_floppy_image() {
+  local image=${1:-}
+  if [[ -n "$image" && -f "$image" ]]; then
+    truncate -s 1440k "$image"
+  fi
+}
+
 # Extracts boot, root, and extra images from an archive source.
 extract_install_archive_images() {
   local source=$1
@@ -237,6 +245,7 @@ extract_install_files() {
     extract_install_copy_packages "$source" "$packages"
   fi
 
+  extract_truncate_floppy_image "${boot_image##*/}"
   retro_link_boot_root "${boot_image##*/}" "${root_image##*/}"
   extract_install_files_reset
 }

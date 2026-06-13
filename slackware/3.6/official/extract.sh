@@ -3,4 +3,3 @@ EXTRACT_BOOT_IMAGE=$SLACKDIR/bootdsks.144/bare.i
 EXTRACT_ROOT_IMAGE=$SLACKDIR/rootdsks/text.gz
 EXTRACT_PACKAGES=$SLACKDIR
 extract_install_files
-truncate -s1440k bare.i
