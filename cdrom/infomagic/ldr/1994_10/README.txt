@@ -41,7 +41,7 @@ These discs are published every two months (or so) and include
 snapshots of the TSX-11.MIT.EDU and Sunsite.UNC.EDU linux archives.
 As with previous editions we have included the complete GNU archive from
 prep.ai.mit.edu so as to be in full compliance with the GNU Public
-License, a copy of which is provided in the "gnu directory.
+License, a copy of which is provided in the "gnu" directory.
 
 See the RoadMap at the end of this file for the layout of the 2-CDs.
 
