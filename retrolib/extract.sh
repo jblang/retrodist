@@ -89,6 +89,9 @@ extract_link_install_iso() {
 # Normalizes extracted boot floppy images to a 1.44M disk size.
 extract_truncate_floppy_image() {
   local image=${1:-}
+  case "$image" in
+    *.gz) return 0 ;;
+  esac
   if [[ -n "$image" && -f "$image" ]]; then
     truncate -s 1440k "$image"
   fi
@@ -245,7 +248,6 @@ extract_install_files() {
     extract_install_copy_packages "$source" "$packages"
   fi
 
-  extract_truncate_floppy_image "${boot_image##*/}"
   retro_link_boot_root "${boot_image##*/}" "${root_image##*/}"
   extract_install_files_reset
 }
@@ -276,5 +278,13 @@ retro_extract() {
     fi
   else
     echo "Using extracted files"
+    autoinst_file=$(retro_config_file autoinst.sh || true)
+    if [[ -n "$autoinst_file" ]]; then
+      mkdir -p "$EXTRACTDIR/fat"
+      pushd "$EXTRACTDIR" > /dev/null || return
+      load_qemu_config
+      autoinst_prep
+      popd > /dev/null || return
+    fi
   fi
 }

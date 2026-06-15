@@ -20,8 +20,7 @@ Commands:
   help                    show this help text
 
 Common options:
-  -h HOST     QMP host. Default: 127.0.0.1
-  -p PORT     QMP port. Default: QEMU_QMP_BASE, normally 4444
+  -s SOCKET   QMP Unix socket. Default: qemu.d/qmp.sock, or qmp.sock from qemu.d
   -a ADDR     VGA text buffer address. Default: 0xb8000
   -c COLS     Screen columns. Default: 80
   -r ROWS     Screen rows. Default: 25
@@ -38,13 +37,12 @@ change-image options:
   -d DEVICE   device to change. Default: floppy0
 
 Environment variables with the same names are also supported:
-QMP_HOST, QMP_PORT, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
-QEMU_QMP_PORT and QEMU_QMP_BASE may also set the default QMP port.
+QEMU_QMP_SOCKET, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
 EOF
 }
 
 qmp_number_lines() {
-  awk '{ printf "%02d: %s\n", NR, $0 }'
+  cat -n
 }
 
 qmp_parse_options() {
@@ -55,8 +53,7 @@ qmp_parse_options() {
   OPTIND=1
   while getopts "$optstring" opt; do
     case "$opt" in
-      h) QMP_HOST=$OPTARG ;;
-      p) QMP_PORT=$OPTARG ;;
+      s) QEMU_QMP_SOCKET=$OPTARG ;;
       a) VGA_ADDR=$OPTARG ;;
       c) VGA_COLS=$OPTARG ;;
       r) VGA_ROWS=$OPTARG ;;
@@ -104,24 +101,24 @@ esac
 
 case "$command_name" in
   dump-screen)
-    qmp_parse_options "h:p:a:c:r:m:w:n" "$@"
+    qmp_parse_options "s:a:c:r:m:w:n" "$@"
     ;;
   send-key)
-    qmp_parse_options "h:p:w:" "$@"
+    qmp_parse_options "s:w:" "$@"
     ;;
   send-stdin)
-    qmp_parse_options "h:p:w:" "$@"
+    qmp_parse_options "s:w:" "$@"
     ;;
   send-text)
     QMP_PARSE_N_MODE=send-newline
-    qmp_parse_options "h:p:w:n" "$@"
+    qmp_parse_options "s:w:n" "$@"
     unset QMP_PARSE_N_MODE
     ;;
   change-image)
-    qmp_parse_options "h:p:w:d:" "$@"
+    qmp_parse_options "s:w:d:" "$@"
     ;;
   eject-disk)
-    qmp_parse_options "h:p:w:d:" "$@"
+    qmp_parse_options "s:w:d:" "$@"
     ;;
 esac
 set +u

@@ -28,12 +28,12 @@ This should auto-detect your environment and choose the correct package manager 
 
 - On Linux, `prereq` installs the distribution packages that provide the QEMU
 system emulators used by `retro` and `jump`, `qemu-img`, a QEMU window display
-backend, `7z`, `unzip`, `wget`, `bchunk`, `xorriso`, `lsof`, and OpenSSH
+backend, `7z`, `unzip`, `wget`, `bchunk`, `xorriso`, `lsof`, `jq`, and OpenSSH
 client tools.
-- On macOS with Homebrew, this installs `qemu`, `p7zip`, `unzip`, and `wget`.
+- On macOS with Homebrew, this installs `qemu`, `p7zip`, `unzip`, `wget`, and `jq`.
 Homebrew's `qemu` formula includes both `qemu-system-i386` and `qemu-img`.
 - On Windows with MSYS2, `prereq` installs QEMU from the package repo for the active MinGW
-environment, plus `p7zip`, `unzip`, `wget`, `xorriso`, `lsof`, and OpenSSH
+environment, plus `p7zip`, `unzip`, `wget`, `xorriso`, `lsof`, `jq`, and OpenSSH
 client tools from the MSYS repo.
 
 The scripts should theoretically be portable to any other Unix-like OS that has the prerequisites installed.
@@ -109,18 +109,18 @@ You can also set `QEMU_NET_TYPE` in a distro's `qemu.sh` configuration file to m
 
 ## Host to VM Communication
 
-QEMU exposes its monitor and QMP protocol via ports on the host's loopback interface. Guest serial and parallel ports are also forwarded using Unix domain sockets. When user networking is configured (see above), several guest ports are also forwarded to corresponding ports on the host.
+QEMU exposes its monitor via a port on the host's loopback interface and QMP via a Unix domain socket in the distro's `qemu.d` directory. Guest serial and parallel ports are also forwarded using Unix domain sockets. When user networking is configured (see above), several guest ports are also forwarded to corresponding ports on the host.
 
-### Port Assignment
+### Endpoint Assignment
 
-For each listener, `retro` uses `lsof` to choose the lowest available port from the 100 port numbers starting at the base port for that service. Each port is incremented independently. The assigned ports are printed before QEMU starts.
+For each TCP listener, `retro` uses `lsof` to choose the lowest available port from the 100 port numbers starting at the base port for that service. Each port is incremented independently. The assigned ports and sockets are printed before QEMU starts.
 
 For example, these are the default ports typically assigned to the first VM started:
 
 ```
-QEMU ports:
+QEMU endpoints:
   Monitor: 127.0.0.1:5555
-  QMP:     127.0.0.1:4444
+  QMP:     /path/to/distro/qemu.d/qmp.sock
 
 Guest ports:
   SSH:     127.0.0.1:2200 -> guest :22
@@ -132,14 +132,14 @@ Note that if you already have other services running in these port ranges, `retr
 
 ### Example Commands
 
-#### QEMU Ports
+#### QEMU Endpoints
 
-Use the following commands to access the QEMU monitor and QMP protocol via the default ports:
+Use the following commands to access the QEMU monitor and QMP protocol:
 
 - [QEMU monitor](https://qemu-project.gitlab.io/qemu/system/monitor.html): `telnet 127.0.0.1 5555`
-- [QMP protocol](https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html): `nc 127.0.0.1 4444`
+- [QMP protocol](https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html): `nc -U qemu.d/qmp.sock`
 
-Adjust the ports to those reported by `retro` at startup.
+Adjust the monitor port or QMP socket to the endpoints reported by `retro` at startup.
 
 #### Guest TCP Port Forwards
 
@@ -224,8 +224,7 @@ Override the above ports with:
 - `QEMU_PARALLEL_SOCKET_PREFIX`: parallel socket filename prefix (default: `lp`)
 - `QEMU_MONITOR_BASE`: base QEMU monitor port (default: 5555)
 - `QEMU_MONITOR_PORT`: explicit QEMU monitor port (set to `none` to disable)
-- `QEMU_QMP_BASE`: base QMP protocol port (default: 4444)
-- `QEMU_QMP_PORT`: explicit QMP protocol port (set to `none` to disable)
+- `QEMU_QMP_SOCKET`: QMP protocol socket path relative to `qemu.d` (default: `qmp.sock`; set to `none` to disable)
 - `QEMU_SSH_BASE`: base guest TCP port 22 host forward (default: 2200)
 - `QEMU_SSH_PORT`: explicit guest TCP port 22 host forward (set to `none` to disable)
 - `QEMU_TELNET_BASE`: base guest TCP port 23 host forward (default: 2300)
@@ -237,10 +236,10 @@ Override the above ports with:
 ### QMP CLI Tool
 
 The `qmp` helper script is a CLI tool for interacting with the functions
-defined in `retrolib/qmp.sh`. It connects to `127.0.0.1:4444` by default.
-Set `QMP_PORT`, `QEMU_QMP_PORT`, or `QEMU_QMP_BASE` to use a different
-QMP port. When multiple VMs are running, use the QMP port printed by `retro`
-when that VM started.
+defined in `retrolib/qmp.sh`. It connects to `qemu.d/qmp.sock` by default
+when run from a distro config directory, or `qmp.sock` when run from inside
+`qemu.d`. Set `QEMU_QMP_SOCKET` or `qmp -s SOCKET` to use a different QMP
+socket.
 
 - `qmp dump-screen`: dump the full VGA text memory range as text.
 - `qmp dump-screen -n`: prefix rows with line numbers.
@@ -341,7 +340,7 @@ from the files in `qemu.d`:
    - Directories named `fda`, `fdb`, `hda`, `hdb`, `hdc`, or `hdd` attach as
      writable FAT-backed drives.
 6. Create serial and parallel Unix socket chardevs, build the QEMU command, and
-   print assigned QEMU ports, guest port forwards, guest disks, guest character
+   print assigned QEMU endpoints, guest port forwards, guest disks, guest character
    devices, and the final QEMU command.
 
 `qemu.sh` should be limited to hardware and QEMU behavior: profile, RAM, disk
@@ -362,6 +361,11 @@ from `retrolib/qmp.sh` and `retrolib/script.sh`.
 
 Common install-script helpers include:
 
+- `script_wait_screen_text TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
+  text appears anywhere in screen memory.
+- `script_wait_screen_line TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
+  text appears by itself on a screen line. Matching is literal, so regex
+  characters in `TEXT` have no special meaning.
 - `script_boot_lilo [PROMPT]`: wait for the boot prompt and press ENTER. `PROMPT` defaults to `boot:`.
 - `script_answer_prompt PROMPT [ANSWER]`: wait for screen text and send answer (or just ENTER if no answer provided).
 - `script_change_floppy PROMPT [IMAGE] [ANSWER]`: wait for screen text, change the first
@@ -369,7 +373,8 @@ Common install-script helpers include:
 - `script_login PROMPT [USER]`: wait for a login prompt and type the username followed by ENTER.
   `USER` defaults to `root`.
 - `script_run_autoinst PROMPT`: wait for specified shell prompt on screen, mount `/dev/hdb1` at
-  `/retro`, and run `/retro/autoinst`.
+  `/retro`, and run `/retro/autoinst`. A bare `#` prompt is matched as a full
+  prompt line so boot messages containing `#` do not trigger the command early.
 - `script_finish_reboot [DISK] [PROMPT] [TIMEOUT]`: wait for the final reboot prompt,
   set the next boot disk with `boot_set`, then press ENTER. `DISK` defaults to `c`,
   `PROMPT` defaults to `Press ENTER to reboot.`, and `TIMEOUT` defaults to `600`.

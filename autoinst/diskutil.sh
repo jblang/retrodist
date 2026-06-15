@@ -154,7 +154,16 @@ fdisk_parse_disk_geometry() {
     FDISK_SECTORS=
     FDISK_CYLINDERS=
     while [ $# -gt 0 ]; do
-        if [ "$1" = "Disk" -a "$2" = "$FDISK_GEOM_DEV" ]; then
+        if [ "$2" = "heads," -a "$6" = "cylinders" ]; then
+            case "$4" in
+                sectors,*|sectors/track,* )
+                    FDISK_HEADS=$1
+                    FDISK_SECTORS=$3
+                    FDISK_CYLINDERS=$5
+                    return 0
+                    ;;
+            esac
+        elif [ "$1" = "Disk" -a "$2" = "$FDISK_GEOM_DEV" -a "$4" = "heads," -a "$8" = "cylinders" ]; then
             FDISK_HEADS=$3
             FDISK_SECTORS=$5
             FDISK_CYLINDERS=$7
@@ -181,6 +190,25 @@ fdisk_next_cylinder() {
     esac
 }
 
+# Calculate a cylinder count close to the requested swap size.
+fdisk_calculate_swap_end() {
+    FDISK_HEADS=$1
+    FDISK_SECTORS=$2
+    FDISK_SWAP_MB=$3
+    if ! fdisk_is_number "$FDISK_HEADS" || ! fdisk_is_number "$FDISK_SECTORS" || ! fdisk_is_number "$FDISK_SWAP_MB"; then
+        echo ""
+        return 1
+    fi
+    FDISK_SECTORS_PER_CYLINDER=`expr "$FDISK_HEADS" \* "$FDISK_SECTORS" 2>/dev/null`
+    if [ -z "$FDISK_SECTORS_PER_CYLINDER" -o "$FDISK_SECTORS_PER_CYLINDER" -lt 1 ]; then
+        echo ""
+        return 1
+    fi
+    FDISK_SWAP_SECTORS=`expr "$FDISK_SWAP_MB" \* 2048 2>/dev/null`
+    FDISK_HALF_CYLINDER=`expr "$FDISK_SECTORS_PER_CYLINDER" / 2 2>/dev/null`
+    expr \( "$FDISK_SWAP_SECTORS" + "$FDISK_HALF_CYLINDER" \) / "$FDISK_SECTORS_PER_CYLINDER" 2>/dev/null
+}
+
 # Look up the closest swap end cylinder for common QEMU CHS layouts.
 fdisk_default_swap_end() {
     FDISK_HEADS=$1
@@ -204,7 +232,7 @@ fdisk_default_swap_end() {
         240:63:128 ) echo 17 ;;
         255:63:64 ) echo 8 ;;
         255:63:128 ) echo 16 ;;
-        * ) echo "" ;;
+        * ) fdisk_calculate_swap_end "$FDISK_HEADS" "$FDISK_SECTORS" "$DISK_SWAP_MB" ;;
     esac
 }
 
@@ -238,8 +266,11 @@ fdisk_detect_geometry() {
 
     FDISK_ROOT_START=$(fdisk_next_cylinder "$FDISK_SWAP_END")
     if [ -z "$FDISK_ROOT_START" ]; then
-        log_error "Unable to calculate root partition start cylinder."
-        return 1
+        FDISK_ROOT_START=`expr "$FDISK_SWAP_END" + 1 2>/dev/null`
+        if [ -z "$FDISK_ROOT_START" ]; then
+            log_error "Unable to calculate root partition start cylinder."
+            return 1
+        fi
     fi
 
     log_info "Detected geometry: heads=$FDISK_HEADS sectors=$FDISK_SECTORS cylinders=$FDISK_CYLINDERS"

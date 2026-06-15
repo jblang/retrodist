@@ -226,8 +226,11 @@ Supported paths:
   Mouse protocol. If unset, PS/2 devices use `PS/2` and `/dev/cua1` uses
   `Microsoft`.
 
-- `X11_DEPTH`
-  Default display depth for XFree86 3.x and 4.x `XF86Config`. Defaults to `16`.
+- `X11_DEPTHS`
+  Space-separated display depths in preference order. XFree86 3.x emits
+  `Display` subsections in this order, using the first matching subsection as
+  the default. XFree86 4.x emits the first depth as `DefaultDepth`. Defaults to
+  `16 8 32`.
 
 - `X11_MODES`
   Quoted X mode list for generated `Modes` lines. XFree86 3.x, XFree86 4.x,

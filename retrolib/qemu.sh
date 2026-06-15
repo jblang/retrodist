@@ -124,11 +124,10 @@ qemu_base_defaults() {
   QEMU_PARALLEL_SOCKET_COUNT="${QEMU_PARALLEL_SOCKET_COUNT:-1}"
   QEMU_PARALLEL_SOCKET_PREFIX="${QEMU_PARALLEL_SOCKET_PREFIX:-lp}"
 
-  # QEMU monitor and QMP ports
+  # QEMU monitor port and QMP socket
   QEMU_MONITOR_BASE="${QEMU_MONITOR_BASE:-5555}"
   QEMU_MONITOR_PORT="${QEMU_MONITOR_PORT:-}"
-  QEMU_QMP_BASE="${QEMU_QMP_BASE:-4444}"
-  QEMU_QMP_PORT="${QEMU_QMP_PORT:-}"
+  QEMU_QMP_SOCKET="${QEMU_QMP_SOCKET:-qmp.sock}"
 
   # Guest port forwards
   QEMU_SSH_BASE="${QEMU_SSH_BASE:-2200}"
@@ -227,14 +226,13 @@ qemu_assign_port() {
   qemu_find_available_port "$label" "$base"
 }
 
-# Assigns all monitor, QMP, and guest forwarding ports.
+# Assigns all monitor and guest forwarding ports.
 qemu_assign_ports() {
   if [[ "$QEMU_NET_TYPE" == "user" ]]; then
     QEMU_SSH_PORT=$(qemu_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
     QEMU_TELNET_PORT=$(qemu_assign_port telnet "$QEMU_TELNET_BASE" "$QEMU_TELNET_PORT") || return 1
     QEMU_HTTP_PORT=$(qemu_assign_port http "$QEMU_HTTP_BASE" "$QEMU_HTTP_PORT") || return 1
   fi
-  QEMU_QMP_PORT=$(qemu_assign_port qmp "$QEMU_QMP_BASE" "$QEMU_QMP_PORT") || return 1
   QEMU_MONITOR_PORT=$(qemu_assign_port monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
 }
 
@@ -523,8 +521,8 @@ qemu_build_args() {
     -smp "$QEMU_SMP"
     -m "$QEMU_RAM"
   )
-  if [[ -n "${QEMU_QMP_PORT:-}" && "$QEMU_QMP_PORT" != "none" ]]; then
-    QEMU_ARGS+=(-qmp "tcp:127.0.0.1:$QEMU_QMP_PORT,server=on,wait=off")
+  if [[ -n "${QEMU_QMP_SOCKET:-}" && "$QEMU_QMP_SOCKET" != "none" ]]; then
+    QEMU_ARGS+=(-qmp "unix:$QEMU_QMP_SOCKET,server=on,wait=off")
   fi
   if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
     QEMU_ARGS+=(-monitor "telnet:127.0.0.1:$QEMU_MONITOR_PORT,server=on,wait=off")
@@ -545,12 +543,18 @@ qemu_build_args() {
 
 # Prints assigned QEMU and guest TCP ports.
 qemu_print_ports() {
-  echo "QEMU ports:"
+  local qmp_socket_path
+
+  echo "QEMU endpoints:"
   if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
     echo "  Monitor: localhost:$QEMU_MONITOR_PORT"
   fi
-  if [[ -n "${QEMU_QMP_PORT:-}" && "$QEMU_QMP_PORT" != "none" ]]; then
-    echo "  QMP:     localhost:$QEMU_QMP_PORT"
+  if [[ -n "${QEMU_QMP_SOCKET:-}" && "$QEMU_QMP_SOCKET" != "none" ]]; then
+    case "$QEMU_QMP_SOCKET" in
+      /*) qmp_socket_path=$QEMU_QMP_SOCKET ;;
+      *) qmp_socket_path=$QEMUDIR/$QEMU_QMP_SOCKET ;;
+    esac
+    echo "  QMP:     $qmp_socket_path"
   fi
   echo
   echo "Guest ports:"

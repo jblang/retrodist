@@ -22,7 +22,9 @@ autoinst_prep() {
   local autoinst_d=$EXTRACTDIR/fat/autoinst.d
   local autoinst_file autoconf_file
   cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
-  cp -R "$AUTOBASE" "$autoinst_d"
+  rm -rf "$autoinst_d"
+  mkdir -p "$autoinst_d"
+  cp -R "$AUTOBASE"/. "$autoinst_d"
   mkdir -p "$autoinst_d/distro"
   if autoinst_file=$(retro_config_file autoinst.sh); then
     cp "$autoinst_file" "$autoinst_d/distro/autoinst.sh"

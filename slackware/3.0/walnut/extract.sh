@@ -2,3 +2,4 @@ EXTRACT_SOURCE=disc1.iso
 EXTRACT_BOOT_IMAGE=bootdsks.144/idecd
 EXTRACT_ROOT_IMAGE=rootdsks/color.gz
 extract_install_files
+extract_truncate_floppy_image idecd

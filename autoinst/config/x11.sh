@@ -74,6 +74,26 @@ ModeDB
 EOF
 }
 
+# Emit one XFree86 3.x Display subsection for a color depth.
+x11_build_3x_display_subsection() {
+    cat <<EOF
+    Subsection "Display"
+        Depth       $1
+        Modes       $X11_MODES
+        ViewPort    0 0
+    EndSubsection
+EOF
+}
+
+# Emit XFree86 3.x Display subsections in X11_DEPTHS preference order.
+x11_build_3x_display_subsections() {
+    # XFree86 3.x has no DefaultColorDepth; it uses the first matching
+    # Display subsection as the default, so X11_DEPTHS is an ordered list.
+    for X11_DISPLAY_DEPTH in $X11_DEPTHS; do
+        x11_build_3x_display_subsection "$X11_DISPLAY_DEPTH"
+    done
+}
+
 # Emit an XF86Config for XFree86 3.x SVGA servers.
 x11_build_3x_config() {
     cat <<EOF
@@ -127,24 +147,9 @@ Section "Screen"
     Driver      "svga"
     Device      "QEMU"
     Monitor     "QEMU"
-    DefaultColorDepth $X11_DEPTH
-    Subsection "Display"
-        Depth       8
-        Modes       $X11_MODES
-        ViewPort    0 0
-    EndSubsection
-    Subsection "Display"
-        Depth       16
-        Modes       $X11_MODES
-        ViewPort    0 0
-    EndSubsection
-    Subsection "Display"
-        Depth       32
-        Modes       $X11_MODES
-        ViewPort    0 0
-    EndSubsection
-EndSection
 EOF
+    x11_build_3x_display_subsections
+    echo "EndSection"
 }
 
 # Emit an XF86Config for XFree86 4.x servers.
@@ -188,7 +193,7 @@ Section "Screen"
     Identifier  "Screen0"
     Device      "QEMU"
     Monitor     "QEMU"
-    DefaultDepth $X11_DEPTH
+    DefaultDepth $X11_DEFAULT_DEPTH
     SubSection "Display"
         Depth       8
         Modes       $X11_MODES
@@ -305,12 +310,14 @@ x11_write_xf86config() {
     fi
 }
 
-# Prepare the common XF86Config target for XFree86 3.x and 4.x servers.
+# Prepare the common XF86Config target and derive the first preferred depth.
 x11_3x4x_common_config() {
-    X11_DEPTH=${X11_DEPTH:-16}
+    X11_DEPTHS=${X11_DEPTHS:-"16 8 32"}
+    X11_DEFAULT_DEPTH="$(echo $X11_DEPTHS | sed 's/ .*//')"
     X11_MODES=${X11_MODES:-'"1024x768" "800x600" "640x480"'}
     log_info "X11 configuration:"
-    log_info "  X11_DEPTH=$X11_DEPTH"
+    log_info "  X11_DEPTHS=$X11_DEPTHS"
+    log_info "  X11_DEFAULT_DEPTH=$X11_DEFAULT_DEPTH"
     log_info "  X11_MODES=$X11_MODES"
     log_info "Found X11 server at $X11_SERVER"
     x11_link_var_x11r6_bin
