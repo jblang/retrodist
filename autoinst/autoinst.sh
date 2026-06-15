@@ -5,10 +5,10 @@ PATH=$PATH:/usr/bin:/bin:/etc:/usr/etc:/sbin:/usr/sbin:/usr/lib/setup
 # Derive the staged media mount point from the script location so installs
 # work no matter where the FAT disk is mounted.
 case "$0" in
-    */*) SCRIPTDIR=`echo "$0" | sed 's,/[^/]*$,,'` ;;
+    */*) SCRIPTDIR=$(echo "$0" | sed 's,/[^/]*$,,') ;;
     *) SCRIPTDIR=. ;;
 esac
-INSTMOUNT=`cd "$SCRIPTDIR" && pwd`
+INSTMOUNT=$(cd "$SCRIPTDIR" && pwd)
 
 # figure out the destination mount point
 if [ -d /target ]; then
@@ -33,7 +33,7 @@ fi
 . "$AUTOINST_D/common.sh"
 AUTOINST_DEBUG=${AUTOINST_DEBUG:-0}
 AUTOINST_LOG=${AUTOINST_LOG:-${TMPDIR:-/tmp}/autoinst.log}
-: > "$AUTOINST_LOG"
+: >"$AUTOINST_LOG"
 log_div
 log_info "Retro Distro Playground Auto Installation (autoinst.sh)"
 log_info "Installation paths:"
@@ -52,7 +52,7 @@ fi
 log_div
 log_info "Installation complete!"
 log_info "Copying installation log to $ROOTMOUNT/autoinst.log"
-cat "$AUTOINST_LOG" > "$ROOTMOUNT/autoinst.log"
+cat "$AUTOINST_LOG" >"$ROOTMOUNT/autoinst.log"
 log_attention "Press ENTER to reboot."
 read line
 sync

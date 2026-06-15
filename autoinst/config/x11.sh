@@ -239,16 +239,16 @@ x11_detect_mouse_defaults() {
 
     if [ -z "$X11_MOUSETYPE" ]; then
         case "$X11_MOUSEDEV" in
-            /dev/psaux|/dev/ps2aux)
-                X11_MOUSETYPE="PS/2"
-                ;;
-            /dev/cua*)
-                X11_MOUSETYPE="Microsoft"
-                ;;
-            *)
-                log_error "Unknown mouse device: $X11_MOUSEDEV"
-                exit 1
-                ;;
+        /dev/psaux | /dev/ps2aux)
+            X11_MOUSETYPE="PS/2"
+            ;;
+        /dev/cua*)
+            X11_MOUSETYPE="Microsoft"
+            ;;
+        *)
+            log_error "Unknown mouse device: $X11_MOUSEDEV"
+            exit 1
+            ;;
         esac
     fi
     log_info "X11 mouse configuration:"
@@ -274,7 +274,10 @@ x11_detect_path() {
 x11_link_var_x11r6_bin() {
     if [ -d /var/X11R6/bin ]; then
         log_info "Creating symlink: /var/X11R6/bin/X -> $X11_SERVER"
-        (cd /var/X11R6/bin; ln -sf "$X11_SERVER" X)
+        (
+            cd /var/X11R6/bin
+            ln -sf "$X11_SERVER" X
+        )
     else
         log_debug "No /var/X11R6/bin directory; skipping X server symlink"
     fi
@@ -287,7 +290,7 @@ x11_install_startx_setfont_wrapper() {
             log_info "Creating backup file: $X11_STARTX.real"
             mv "$X11_STARTX" "$X11_STARTX.real"
             log_info "Creating file: $X11_STARTX"
-            x11_build_startx_setfont_wrapper > "$X11_STARTX"
+            x11_build_startx_setfont_wrapper >"$X11_STARTX"
             chmod 755 "$X11_STARTX"
         else
             log_debug "Skipping startx wrapper candidate: $X11_STARTX"
@@ -302,7 +305,7 @@ x11_write_xf86config() {
 
     x11_backup_orig "$X11_XFREECFG"
     log_info "Creating file: $X11_XFREECFG"
-    cat > "$X11_XFREECFG"
+    cat >"$X11_XFREECFG"
 
     if [ "$X11_XFREECFG" != "$X11_XFREECFG_ETC" ]; then
         log_info "Creating symlink: $X11_XFREECFG_ETC -> $X11_XFREECFG"
@@ -346,7 +349,10 @@ x11_4x_config() {
 x11_1x2x_common_config() {
     log_info "Found X11 server at $X11_SERVER"
     log_info "Creating symlink: $(dirname "$X11_SERVER")/X -> $(basename "$X11_SERVER")"
-    (cd "$(dirname "$X11_SERVER")"; ln -sf "$(basename "$X11_SERVER")" X)
+    (
+        cd "$(dirname "$X11_SERVER")"
+        ln -sf "$(basename "$X11_SERVER")" X
+    )
 
     x11_detect_path /etc/X11 /var/X11/lib/X11 /usr/X386/lib/X11 || return 1
     X11_XCONFIG="$X11_PATH/Xconfig"
@@ -364,7 +370,7 @@ x11_1x2x_svga_config() {
     log_info "  X11_MODES=$X11_MODES"
     x11_1x2x_common_config || return 1
     log_info "Creating file: $X11_XCONFIG"
-    x11_build_1x2x_svga_config > "$X11_XCONFIG"
+    x11_build_1x2x_svga_config >"$X11_XCONFIG"
     x11_install_startx_setfont_wrapper
 }
 
@@ -377,7 +383,7 @@ x11_1x2x_mono_config() {
     log_info "  X11_MODES=$X11_MODES"
     x11_1x2x_common_config || return 1
     log_info "Creating file: $X11_XCONFIG"
-    x11_build_1x2x_mono_config > "$X11_XCONFIG"
+    x11_build_1x2x_mono_config >"$X11_XCONFIG"
 }
 
 # Entry point for applying target X11 configuration.

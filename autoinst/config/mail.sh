@@ -13,8 +13,7 @@ _configure_mail() {
                 /usr/src/sendmail/linux.smtp.cf \
                 /usr/src/sendmail/cf/obj/tcpproto.cf \
                 /usr/src/sendmail/linux.uucp.cf \
-                /usr/src/sendmail/cf/obj/uucpproto.cf
-            do
+                /usr/src/sendmail/cf/obj/uucpproto.cf; do
                 log_debug "Checking sendmail template: $CANDIDATE"
                 if [ -f "$CANDIDATE" ]; then
                     SENDMAILCF="$CANDIDATE"

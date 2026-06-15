@@ -19,9 +19,9 @@ sysinstall_install_autoconf_hook() {
     cp "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/autoconf.sh"
     chmod +x "$ROOTMOUNT/autoconf.sh"
     log_info "Updating file: $ROOTMOUNT/etc/rc.local"
-    echo "if [ -x /autoconf.sh ]; then" >> "$ROOTMOUNT/etc/rc.local"
-    echo "  /autoconf.sh" >> "$ROOTMOUNT/etc/rc.local"
-    echo "fi" >> "$ROOTMOUNT/etc/rc.local"
+    echo "if [ -x /autoconf.sh ]; then" >>"$ROOTMOUNT/etc/rc.local"
+    echo "  /autoconf.sh" >>"$ROOTMOUNT/etc/rc.local"
+    echo "fi" >>"$ROOTMOUNT/etc/rc.local"
 }
 
 slackware_detect_sysinstall_mode() {
@@ -49,19 +49,35 @@ slackware_write_hwconfig() {
     log_info "  ROOTDEV=$ROOTDEV"
     log_info "  VGAMODE=$VGAMODE"
     log_info "Updating file: $ROOTMOUNT/etc/hwconfig"
-    echo "FLOPPYA $INSTDEV" >> "$ROOTMOUNT/etc/hwconfig"
-    echo "ROOTDEV $ROOTDEV" >> "$ROOTMOUNT/etc/hwconfig"
-    echo "VGAMODE $VGAMODE" >> "$ROOTMOUNT/etc/hwconfig"
+    echo "FLOPPYA $INSTDEV" >>"$ROOTMOUNT/etc/hwconfig"
+    echo "ROOTDEV $ROOTDEV" >>"$ROOTMOUNT/etc/hwconfig"
+    echo "VGAMODE $VGAMODE" >>"$ROOTMOUNT/etc/hwconfig"
 }
 
 slackware_run_syssetup() {
     # Skip modem/mouse config and install Linux-only LILO.
     if [ "$SYSSETUP_PROFILE" = "sls103" ]; then
         log_info "Running syssetup with sls103 profile"
-        ( echo n; echo n; echo; echo; echo ) | ( cd "$ROOTMOUNT"; etc/syssetup -instroot "$ROOTMOUNT" -install )
+        (
+            echo n
+            echo n
+            echo
+            echo
+            echo
+        ) | (
+            cd "$ROOTMOUNT"
+            etc/syssetup -instroot "$ROOTMOUNT" -install
+        )
     else
         log_info "Running syssetup"
-        ( echo n; echo n; echo 2 ) | ( cd "$ROOTMOUNT"; etc/syssetup -instroot "$ROOTMOUNT" -install )
+        (
+            echo n
+            echo n
+            echo 2
+        ) | (
+            cd "$ROOTMOUNT"
+            etc/syssetup -instroot "$ROOTMOUNT" -install
+        )
     fi
 }
 
@@ -99,14 +115,14 @@ sls_install_pkg() {
 
 sls_install_diskdir() {
     DISKDIR=$1
-    for PKGNAME in `ls "$DISKDIR"`; do
+    for PKGNAME in $(ls "$DISKDIR"); do
         case "$PKGNAME" in
-            *.taz | *.TAZ | *.tpz | *.TPZ | *.tar | *.TAR )
-                PKGFILE="$DISKDIR/$PKGNAME"
-                if [ -f "$PKGFILE" ]; then
-                    sls_install_pkg "$PKGFILE"
-                fi
-                ;;
+        *.taz | *.TAZ | *.tpz | *.TPZ | *.tar | *.TAR)
+            PKGFILE="$DISKDIR/$PKGNAME"
+            if [ -f "$PKGFILE" ]; then
+                sls_install_pkg "$PKGFILE"
+            fi
+            ;;
         esac
     done
 }

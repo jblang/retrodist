@@ -30,7 +30,7 @@ _slackware_pkgtool_install() {
 }
 
 normalize_sets() {
-    SETS=`echo "$SETS" | sed 's/[ ;,]/#/g'`
+    SETS=$(echo "$SETS" | sed 's/[ ;,]/#/g')
     log_info "Slackware package sets: $SETS"
 }
 
@@ -44,7 +44,7 @@ pkgtool_mkdirs() {
 }
 
 setup_state_mkdirs() {
-    for SETUPDIR in `setup_state_dirs`; do
+    for SETUPDIR in $(setup_state_dirs); do
         pkgtool_mkdirs "$SETUPDIR"
     done
 }
@@ -61,20 +61,20 @@ write_setup_state() {
     STATEFILE=$1
     STATEVALUE=$2
     setup_state_mkdirs
-    for SETUPDIR in `setup_state_dirs`; do
-        echo "$STATEVALUE" > "$SETUPDIR/$STATEFILE"
+    for SETUPDIR in $(setup_state_dirs); do
+        echo "$STATEVALUE" >"$SETUPDIR/$STATEFILE"
     done
 }
 
 remove_setup_state() {
     STATEFILE=$1
-    for SETUPDIR in `setup_state_dirs`; do
+    for SETUPDIR in $(setup_state_dirs); do
         rm -f "$SETUPDIR/$STATEFILE"
     done
 }
 
 find_cdrom_source_path() {
-    for SOURCE in slakware slackware ; do
+    for SOURCE in slakware slackware; do
         if [ -d "$CD_MOUNT/$SOURCE" ]; then
             echo "$CD_MOUNT/$SOURCE"
             return 0
@@ -97,8 +97,7 @@ find_pkgtool_bin() {
         /usr/lib/setup/pkgtool \
         /bin/pkgtool \
         /bin/pkgtool.tty \
-        "$SLACK_PKGTOOL_SOURCE"
-    do
+        "$SLACK_PKGTOOL_SOURCE"; do
         if [ -x "$PKGTOOL_BIN" ]; then
             echo "$PKGTOOL_BIN"
             return 0
@@ -121,7 +120,7 @@ mount_cdrom_source() {
         exit 1
     fi
 
-    SLACK_PKG_SOURCE=`find_cdrom_source_path`
+    SLACK_PKG_SOURCE=$(find_cdrom_source_path)
     if [ -z "$SLACK_PKG_SOURCE" ]; then
         log_error "Unable to find Slackware package tree on mounted CD-ROM."
         umount "$CD_MOUNT"
@@ -148,14 +147,14 @@ write_pkgtool_custom_ext() {
     if [ "$SLACK_PKG_TAG_MODE" = "custom_ext" ]; then
         write_setup_state SeTtagext ".new"
         log_info "Creating file: /tmp/custom"
-        echo ".new" > /tmp/custom
+        echo ".new" >/tmp/custom
     fi
 }
 
 prepare_pkgtool_source() {
     SLACK_CD_SOURCE_MOUNTED=
-    SLACK_PKG_SOURCE=`find_staged_source_path`
-    SLACK_PKGTOOL_BIN=`find_pkgtool_bin`
+    SLACK_PKG_SOURCE=$(find_staged_source_path)
+    SLACK_PKGTOOL_BIN=$(find_pkgtool_bin)
     if [ -z "$SLACK_PKGTOOL_BIN" ]; then
         log_error "Unable to find pkgtool binary."
         exit 1
@@ -213,7 +212,7 @@ write_rootdev() {
     pkgtool_mkdirs "$ROOTMOUNT/etc/rc.d"
     if [ ! -r "$ROOTMOUNT/etc/rc.d/ROOTDEV" ]; then
         log_info "Creating file: $ROOTMOUNT/etc/rc.d/ROOTDEV"
-        echo "$ROOTDEV" > "$ROOTMOUNT/etc/rc.d/ROOTDEV"
+        echo "$ROOTDEV" >"$ROOTMOUNT/etc/rc.d/ROOTDEV"
         chmod 644 "$ROOTMOUNT/etc/rc.d/ROOTDEV"
     fi
 }
@@ -230,14 +229,14 @@ install_fstab() {
             if [ $? -ne 0 ]; then
                 pkgtool_mkdirs "$ROOTMOUNT/cdrom"
                 log_info "Updating file: $ROOTMOUNT/etc/fstab"
-                echo "$SLACK_CD_FSTAB_ENTRY" >> "$ROOTMOUNT/etc/fstab"
+                echo "$SLACK_CD_FSTAB_ENTRY" >>"$ROOTMOUNT/etc/fstab"
             fi
         fi
         fgrep "/proc" "$ROOTMOUNT/etc/fstab" >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             log_info "Updating file: $ROOTMOUNT/etc/fstab"
-            echo "none        /proc        proc        defaults" >> "$ROOTMOUNT/etc/fstab"
-            echo " " >> "$ROOTMOUNT/etc/fstab"
+            echo "none        /proc        proc        defaults" >>"$ROOTMOUNT/etc/fstab"
+            echo " " >>"$ROOTMOUNT/etc/fstab"
         fi
     fi
 }
@@ -247,16 +246,25 @@ install_cdrom_link() {
         pkgtool_mkdirs "$ROOTMOUNT/dev"
         if [ ! -L "$ROOTMOUNT/dev/cdrom" -a ! -r "$ROOTMOUNT/dev/cdrom" ]; then
             log_info "Creating symlink: $ROOTMOUNT/dev/cdrom -> $CD_DEVICE"
-            ( cd "$ROOTMOUNT/dev" ; ln -sf "$CD_DEVICE" cdrom )
+            (
+                cd "$ROOTMOUNT/dev"
+                ln -sf "$CD_DEVICE" cdrom
+            )
         fi
     fi
 }
 
 fix_permissions() {
     log_info "Fixing permissions..."
-    ( cd "$ROOTMOUNT" ; chmod 755 ./ )
+    (
+        cd "$ROOTMOUNT"
+        chmod 755 ./
+    )
     if [ -d "$ROOTMOUNT/var" ]; then
-        ( cd "$ROOTMOUNT" ; chmod 755 ./var )
+        (
+            cd "$ROOTMOUNT"
+            chmod 755 ./var
+        )
     fi
     if [ -d "$ROOTMOUNT/usr/src/linux" ]; then
         chmod 755 "$ROOTMOUNT/usr/src/linux"
@@ -267,7 +275,10 @@ fix_permissions() {
     fi
     if [ ! -L "$ROOTMOUNT/lib/cpp" ]; then
         log_info "Creating symlink: $ROOTMOUNT/lib/cpp -> /usr/lib/gcc-lib/i486-linux/*.*.*/cpp"
-        ( cd "$ROOTMOUNT/lib" ; ln -sf /usr/lib/gcc-lib/i486-linux/*.*.*/cpp cpp )
+        (
+            cd "$ROOTMOUNT/lib"
+            ln -sf /usr/lib/gcc-lib/i486-linux/*.*.*/cpp cpp
+        )
     fi
 
     pkgtool_mkdirs "$ROOTMOUNT/$SLACK_SPOOL_DIR/uucp"
@@ -291,7 +302,10 @@ set_timezone() {
     if [ -n "$TIMEZONE" -a -d "$ROOTMOUNT/usr/lib/zoneinfo" ]; then
         log_info "Setting timezone to $TIMEZONE..."
         log_info "Creating symlink: $ROOTMOUNT/usr/lib/zoneinfo/localtime -> $TIMEZONE"
-        ( cd "$ROOTMOUNT/usr/lib/zoneinfo" ; ln -sf "$TIMEZONE" localtime )
+        (
+            cd "$ROOTMOUNT/usr/lib/zoneinfo"
+            ln -sf "$TIMEZONE" localtime
+        )
         move_setup_hook "$SLACK_TIMECONFIG"
     fi
 }
@@ -304,7 +318,7 @@ slackware_install_lilo() {
         else
             LILO_IMAGE=/vmlinuz
         fi
-        BOOTDEV=`echo "$ROOTDEV" | sed 's/[0-9][0-9]*$//'`
+        BOOTDEV=$(echo "$ROOTDEV" | sed 's/[0-9][0-9]*$//')
         if [ "$BOOTDEV" = "$ROOTDEV" ]; then
             BOOTDEV=/dev/hda
         fi
@@ -317,7 +331,7 @@ slackware_install_lilo() {
             mv "$ROOTMOUNT/etc/lilo.conf" "$ROOTMOUNT/etc/lilo.conf.bak"
         fi
         log_info "Creating file: $ROOTMOUNT/etc/lilo.conf"
-        cat > "$ROOTMOUNT/etc/lilo.conf" << EOF
+        cat >"$ROOTMOUNT/etc/lilo.conf" <<EOF
 # LILO configuration file
 # generated by autoinst
 #
@@ -361,9 +375,9 @@ install_autoconf_hook() {
     cp "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/autoconf.sh"
     chmod +x "$ROOTMOUNT/autoconf.sh"
     log_info "Updating file: $ROOTMOUNT/etc/rc.d/rc.local"
-    echo "if [ -x /autoconf.sh ]; then" >> "$ROOTMOUNT/etc/rc.d/rc.local"
-    echo "  /autoconf.sh" >> "$ROOTMOUNT/etc/rc.d/rc.local"
-    echo "fi" >> "$ROOTMOUNT/etc/rc.d/rc.local"
+    echo "if [ -x /autoconf.sh ]; then" >>"$ROOTMOUNT/etc/rc.d/rc.local"
+    echo "  /autoconf.sh" >>"$ROOTMOUNT/etc/rc.d/rc.local"
+    echo "fi" >>"$ROOTMOUNT/etc/rc.d/rc.local"
 }
 
 slackware_install_with_pkgtool() {

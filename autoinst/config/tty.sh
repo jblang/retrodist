@@ -7,20 +7,20 @@ tty_set_defaults() {
 
     # Early Slackware/SLS may spell serial devices as ttysN instead of ttySN.
     case "$TTY_DEV" in
-        ttyS[0-9]*)
-            TTY_DEV_ALT=ttys${TTY_DEV#ttyS}
-            TTY_ID=${TTY_ID:-s${TTY_DEV#ttyS}}
-            log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
-            ;;
-        ttys[0-9]*)
-            TTY_DEV_ALT=ttyS${TTY_DEV#ttys}
-            TTY_ID=${TTY_ID:-s${TTY_DEV#ttys}}
-            log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
-            ;;
-        *)
-            TTY_DEV_ALT=
-            TTY_ID=${TTY_ID:-s0}
-            ;;
+    ttyS[0-9]*)
+        TTY_DEV_ALT=ttys${TTY_DEV#ttyS}
+        TTY_ID=${TTY_ID:-s${TTY_DEV#ttyS}}
+        log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
+        ;;
+    ttys[0-9]*)
+        TTY_DEV_ALT=ttyS${TTY_DEV#ttys}
+        TTY_ID=${TTY_ID:-s${TTY_DEV#ttys}}
+        log_debug "Using alternate serial device spelling: $TTY_DEV_ALT"
+        ;;
+    *)
+        TTY_DEV_ALT=
+        TTY_ID=${TTY_ID:-s0}
+        ;;
     esac
     log_info "TTY configuration:"
     log_info "  TTY_DEV=$TTY_DEV"
@@ -60,7 +60,7 @@ tty_backup_orig() {
 # Emit the first matching active getty line for a device.
 tty_find_active_line_for_device() {
     sed -n "/^[^#].*:respawn:.* $1\\([ 	].*\\)\{0,1\}\$/p" "$TTY_INITTAB" |
-    sed -n '1p'
+        sed -n '1p'
 }
 
 # Find the first commented getty line for ttyS0, ttyS1, ttys0, or ttys1.
@@ -76,10 +76,10 @@ tty_find_serial_getty_line() {
 tty_find_getty_line() {
     # Avoid shell read loops here; Slackware 3.0's /bin/sh can segfault in read.
     # shellcheck disable=SC2006
-    TTY_ACTIVE_LINE=`tty_find_active_line_for_device "$TTY_DEV"`
+    TTY_ACTIVE_LINE=$(tty_find_active_line_for_device "$TTY_DEV")
     if [ -z "$TTY_ACTIVE_LINE" ] && [ -n "$TTY_DEV_ALT" ]; then
         # shellcheck disable=SC2006
-        TTY_ACTIVE_LINE=`tty_find_active_line_for_device "$TTY_DEV_ALT"`
+        TTY_ACTIVE_LINE=$(tty_find_active_line_for_device "$TTY_DEV_ALT")
     fi
     if [ -n "$TTY_ACTIVE_LINE" ]; then
         return 1
@@ -87,7 +87,7 @@ tty_find_getty_line() {
 
     # Find any serial getty line for ports 0 or 1
     # shellcheck disable=SC2006
-    TTY_STOCK_LINE=`tty_find_serial_getty_line`
+    TTY_STOCK_LINE=$(tty_find_serial_getty_line)
     if [ -n "$TTY_STOCK_LINE" ]; then
         log_debug "Found serial getty line: $TTY_STOCK_LINE"
         # Determine which device to use based on what we want
@@ -105,19 +105,19 @@ tty_write_inittab() {
         TTY_UNCOMMENTED=${TTY_STOCK_LINE#\#}
         # Extract the getty command part (everything after the third colon)
         # shellcheck disable=SC2006
-        TTY_GETTY_CMD=`echo "$TTY_UNCOMMENTED" | sed 's/^[^:]*:[^:]*:[^:]*://'`
+        TTY_GETTY_CMD=$(echo "$TTY_UNCOMMENTED" | sed 's/^[^:]*:[^:]*:[^:]*://')
         # Replace any ttyS[01] or ttys[01] with our target device in the command
         # shellcheck disable=SC2006
-        TTY_GETTY_CMD=`echo "$TTY_GETTY_CMD" | sed "s/tty[Ss][01]/$TTY_STOCK_DEV/g"`
+        TTY_GETTY_CMD=$(echo "$TTY_GETTY_CMD" | sed "s/tty[Ss][01]/$TTY_STOCK_DEV/g")
         # Build new line with our runlevels (12345) and the adapted getty command
         TTY_NEW_LINE="$TTY_ID:$TTY_RUNLEVELS:respawn:$TTY_GETTY_CMD"
         log_debug "Generated line: $TTY_NEW_LINE"
         # Append the new line after the stock line
         # shellcheck disable=SC2006
-        TTY_ESCAPED_STOCK=`echo "$TTY_STOCK_LINE" | sed 's/[\/&]/\\\\&/g'`
+        TTY_ESCAPED_STOCK=$(echo "$TTY_STOCK_LINE" | sed 's/[\/&]/\\&/g')
         sed "/^$TTY_ESCAPED_STOCK\$/a\\
 $TTY_NEW_LINE\\
-" "$TTY_INITTAB" > "$TTY_INITTAB_NEW"
+" "$TTY_INITTAB" >"$TTY_INITTAB_NEW"
         mv "$TTY_INITTAB_NEW" "$TTY_INITTAB"
     else
         log_warn "No serial getty line found; leaving inittab unchanged"
@@ -154,7 +154,7 @@ tty_config_login_defs() {
         tty_backup_orig "$TTY_LOGIN_DEFS"
         log_info "Creating file: $TTY_LOGIN_DEFS"
         # Work from the current file so reruns preserve unrelated local edits.
-        sed 's/^CONSOLE/#CONSOLE/' "$TTY_LOGIN_DEFS" > "$TTY_LOGIN_DEFS_NEW"
+        sed 's/^CONSOLE/#CONSOLE/' "$TTY_LOGIN_DEFS" >"$TTY_LOGIN_DEFS_NEW"
         mv "$TTY_LOGIN_DEFS_NEW" "$TTY_LOGIN_DEFS"
     else
         log_debug "No login.defs found at $TTY_LOGIN_DEFS"
@@ -171,7 +171,7 @@ tty_config_securetty() {
         fi
     fi
     log_info "Updating file: $TTY_SECURETTY"
-    echo "$TTY_DEV" >> "$TTY_SECURETTY"
+    echo "$TTY_DEV" >>"$TTY_SECURETTY"
 }
 
 # Entry point for enabling the target serial login console.
@@ -182,8 +182,8 @@ _tty_config() {
 
     if tty_detect_paths; then
         tty_run_step tty_config_inittab &&
-        tty_run_step tty_config_login_defs &&
-        tty_run_step tty_config_securetty
+            tty_run_step tty_config_login_defs &&
+            tty_run_step tty_config_securetty
     fi
 
     return 0

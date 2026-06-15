@@ -33,7 +33,7 @@ debian_copy_base_configuration_hooks() {
         log_info "Extracting configuration hook archive into $ROOTMOUNT/root"
         (
             cd "$ROOTMOUNT/root" &&
-            debian_gzip_extract < /etc/root.sh.tar.gz | star
+                debian_gzip_extract </etc/root.sh.tar.gz | star
         )
         chown -R root.root "$ROOTMOUNT/root"
     else
@@ -54,7 +54,7 @@ debian_extract_base_system() {
         log_error "DEBIAN_BASE_TARBALL is not set."
         exit 1
     fi
-    debian_gzip_extract < "$INSTMOUNT/$DEBIAN_BASE_TARBALL" | star
+    debian_gzip_extract <"$INSTMOUNT/$DEBIAN_BASE_TARBALL" | star
     log_info "Creating file: $ROOTMOUNT/etc/fstab"
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
@@ -78,19 +78,23 @@ debian_install_driver_modules() {
 }
 
 debian_run_lilo() {
-    (export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"; \
-      "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" >/dev/null 2>&1)
+    (
+        export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"
+        "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" >/dev/null 2>&1
+    )
 }
 
 debian_activate_partition() {
-    (export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"; \
-      "$ROOTMOUNT/sbin/activate" "$1" "$2" >/dev/null 2>&1)
+    (
+        export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"
+        "$ROOTMOUNT/sbin/activate" "$1" "$2" >/dev/null 2>&1
+    )
 }
 
 debian_install_lilo() {
     log_info "Installing LILO for $ROOTDEV..."
     log_info "Creating file: $ROOTMOUNT/etc/lilo.conf"
-    cat > "$ROOTMOUNT/etc/lilo.conf" <<EOF
+    cat >"$ROOTMOUNT/etc/lilo.conf" <<EOF
 boot=$ROOTDEV
 root=$ROOTDEV
 compact

@@ -16,7 +16,7 @@ log_write() {
     shift
     echo "${LOG_COLOR}${LOG_LEVEL}${LOG_GREY}: $*" >&2
     if [ -n "$AUTOINST_LOG" ]; then
-        echo "$LOG_LEVEL: $*" >> "$AUTOINST_LOG"
+        echo "$LOG_LEVEL: $*" >>"$AUTOINST_LOG"
     fi
 }
 
@@ -46,6 +46,6 @@ log_attention() {
 log_div() {
     echo "--------------------------------------------------------------------------------" >&2
     if [ -n "$AUTOINST_LOG" ]; then
-        echo "--------------------------------------------------------------------------------" >> "$AUTOINST_LOG"
+        echo "--------------------------------------------------------------------------------" >>"$AUTOINST_LOG"
     fi
 }

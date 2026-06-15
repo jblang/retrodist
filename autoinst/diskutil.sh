@@ -12,7 +12,7 @@ make_boot_floppy() {
         log_error "Installed kernel $BOOTKERNEL not found."
         return 1
     fi
-    
+
     umount /user >/dev/null 2>&1
     log_attention "Reattach boot.img and press ENTER."
     read line
@@ -35,12 +35,15 @@ make_boot_floppy() {
 # List fdisk partitions with the geometry for the requested disk.
 fdisk_list_partitions() {
     log_debug "Listing partitions on $1"
-    (echo p; echo q) | fdisk $1 2>&1
+    (
+        echo p
+        echo q
+    ) | fdisk $1 2>&1
 }
 
 # Extract the partition table header from fdisk output.
 fdisk_get_header() {
-    sed -n '/^[ 	]*Device[ 	]/p'    
+    sed -n '/^[ 	]*Device[ 	]/p'
 }
 
 # Extract one partition line from fdisk output.
@@ -53,7 +56,7 @@ fdisk_log_output() {
     log_info "fdisk output:"
     echo "$1" >&2
     if [ -n "$AUTOINST_LOG" ]; then
-        echo "$1" >> "$AUTOINST_LOG"
+        echo "$1" >>"$AUTOINST_LOG"
     fi
 }
 
@@ -76,9 +79,9 @@ fdisk_parse_blocks() {
     fi
     # FDISK_HEADER must be set before calling fdisk_parse_blocks
     case $(fdisk_detect_format $FDISK_HEADER) in
-        old ) shift ;;  # eat extra column in old format
-        new ) ;;        # use new format columns as-is
-        * ) return 1 ;; # unknown format
+    old) shift ;;  # eat extra column in old format
+    new) ;;        # use new format columns as-is
+    *) return 1 ;; # unknown format
     esac
     # fourth remaining column is the blocks; remove + suffix if present
     echo $4 | sed 's/+$//'
@@ -112,18 +115,18 @@ fdisk_parse_partitions() {
 
 # Emit fdisk commands to create one primary partition.
 fdisk_new_primary() {
-    echo "n"    # add a new partition
-    echo "p"    # make primary partition
-    echo "$1"   # partition number
-    echo "$2"   # start cylinder
-    echo "$3"   # end cylinder
+    echo "n"  # add a new partition
+    echo "p"  # make primary partition
+    echo "$1" # partition number
+    echo "$2" # start cylinder
+    echo "$3" # end cylinder
 }
 
 # Emit fdisk commands to set a partition type.
 fdisk_set_type() {
-    echo "t"    # change partition type
-    echo $1     # partition number
-    echo $2     # partition type
+    echo "t" # change partition type
+    echo $1  # partition number
+    echo $2  # partition type
 }
 
 # Emit the full fdisk command stream for the swap/root layout.
@@ -133,16 +136,16 @@ fdisk_commands() {
     # run all create commands before setting types to ensure consistent prompts
     fdisk_set_type 1 82
     fdisk_set_type 2 83
-    echo "p"    # display the current partition table
-    echo "w"    # write the partition table to disk
-    echo        # submit a final blank line to fdisk
+    echo "p" # display the current partition table
+    echo "w" # write the partition table to disk
+    echo     # submit a final blank line to fdisk
 }
 
 # Return success when the argument contains only decimal digits.
 fdisk_is_number() {
     case "$1" in
-        ""|*[!0123456789]* ) return 1 ;;
-        * ) return 0 ;;
+    "" | *[!0123456789]*) return 1 ;;
+    *) return 0 ;;
     esac
 }
 
@@ -156,12 +159,12 @@ fdisk_parse_disk_geometry() {
     while [ $# -gt 0 ]; do
         if [ "$2" = "heads," -a "$6" = "cylinders" ]; then
             case "$4" in
-                sectors,*|sectors/track,* )
-                    FDISK_HEADS=$1
-                    FDISK_SECTORS=$3
-                    FDISK_CYLINDERS=$5
-                    return 0
-                    ;;
+            sectors,* | sectors/track,*)
+                FDISK_HEADS=$1
+                FDISK_SECTORS=$3
+                FDISK_CYLINDERS=$5
+                return 0
+                ;;
             esac
         elif [ "$1" = "Disk" -a "$2" = "$FDISK_GEOM_DEV" -a "$4" = "heads," -a "$8" = "cylinders" ]; then
             FDISK_HEADS=$3
@@ -177,16 +180,16 @@ fdisk_parse_disk_geometry() {
 # Return the next cylinder for known auto-partition split points.
 fdisk_next_cylinder() {
     case "$1" in
-        8 ) echo 9 ;;
-        16 ) echo 17 ;;
-        17 ) echo 18 ;;
-        32 ) echo 33 ;;
-        33 ) echo 34 ;;
-        65 ) echo 66 ;;
-        128 ) echo 129 ;;
-        130 ) echo 131 ;;
-        260 ) echo 261 ;;
-        * ) echo "" ;;
+    8) echo 9 ;;
+    16) echo 17 ;;
+    17) echo 18 ;;
+    32) echo 33 ;;
+    33) echo 34 ;;
+    65) echo 66 ;;
+    128) echo 129 ;;
+    130) echo 131 ;;
+    260) echo 261 ;;
+    *) echo "" ;;
     esac
 }
 
@@ -199,13 +202,13 @@ fdisk_calculate_swap_end() {
         echo ""
         return 1
     fi
-    FDISK_SECTORS_PER_CYLINDER=`expr "$FDISK_HEADS" \* "$FDISK_SECTORS" 2>/dev/null`
+    FDISK_SECTORS_PER_CYLINDER=$(expr "$FDISK_HEADS" \* "$FDISK_SECTORS" 2>/dev/null)
     if [ -z "$FDISK_SECTORS_PER_CYLINDER" -o "$FDISK_SECTORS_PER_CYLINDER" -lt 1 ]; then
         echo ""
         return 1
     fi
-    FDISK_SWAP_SECTORS=`expr "$FDISK_SWAP_MB" \* 2048 2>/dev/null`
-    FDISK_HALF_CYLINDER=`expr "$FDISK_SECTORS_PER_CYLINDER" / 2 2>/dev/null`
+    FDISK_SWAP_SECTORS=$(expr "$FDISK_SWAP_MB" \* 2048 2>/dev/null)
+    FDISK_HALF_CYLINDER=$(expr "$FDISK_SECTORS_PER_CYLINDER" / 2 2>/dev/null)
     expr \( "$FDISK_SWAP_SECTORS" + "$FDISK_HALF_CYLINDER" \) / "$FDISK_SECTORS_PER_CYLINDER" 2>/dev/null
 }
 
@@ -220,19 +223,19 @@ fdisk_default_swap_end() {
 
     DISK_SWAP_MB=${DISK_SWAP_MB:-128}
     case "$FDISK_HEADS:$FDISK_SECTORS:$DISK_SWAP_MB" in
-        16:63:64 ) echo 130 ;;
-        16:63:128 ) echo 260 ;;
-        32:63:64 ) echo 65 ;;
-        32:63:128 ) echo 130 ;;
-        64:63:64 ) echo 33 ;;
-        64:63:128 ) echo 65 ;;
-        128:63:64 ) echo 16 ;;
-        128:63:128 ) echo 33 ;;
-        240:63:64 ) echo 9 ;;
-        240:63:128 ) echo 17 ;;
-        255:63:64 ) echo 8 ;;
-        255:63:128 ) echo 16 ;;
-        * ) fdisk_calculate_swap_end "$FDISK_HEADS" "$FDISK_SECTORS" "$DISK_SWAP_MB" ;;
+    16:63:64) echo 130 ;;
+    16:63:128) echo 260 ;;
+    32:63:64) echo 65 ;;
+    32:63:128) echo 130 ;;
+    64:63:64) echo 33 ;;
+    64:63:128) echo 65 ;;
+    128:63:64) echo 16 ;;
+    128:63:128) echo 33 ;;
+    240:63:64) echo 9 ;;
+    240:63:128) echo 17 ;;
+    255:63:64) echo 8 ;;
+    255:63:128) echo 16 ;;
+    *) fdisk_calculate_swap_end "$FDISK_HEADS" "$FDISK_SECTORS" "$DISK_SWAP_MB" ;;
     esac
 }
 
@@ -266,7 +269,7 @@ fdisk_detect_geometry() {
 
     FDISK_ROOT_START=$(fdisk_next_cylinder "$FDISK_SWAP_END")
     if [ -z "$FDISK_ROOT_START" ]; then
-        FDISK_ROOT_START=`expr "$FDISK_SWAP_END" + 1 2>/dev/null`
+        FDISK_ROOT_START=$(expr "$FDISK_SWAP_END" + 1 2>/dev/null)
         if [ -z "$FDISK_ROOT_START" ]; then
             log_error "Unable to calculate root partition start cylinder."
             return 1
@@ -328,21 +331,24 @@ format_root() {
         exit 1
     fi
     case $ROOTFS in
-        ext2 )
-            if [ "$AUTOINST_DEBUG" = "1" ]; then
-                mke2fs "$ROOTDEV"
-            else
-                mke2fs "$ROOTDEV" >/dev/null 2>&1
-            fi
-            ;;
-        ext )
-            if [ "$AUTOINST_DEBUG" = "1" ]; then
-                mkefs "$ROOTDEV" "$ROOTBLOCKS"
-            else
-                mkefs "$ROOTDEV" "$ROOTBLOCKS" >/dev/null 2>&1
-            fi
-            ;;
-        * )     log_error "Unknown filesystem $ROOTFS"; exit 1;;
+    ext2)
+        if [ "$AUTOINST_DEBUG" = "1" ]; then
+            mke2fs "$ROOTDEV"
+        else
+            mke2fs "$ROOTDEV" >/dev/null 2>&1
+        fi
+        ;;
+    ext)
+        if [ "$AUTOINST_DEBUG" = "1" ]; then
+            mkefs "$ROOTDEV" "$ROOTBLOCKS"
+        else
+            mkefs "$ROOTDEV" "$ROOTBLOCKS" >/dev/null 2>&1
+        fi
+        ;;
+    *)
+        log_error "Unknown filesystem $ROOTFS"
+        exit 1
+        ;;
     esac
     if [ $? -ne 0 ]; then
         log_error "Error running creating root filesystem."
@@ -356,12 +362,12 @@ format_root() {
     fi
     log_debug "Ensuring directory exists: $ROOTMOUNT/tmp"
     mkdir -p "$ROOTMOUNT/tmp"
- }
+}
 
 # Write the temporary fstab used by install helpers.
 create_fstab() {
     log_info "Creating file: $ROOTMOUNT/fstab.tmp"
-    cat > "$ROOTMOUNT/fstab.tmp" <<EOF
+    cat >"$ROOTMOUNT/fstab.tmp" <<EOF
 $ROOTDEV		/		$ROOTFS	defaults	0	1
 $SWAPDEV		none		swap		sw		0	0
 none			/proc		proc		defaults	0	0
@@ -385,7 +391,7 @@ disk_init() {
     log_info "  ROOTFS=$ROOTFS"
     log_div
     fdisk_parse_partitions "$DISKDEV"
-    if [  -z "$SWAPBLOCKS" -o -z "$ROOTBLOCKS" ]; then
+    if [ -z "$SWAPBLOCKS" -o -z "$ROOTBLOCKS" ]; then
         log_div
         log_info "Initializing partitions..."
         # partition if root and swap filesystems don't already exist

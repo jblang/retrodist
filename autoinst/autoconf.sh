@@ -1,12 +1,12 @@
 #!/bin/sh
 # Automatic configuration for retro distros
 PATH=$PATH:/usr/bin:/bin:/etc:/usr/etc:/sbin:/usr/sbin
-SCRIPTDIR=`echo "$0" | sed 's,/[^/]*$,,'`
+SCRIPTDIR=$(echo "$0" | sed 's,/[^/]*$,,')
 if [ -z "$SCRIPTDIR" -o "$SCRIPTDIR" = "$0" ]; then
     SCRIPTDIR=.
 fi
-SCRIPTBASE=`basename "$0"`
-SCRIPTNAME=`cd "$SCRIPTDIR" && pwd`/"$SCRIPTBASE"
+SCRIPTBASE=$(basename "$0")
+SCRIPTNAME=$(cd "$SCRIPTDIR" && pwd)/"$SCRIPTBASE"
 INSTMOUNT=/retro
 
 if [ ! -d "$INSTMOUNT" ]; then

@@ -229,28 +229,28 @@ net_detect_paths() {
 net_config_standard() {
     net_backup_suffix "$NET_HOSTNAME_PATH"
     log_info "Creating file: $NET_HOSTNAME_PATH"
-    echo "$NET_HOSTNAME" > "$NET_HOSTNAME_PATH"
+    echo "$NET_HOSTNAME" >"$NET_HOSTNAME_PATH"
     chmod 644 "$NET_HOSTNAME_PATH"
 
     net_backup_suffix "$NET_INIT_SCRIPT_PATH"
     log_info "Creating file: $NET_INIT_SCRIPT_PATH"
-    net_build_init_script > "$NET_INIT_SCRIPT_PATH"
+    net_build_init_script >"$NET_INIT_SCRIPT_PATH"
     chmod 755 "$NET_INIT_SCRIPT_PATH"
 
     net_backup_suffix "$NET_HOSTS_PATH"
     log_info "Creating file: $NET_HOSTS_PATH"
-    net_build_etc_hosts > "$NET_HOSTS_PATH"
+    net_build_etc_hosts >"$NET_HOSTS_PATH"
     chmod 644 "$NET_HOSTS_PATH"
 
     net_backup_suffix "$NET_RESOLV_CONF_PATH"
     log_info "Creating file: $NET_RESOLV_CONF_PATH"
-    net_build_resolv_conf > "$NET_RESOLV_CONF_PATH"
+    net_build_resolv_conf >"$NET_RESOLV_CONF_PATH"
     chmod 644 "$NET_RESOLV_CONF_PATH"
 
     if [ "$NET_ANCIENT_ROUTE" != "1" ]; then
         net_backup_suffix "$NET_NETWORKS_PATH"
         log_info "Updating file: $NET_NETWORKS_PATH"
-        net_build_etc_networks >> "$NET_NETWORKS_PATH"
+        net_build_etc_networks >>"$NET_NETWORKS_PATH"
         chmod 644 "$NET_NETWORKS_PATH"
     else
         log_info "Skipping $NET_NETWORKS_PATH because NET_ANCIENT_ROUTE=1"
@@ -264,13 +264,13 @@ net_config_rc_net() {
 
     net_backup_suffix "$NET_HOSTS_PATH"
     log_info "Creating file: $NET_HOSTS_PATH"
-    net_build_sls_hosts > "$NET_HOSTS_PATH"
+    net_build_sls_hosts >"$NET_HOSTS_PATH"
 
     # SLS uses /etc/host (singular) for hostname
     NET_HOST_PATH="$NET_ETCPATH/host"
     net_backup_suffix "$NET_HOST_PATH"
     log_info "Creating file: $NET_HOST_PATH"
-    echo "$NET_HOSTNAME" > "$NET_HOST_PATH"
+    echo "$NET_HOSTNAME" >"$NET_HOST_PATH"
     chmod 644 "$NET_HOST_PATH"
 
     # SLS uses /etc/domain for domain name
@@ -278,13 +278,13 @@ net_config_rc_net() {
         NET_DOMAIN_PATH="$NET_ETCPATH/domain"
         net_backup_suffix "$NET_DOMAIN_PATH"
         log_info "Creating file: $NET_DOMAIN_PATH"
-        echo "$NET_DOMAINNAME" > "$NET_DOMAIN_PATH"
+        echo "$NET_DOMAINNAME" >"$NET_DOMAIN_PATH"
         chmod 644 "$NET_DOMAIN_PATH"
     fi
 
     net_backup_suffix "$NET_RESOLV_CONF_PATH"
     log_info "Creating file: $NET_RESOLV_CONF_PATH"
-    net_build_resolv_conf > "$NET_RESOLV_CONF_PATH"
+    net_build_resolv_conf >"$NET_RESOLV_CONF_PATH"
     chmod 644 "$NET_RESOLV_CONF_PATH"
 }
 
@@ -299,9 +299,9 @@ net_enable_module_debian() {
     net_parse_module
     net_backup_suffix "$NET_ETCPATH/conf.modules"
     log_info "Updating file: $NET_ETCPATH/modules"
-    echo "$NET_MODULE_NAME" >> "$NET_ETCPATH/modules"
+    echo "$NET_MODULE_NAME" >>"$NET_ETCPATH/modules"
     log_info "Updating file: $NET_ETCPATH/conf.modules"
-    net_build_conf_modules >> "$NET_ETCPATH/conf.modules"
+    net_build_conf_modules >>"$NET_ETCPATH/conf.modules"
     # suffix must be .old because rc scripts key off its existence
     net_backup_suffix "$NET_ETCPATH/modules" ".old"
     chmod 644 "$NET_ETCPATH/modules" "$NET_ETCPATH/conf.modules"
@@ -312,7 +312,7 @@ net_enable_module_slackware() {
     log_info "Configuring Slackware network module startup"
     net_backup_suffix "$NET_RCPATH/rc.modules"
     log_info "Updating file: $NET_RCPATH/rc.modules"
-    net_build_rc_modules >> "$NET_RCPATH/rc.modules"
+    net_build_rc_modules >>"$NET_RCPATH/rc.modules"
 }
 
 # Dispatch network module setup based on the target module loader layout.
