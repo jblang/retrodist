@@ -26,7 +26,6 @@ Commands:
   install   boot the distro from install media in QEMU; use boot.img as fda and install.iso as hdc
   extract   extract files for the distro; calls download
   download  download source files for the distro or CD-ROM
-  patch     patch the boot/root disk for auto-installation.
   package   create a tar with the QEMU image files and startup script
   prereq    install host prerequisites with the current OS package manager
   reset     remove the QEMU images and extracted files for the distro
@@ -45,7 +44,7 @@ exit 1
 COMMAND=help
 if [[ $# -ge 1 ]]; then
   case $1 in
-    help | boot | install | extract | download | reset | patch | package | prereq)
+    help | boot | install | extract | download | reset | package | prereq)
       COMMAND=$1
       shift
       ;;
@@ -107,5 +106,4 @@ case $COMMAND in
   package) retro_package "$@";;
   prereq) retro_prereq "$@";;
   reset) retro_reset;;
-  patch) autoinst_patch;;
 esac

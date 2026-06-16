@@ -50,7 +50,6 @@ The `retro` script provides commands for downloading, extracting, and running re
 - `extract` will extract the distro into the `qemu.d` directory.
 - `download` will download the distro's original files. CD-ROM based distros link ISO files into `qemu.d`; other distros use the config directory's `download.d` directory.
 - `reset` will reset the distro's extracted files and QEMU configuration
-- `patch` will patch the distro's boot/root disk for auto-installation (this requires sudo to mount the image)
 - `package` will package the disk images and create shell scripts and batch files to run them in QEMU.
 - `prereq` will install host prerequisites with the current OS package manager.
 

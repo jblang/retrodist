@@ -198,3 +198,21 @@ EOF
         exit 1
     fi
 }
+
+# Stages the shared and distro-specific autoinstall files on the FAT media.
+autoinst_prep() {
+    local autoinst_d=$EXTRACTDIR/fat/autoinst.d
+    local autoinst_file autoconf_file
+    cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
+    rm -rf "$autoinst_d"
+    mkdir -p "$autoinst_d"
+    cp -R "$AUTOBASE"/. "$autoinst_d"
+    mkdir -p "$autoinst_d/distro"
+    if autoinst_file=$(retro_config_file autoinst.sh); then
+        cp "$autoinst_file" "$autoinst_d/distro/autoinst.sh"
+    fi
+    if autoconf_file=$(retro_config_file autoconf.sh); then
+        cp "$autoconf_file" "$autoinst_d/distro/autoconf.sh"
+    fi
+    slackware_prepare_tagfiles
+}

@@ -3,7 +3,7 @@
 This directory contains the shared runtime copied onto staged installer media
 for automated distro installation and first-boot configuration.
 
-`retrolib/autoinst.sh` stages this tree with `autoinst_prep`: it copies the
+`retrolib/helpers.sh` stages this tree with `autoinst_prep`: it copies the
 main install runner to `qemu.d/fat/autoinst`, copies this directory to
 `qemu.d/fat/autoinst.d`, and copies each distro's manifests to
 `qemu.d/fat/autoinst.d/distro/`.
