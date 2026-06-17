@@ -88,9 +88,16 @@ EOF
   fi
 }
 
+# Appends a whitespace-separated argument string to JUMP_QEMU_ARGS.
+# Uses read -ra (not eval) so platform/env strings cannot trigger command
+# substitution or glob expansion; -d '' lets multi-line strings split too.
 jump_append_shell_words() {
+  local words=()
   if [[ -n "${1:-}" ]]; then
-    eval "JUMP_QEMU_ARGS+=( $1 )"
+    read -ra words -d '' <<<"$1" || true
+    if [[ ${#words[@]} -gt 0 ]]; then
+      JUMP_QEMU_ARGS+=("${words[@]}")
+    fi
   fi
 }
 

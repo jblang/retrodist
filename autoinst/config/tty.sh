@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Fill unset serial-console variables with defaults.
 tty_set_defaults() {
     TTY_DEV=${TTY_DEV:-ttyS0}

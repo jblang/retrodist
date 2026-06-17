@@ -231,6 +231,16 @@ extract_install_files() {
         extract_install_files_reset
         return 1
     fi
+    # EXTRACT_PACKAGES can be absolute (a pre-built source directory) or relative
+    # (an in-archive path used as a 7z filter and for rm -rf/mv under fat/).
+    # Only reject '..' components, which would let rm -rf escape fat/.
+    case "${packages#./}" in
+        .. | ../* | */.. | */../*)
+            echo "Refusing unsafe EXTRACT_PACKAGES path: $packages" >&2
+            extract_install_files_reset
+            return 1
+            ;;
+    esac
 
     [[ -n "$boot_image" ]] && image_files+=("$boot_image")
     [[ -n "$root_image" ]] && image_files+=("$root_image")

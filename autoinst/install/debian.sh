@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 debian_gzip_extract() {
     if [ -x /bin/gunzip ] || [ -x /usr/bin/gunzip ]; then
         log_debug "Using gunzip for compressed archive extraction"
@@ -49,21 +50,29 @@ debian_copy_base_configuration_hooks() {
 
 debian_extract_base_system() {
     log_info "Installing base system to $ROOTDEV..."
-    cd "$ROOTMOUNT"
+    # cd must succeed before extracting: star writes into the current directory,
+    # so a failed cd would unpack the base system into the wrong filesystem.
+    cd "$ROOTMOUNT" || die "Unable to cd to $ROOTMOUNT for base system extraction."
     if [ -z "$DEBIAN_BASE_TARBALL" ]; then
         log_error "DEBIAN_BASE_TARBALL is not set."
         exit 1
     fi
+    if [ ! -f "$INSTMOUNT/$DEBIAN_BASE_TARBALL" ]; then
+        die "Base system tarball not found: $INSTMOUNT/$DEBIAN_BASE_TARBALL"
+    fi
     debian_gzip_extract <"$INSTMOUNT/$DEBIAN_BASE_TARBALL" | star
+    if [ ! -f "$ROOTMOUNT/fstab.tmp" ]; then
+        die "Base system extraction did not produce $ROOTMOUNT/fstab.tmp."
+    fi
     log_info "Creating file: $ROOTMOUNT/etc/fstab"
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
 
 debian_install_boot_floppy_kernel() {
     log_info "Installing boot kernel..."
-    cd "$INSTMOUNT/bootflop"
-    ./install.sh "$ROOTMOUNT"
-    cd "$ROOTMOUNT"
+    cd "$INSTMOUNT/bootflop" || die "Unable to cd to $INSTMOUNT/bootflop."
+    run_or_die "Boot floppy kernel install failed." ./install.sh "$ROOTMOUNT"
+    cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
 debian_install_driver_modules() {
@@ -72,9 +81,9 @@ debian_install_driver_modules() {
     fi
 
     log_info "Installing driver modules..."
-    cd "$INSTMOUNT/drivers"
-    sh ./install.sh "$ROOTMOUNT"
-    cd "$ROOTMOUNT"
+    cd "$INSTMOUNT/drivers" || die "Unable to cd to $INSTMOUNT/drivers."
+    run_or_die "Driver module install failed." sh ./install.sh "$ROOTMOUNT"
+    cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
 debian_run_lilo() {

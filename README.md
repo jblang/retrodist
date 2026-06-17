@@ -212,6 +212,13 @@ On the retro guest, run `ftp 10.0.2.1` to reach the FTP server. The FTP server i
 
 To shut down the jump box, run `sudo poweroff` from the serial console or ssh session.
 
+> **Note:** The `jump.d/` directory holds generated local state, including the
+> SSH key pair (`id_rsa`/`id_rsa.pub`) used to access the jump box and the
+> downloaded/resized Debian disk images (hundreds of MB). It is gitignored and
+> not tracked. Do not share, back up, or otherwise distribute `jump.d/`, since
+> doing so would disclose the private key. Set `JUMPHOME` to relocate this state
+> if you prefer to keep it outside the repository.
+
 
 ### Port and Serial Overrides
 

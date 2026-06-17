@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # installer for pkgtool-based Slackware versions
 
 slackware_pkgtool_layout() {
@@ -247,7 +248,7 @@ install_cdrom_link() {
         if [ ! -L "$ROOTMOUNT/dev/cdrom" -a ! -r "$ROOTMOUNT/dev/cdrom" ]; then
             log_info "Creating symlink: $ROOTMOUNT/dev/cdrom -> $CD_DEVICE"
             (
-                cd "$ROOTMOUNT/dev"
+                cd "$ROOTMOUNT/dev" || exit 1
                 ln -sf "$CD_DEVICE" cdrom
             )
         fi
@@ -257,12 +258,12 @@ install_cdrom_link() {
 fix_permissions() {
     log_info "Fixing permissions..."
     (
-        cd "$ROOTMOUNT"
+        cd "$ROOTMOUNT" || exit 1
         chmod 755 ./
     )
     if [ -d "$ROOTMOUNT/var" ]; then
         (
-            cd "$ROOTMOUNT"
+            cd "$ROOTMOUNT" || exit 1
             chmod 755 ./var
         )
     fi
@@ -276,7 +277,7 @@ fix_permissions() {
     if [ ! -L "$ROOTMOUNT/lib/cpp" ]; then
         log_info "Creating symlink: $ROOTMOUNT/lib/cpp -> /usr/lib/gcc-lib/i486-linux/*.*.*/cpp"
         (
-            cd "$ROOTMOUNT/lib"
+            cd "$ROOTMOUNT/lib" || exit 1
             ln -sf /usr/lib/gcc-lib/i486-linux/*.*.*/cpp cpp
         )
     fi
@@ -303,7 +304,7 @@ set_timezone() {
         log_info "Setting timezone to $TIMEZONE..."
         log_info "Creating symlink: $ROOTMOUNT/usr/lib/zoneinfo/localtime -> $TIMEZONE"
         (
-            cd "$ROOTMOUNT/usr/lib/zoneinfo"
+            cd "$ROOTMOUNT/usr/lib/zoneinfo" || exit 1
             ln -sf "$TIMEZONE" localtime
         )
         move_setup_hook "$SLACK_TIMECONFIG"

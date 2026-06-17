@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 sysinstall_mkdirs() {
     for DIR in "$@"; do
         log_debug "Creating directory: $ROOTMOUNT/$DIR"
@@ -65,7 +66,7 @@ slackware_run_syssetup() {
             echo
             echo
         ) | (
-            cd "$ROOTMOUNT"
+            cd "$ROOTMOUNT" || exit 1
             etc/syssetup -instroot "$ROOTMOUNT" -install
         )
     else
@@ -75,7 +76,7 @@ slackware_run_syssetup() {
             echo n
             echo 2
         ) | (
-            cd "$ROOTMOUNT"
+            cd "$ROOTMOUNT" || exit 1
             etc/syssetup -instroot "$ROOTMOUNT" -install
         )
     fi
@@ -141,7 +142,7 @@ sls_install_series() {
     if [ "$SERIES" = "a" ]; then
         DISKPATTERN="$INSTMOUNT/packages/a[2-9] $INSTMOUNT/packages/a[1-9][0-9]"
     else
-        DISKPATTERN="$INSTMOUNT/packages/$SERIES[1-9] $INSTMOUNT/packages/$SERIES[1-9][0-9]"
+        DISKPATTERN="$INSTMOUNT/packages/${SERIES}[1-9] $INSTMOUNT/packages/${SERIES}[1-9][0-9]"
     fi
     log_info "Installing SLS series $SERIES"
 

@@ -51,16 +51,16 @@ if [[ $# -ge 1 ]]; then
   esac
 fi
 
-# next parameter should be a configuration file; default to pwd
-if [[ $# -eq 1 ]]; then
+# next parameter should be a config directory; default to pwd.
+# Consume it as CONFIG only when it is not an option (so QEMU options following
+# the command are left for QEMU) regardless of how many further args remain.
+if [[ $# -ge 1 && $1 != -* ]]; then
   if [[ -d "$1" ]]; then
     CONFDIR=$(cd "$1" && pwd)
     shift
   elif [[ -d "$SCRIPTDIR/$1" ]]; then
     CONFDIR=$(cd "$SCRIPTDIR/$1" && pwd)
     shift
-  elif [[ $1 == -* ]]; then
-    CONFDIR=$PWD
   else
     echo "Configuration $1 doesn't exist"
     exit 1

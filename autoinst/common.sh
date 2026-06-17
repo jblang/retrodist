@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # common scripts
 . "$AUTOINST_D/logging.sh"
 . "$AUTOINST_D/diskutil.sh"

@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Fill unset network configuration variables with QEMU-friendly defaults.
 net_set_defaults() {
     NET_IPADDR=${NET_IPADDR:-10.0.2.15}

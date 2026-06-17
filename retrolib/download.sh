@@ -8,8 +8,12 @@ download_list() {
         exit 1
     fi
     cat_newline "$1" | while IFS=' ' read -r file url; do
-        dest=$2/$file
         if [[ -n "$file" && -n "$url" ]]; then
+            if ! path_is_safe_relative "$file"; then
+                echo "Refusing unsafe download path: $file" >&2
+                continue
+            fi
+            dest=$2/$file
             if [[ ! -f "$dest" ]]; then
                 echo "Downloading $file"
                 wget --no-verbose --show-progress -O "$dest" "$url"

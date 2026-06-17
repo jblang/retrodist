@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 _configure_mail() {
     log_div
     log_info "Configuring mail..."

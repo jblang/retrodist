@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Write the installed kernel to a boot floppy and set its root device.
 make_boot_floppy() {
     BOOTFLOPPYDEV=${BOOTFLOPPYDEV:-/dev/fd0}
@@ -198,10 +199,9 @@ fdisk_calculate_swap_end() {
     FDISK_HEADS=$1
     FDISK_SECTORS=$2
     FDISK_SWAP_MB=$3
-    if ! fdisk_is_number "$FDISK_HEADS" || ! fdisk_is_number "$FDISK_SECTORS" || ! fdisk_is_number "$FDISK_SWAP_MB"; then
-        echo ""
-        return 1
-    fi
+    fdisk_is_number "$FDISK_HEADS"    || { echo ""; return 1; }
+    fdisk_is_number "$FDISK_SECTORS"  || { echo ""; return 1; }
+    fdisk_is_number "$FDISK_SWAP_MB"  || { echo ""; return 1; }
     FDISK_SECTORS_PER_CYLINDER=$(expr "$FDISK_HEADS" \* "$FDISK_SECTORS" 2>/dev/null)
     if [ -z "$FDISK_SECTORS_PER_CYLINDER" -o "$FDISK_SECTORS_PER_CYLINDER" -lt 1 ]; then
         echo ""
@@ -320,6 +320,10 @@ format_swap() {
     else
         mkswap "$SWAPDEV" "$SWAPBLOCKS" >/dev/null 2>&1
     fi
+    if [ $? -ne 0 ]; then
+        log_error "Error formatting swap on $SWAPDEV."
+        exit 1
+    fi
     swapon "$SWAPDEV"
 }
 
@@ -405,6 +409,12 @@ disk_init() {
             fdisk_partition "$@"
         fi
         fdisk_parse_partitions "$DISKDEV"
+        # Detect partitioning failure here so it aborts with a clear message
+        # instead of cascading into mkfs/install failures further down.
+        if [ -z "$SWAPBLOCKS" -o -z "$ROOTBLOCKS" ]; then
+            log_error "Partitioning $DISKDEV did not produce the expected swap and root partitions."
+            exit 1
+        fi
     fi
     log_div
     format_swap

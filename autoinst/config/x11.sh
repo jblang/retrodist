@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Emit a startx wrapper that restores console fonts after early XFree86 exits.
 x11_build_startx_setfont_wrapper() {
     cat <<'EOF'
@@ -275,7 +276,7 @@ x11_link_var_x11r6_bin() {
     if [ -d /var/X11R6/bin ]; then
         log_info "Creating symlink: /var/X11R6/bin/X -> $X11_SERVER"
         (
-            cd /var/X11R6/bin
+            cd /var/X11R6/bin || exit 1
             ln -sf "$X11_SERVER" X
         )
     else
@@ -350,7 +351,7 @@ x11_1x2x_common_config() {
     log_info "Found X11 server at $X11_SERVER"
     log_info "Creating symlink: $(dirname "$X11_SERVER")/X -> $(basename "$X11_SERVER")"
     (
-        cd "$(dirname "$X11_SERVER")"
+        cd "$(dirname "$X11_SERVER")" || exit 1
         ln -sf "$(basename "$X11_SERVER")" X
     )
 

@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Set MOD_LAYOUT to slackware or debian; return 1 if neither is detected.
 mod_detect_layout() {
     if [ -f "$ETCPATH/rc.d/rc.modules" ]; then

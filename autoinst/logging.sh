@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # logging helpers
 
 # Can't rely on backslash interpolation so we use literal esc chars.
@@ -48,4 +49,20 @@ log_div() {
     if [ -n "$AUTOINST_LOG" ]; then
         echo "--------------------------------------------------------------------------------" >>"$AUTOINST_LOG"
     fi
+}
+
+# Logs an error and aborts the install/config so a failed critical step does not
+# cascade into later, more confusing failures.
+die() {
+    log_error "$1"
+    exit 1
+}
+
+# Runs a command and aborts with a logged error if it fails. Use for critical
+# steps (partition, format, mount, extraction, installer) whose failure would
+# leave a broken or partial guest.
+run_or_die() {
+    msg=$1
+    shift
+    "$@" || die "$msg"
 }

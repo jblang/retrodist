@@ -35,10 +35,16 @@ qemu_warn_missing_display_backend() {
     fi
 }
 
-# Appends a shell-style argument string to QEMU_ARGS.
+# Appends a whitespace-separated argument string to QEMU_ARGS.
+# Uses read -ra (not eval) so config/env strings cannot trigger command
+# substitution or glob expansion; -d '' lets multi-line strings split too.
 qemu_append_args_string() {
+    local words=()
     if [[ -n "${1:-}" ]]; then
-        eval "QEMU_ARGS+=( $1 )"
+        read -ra words -d '' <<<"$1" || true
+        if [[ ${#words[@]} -gt 0 ]]; then
+            QEMU_ARGS+=("${words[@]}")
+        fi
     fi
 }
 
@@ -75,18 +81,25 @@ qemu_find_available_port() {
 
 # Renders QEMU_ARGS as a POSIX shell command line.
 qemu_render_command_sh() {
-    local rendered=
-    printf -v rendered '%q ' "${QEMU_ARGS[@]}"
-    printf '%s\n' "${rendered% }"
+    local arg rendered=
+    for arg in "${QEMU_ARGS[@]}"; do
+        rendered="$rendered $(shell_quote_word "$arg")"
+    done
+    printf '%s\n' "${rendered# }"
 }
 
-# Renders QEMU_ARGS as a Windows cmd command line.
+# Renders QEMU_ARGS as a Windows cmd command line for the generated retro.bat.
+# Only used by retro_package; never applied to the printed/executed command.
 qemu_render_command_cmd() {
     local arg
     local rendered=
     for arg in "${QEMU_ARGS[@]}"; do
+        # A literal percent must be doubled in a batch file.
+        arg=${arg//%/%%}
         case "$arg" in
-        *[[:space:]\"]*)
+        # Whitespace, quotes, or cmd.exe metacharacters: quote the argument so
+        # cmd treats them literally, doubling any embedded quotes.
+        *[[:space:]\"\&\|\<\>^\(\)]*)
             arg=${arg//\"/\"\"}
             rendered="$rendered \"$arg\""
             ;;
@@ -227,6 +240,10 @@ qemu_assign_port() {
 }
 
 # Assigns all monitor and guest forwarding ports.
+# Note: ports are scanned for availability and then handed to QEMU, so two
+# concurrent launches could theoretically pick the same free port before either
+# binds it. This is unlikely in practice; if a bind fails, just relaunch or set
+# explicit QEMU_*_PORT values.
 qemu_assign_ports() {
     if [[ "$QEMU_NET_TYPE" == "user" ]]; then
         QEMU_SSH_PORT=$(qemu_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
@@ -313,8 +330,12 @@ qemu_run_with_install_script() {
     )
     script_status=$?
     if [[ $script_status -ne 0 ]]; then
+        # Leave QEMU running on any install failure so the guest can be
+        # inspected; the user exits QEMU manually when done investigating.
         if qmp_qemu_running; then
-            echo "Install script aborted due to timeout." >&2
+            echo "Install script failed (status $script_status)." >&2
+            echo "QEMU has been left running so you can investigate the guest." >&2
+            echo "Close the QEMU window (or use the monitor) to exit." >&2
         fi
         wait "$qemu_pid" 2>/dev/null || true
         return "$script_status"
@@ -628,23 +649,22 @@ qemu_cleanup_empty_dir() {
     fi
 }
 
-# Top-level retro command handler for booting or installing a distro.
-retro_boot() {
-    local run_status
-    run_status=0
-
+# Extracts files, loads config, and assembles the QEMU command without launching
+# QEMU. Self-contained: enters and leaves $QEMUDIR balanced. Leaves the prepared
+# command in QEMU_ARGS/QEMU_COMMAND for the caller to run or package.
+retro_prepare() {
     retro_extract
     mkdir -p "$QEMUDIR"
 
     load_distro_config
     load_qemu_config
 
-    pushd "$QEMUDIR" >/dev/null || return
+    pushd "$QEMUDIR" >/dev/null || return 1
 
     qemu_select_command_media
     if ! qemu_ensure_primary_disk; then
         echo "No bootable devices"
-        popd >/dev/null || return
+        popd >/dev/null || true
         qemu_cleanup_empty_dir
         exit 1
     fi
@@ -664,6 +684,17 @@ retro_boot() {
     echo
     echo "QEMU command: $QEMU_COMMAND"
     echo
+    popd >/dev/null || true
+}
+
+# Top-level retro command handler for booting or installing a distro.
+retro_boot() {
+    local run_status
+    run_status=0
+
+    retro_prepare "$@"
+
+    pushd "$QEMUDIR" >/dev/null || return
     if [[ $COMMAND == "install" && -n "${QEMU_INSTALL_SCRIPT:-}" ]]; then
         qemu_run_with_install_script || run_status=$?
     elif [[ $COMMAND == "boot" || $COMMAND == "install" ]]; then
@@ -682,7 +713,8 @@ retro_package() {
     else
         files=()
     fi
-    retro_boot "$@"
+    # Prepare images and the rendered command only; never boot QEMU to package.
+    retro_prepare "$@"
     echo
     echo "Packaging $CONFNAME..."
     {

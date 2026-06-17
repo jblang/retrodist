@@ -21,6 +21,38 @@ url_path_depth() {
     fi
 }
 
+# Quotes one argument for safe, readable reuse on a POSIX shell command line.
+# Single-quotes only when the argument contains characters outside a safe set,
+# so ordinary tokens (including ones with ',' and '=') stay unquoted. This avoids
+# the noisy backslash escaping that bash 3.2 'printf %q' adds to commas, etc.
+shell_quote_word() {
+    local s=$1
+    case $s in
+    '' | *[!a-zA-Z0-9,._=:/@%+-]*)
+        s=\'${s//\'/\'\\\'\'}\'
+        ;;
+    esac
+    printf '%s' "$s"
+}
+
+# Tests whether a path is a safe relative path: not empty, not absolute, and with
+# no '..' component, so it cannot escape its intended destination directory.
+path_is_safe_relative() {
+    local path=$1 component
+    case $path in
+    '' | /*) return 1 ;;
+    esac
+    while :; do
+        component=${path%%/*}
+        if [[ $component == ".." ]]; then
+            return 1
+        fi
+        [[ $path == */* ]] || break
+        path=${path#*/}
+    done
+    return 0
+}
+
 # Finds a config file in the config directory or its parent.
 retro_config_file() {
     local dir name path parent

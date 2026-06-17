@@ -1,8 +1,17 @@
+# shellcheck shell=sh
 debian_091_extract_base() {
     log_info "Installing base system to $ROOTDEV..."
-    cd "$ROOTMOUNT"
+    # cd must succeed before extracting: cpio writes into the current directory,
+    # so a failed cd would unpack the base system into the wrong filesystem.
+    cd "$ROOTMOUNT" || die "Unable to cd to $ROOTMOUNT for base system extraction."
+    if [ ! -f "$INSTMOUNT/basedsk1.img" ] || [ ! -f "$INSTMOUNT/basedsk2.img" ]; then
+        die "Base system images not found under $INSTMOUNT (basedsk1.img/basedsk2.img)."
+    fi
     zcat <"$INSTMOUNT/basedsk1.img" 2>/dev/null | cpio -dimV
     zcat <"$INSTMOUNT/basedsk2.img" 2>/dev/null | cpio -dimV
+    if [ ! -f "$ROOTMOUNT/fstab.tmp" ]; then
+        die "Base system extraction did not produce $ROOTMOUNT/fstab.tmp."
+    fi
     log_info "Creating file: $ROOTMOUNT/etc/fstab"
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
