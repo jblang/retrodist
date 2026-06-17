@@ -2,8 +2,6 @@ _configure_mail() {
     log_div
     log_info "Configuring mail..."
 
-    ETCPATH=/etc
-
     if [ -x /usr/sbin/sendmail -o -L /usr/lib/sendmail -o -x /usr/lib/sendmail ]; then
         log_info "Detected sendmail installation"
         if [ ! -f "$ETCPATH/sendmail.cf" ]; then

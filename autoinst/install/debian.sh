@@ -148,5 +148,38 @@ _debian_install_base() {
 
     debian_copy_base_configuration_hooks
 
+    _debian_kbd_config
+    _debian_timezone_config
+
     debian_install_lilo
+}
+
+_debian_kbd_config() {
+    # Only normalize the keyboard config the base actually shipped. 1.1 ships
+    # /etc/kbd/config with template values KEYMAP=N/SOFTFONT=N that crash 0kbd;
+    # 1.2/1.3 ship no /etc/kbd/config (and no 0kbd), so there is nothing to do.
+    if [ ! -f "$ROOTMOUNT/etc/kbd/config" ]; then
+        log_debug "No /etc/kbd/config in base; skipping keyboard configuration"
+        return 0
+    fi
+    DEBIAN_KEYMAP=${DEBIAN_KEYMAP:-NONE}
+    DEBIAN_SOFTFONT=${DEBIAN_SOFTFONT:-NONE}
+    log_info "Configuring /etc/kbd/config (KEYMAP=$DEBIAN_KEYMAP SOFTFONT=$DEBIAN_SOFTFONT)..."
+    cat >"$ROOTMOUNT/etc/kbd/config" <<EOF
+CONSOLE=/dev/tty0
+TERM=linux
+KEYMAP=$DEBIAN_KEYMAP
+SOFTFONT=$DEBIAN_SOFTFONT
+EOF
+}
+
+_debian_timezone_config() {
+    DEBIAN_TIMEZONE=${DEBIAN_TIMEZONE:-America/Los_Angeles}
+    if [ ! -f "$ROOTMOUNT/usr/lib/zoneinfo/$DEBIAN_TIMEZONE" ]; then
+        log_warn "Timezone $DEBIAN_TIMEZONE not found under /usr/lib/zoneinfo; leaving shipped default"
+        return 0
+    fi
+    log_info "Configuring timezone: $DEBIAN_TIMEZONE"
+    echo "$DEBIAN_TIMEZONE" >"$ROOTMOUNT/etc/timezone"
+    ln -sf "/usr/lib/zoneinfo/$DEBIAN_TIMEZONE" "$ROOTMOUNT/etc/localtime"
 }

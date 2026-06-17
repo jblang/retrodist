@@ -13,10 +13,11 @@ main install runner to `qemu.d/fat/autoinst`, copies this directory to
 - These scripts run in very old installer and target-system environments. Keep
   shell code portable and avoid modern shell features.
 
-- Do not use shell reserved-word negation such as `if ! command; then`.
-  Some old Debian installer Bash versions treat `!` as a command and print
-  `!: not found`. `test` negation such as `[ ! -f file ]` is fine; use
-  explicit status checks instead when negating a command.
+- Never use command status negation such as `if ! command; then`.
+  - Some old versions of bash treat `!` as a command and print `!: not found`. 
+  - This causes old ash versions run the right-hand function in a subshell,
+    so any variables set inside the function are discarded when the subshell exits.
+  - Negation inside `test` such as `[ ! -f file ]` is fine.
 
 - Install scripts run from the installer media with a limited command set. `sed`
   and `cut` are usually available; tools such as `grep`, `awk`, `which`, and
@@ -53,6 +54,17 @@ The distro `autoinst.sh` manifest is responsible for setting install-time
 variables and calling wrapper functions such as `disk_init`,
 `debian_install_base`, `slackware_pkgtool_install`, or `sls_sysinstall`.
 
+The guest runner is `autoinst/autoinst.sh`. It:
+1. Sets `INSTMOUNT` from its own path and `ROOTMOUNT` from known historical installer layouts (`/target`, `/var/adm/mount` → `/mnt`, `/root`).
+2. Sources `autoinst.d/common.sh`.
+3. Sources `autoinst.d/distro/autoinst.sh` (the distro manifest).
+
+`common.sh` defines public wrapper functions that lazy-load implementation scripts:
+- Install wrappers: `debian_install_base`, `slackware_pkgtool_install`, `sls_sysinstall`, etc.
+- Config wrappers: `mod_config`, `net_config`, `tty_config`, `x11_config`, `configure_mail`
+
+Each wrapper sources its implementation script (`autoinst/install/*.sh` or `autoinst/config/*.sh`) and calls the underscored function (e.g. `mod_config` → sources `config/modules.sh` → calls `_mod_config`). Implementation scripts define only functions and are safe to source multiple times.
+
 ## `autoconf.sh`
 
 `autoconf.sh` is the first-boot configuration runner. Distro install paths that
@@ -72,8 +84,10 @@ At runtime it:
 8. Syncs and reboots.
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
-variables and calling wrappers such as `net_config`, `configure_mail`, and
-`configure_x11`.
+variables and calling wrappers such as `mod_config`, `net_config`,
+`configure_mail`, and `x11_config`.
+
+First-boot configuration uses `autoinst/autoconf.sh` as the runner, which mounts `/dev/hdb1` at `/retro` and sources `autoconf.sh` from the distro manifest. Slackware distros use `autoconf.sh`; Debian 1.x uses the first-boot `inittab`/`.bash_profile` hook pattern instead.
 
 ## `common.sh`
 

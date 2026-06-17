@@ -3,8 +3,6 @@ tty_set_defaults() {
     TTY_DEV=${TTY_DEV:-ttyS0}
     TTY_BAUD=${TTY_BAUD:-9600}
     TTY_RUNLEVELS=${TTY_RUNLEVELS:-123456}
-    TTY_ETCPATH=${TTY_ETCPATH:-/etc}
-
     # Early Slackware/SLS may spell serial devices as ttysN instead of ttySN.
     case "$TTY_DEV" in
     ttyS[0-9]*)
@@ -28,16 +26,15 @@ tty_set_defaults() {
     log_info "  TTY_ID=$TTY_ID"
     log_info "  TTY_BAUD=$TTY_BAUD"
     log_info "  TTY_RUNLEVELS=$TTY_RUNLEVELS"
-    log_info "  TTY_ETCPATH=$TTY_ETCPATH"
 }
 
 # Populate target paths for serial-console configuration files.
 tty_detect_paths() {
-    TTY_INITTAB="$TTY_ETCPATH/inittab"
-    TTY_INITTAB_NEW="$TTY_ETCPATH/inittab.new"
-    TTY_LOGIN_DEFS="$TTY_ETCPATH/login.defs"
-    TTY_LOGIN_DEFS_NEW="$TTY_ETCPATH/login.defs.new"
-    TTY_SECURETTY="$TTY_ETCPATH/securetty"
+    TTY_INITTAB="$ETCPATH/inittab"
+    TTY_INITTAB_NEW="$ETCPATH/inittab.new"
+    TTY_LOGIN_DEFS="$ETCPATH/login.defs"
+    TTY_LOGIN_DEFS_NEW="$ETCPATH/login.defs.new"
+    TTY_SECURETTY="$ETCPATH/securetty"
 
     if [ ! -f "$TTY_INITTAB" ]; then
         log_warn "No inittab found at $TTY_INITTAB; skipping serial console configuration"

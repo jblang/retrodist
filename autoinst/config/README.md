@@ -10,17 +10,43 @@ implementation functions here.
 
 ## Compatibility Notes
 
-- These scripts run inside newly installed historical systems. More commands are
-  available than in the installer environment, but they are still old and may
-  lack modern options.
+Refer to compatibility notes in ../README.md.
 
-- Keep shell code portable. Prefer simple `test`, `sed`, `cp`, and shell
-  redirection patterns that work on old `/bin/sh` implementations.
+## `modules.sh`
 
-- Helpers generally save a backup before replacing or appending to generated
-  configuration files. Backup suffixes are helper-specific (`~`, `.orig`, or
-  Debian's `modules.old` marker). They are intended for first-boot automation,
-  not repeated interactive reconfiguration.
+### Purpose
+
+`modules.sh` configures kernel module autoloading on the target system. The public wrapper in `common.sh` is:
+
+- `mod_config`
+  Sources `config/modules.sh` and calls `_mod_config`.
+
+### Configuration Flow
+
+`_mod_config`:
+
+1. Detects the target layout by probing `$ETCPATH/rc.d/rc.modules` (Slackware)
+   then `$ETCPATH/init.d/modules` or `$ETCPATH/init.d/modutils` (Debian). Logs
+   a message and returns without error when neither is found.
+2. Backs up existing module config files before the first modification.
+3. Iterates `MOD_ENABLE` and enables each entry via `mod_enable`.
+
+### Variables
+
+- `MOD_ENABLE`
+  Newline-separated list of module specs to enable at boot, one per line, in
+  `name [options...]` format. Set in the distro manifest before calling
+  `mod_config`.
+
+### Behavior Notes
+
+- Debian: appends the module name to `$ETCPATH/modules`; appends an `options`
+  line to `$ETCPATH/conf.modules` when options are present.
+
+- Slackware: appends `/sbin/modprobe name [opts]` to `$ETCPATH/rc.d/rc.modules`.
+
+- Detection probes `$ETCPATH/init.d/modules` and `$ETCPATH/init.d/modutils`
+  for Debian (covering Debian 1.3, which ships `modules` as a symlink to `modutils`).
 
 ## `net.sh`
 
@@ -46,21 +72,18 @@ environment:
 - `NET_IFCONFIG_PATH` auto-detected
 - `NET_ROUTE_PATH` auto-detected
 - `NET_ARP_PATH` auto-detected
-- `NET_ETCPATH=/etc`
-- `NET_RCPATH=$NET_ETCPATH/rc.d`
-- `NET_MODULE=tulip`
 - `NET_HOSTNAME_INIT_SET` unset
 
 It then detects target paths:
 
-- Hostname file: `$NET_ETCPATH/HOSTNAME` when present, otherwise
-  `$NET_ETCPATH/hostname`.
+- Hostname file: `$ETCPATH/HOSTNAME` when present, otherwise
+  `$ETCPATH/hostname`.
 - Command paths: `NET_IFCONFIG_PATH`, `NET_ROUTE_PATH`, and `NET_ARP_PATH`
   are preserved when already set; otherwise compatible default locations are
   probed before falling back to the unqualified command name.
-- Startup path: `$NET_RCPATH/rc.inet1` first, then
-  `$NET_ETCPATH/init.d/network` when `$NET_ETCPATH/init.d` exists, then
-  `$NET_ETCPATH/rc.net`.
+- Startup path: `$ETCPATH/rc.d/rc.inet1` first, then
+  `$ETCPATH/init.d/network` when `$ETCPATH/init.d` exists, then
+  `$ETCPATH/rc.net`.
 
 It then applies the detected configuration:
 
@@ -74,22 +97,11 @@ It then applies the detected configuration:
 - When `rc.net` is selected:
   - Updates `/etc/hosts` entries for the host, network, and router.
 
-After networking configuration, the helper enables a network driver when a
-known module loader layout exists:
-
-- Debian-style `$NET_ETCPATH/init.d/modules`: splits `NET_MODULE` into a module
-  name and optional arguments, appends only the module name to
-  `$NET_ETCPATH/modules`, appends the `eth0` alias and any options to
-  `$NET_ETCPATH/conf.modules`, and creates `$NET_ETCPATH/modules.old` as the
-  historical Debian module-configuration marker.
-- Slackware-style `$NET_RCPATH/rc.modules`: appends a `/sbin/modprobe` line for
-  `NET_MODULE`.
-
-Set `NET_MODULE=none` to skip module loading.
+Network driver module loading is handled separately by `modules.sh` via
+`MOD_ENABLE`; `net.sh` no longer configures kernel modules.
 
 `net.sh` preserves the first backup it creates rather than refreshing backups
-on later runs. Most network files use a `~` suffix; Debian module setup uses
-`conf.modules~` plus the `modules.old` marker.
+on later runs. Network files use a `~` suffix.
 
 ### Variables
 
@@ -114,14 +126,6 @@ on later runs. Most network files use a `~` suffix; Debian module setup uses
   changes loopback routing to `route add 127.0.0.1`, changes the Ethernet
   network route to `route -n add $NETWORK`, and prevents generated init-script
   layouts from creating `/etc/networks`.
-
-- `NET_MODULE`
-  Optional network module line to load when a supported module loader exists.
-  It may include module arguments. Defaults to `tulip`; set to `none` to skip
-  module loading. Debian writes the module name to `/etc/modules` and writes
-  arguments to `/etc/conf.modules` as an `options` line. Slackware passes the
-  full value to `/sbin/modprobe` in `rc.modules`. ISA NE2000 profiles should
-  set `NET_MODULE='ne io=0x300'`.
 
 - `NET_HOSTNAME_INIT_SET`
   Set to `1` when the generated init script should call `hostname -S` before
@@ -161,12 +165,6 @@ on later runs. Most network files use a `~` suffix; Debian module setup uses
   Path or command name used for generated static ARP entries. If unset,
   networking path detection probes `/usr/sbin/arp` and `/sbin/arp`, then falls
   back to `arp`.
-
-- `NET_ETCPATH`
-  Target `/etc` path. Defaults to `/etc`.
-
-- `NET_RCPATH`
-  Target rc script path. Defaults to `$NET_ETCPATH/rc.d`.
 
 ## `x11.sh`
 
@@ -262,7 +260,7 @@ Supported paths:
 `_tty_config`:
 
 1. Sets serial defaults for `TTY_DEV` and `TTY_BAUD`.
-2. Detects target paths under `TTY_ETCPATH` and reads `inittab` if present.
+2. Detects target paths under `$ETCPATH` and reads `inittab` if present.
 3. Leaves `inittab` unchanged and logs a warning when an active getty line
    already exists for the requested TTY.
 4. Looks for a commented stock serial getty line for serial ports 0 or 1
@@ -292,12 +290,9 @@ Supported paths:
 - `TTY_RUNLEVELS`
   Runlevels for newly appended getty lines. Defaults to `123456`.
 
-- `TTY_ETCPATH`
-  Target `/etc` path. Defaults to `/etc`.
-
 ### Behavior Notes
 
-- If `$TTY_ETCPATH/inittab` is missing, the helper does nothing.
+- If `$ETCPATH/inittab` is missing, the helper does nothing.
 
 - `ttyS` and older `ttys` serial device spellings are treated as equivalent
   when matching existing `inittab` lines.
@@ -327,9 +322,9 @@ Supported paths:
 `_configure_mail`:
 
 1. Checks for sendmail at `/usr/sbin/sendmail` or `/usr/lib/sendmail`.
-2. Leaves the system unchanged when `/etc/sendmail.cf` already exists.
+2. Leaves the system unchanged when `$ETCPATH/sendmail.cf` already exists.
 3. Searches known source locations for a suitable sample configuration.
-4. Copies the first matching sample to `/etc/sendmail.cf`.
+4. Copies the first matching sample to `$ETCPATH/sendmail.cf`.
 5. Sets the copied file mode to `644`.
 
 ### Candidate Files

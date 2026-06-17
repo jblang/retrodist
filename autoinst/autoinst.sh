@@ -21,6 +21,7 @@ else
     echo "Unsupported installer layout; aborting."
     exit 1
 fi
+ETCPATH=$ROOTMOUNT/etc
 
 # make sure an install scripts directory exists
 AUTOINST_D="$INSTMOUNT/autoinst.d"
@@ -51,8 +52,9 @@ fi
 
 log_div
 log_info "Installation complete!"
-log_info "Copying installation log to $ROOTMOUNT/autoinst.log"
+log_info "Copying installation log to $ROOTMOUNT/autoinst.log and $INSTMOUNT/autoinst.log"
 cat "$AUTOINST_LOG" >"$ROOTMOUNT/autoinst.log"
+cat "$AUTOINST_LOG" >"$INSTMOUNT/autoinst.log"
 log_attention "Press ENTER to reboot."
 read line
 sync

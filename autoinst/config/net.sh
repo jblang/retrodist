@@ -8,9 +8,6 @@ net_set_defaults() {
     NET_NAMESERVER=${NET_NAMESERVER:-10.0.2.3}
     NET_DOMAINNAME=${NET_DOMAINNAME:-retro.net}
 
-    NET_ETCPATH=${NET_ETCPATH:-/etc}
-    NET_RCPATH=${NET_RCPATH:-$NET_ETCPATH/rc.d}
-    NET_MODULE=${NET_MODULE:-tulip}
     log_info "Network configuration:"
     log_info "  HOSTNAME=$NET_HOSTNAME"
     log_info "  IPADDR=$NET_IPADDR"
@@ -22,10 +19,6 @@ net_set_defaults() {
     log_info "  GATEWAY_HWADDR=$NET_GATEWAY_HWADDR"
     log_info "  NAMESERVER=$NET_NAMESERVER"
     log_info "  NAMESERVER_HWADDR=$NET_NAMESERVER_HWADDR"
-    log_info "  MODULE=$NET_MODULE"
-    log_debug "Network path configuration:"
-    log_debug "  NET_ETCPATH=$NET_ETCPATH"
-    log_debug "  NET_RCPATH=$NET_RCPATH"
 }
 
 # Emit /etc/hosts entries for localhost and the configured host.
@@ -100,32 +93,6 @@ net_build_sls_hosts() {
         sed "s/.*router$/$NET_GATEWAY	router/"
 }
 
-# Emit the Slackware rc.modules network driver load command.
-net_build_rc_modules() {
-    if [ "$NET_MODULE" != "none" ]; then
-        echo "/sbin/modprobe $NET_MODULE"
-    fi
-}
-
-# Emit Debian modutils alias and option lines for eth0.
-net_build_conf_modules() {
-    echo "alias eth0 $NET_MODULE_NAME"
-    if [ -n "$NET_MODULE_OPTIONS" ]; then
-        echo "options $NET_MODULE_NAME $NET_MODULE_OPTIONS"
-    fi
-}
-
-# Split NET_MODULE into a module name and optional module arguments.
-net_parse_module() {
-    set -- $NET_MODULE
-    NET_MODULE_NAME=$1
-    shift
-    NET_MODULE_OPTIONS="$*"
-    log_debug "Parsed network module:"
-    log_debug "  name=$NET_MODULE_NAME"
-    log_debug "  options=$NET_MODULE_OPTIONS"
-}
-
 # Copy a source file to a destination only once, preserving the first backup.
 net_backup_file() {
     if [ -f "$1" ] && [ ! -f "$2" ]; then
@@ -145,10 +112,10 @@ net_backup_suffix() {
 
 # Choose the target hostname file path used by the installed system.
 net_detect_hostname_path() {
-    if [ -f "$NET_ETCPATH/HOSTNAME" ]; then
-        NET_HOSTNAME_PATH="$NET_ETCPATH/HOSTNAME"
+    if [ -f "$ETCPATH/HOSTNAME" ]; then
+        NET_HOSTNAME_PATH="$ETCPATH/HOSTNAME"
     else
-        NET_HOSTNAME_PATH="$NET_ETCPATH/hostname"
+        NET_HOSTNAME_PATH="$ETCPATH/hostname"
     fi
     log_debug "Detected hostname file: $NET_HOSTNAME_PATH"
 }
@@ -197,14 +164,14 @@ net_detect_arp_path() {
 
 # Detect which network initialization style this target system uses.
 net_detect_init_path() {
-    if [ -f "$NET_RCPATH/rc.inet1" ]; then
-        NET_INIT_SCRIPT_PATH="$NET_RCPATH/rc.inet1"
+    if [ -f "$ETCPATH/rc.d/rc.inet1" ]; then
+        NET_INIT_SCRIPT_PATH="$ETCPATH/rc.d/rc.inet1"
         log_info "Detected network style: rc.inet1"
-    elif [ -d "$NET_ETCPATH/init.d" ]; then
-        NET_INIT_SCRIPT_PATH="$NET_ETCPATH/init.d/network"
+    elif [ -d "$ETCPATH/init.d" ]; then
+        NET_INIT_SCRIPT_PATH="$ETCPATH/init.d/network"
         log_info "Detected network style: SysV init.d"
-    elif [ -f "$NET_ETCPATH/rc.net" ]; then
-        NET_RC_NET_PATH="$NET_ETCPATH/rc.net"
+    elif [ -f "$ETCPATH/rc.net" ]; then
+        NET_RC_NET_PATH="$ETCPATH/rc.net"
         log_info "Detected network style: SLS rc.net"
     else
         log_warn "No supported network init layout found."
@@ -214,9 +181,9 @@ net_detect_init_path() {
 
 # Populate derived network config paths and detect target command paths.
 net_detect_paths() {
-    NET_HOSTS_PATH="$NET_ETCPATH/hosts"
-    NET_RESOLV_CONF_PATH="$NET_ETCPATH/resolv.conf"
-    NET_NETWORKS_PATH="$NET_ETCPATH/networks"
+    NET_HOSTS_PATH="$ETCPATH/hosts"
+    NET_RESOLV_CONF_PATH="$ETCPATH/resolv.conf"
+    NET_NETWORKS_PATH="$ETCPATH/networks"
 
     net_detect_hostname_path
     net_detect_ifconfig_path
@@ -267,7 +234,7 @@ net_config_rc_net() {
     net_build_sls_hosts >"$NET_HOSTS_PATH"
 
     # SLS uses /etc/host (singular) for hostname
-    NET_HOST_PATH="$NET_ETCPATH/host"
+    NET_HOST_PATH="$ETCPATH/host"
     net_backup_suffix "$NET_HOST_PATH"
     log_info "Creating file: $NET_HOST_PATH"
     echo "$NET_HOSTNAME" >"$NET_HOST_PATH"
@@ -275,7 +242,7 @@ net_config_rc_net() {
 
     # SLS uses /etc/domain for domain name
     if [ -n "$NET_DOMAINNAME" ] && [ "$NET_DOMAINNAME" != "none" ]; then
-        NET_DOMAIN_PATH="$NET_ETCPATH/domain"
+        NET_DOMAIN_PATH="$ETCPATH/domain"
         net_backup_suffix "$NET_DOMAIN_PATH"
         log_info "Creating file: $NET_DOMAIN_PATH"
         echo "$NET_DOMAINNAME" >"$NET_DOMAIN_PATH"
@@ -286,46 +253,6 @@ net_config_rc_net() {
     log_info "Creating file: $NET_RESOLV_CONF_PATH"
     net_build_resolv_conf >"$NET_RESOLV_CONF_PATH"
     chmod 644 "$NET_RESOLV_CONF_PATH"
-}
-
-# Enable the selected network module on Debian modutils-based systems.
-net_enable_module_debian() {
-    if [ "$NET_MODULE" = "none" ]; then
-        log_info "Skipping network module configuration because NET_MODULE=none"
-        return 0
-    fi
-
-    log_info "Configuring Debian network module files"
-    net_parse_module
-    net_backup_suffix "$NET_ETCPATH/conf.modules"
-    log_info "Updating file: $NET_ETCPATH/modules"
-    echo "$NET_MODULE_NAME" >>"$NET_ETCPATH/modules"
-    log_info "Updating file: $NET_ETCPATH/conf.modules"
-    net_build_conf_modules >>"$NET_ETCPATH/conf.modules"
-    # suffix must be .old because rc scripts key off its existence
-    net_backup_suffix "$NET_ETCPATH/modules" ".old"
-    chmod 644 "$NET_ETCPATH/modules" "$NET_ETCPATH/conf.modules"
-}
-
-# Enable the selected network module through Slackware rc.modules.
-net_enable_module_slackware() {
-    log_info "Configuring Slackware network module startup"
-    net_backup_suffix "$NET_RCPATH/rc.modules"
-    log_info "Updating file: $NET_RCPATH/rc.modules"
-    net_build_rc_modules >>"$NET_RCPATH/rc.modules"
-}
-
-# Dispatch network module setup based on the target module loader layout.
-net_enable_module() {
-    if [ -f "$NET_ETCPATH/init.d/modules" ]; then
-        log_info "Detected Debian-style module configuration"
-        net_enable_module_debian
-    elif [ -f "$NET_RCPATH/rc.modules" ]; then
-        log_info "Detected Slackware-style module configuration"
-        net_enable_module_slackware
-    else
-        log_info "No supported network module startup file found; skipping module configuration"
-    fi
 }
 
 # Entry point for applying target network configuration.
@@ -346,6 +273,4 @@ _net_config() {
     else
         log_warn "Skipping network file configuration because paths were not detected"
     fi
-
-    net_enable_module
 }

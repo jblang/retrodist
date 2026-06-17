@@ -1,7 +1,9 @@
 tty_config
 
+MOD_ENABLE="e1000"
+mod_config
+
 NET_HOSTNAME=darkstar
-NET_MODULE='e1000'
 net_config
 
 configure_mail

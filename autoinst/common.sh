@@ -38,6 +38,11 @@ debian_091_install_packages() {
     _debian_091_install_packages "$@"
 }
 
+mod_config() {
+    . "$AUTOINST_D/config/modules.sh"
+    _mod_config "$@"
+}
+
 net_config() {
     . "$AUTOINST_D/config/net.sh"
     _net_config "$@"

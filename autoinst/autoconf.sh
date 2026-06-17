@@ -8,6 +8,7 @@ fi
 SCRIPTBASE=$(basename "$0")
 SCRIPTNAME=$(cd "$SCRIPTDIR" && pwd)/"$SCRIPTBASE"
 INSTMOUNT=/retro
+ETCPATH=/etc
 
 if [ ! -d "$INSTMOUNT" ]; then
     mkdir -p "$INSTMOUNT"

@@ -1,7 +1,9 @@
 tty_config
 
+MOD_ENABLE="ne io=0x300"
+mod_config
+
 NET_HOSTNAME=darkstar
-NET_MODULE='ne io=0x300'
 net_config
 
 configure_mail
