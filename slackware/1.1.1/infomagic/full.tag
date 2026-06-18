@@ -1,0 +1,20 @@
+a    *            ADD
+a    scsikern     SKP
+
+ap   *            ADD
+cc   *            ADD
+d    *            ADD
+e    *            ADD
+f    *            ADD
+iv   *            ADD
+n    *            ADD
+oi   *            ADD
+oop  *            ADD
+q    *            ADD
+t    *            ADD
+tcl  *            ADD
+x    *            ADD
+xap  *            ADD
+xd   *            ADD
+xv   *            ADD
+y    *            ADD

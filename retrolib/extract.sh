@@ -260,7 +260,7 @@ extract_install_files() {
 
 # Top-level retro command handler for extracting and staging a distro.
 retro_extract() {
-    local extract_file autoinst_file
+    local extract_file
     retro_download
     if [[ ! -f $EXTRACTDIR/.extracted ]]; then
         extract_file=$(retro_config_file extract.sh || true)
@@ -268,25 +268,13 @@ retro_extract() {
             echo "No extract.sh configured for $CONFNAME" >&2
             exit 1
         fi
-        autoinst_file=$(retro_config_file autoinst.sh || true)
         mkdir -p "$EXTRACTDIR"
         pushd "$EXTRACTDIR" >/dev/null || return
         # shellcheck source=/dev/null
         source "$extract_file"
-        if [[ -n "$autoinst_file" ]]; then
-            mkdir -p "$EXTRACTDIR/fat"
-            autoinst_prep
-        fi
         touch "$EXTRACTDIR/.extracted"
         popd >/dev/null || return
     else
         echo "Using extracted files"
-        autoinst_file=$(retro_config_file autoinst.sh || true)
-        if [[ -n "$autoinst_file" ]]; then
-            mkdir -p "$EXTRACTDIR/fat"
-            pushd "$EXTRACTDIR" >/dev/null || return
-            autoinst_prep
-            popd >/dev/null || return
-        fi
     fi
 }

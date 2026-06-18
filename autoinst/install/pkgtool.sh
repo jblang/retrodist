@@ -31,6 +31,9 @@ _slackware_pkgtool_install() {
 }
 
 normalize_sets() {
+    if [ -z "$SETS" ] && [ -f "$INSTMOUNT/disksets.txt" ]; then
+        SETS=$(cat "$INSTMOUNT/disksets.txt")
+    fi
     SETS=$(echo "$SETS" | sed 's/[ ;,]/#/g')
     log_info "Slackware package sets: $SETS"
 }

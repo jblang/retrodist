@@ -3,3 +3,4 @@ jump.d
 **/download.d
 **/extract.d
 **/qemu.d
+**/tagfile.d

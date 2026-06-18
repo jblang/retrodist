@@ -104,8 +104,8 @@ detect either spelling when reading staged or CD-ROM package sources.
 1. Selects the Slackware layout for the target release:
    `/usr/adm` and `/usr/spool` for the 1.1.1-era wrapper, or `/var/adm` and
    `/var/spool` for later releases.
-2. Normalizes `SETS` so spaces, semicolons, and commas become the `pkgtool`
-   `#` separator.
+2. Normalizes `SETS` (defaulting to the staged `disksets.txt` when unset) so
+   spaces, semicolons, and commas become the `pkgtool` `#` separator.
 3. Locates a staged `slakware/` or `slackware/` package tree under
    `$INSTMOUNT`; if none exists, mounts `CD_DEVICE` on `CD_MOUNT` and searches
    there.
@@ -124,18 +124,20 @@ detect either spelling when reading staged or CD-ROM package sources.
 12. Writes and installs LILO when a target LILO binary is available.
 13. Installs the first-boot `autoconf.sh` hook through `/etc/rc.d/rc.local`.
 
-### Package Skips
+### Package Selection
 
-Slackware `pkgtool` installs can define per-distribution package skips in
-`pkgskip.txt` next to each distro's manifests. During extraction, `retro`
-generates tagfiles from the package directories and marks every package listed
-in `pkgskip.txt` as `SKP`.
+`retro` generates the per-series tagfiles read by `pkgtool` during host-side
+staging, applying the config's `*.tag` tagsets (see
+[retrolib/README.md](../../retrolib/README.md)). It also writes
+`disksets.txt` listing the series that have any selected package, which the
+helper uses as the default `SETS` when the manifest leaves `SETS` unset.
 
 ### Variables
 
 - `SETS`
-  Package series to install. The helper accepts space-, comma-, or
-  semicolon-separated values and converts them for `pkgtool`.
+  Package series to install. Defaults to the staged `disksets.txt` when unset.
+  The helper accepts space-, comma-, or semicolon-separated values and converts
+  them for `pkgtool`.
 
 - `ROOTDEV`
   Target root device. Used for `ROOTDEV`, `fstab`, and LILO configuration.

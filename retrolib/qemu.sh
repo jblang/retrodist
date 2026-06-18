@@ -689,10 +689,24 @@ retro_prepare() {
 
 # Top-level retro command handler for booting or installing a distro.
 retro_boot() {
-    local run_status
+    local run_status autoinst_file
     run_status=0
+    autoinst_file=
+
+    if [[ $COMMAND == "install" ]]; then
+        autoinst_file=$(retro_config_file autoinst.sh || true)
+        if [[ -n "$autoinst_file" ]]; then
+            mkdir -p "$EXTRACTDIR/fat"
+        fi
+    fi
 
     retro_prepare "$@"
+
+    if [[ -n "$autoinst_file" ]]; then
+        pushd "$EXTRACTDIR" >/dev/null || return
+        autoinst_prep
+        popd >/dev/null || return
+    fi
 
     pushd "$QEMUDIR" >/dev/null || return
     if [[ $COMMAND == "install" && -n "${QEMU_INSTALL_SCRIPT:-}" ]]; then

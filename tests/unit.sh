@@ -8,6 +8,8 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 source "$REPO_ROOT/retrolib/helpers.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/qemu.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/slackware.sh"
 
 tests_run=0
 tests_failed=0
@@ -86,6 +88,41 @@ assert_eq "render/sh" \
 assert_eq "render/cmd" \
     'qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img "weird arg" "amp&x" pct%%v "par(s)"' \
     "$(qemu_render_command_cmd)"
+
+# --- slackware tagfile rules ------------------------------------------------
+# Reads the state token for a package out of a staged tagfile.
+tagstate() { awk -v p="$2:" '$1 == p { print $2 }' "$1"; }
+
+# Two-pass application of *.tag rules over staged series tagfiles.
+slack_tmp=$(mktemp -d)
+mkdir -p "$slack_tmp/conf" "$slack_tmp/fat/a1" "$slack_tmp/fat/x1" "$slack_tmp/fat/xap1"
+touch "$slack_tmp/fat/a1/bash.tgz" "$slack_tmp/fat/a1/sed.tgz" "$slack_tmp/fat/a1/scsi.tgz"
+touch "$slack_tmp/fat/x1/xbin.tgz" "$slack_tmp/fat/x1/xvga16.tgz" "$slack_tmp/fat/x1/xs3.tgz"
+touch "$slack_tmp/fat/xap1/ghostscript.tgz"
+# Override is listed *before* its wildcard to prove the two-pass design makes
+# specific entries win regardless of in-file order.
+printf 'a bash ADD\na * SKP\nx * ADD\nx xvga16 SKP\nxap * ADD\n' >"$slack_tmp/conf/max.tag"
+
+(cd "$slack_tmp" && CONFDIR="$slack_tmp/conf" TEMPDIR="$slack_tmp" INSTALL_TAGSETS=max slackware_prepare_tagfiles)
+
+assert_eq "tag/wildcard-skp"       "SKP" "$(tagstate "$slack_tmp/fat/a1/tagfile" sed)"
+assert_eq "tag/wildcard-skp2"      "SKP" "$(tagstate "$slack_tmp/fat/a1/tagfile" scsi)"
+assert_eq "tag/override-beats-wc"  "ADD" "$(tagstate "$slack_tmp/fat/a1/tagfile" bash)"
+assert_eq "tag/x-wildcard-add"     "ADD" "$(tagstate "$slack_tmp/fat/x1/tagfile" xbin)"
+assert_eq "tag/x-wildcard-add2"    "ADD" "$(tagstate "$slack_tmp/fat/x1/tagfile" xs3)"
+assert_eq "tag/x-override-skp"     "SKP" "$(tagstate "$slack_tmp/fat/x1/tagfile" xvga16)"
+# x* rules must not bleed into the xap series (prefix-match isolation).
+assert_eq "tag/series-isolation"   "ADD" "$(tagstate "$slack_tmp/fat/xap1/tagfile" ghostscript)"
+
+# Direct coverage of generated tagfiles for a single series.
+slack_tmp2=$(mktemp -d)
+mkdir -p "$slack_tmp2/fat/n1"
+touch "$slack_tmp2/fat/n1/tcpip.tgz" "$slack_tmp2/fat/n1/bind.tgz"
+touch "$slack_tmp2/none.tag"
+(cd "$slack_tmp2" && CONFDIR="$slack_tmp2" TEMPDIR="$slack_tmp2" INSTALL_TAGSETS=none slackware_prepare_tagfiles)
+assert_eq "series/default-skp"        "SKP" "$(tagstate "$slack_tmp2/fat/n1/tagfile" tcpip)"
+assert_eq "series/default-skp2"       "SKP" "$(tagstate "$slack_tmp2/fat/n1/tagfile" bind)"
+rm -rf "$slack_tmp" "$slack_tmp2"
 
 # --- summary ----------------------------------------------------------------
 echo
