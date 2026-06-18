@@ -14,7 +14,7 @@ debian_install_first_boot_init() {
         log_info "Creating backup file: $ROOTMOUNT/etc/inittab.real"
         mv "$ROOTMOUNT/etc/inittab" "$ROOTMOUNT/etc/inittab.real"
     else
-        log_info "Creating backup file: $ROOTMOUNT/etc/inittab.real"
+        log_info "Moving $ROOTMOUNT/etc/init.d/inittab to $ROOTMOUNT/etc/inittab.real"
         mv "$ROOTMOUNT/etc/init.d/inittab" "$ROOTMOUNT/etc/inittab.real"
     fi
     log_info "Creating file: $ROOTMOUNT/etc/inittab"
@@ -71,7 +71,7 @@ debian_extract_base_system() {
 debian_install_boot_floppy_kernel() {
     log_info "Installing boot kernel..."
     cd "$INSTMOUNT/bootflop" || die "Unable to cd to $INSTMOUNT/bootflop."
-    run_or_die "Boot floppy kernel install failed." ./install.sh "$ROOTMOUNT"
+    ./install.sh "$ROOTMOUNT" || die "Boot floppy kernel install failed."
     cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
@@ -82,7 +82,7 @@ debian_install_driver_modules() {
 
     log_info "Installing driver modules..."
     cd "$INSTMOUNT/drivers" || die "Unable to cd to $INSTMOUNT/drivers."
-    run_or_die "Driver module install failed." sh ./install.sh "$ROOTMOUNT"
+    sh ./install.sh "$ROOTMOUNT" || die "Driver module install failed."
     cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
@@ -122,7 +122,7 @@ EOF
         return 0
     fi
 
-    BOOTDEV=$(echo "$ROOTDEV" | sed -e 's/[0-9]$//')
+    BOOTDEV=$(echo "$ROOTDEV" | sed 's/[0-9][0-9]*$//')
     log_info "Installing MBR to $BOOTDEV"
     cp "$ROOTMOUNT/boot/mbr.b" "$BOOTDEV"
 

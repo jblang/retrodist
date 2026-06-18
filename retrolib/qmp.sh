@@ -87,7 +87,7 @@ qmp_require_socket() {
 # Initializes QMP defaults, prerequisites, and VGA settings.
 qmp_init() {
     qmp_set_defaults
-    qmp_check_prereqs
+    qmp_check_prereqs || return 1
     qmp_vga_validate_config
 }
 

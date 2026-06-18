@@ -6,6 +6,6 @@ mod_config
 NET_HOSTNAME=darkstar
 net_config
 
-configure_mail
+mail_config
 
 x11_config

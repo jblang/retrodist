@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-_configure_mail() {
+_mail_config() {
     log_div
     log_info "Configuring mail..."
 

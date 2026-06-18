@@ -55,12 +55,13 @@ mod_add_debian() {
 
 # Append a modprobe line to rc.modules.
 mod_add_slackware() {
-    local name="$1" options="$2"
+    MOD_ADD_NAME="$1"
+    MOD_ADD_OPTIONS="$2"
     log_info "Updating file: $ETCPATH/rc.d/rc.modules"
-    if [ -n "$options" ]; then
-        echo "/sbin/modprobe $name $options" >>"$ETCPATH/rc.d/rc.modules"
+    if [ -n "$MOD_ADD_OPTIONS" ]; then
+        echo "/sbin/modprobe $MOD_ADD_NAME $MOD_ADD_OPTIONS" >>"$ETCPATH/rc.d/rc.modules"
     else
-        echo "/sbin/modprobe $name" >>"$ETCPATH/rc.d/rc.modules"
+        echo "/sbin/modprobe $MOD_ADD_NAME" >>"$ETCPATH/rc.d/rc.modules"
     fi
 }
 
@@ -84,11 +85,11 @@ mod_enable_boot_modules() {
         log_info "No MOD_ENABLE set; skipping"
         return 0
     fi
-    local IFS_SAVE="$IFS"
+    MOD_IFS_SAVE="$IFS"
     IFS='
 '
     for spec in $MOD_ENABLE; do
-        IFS="$IFS_SAVE"
+        IFS="$MOD_IFS_SAVE"
         if [ -n "$spec" ]; then
             log_info "Enabling module: $spec"
             mod_enable "$spec"
@@ -96,7 +97,7 @@ mod_enable_boot_modules() {
         IFS='
 '
     done
-    IFS="$IFS_SAVE"
+    IFS="$MOD_IFS_SAVE"
 }
 
 # Configure kernel module autoloading on the target system.

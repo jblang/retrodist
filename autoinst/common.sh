@@ -59,7 +59,7 @@ x11_config() {
     _x11_config "$@"
 }
 
-configure_mail() {
+mail_config() {
     . "$AUTOINST_D/config/mail.sh"
-    _configure_mail "$@"
+    _mail_config "$@"
 }

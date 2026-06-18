@@ -61,7 +61,7 @@ The guest runner is `autoinst/autoinst.sh`. It:
 
 `common.sh` defines public wrapper functions that lazy-load implementation scripts:
 - Install wrappers: `debian_install_base`, `slackware_pkgtool_install`, `sls_sysinstall`, etc.
-- Config wrappers: `mod_config`, `net_config`, `tty_config`, `x11_config`, `configure_mail`
+- Config wrappers: `mod_config`, `net_config`, `tty_config`, `x11_config`, `mail_config`
 
 Each wrapper sources its implementation script (`autoinst/install/*.sh` or `autoinst/config/*.sh`) and calls the underscored function (e.g. `mod_config` → sources `config/modules.sh` → calls `_mod_config`). Implementation scripts define only functions and are safe to source multiple times.
 
@@ -85,7 +85,7 @@ At runtime it:
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `mod_config`, `net_config`,
-`configure_mail`, and `x11_config`.
+`mail_config`, and `x11_config`.
 
 First-boot configuration uses `autoinst/autoconf.sh` as the runner, which mounts `/dev/hdb1` at `/retro` and sources `autoconf.sh` from the distro manifest. Slackware distros use `autoconf.sh`; Debian 1.x uses the first-boot `inittab`/`.bash_profile` hook pattern instead.
 
@@ -120,14 +120,20 @@ Install wrappers:
 
 Configuration wrappers:
 
+- `mod_config`
+  Loads `config/modules.sh` and calls `_mod_config`.
+
 - `net_config`
   Loads `config/net.sh` and calls `_net_config`.
+
+- `tty_config`
+  Loads `config/tty.sh` and calls `_tty_config`.
 
 - `x11_config`
   Loads `config/x11.sh` and calls `_x11_config`.
 
-- `configure_mail`
-  Loads `config/mail.sh` and calls `_configure_mail`.
+- `mail_config`
+  Loads `config/mail.sh` and calls `_mail_config`.
 
 ## `logging.sh`
 
@@ -155,6 +161,10 @@ Logging helpers:
 
 - `log_div`
   Logs an 80-column divider line.
+
+- `die`
+  Logs an `ERROR:` message and exits 1. Use for critical steps whose failure
+  would leave a broken or partial guest.
 
 ## `diskutil.sh`
 

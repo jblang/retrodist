@@ -4,6 +4,6 @@ NET_HOSTNAME=darkstar
 NET_ANCIENT_ROUTE=1
 net_config
 
-configure_mail
+mail_config
 
 x11_config

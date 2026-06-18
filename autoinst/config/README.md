@@ -314,12 +314,12 @@ Supported paths:
 `mail.sh` installs a basic sendmail configuration when sendmail exists but
 `/etc/sendmail.cf` does not. The public wrapper in `common.sh` is:
 
-- `configure_mail`
-  Sources `config/mail.sh` and calls `_configure_mail`.
+- `mail_config`
+  Sources `config/mail.sh` and calls `_mail_config`.
 
 ### Configuration Flow
 
-`_configure_mail`:
+`_mail_config`:
 
 1. Checks for sendmail at `/usr/sbin/sendmail` or `/usr/lib/sendmail`.
 2. Leaves the system unchanged when `$ETCPATH/sendmail.cf` already exists.

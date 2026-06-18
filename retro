@@ -37,7 +37,7 @@ Config:
 Additional options are passed to QEMU verbatim.
 
 EOF
-exit 1
+exit "${1:-1}"
 }
 
 # see if the first parameter is a command; default to help otherwise
@@ -99,7 +99,7 @@ EOF
 
 # run the selected command
 case $COMMAND in
-  help) retro_usage;;
+  help) retro_usage 0;;
   download) retro_download;;
   extract) retro_extract;;
   boot | install) retro_boot "$@";;

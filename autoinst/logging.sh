@@ -57,12 +57,3 @@ die() {
     log_error "$1"
     exit 1
 }
-
-# Runs a command and aborts with a logged error if it fails. Use for critical
-# steps (partition, format, mount, extraction, installer) whose failure would
-# leave a broken or partial guest.
-run_or_die() {
-    msg=$1
-    shift
-    "$@" || die "$msg"
-}

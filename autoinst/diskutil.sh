@@ -359,11 +359,8 @@ format_root() {
         exit 1
     fi
     log_info "Mounting root filesystem $ROOTDEV on $ROOTMOUNT..."
-    mount -t "$ROOTFS" "$ROOTDEV" "$ROOTMOUNT"
-    if [ $? -ne 0 ]; then
-        log_error "Error mounting root filesystem."
-        exit 1
-    fi
+    mount -t "$ROOTFS" "$ROOTDEV" "$ROOTMOUNT" ||
+        die "Error mounting root filesystem."
     log_debug "Ensuring directory exists: $ROOTMOUNT/tmp"
     mkdir -p "$ROOTMOUNT/tmp"
 }
@@ -400,10 +397,7 @@ disk_init() {
         log_info "Initializing partitions..."
         # partition if root and swap filesystems don't already exist
         if [ $# -eq 0 ]; then
-            FDISK_PARTITION_GEOMETRY=$(fdisk_detect_geometry "$DISKDEV")
-            if [ $? -ne 0 ]; then
-                exit 1
-            fi
+            FDISK_PARTITION_GEOMETRY=$(fdisk_detect_geometry "$DISKDEV") || exit 1
             fdisk_partition $FDISK_PARTITION_GEOMETRY
         else
             fdisk_partition "$@"

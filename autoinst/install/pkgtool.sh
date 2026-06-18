@@ -115,11 +115,8 @@ mount_cdrom_source() {
     log_info "  CD_MOUNT=$CD_MOUNT"
     pkgtool_mkdirs "$CD_MOUNT"
 
-    mount -o ro -t iso9660 "$CD_DEVICE" "$CD_MOUNT"
-    if [ $? -ne 0 ]; then
-        log_error "Unable to mount CD-ROM source $CD_DEVICE on $CD_MOUNT."
-        exit 1
-    fi
+    mount -o ro -t iso9660 "$CD_DEVICE" "$CD_MOUNT" ||
+        die "Unable to mount CD-ROM source $CD_DEVICE on $CD_MOUNT."
 
     SLACK_PKG_SOURCE=$(find_cdrom_source_path)
     if [ -z "$SLACK_PKG_SOURCE" ]; then

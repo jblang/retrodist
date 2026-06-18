@@ -214,12 +214,8 @@ extract_install_files() {
     local extra_images=()
     local fat_files=()
 
-    if declare -p EXTRACT_EXTRA_IMAGES >/dev/null 2>&1; then
-        eval "extra_images=(\"\${EXTRACT_EXTRA_IMAGES[@]}\")"
-    fi
-    if declare -p EXTRACT_FAT_FILES >/dev/null 2>&1; then
-        eval "fat_files=(\"\${EXTRACT_FAT_FILES[@]}\")"
-    fi
+    [[ -n ${EXTRACT_EXTRA_IMAGES+x} ]] && extra_images=("${EXTRACT_EXTRA_IMAGES[@]}")
+    [[ -n ${EXTRACT_FAT_FILES+x} ]] && fat_files=("${EXTRACT_FAT_FILES[@]}")
 
     if [[ $# -gt 0 ]]; then
         echo "extract_install_files is controlled by EXTRACT_* variables, not arguments." >&2
@@ -268,31 +264,27 @@ retro_extract() {
     retro_download
     if [[ ! -f $EXTRACTDIR/.extracted ]]; then
         extract_file=$(retro_config_file extract.sh || true)
-        autoinst_file=$(retro_config_file autoinst.sh || true)
-        if [[ -n "$extract_file" || -n "$autoinst_file" ]]; then
-            mkdir -p "$EXTRACTDIR"
-            pushd "$EXTRACTDIR" >/dev/null || return
-            if [[ -n "$extract_file" ]]; then
-                # shellcheck source=/dev/null
-                source "$extract_file"
-            fi
-            if [[ -n "$autoinst_file" ]]; then
-                mkdir -p "$EXTRACTDIR/fat"
-                load_qemu_config
-                autoinst_prep
-            fi
-            touch "$EXTRACTDIR/.extracted"
-            popd >/dev/null || return
-        else
-            echo "Nothing to extract"
+        if [[ -z "$extract_file" ]]; then
+            echo "No extract.sh configured for $CONFNAME" >&2
+            exit 1
         fi
+        autoinst_file=$(retro_config_file autoinst.sh || true)
+        mkdir -p "$EXTRACTDIR"
+        pushd "$EXTRACTDIR" >/dev/null || return
+        # shellcheck source=/dev/null
+        source "$extract_file"
+        if [[ -n "$autoinst_file" ]]; then
+            mkdir -p "$EXTRACTDIR/fat"
+            autoinst_prep
+        fi
+        touch "$EXTRACTDIR/.extracted"
+        popd >/dev/null || return
     else
         echo "Using extracted files"
         autoinst_file=$(retro_config_file autoinst.sh || true)
         if [[ -n "$autoinst_file" ]]; then
             mkdir -p "$EXTRACTDIR/fat"
             pushd "$EXTRACTDIR" >/dev/null || return
-            load_qemu_config
             autoinst_prep
             popd >/dev/null || return
         fi

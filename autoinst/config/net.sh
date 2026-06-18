@@ -217,9 +217,13 @@ net_config_standard() {
 
     if [ "$NET_ANCIENT_ROUTE" != "1" ]; then
         net_backup_suffix "$NET_NETWORKS_PATH"
-        log_info "Updating file: $NET_NETWORKS_PATH"
-        net_build_etc_networks >>"$NET_NETWORKS_PATH"
-        chmod 644 "$NET_NETWORKS_PATH"
+        if grep -q "localnet" "$NET_NETWORKS_PATH" 2>/dev/null; then
+            log_info "$NET_NETWORKS_PATH already contains localnet entry; skipping"
+        else
+            log_info "Updating file: $NET_NETWORKS_PATH"
+            net_build_etc_networks >>"$NET_NETWORKS_PATH"
+            chmod 644 "$NET_NETWORKS_PATH"
+        fi
     else
         log_info "Skipping $NET_NETWORKS_PATH because NET_ANCIENT_ROUTE=1"
     fi

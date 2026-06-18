@@ -5,6 +5,7 @@
 download_list() {
     local file url dest
     if [[ $# -ne 2 ]]; then
+        echo "Usage: download_list MANIFEST DESTDIR" >&2
         exit 1
     fi
     cat_newline "$1" | while IFS=' ' read -r file url; do
@@ -28,6 +29,7 @@ download_list() {
 download_files() {
     local url_base dest_base file
     if [[ $# -lt 3 ]]; then
+        echo "Usage: download_files URL_BASE DESTDIR FILE..." >&2
         exit 1
     fi
     url_base=$1
@@ -51,6 +53,7 @@ download_files() {
 download_directories() {
     local url_base dest_base cut_dirs dir
     if [[ $# -lt 3 ]]; then
+        echo "Usage: download_directories URL_BASE DESTDIR DIR..." >&2
         exit 1
     fi
     url_base=$1
@@ -80,6 +83,7 @@ download_directories() {
 download_slackware() {
     local slack_base
     if [[ $# -ne 1 ]]; then
+        echo "Usage: download_slackware VERSION" >&2
         exit 1
     fi
     slack_base=$PWD
@@ -103,6 +107,7 @@ download_slackware() {
 download_debian() {
     local debian_base rel_base rel_url files dirs
     if [[ $# -ne 1 ]]; then
+        echo "Usage: download_debian RELEASE" >&2
         exit 1
     fi
     debian_base=$PWD
@@ -214,5 +219,13 @@ download_all() {
 
 # Top-level retro command handler for downloading a distro.
 retro_download() {
-    download_all "$CONFDIR" "$ORIGDIR"
+    local src
+    for src in download.txt slackmirror.txt debmirror.txt download.sh cdrom.txt; do
+        if retro_config_file "$src" >/dev/null 2>&1; then
+            download_all "$CONFDIR" "$ORIGDIR"
+            return
+        fi
+    done
+    echo "No download source configured for $CONFNAME" >&2
+    exit 1
 }
