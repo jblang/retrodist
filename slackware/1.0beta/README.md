@@ -4,7 +4,7 @@
 
 ### official
 
-The [official mirror](https://mirrors.slackware.com/slackware/slackware-pre-1.0-beta/) includes a pre-1.0 beta with the note:
+The [Slackware File Tree](https://mirrors.slackware.com/slackware/) includes a [slackware-pre-1.0-beta](https://mirrors.slackware.com/slackware/slackware-pre-1.0-beta/) directory with the note:
 
 > Now, for a limited time only, you can own a piece of Linux history
 ABSOLUTELY FREE!
@@ -14,9 +14,9 @@ here just for fun.  It's known to NOT be Y2K ready, and has any number of
 bugs that have been fixed over the years.  So, try not to use it for your
 most important server. :)
 
-### grem75
+### official+sls
 
-[grem75](https://archive.org/details/slackware-beta) uploaded a version to archive.org with the description:
+[grem75](https://archive.org/details/@grem75) uploaded [slackware-beta](https://archive.org/details/slackware-beta) to archive.org with the description:
 
 > On the old Slackware repository were some files of the earliest known Slackware builds about a month before 1.0 was released. These didn't include X disks and the folder naming was wrong.
 >
