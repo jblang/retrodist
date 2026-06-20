@@ -1,0 +1,115 @@
+#
+# copywrite Softlanding Software 1992.  Distribute freely, don't restrict
+
+function usage()  {
+	echo "usage: doinstall PART [ PART2 MNT2 ...]"
+	echo "where: PART is the partition to install to, optionally followed by" 
+	echo "partition/directory pairs to mount on root.   for example"
+	echo "       doinstall /dev/hda2"
+	echo "or:    doinstall /dev/hda2 /dev/hda3 /usr /dev/hdb1 /usr/spool"
+}
+
+function domount() {
+	if [ ! -b $1 ]; then
+		echo "Error: $1 is not a block device, can not mount on $2";
+		usage;
+		exit 2
+	fi
+	echo -n "Is $1 an Extended FS partition, instead of the default minix? (n/y)"
+	read ans
+	if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+		MOUNTTYPE="ext"
+	else
+		MOUNTTYPE="minix"
+	fi
+	mount -t $MOUNTTYPE $1 $2
+	MNTSTAT=$?;
+	if [ $MNTSTAT != 0 ]; then
+		echo "Error: can not mount $1.  Did you use: mkfs $1 SIZE"
+		echo "where SIZE is the number of blocks shown by fdisk?"
+		exit 1;
+	fi
+}
+
+if [ $# -lt 1 ]; then
+	usage;
+	exit 1
+fi
+ROOTDEVICE=$1
+echo 'You must have a freshly formatted floppy to complete this install.'
+echo 'Also, if you have < 4 Meg RAM, you must have a 4 Meg swap partition active.'
+echo -n 'If not, type ^C to exit now, obtain them, and restart installation.'
+read ans;
+echo 'Ok continuing, but you should be able to use ^C to exit at any time.'
+echo 'Please ignore any "magic match failure" messages during installation.'
+echo " "
+while [ 0 ]; do
+	echo '1 - Install a minimal system (9 Meg)'
+	echo '2 - Install the full base system (25 Meg)'
+	echo '3 - Install base system + X11 (45 Meg)'
+	echo " "
+	echo -n 'Enter type of install (1/2/3)'
+	read ans;
+	if [ $ans = 1 ]; then
+		INSTTYPE="mini"
+		break;
+	elif [ $ans = 2 ]; then
+		INSTTYPE="base"
+		break;
+	elif [ $ans = 3 ]; then
+		INSTTYPE="all"
+		break;
+	fi
+done
+INSTDEV=`sh instdev`
+umount $INSTDEV >& /dev/null
+umount $ROOTDEVICE >& /dev/null
+domount $ROOTDEVICE /root
+if [ $? != 0 ]; then
+	domount -t msdos $ROOTDEVICE /root
+fi
+mkdir -p /root/install/installed
+mkdir -p /root/install/disks
+mkdir -p /root/install/scripts
+echo "$ROOTDEVICE	/		$MOUNTTYPE	defaults" > /root/fstab.tmp
+while [ 0 ]; do
+	if [ "" != "$2" -a "" != "$3" ]; then
+		mkdir /root$3
+		domount $2 /root$3
+		echo "$2	$3		$MOUNTTYPE	defaults" >> /root/fstab.tmp
+		shift 2;
+	else
+		break;
+	fi
+done
+if [ -f /root/doinst.sh ]; then
+	sh /root/doinst.sh;
+fi
+echo -n 'Do you want to be prompted before installing each package? (y/n): '
+read ans
+if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	DOPROMPT="-doprompt"
+fi
+sysinstall -instdev $INSTDEV -instroot /root $DOPROMPT -$INSTTYPE
+mv /root/fstab.tmp /root/etc/fstab
+echo -n 'Do you have a 387 coprocessor or 486 DX (y/n): '
+read ans
+if [ "$ans" = "Y" -o "$ans" = "y" ]; then
+	/root/bin/rm /root/lib/libm.so.4
+	(cd /root/lib; /root/usr/bin/ln -s libhard.so.4.? libm.so.4)
+fi
+echo -n 'Now put the freshly formatted floppy into your A: drive and hit enter: '
+if [ $INSTDEV =  /dev/fd1H1440 ]; then
+	INSTDEV=/dev/fd0h1200;
+elif [ $INSTDEV =  /dev/fd1h1200 ]; then
+	INSTDEV=/dev/fd0H1440;
+fi
+read ans;
+dd if=/root/Image of=$INSTDEV
+rootdev $INSTDEV $ROOTDEVICE
+sync
+if [ -x /root/etc/syssetup ]; then
+	(cd /root; etc/syssetup -instroot /root -install )
+fi
+echo "Installation is complete.  You may now use this newly created boot disk to"
+echo "start Linux from your hard drive.  Please reboot now, then logon as root"
