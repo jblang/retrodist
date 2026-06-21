@@ -294,7 +294,6 @@ Key functions:
 - `qmp_hmp_command COMMAND` — sends an HMP command through QMP.
 - `qmp_sendkey KEY` — sends a QEMU sendkey token.
 - `qmp_send_string TEXT` — types a string into the guest character by character.
-- `qmp_send_line TEXT` — types a string and presses Return.
 - `qmp_change_image IMAGE [DEVICE]` — changes floppy media at runtime.
 - `qmp_eject_disk [DEVICE]` — ejects media from a block device.
 - `qmp_boot_disk DEVICE` — sets the next boot device order.
@@ -304,7 +303,14 @@ Key functions:
 
 QMP-driven install automation primitives. These are sourced when QEMU starts
 during `retro install` and are the building blocks for per-distro `script.sh`
-manifests.
+manifests. A script waits for the screen to reach a known state, then sends a
+key, a line of text, or swaps media. A per-distro `script.sh` is written by
+composing these directly — for example, wait for a login prompt then
+`script_send_line root`, or wait for a boot prompt then `script_press_key ret`.
+
+`SCRIPT_AUTOINST_COMMAND` holds the shell one-liner that mounts the staged FAT
+media at `/retro` and runs `autoinst`; send it with `script_send_line` once a
+shell prompt appears.
 
 Timing variables:
 
@@ -313,34 +319,24 @@ Timing variables:
 
 Functions:
 
-- `script_wait_screen_text TEXT [TIMEOUT [INTERVAL]]`
+- `script_wait_string TEXT [TIMEOUT [INTERVAL]]`
   Polls VGA text memory until `TEXT` appears anywhere on screen.
 
-- `script_wait_screen_line TEXT [TIMEOUT [INTERVAL]]`
+- `script_wait_line TEXT [TIMEOUT [INTERVAL]]`
   Polls until `TEXT` appears as a trimmed full line on screen.
 
-- `script_boot_lilo [PROMPT]`
-  Waits for a LILO boot prompt (default `boot:`) and presses Return.
+- `script_press_key KEY`
+  Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`).
 
-- `script_answer_prompt PROMPT [ANSWER]`
-  Waits for a full-line prompt and sends an answer (or just Return).
+- `script_send_line TEXT`
+  Types `TEXT` into the guest and presses Return.
 
-- `script_change_floppy PROMPT [IMAGE [ANSWER]]`
-  Waits for a prompt, swaps the first floppy image, then sends an answer.
+- `script_change_floppy IMAGE`
+  Swaps the first floppy to `IMAGE` and waits briefly for the change to settle.
+  Pair with a preceding `script_wait_*` and a following key/line as needed.
 
-- `script_login PROMPT [USER]`
-  Waits for a login prompt and types a username (default: `root`).
-
-- `script_run_autoinst PROMPT`
-  Waits for a shell prompt, then mounts `/dev/hdb1` at `/retro` and launches
-  `autoinst`.
-
-- `script_finish_reboot [DISK [PROMPT [TIMEOUT]]]`
-  Waits for the autoinstall completion prompt, sets the boot disk, and confirms
-  the reboot.
-
-- `script_press_key KEY` / `script_send_return`
-  Direct key-send wrappers.
+- `script_set_boot DISK`
+  Sets the next boot device order (e.g. `a`, `c`).
 
 ## `slackware.sh`
 

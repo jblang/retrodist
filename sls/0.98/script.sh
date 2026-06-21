@@ -1,18 +1,29 @@
-script_wait_screen_text "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
+script_wait_string "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
 script_press_key spc
-script_change_floppy "Enter Drive You Will Be Doing The Installation From (1/2/3/4):" root.img "1"
-script_run_autoinst "#"
-script_wait_screen_text "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
-qmp_change_image boot.img
-sleep 1
+script_wait_line "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
+script_change_floppy root.img
+script_send_line "1"
+script_wait_line "#"
+script_send_line "$SCRIPT_AUTOINST_COMMAND"
+script_wait_string "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
+script_change_floppy boot.img
 script_press_key ctrl-alt-delete
-script_wait_screen_text "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
+script_wait_string "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
 script_press_key spc
-script_change_floppy "Enter Drive You Will Be Doing The Installation From (1/2/3/4):" root.img "1"
-script_run_autoinst "#"
-# usr/man/cat1/groff.1.Z already exists; do you wish to overwrite usr/man/cat1/groff.1.Z (y or n)? y
-script_answer_prompt "ff.1.Z (y or n)?" "y"
-# usr/man/cat7/groff_mmse.7.Z already exists; do you wish to overwrite usr/man/cat7/groff_mmse.7.Z (y or n)?
-script_answer_prompt "7/groff_mmse.7.Z (y or n)?" "y"
-script_change_floppy "ATTN: Reattach boot.img and press ENTER." boot.img
-script_finish_reboot a
+script_wait_line "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
+script_change_floppy root.img
+script_send_line "1"
+script_wait_line "#"
+script_send_line "$SCRIPT_AUTOINST_COMMAND"
+script_wait_string "usr/man/cat1/groff.1.Z already exists; do you wish to overwrite usr/man/cat1/gro
+ff.1.Z (y or n)?"
+script_send_line "y"
+script_wait_string "usr/man/cat7/groff_mmse.7.Z already exists; do you wish to overwrite usr/man/cat
+7/groff_mmse.7.Z (y or n)?"
+script_send_line "y"
+script_wait_line "ATTN: Reattach boot.img and press ENTER."
+script_change_floppy boot.img
+script_press_key ret
+script_wait_line "ATTN: Press ENTER to reboot." 600
+script_set_boot a
+script_press_key ret

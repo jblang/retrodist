@@ -1,8 +1,11 @@
 # shellcheck shell=bash
 # Reusable QMP-driven install script building blocks.
 
+# command to mount fat partition and run autoinst
+SCRIPT_AUTOINST_COMMAND="mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
+
 # Tests whether screen text contains expected fixed text.
-script_screen_contains_text() {
+script_screen_contains_string() {
     local screen text
     screen=$1
     text=$2
@@ -57,48 +60,13 @@ script_wait_until() {
 }
 
 # Waits until VGA text memory contains expected screen text anywhere.
-script_wait_screen_text() {
-    script_wait_until script_screen_contains_text "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
+script_wait_string() {
+    script_wait_until script_screen_contains_string "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
 }
 
 # Waits until VGA text memory contains expected text on a line by itself.
-script_wait_screen_line() {
+script_wait_line() {
     script_wait_until script_screen_contains_line "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
-}
-
-# Waits for a LILO prompt and presses Return.
-script_boot_lilo() {
-    script_wait_screen_line "${1:-boot:}"
-    qmp_send_return
-}
-
-# Waits for a prompt and sends an optional answer.
-script_answer_prompt() {
-    local prompt answer
-    prompt=$1
-    answer=${2:-}
-    script_wait_screen_line "$prompt"
-    if [[ -n "$answer" ]]; then
-        qmp_send_line "$answer"
-    else
-        qmp_send_return
-    fi
-}
-
-# Swaps the first floppy image while answering an installer prompt.
-script_change_floppy() {
-    local prompt image answer
-    prompt=$1
-    image=${2:-root.img}
-    answer=${3:-}
-
-    script_wait_screen_line "$prompt"
-    qmp_change_image "$image"
-    sleep 1
-    if [[ -n "$answer" ]]; then
-        qmp_send_string "$answer"
-    fi
-    qmp_send_return
 }
 
 # Sends one QEMU sendkey token to the guest.
@@ -106,37 +74,18 @@ script_press_key() {
     qmp_sendkey "$1"
 }
 
-# Sends Return to the guest.
-script_send_return() {
-    qmp_send_return
+# Sends a string followed by return
+script_send_line() {
+	qmp_send_string "$1"
+	qmp_sendkey ret
 }
 
-# Waits for a login prompt and enters a username.
-script_login() {
-    local prompt user
-    prompt=$1
-    user=${2:-root}
-
-    script_wait_screen_line "$prompt"
-    qmp_send_line "$user"
+# Swaps the first floppy image.
+script_change_floppy() {
+    qmp_change_image "$1"
+    sleep 1
 }
 
-# Mounts the staged FAT media and launches the autoinstall script.
-script_run_autoinst() {
-    local prompt
-    prompt=$1
-
-    script_wait_screen_line "$prompt"
-    qmp_send_line "mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
-}
-
-# Sets the next boot device and confirms the final reboot prompt.
-script_finish_reboot() {
-    local disk prompt timeout
-    disk="${1:-c}"
-    prompt="${2:-ATTN: Press ENTER to reboot.}"
-    timeout="${3:-600}"
-    script_wait_screen_line "$prompt" "$timeout"
-    qmp_boot_disk "$disk"
-    qmp_send_return
+script_set_boot() {
+    qmp_boot_disk "$1"
 }

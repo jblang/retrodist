@@ -268,11 +268,6 @@ qmp_sendkey() {
     qmp_hmp_command "sendkey $1"
 }
 
-# Sends the Return key to the guest.
-qmp_send_return() {
-    qmp_sendkey ret
-}
-
 # Converts one character to a QEMU sendkey token.
 qmp_char_to_sendkey() {
     case "$1" in
@@ -331,12 +326,6 @@ qmp_send_string() {
         }
         qmp_sendkey "$key"
     done
-}
-
-# Types a line into the guest and presses Return.
-qmp_send_line() {
-    qmp_send_string "$1"
-    qmp_send_return
 }
 
 # Reads stdin and types it into the guest.

@@ -1,5 +1,12 @@
-script_boot_lilo
-script_change_floppy "VFS: Insert ramdisk floppy and press ENTER"
-script_login "slackware login:"
-script_run_autoinst "#"
-script_finish_reboot
+script_wait_line "boot:"
+script_press_key ret
+script_wait_line "VFS: Insert ramdisk floppy and press ENTER"
+script_change_floppy root.img
+script_press_key ret
+script_wait_line "slackware login:"
+script_send_line root
+script_wait_line "#"
+script_send_line "$SCRIPT_AUTOINST_COMMAND"
+script_wait_line "ATTN: Press ENTER to reboot." 600
+script_set_boot c
+script_press_key ret

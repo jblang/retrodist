@@ -383,25 +383,42 @@ install` starts QEMU, initializes QMP, then sources that script to drive the
 installer. These scripts are not standalone entry points; they call functions
 from `retrolib/qmp.sh` and `retrolib/script.sh`.
 
-Common install-script helpers include:
+A script waits for the screen to reach a known state, then sends a key, a line
+of text, or swaps a floppy:
 
-- `script_wait_screen_text TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
+- `script_wait_string TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
   text appears anywhere in screen memory.
-- `script_wait_screen_line TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
+- `script_wait_line TEXT [TIMEOUT] [INTERVAL]`: wait until the specified
   text appears by itself on a screen line. Matching is literal, so regex
   characters in `TEXT` have no special meaning.
-- `script_boot_lilo [PROMPT]`: wait for the boot prompt and press ENTER. `PROMPT` defaults to `boot:`.
-- `script_answer_prompt PROMPT [ANSWER]`: wait for screen text and send answer (or just ENTER if no answer provided).
-- `script_change_floppy PROMPT [IMAGE] [ANSWER]`: wait for screen text, change the first
-  floppy image, optionally type answer text, then press ENTER. `IMAGE` defaults to `root.img`.
-- `script_login PROMPT [USER]`: wait for a login prompt and type the username followed by ENTER.
-  `USER` defaults to `root`.
-- `script_run_autoinst PROMPT`: wait for specified shell prompt on screen, mount `/dev/hdb1` at
-  `/retro`, and run `/retro/autoinst`. A bare `#` prompt is matched as a full
-  prompt line so boot messages containing `#` do not trigger the command early.
-- `script_finish_reboot [DISK] [PROMPT] [TIMEOUT]`: wait for the final reboot prompt,
-  set the next boot disk with `boot_set`, then press ENTER. `DISK` defaults to `c`,
-  `PROMPT` defaults to `Press ENTER to reboot.`, and `TIMEOUT` defaults to `600`.
+- `script_press_key KEY`: send one QEMU sendkey token (e.g. `ret`, `spc`,
+  `ctrl-alt-delete`).
+- `script_send_line TEXT`: type `TEXT` into the guest and press ENTER.
+- `script_change_floppy IMAGE`: change the first floppy to `IMAGE` and wait
+  briefly for the swap to settle.
+- `script_set_boot DISK`: set the next boot device order (e.g. `a`, `c`).
+
+`SCRIPT_AUTOINST_COMMAND` holds the one-liner that mounts `/dev/hdb1` at
+`/retro` and runs `/retro/autoinst`; send it with `script_send_line` once a
+shell prompt appears.
+
+Higher-level steps are composed from these directly. For example, to boot LILO,
+log in, run the autoinstaller, and reboot:
+
+```sh
+script_wait_line "boot:"
+script_press_key ret
+script_wait_line "slackware login:"
+script_send_line root
+script_wait_line "#"
+script_send_line "$SCRIPT_AUTOINST_COMMAND"
+script_wait_line "ATTN: Press ENTER to reboot." 600
+script_set_boot c
+script_press_key ret
+```
+
+A bare `#` prompt is matched as a full prompt line, so boot messages containing
+`#` do not trigger the command early.
 
 
 ## Credits
