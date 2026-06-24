@@ -6,13 +6,12 @@
 
 This table summarizes the early Debian releases represented in this repo.
 
-| Release | Variant | Date | Codename |
+| Release | Variants | Date | Codename |
 | --- | --- | --- | --- |
 | 0.91 | Infomagic | January 1994 | - |
-| 0.93R6 | official | Late 1995 | - |
-| 1.1 | official | June 1996 | Buzz |
-| 1.2 | official | December 1996 | Rex |
-| 1.3 | official | July 1997 | Bo |
+| 1.1 | official, Infomagic | June 1996 | Buzz |
+| 1.2 | official, Infomagic | December 1996 | Rex |
+| 1.3 | official, Infomagic | July 1997 | Bo |
 
 ## Installation
 
@@ -35,8 +34,7 @@ If you want the original manual install flow instead, use the `retro boot` comma
 ## Version Notes
 
 - `0.91`: Fully scripted, including post-boot package installation and configuration.
-- `0.93R6`: Automatic installation is currently blocked because the installer kernel cannot mount the staged MSDOS install disk exposed as `/dev/hdb1`.
-- `1.1`: Uses the default QEMU NE2000 ISA NIC.
+- `1.1`: Uses a QEMU NE2000 ISA NIC.
 - `1.2` and `1.3`: Use the kernel's built-in PCnet driver for the default QEMU PCI NIC.
 
 For implementation details on the shared Debian installer scripts, see [autoinst/install/README.md](../autoinst/install/README.md).

@@ -8,14 +8,14 @@ This table summarizes the SLS releases currently scripted in this repo. The data
 
 | Release | Date | SLS version | Kernel | C library | Compiler | X |
 | --- | --- | --- | --- | --- | --- | --- |
-| [1992.11](./1992.11/neozeede/README.txt) | [1992-11](./1992.11/neozeede/ChangeLog.txt) | .98 | 0.98p1 | - | gcc/g++ | X11 |
-| [1993.03](./1993.03/princeton/qemu.d/fat/packages/README) | [1993-03](./1993.03/princeton/qemu.d/fat/packages/HISTORY) | .99p2 | 0.99p4 | libc 4.2/4.3 | gcc 2.3.3 | XFree 1.2 |
+| [0.98](./0.98/README.txt) | [1992-10](./0.98/ChangeLog.txt) | .98 | 0.98p1 | - | gcc/g++ | X11 |
+| [0.99p2](./0.99p2/README.txt) | 1993-03 | .99p2 | 0.99p4 | libc 4.2/4.3 | gcc 2.3.3 | XFree 1.2 |
 
 ## Milestones
 
 - SLS provided one of the earliest broadly usable Linux installation flows, with boot/root floppies, `doinstall`, `sysinstall`, and package series that could be installed selectively.
 - SLS organized packages into lettered disk series: `a` for the base system, `b` for extras, `c` for compilers, and `x` for X.
-- The 1993.03 release notes describe a large refresh of the base, compiler, and X series, including shared-library updates, System V init, LILO, TCP/IP setup improvements, and XFree 1.2.
+- The 0.99p2 release notes describe a large refresh of the base, compiler, and X series, including shared-library updates, System V init, LILO, TCP/IP setup improvements, and XFree 1.2.
 
 ## Historical Background
 
@@ -33,7 +33,7 @@ retro install sls/VERSION/VARIANT
 For example:
 
 ```sh
-retro install sls/1993.03/princeton
+retro install sls/0.99p2/oldlinux
 ```
 
 `retro install` starts QEMU, uses `script.sh` from the selected config directory or its parent to handle the SVGA prompt, root-disk swap, `/retro/autoinst`, fdisk reboot, boot-floppy write, and final reboot. After the installer finishes, the VM will reboot into the installed system.

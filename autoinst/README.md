@@ -8,6 +8,22 @@ main install runner to `qemu.d/fat/autoinst`, copies this directory to
 `qemu.d/fat/autoinst.d`, and copies each distro's manifests to
 `qemu.d/fat/autoinst.d/distro/`.
 
+For the host-side staging process and config file lookup rules, see
+[retrolib/README.md](../retrolib/README.md). For adding a new distro manifest,
+see [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+## Reference vs. Staged Files
+
+Do not edit `qemu.d/fat/autoinst.d/` files directly. They are generated copies
+staged for automated installs and will be overwritten.
+
+Edit the source files instead:
+
+- Shared runtime and helper scripts live in this `autoinst/` directory.
+- Debian per-version install manifests live under `debian/VERSION/`.
+- Slackware per-version or per-variant manifests live under `slackware/`.
+- Other distro manifests live beside their distro config.
+
 ## Compatibility Notes
 
 - These scripts run in very old installer and target-system environments. Keep
@@ -54,17 +70,6 @@ The distro `autoinst.sh` manifest is responsible for setting install-time
 variables and calling wrapper functions such as `disk_init`,
 `debian_install_base`, `slackware_pkgtool_install`, or `sls_sysinstall`.
 
-The guest runner is `autoinst/autoinst.sh`. It:
-1. Sets `INSTMOUNT` from its own path and `ROOTMOUNT` from known historical installer layouts (`/target`, `/var/adm/mount` → `/mnt`, `/root`).
-2. Sources `autoinst.d/common.sh`.
-3. Sources `autoinst.d/distro/autoinst.sh` (the distro manifest).
-
-`common.sh` defines public wrapper functions that lazy-load implementation scripts:
-- Install wrappers: `debian_install_base`, `slackware_pkgtool_install`, `sls_sysinstall`, etc.
-- Config wrappers: `mod_config`, `net_config`, `tty_config`, `x11_config`, `mail_config`
-
-Each wrapper sources its implementation script (`autoinst/install/*.sh` or `autoinst/config/*.sh`) and calls the underscored function (e.g. `mod_config` → sources `config/modules.sh` → calls `_mod_config`). Implementation scripts define only functions and are safe to source multiple times.
-
 ## `autoconf.sh`
 
 `autoconf.sh` is the first-boot configuration runner. Distro install paths that
@@ -86,8 +91,6 @@ At runtime it:
 The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `mod_config`, `net_config`,
 `mail_config`, and `x11_config`.
-
-First-boot configuration uses `autoinst/autoconf.sh` as the runner, which mounts `/dev/hdb1` at `/retro` and sources `autoconf.sh` from the distro manifest. Slackware distros use `autoconf.sh`; Debian 1.x uses the first-boot `inittab`/`.bash_profile` hook pattern instead.
 
 ## `common.sh`
 
