@@ -7,6 +7,8 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/helpers.sh"
 # shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/logging.sh"
+# shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/qemu.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/slackware.sh"

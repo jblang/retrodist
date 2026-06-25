@@ -7,9 +7,11 @@ retro_link_boot_root() {
     local root_image=${2:-}
 
     if [[ -n "$boot_image" ]]; then
+        log_debug "Linking boot.img -> $boot_image"
         ln -sfn "$boot_image" boot.img
     fi
     if [[ -n "$root_image" ]]; then
+        log_debug "Linking root.img -> $root_image"
         ln -sfn "$root_image" root.img
     fi
 }
@@ -22,9 +24,11 @@ debian_extract_fat_image() {
     shift 2
 
     if [[ -e "$dest" || -L "$dest" ]]; then
+        log_debug "Replacing existing FAT extraction directory $dest"
         chmod -R u+w "$dest" 2>/dev/null || true
         rm -rf "$dest"
     fi
+    log_info "Extracting FAT image $image"
     mkdir -p "$dest"
     7z x -y -aoa -o"$dest" "$image" "$@" >/dev/null
     for file in "$dest"/*; do
@@ -81,6 +85,7 @@ extract_link_install_iso() {
     local source=${1:-}
     case "$source" in
     *.iso)
+        log_info "Linking install.iso to $source"
         ln -sfn "$source" install.iso
         ;;
     esac
@@ -93,6 +98,7 @@ extract_truncate_floppy_image() {
     *.gz) return 0 ;;
     esac
     if [[ -n "$image" && -f "$image" ]]; then
+        log_debug "Normalizing floppy image size for $image"
         truncate -s 1440k "$image"
     fi
 }
@@ -102,6 +108,7 @@ extract_install_archive_images() {
     local source=$1
     shift
     if [[ $# -gt 0 ]]; then
+        log_info "Extracting install images from ${source##*/}"
         if extract_install_is_tar_stream "$source"; then
             7z x -so "$source" | 7z e -y -si -ttar "$@" >/dev/null
         else
@@ -115,6 +122,7 @@ extract_install_archive_fat_files() {
     local source=$1
     shift
     if [[ $# -gt 0 ]]; then
+        log_info "Extracting FAT files from ${source##*/}"
         mkdir -p fat
         if extract_install_is_tar_stream "$source"; then
             7z x -so "$source" | 7z e -y -si -ttar -ofat "$@" >/dev/null
@@ -135,6 +143,7 @@ extract_install_archive_packages() {
         return
     fi
 
+    log_info "Extracting package tree $packages from ${source##*/}"
     if [[ "$packages" == "." ]]; then
         mkdir -p fat/packages
         if extract_install_is_tar_stream "$source"; then
@@ -167,7 +176,10 @@ extract_install_copy_images() {
         source_file=$(extract_install_source_file "$source" "$file")
         target=${file##*/}
         if [[ "$file" != "$target" || ! -e "$target" ]]; then
+            log_info "Copying install image $file"
             cp -p "$source_file" "$target"
+        else
+            log_debug "Install image already staged: $target"
         fi
     done
 }
@@ -185,6 +197,7 @@ extract_install_copy_fat_files() {
     mkdir -p fat
     for file in "$@"; do
         source_file=$(extract_install_source_file "$source" "$file")
+        log_info "Copying FAT file $file"
         cp -p "$source_file" fat/
     done
 }
@@ -199,6 +212,7 @@ extract_install_copy_packages() {
         return
     fi
     source_file=$(extract_install_source_file "$source" "$packages")
+    log_info "Copying package tree $packages"
     rm -f fat/packages
     mkdir -p fat/packages
     cp -pR "$source_file"/. fat/packages/
@@ -218,12 +232,12 @@ extract_install_files() {
     [[ -n ${EXTRACT_FAT_FILES+x} ]] && fat_files=("${EXTRACT_FAT_FILES[@]}")
 
     if [[ $# -gt 0 ]]; then
-        echo "extract_install_files is controlled by EXTRACT_* variables, not arguments." >&2
+        log_error "extract_install_files is controlled by EXTRACT_* variables, not arguments."
         extract_install_files_reset
         return 1
     fi
     if [[ -z "$boot_image" && -z "$root_image" && -z "$packages" && ${#extra_images[@]} -eq 0 && ${#fat_files[@]} -eq 0 ]]; then
-        echo "Set EXTRACT_BOOT_IMAGE, EXTRACT_ROOT_IMAGE, EXTRACT_EXTRA_IMAGES, EXTRACT_FAT_FILES, or EXTRACT_PACKAGES before calling extract_install_files." >&2
+        log_error "Set EXTRACT_BOOT_IMAGE, EXTRACT_ROOT_IMAGE, EXTRACT_EXTRA_IMAGES, EXTRACT_FAT_FILES, or EXTRACT_PACKAGES before calling extract_install_files."
         extract_install_files_reset
         return 1
     fi
@@ -232,7 +246,7 @@ extract_install_files() {
     # Only reject '..' components, which would let rm -rf escape fat/.
     case "${packages#./}" in
         .. | ../* | */.. | */../*)
-            echo "Refusing unsafe EXTRACT_PACKAGES path: $packages" >&2
+            log_error "Refusing unsafe EXTRACT_PACKAGES path: $packages"
             extract_install_files_reset
             return 1
             ;;
@@ -243,12 +257,18 @@ extract_install_files() {
     image_files+=("${extra_images[@]}")
 
     source=$(extract_install_resolve_source "$source")
+    log_info "Staging install files from ${source:-download directory}"
+    log_debug "Images: ${image_files[*]:-(none)}"
+    log_debug "FAT files: ${fat_files[*]:-(none)}"
+    log_debug "Packages: ${packages:-(none)}"
     extract_link_install_iso "$source"
     if [[ -n "$source" && ! -d "$source" ]]; then
+        log_debug "Extraction source is an archive or image"
         extract_install_archive_images "$source" "${image_files[@]}"
         extract_install_archive_fat_files "$source" "${fat_files[@]}"
         extract_install_archive_packages "$source" "$packages"
     else
+        log_debug "Extraction source is a directory"
         extract_install_copy_images "$source" "${image_files[@]}"
         extract_install_copy_fat_files "$source" "${fat_files[@]}"
         extract_install_copy_packages "$source" "$packages"
@@ -261,20 +281,22 @@ extract_install_files() {
 # Top-level retro command handler for extracting and staging a distro.
 retro_extract() {
     local extract_file
+    log_debug "Starting extraction for $CONFNAME"
     retro_download
     if [[ ! -f $EXTRACTDIR/.extracted ]]; then
         extract_file=$(retro_config_file extract.sh || true)
         if [[ -z "$extract_file" ]]; then
-            echo "No extract.sh configured for $CONFNAME" >&2
-            exit 1
+            die "No extract.sh configured for $CONFNAME"
         fi
         mkdir -p "$EXTRACTDIR"
+        log_info "Running extract script $extract_file"
         pushd "$EXTRACTDIR" >/dev/null || return
         # shellcheck source=/dev/null
         source "$extract_file"
         touch "$EXTRACTDIR/.extracted"
         popd >/dev/null || return
+        log_info "Extraction step complete for $CONFNAME"
     else
-        echo "Using extracted files"
+        log_debug "Using extracted files"
     fi
 }

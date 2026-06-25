@@ -2,6 +2,7 @@
 # Reusable QMP-driven install script building blocks.
 
 # command to mount fat partition and run autoinst
+# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
 SCRIPT_AUTOINST_COMMAND="mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
 
 # Tests whether screen text contains expected fixed text.
@@ -40,18 +41,23 @@ script_wait_until() {
     interval=${4:-${WAIT_INTERVAL:-1}}
     start=$SECONDS
 
+    log_info "Waiting for guest screen: $expected"
     while :; do
         if ! qmp_qemu_running; then
-            echo "QEMU exited while waiting for screen match: $expected" >&2
-            exit 1
+            die "QEMU exited while waiting for screen match: $expected"
         fi
 
         if screen=$(qmp_vga_dump_text); then
-            "$matcher" "$screen" "$expected" && return 0
+            if "$matcher" "$screen" "$expected"; then
+                log_info "Guest screen matched: $expected"
+                return 0
+            fi
+        else
+            log_debug "Unable to read guest screen while waiting for: $expected"
         fi
 
         if [ "$timeout" != "0" ] && [ $((SECONDS - start)) -ge "$timeout" ]; then
-            echo "Timed out waiting for screen match: '$expected'" >&2
+            log_error "Timed out waiting for screen match: '$expected'"
             exit 124
         fi
 

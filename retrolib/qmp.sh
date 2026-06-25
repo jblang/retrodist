@@ -14,18 +14,19 @@ qmp_set_defaults() {
 
 # Verifies commands and decoder files required by the QMP helpers.
 qmp_check_prereqs() {
+    log_debug "Checking QMP helper prerequisites"
     if ! command -v nc >/dev/null 2>&1; then
-        echo "Missing nc in PATH" >&2
+        log_error "Missing nc in PATH"
         return 1
     fi
 
     if ! command -v jq >/dev/null 2>&1; then
-        echo "Missing jq in PATH" >&2
+        log_error "Missing jq in PATH"
         return 1
     fi
 
     if ! command -v xxd >/dev/null 2>&1; then
-        echo "Missing xxd in PATH" >&2
+        log_error "Missing xxd in PATH"
         return 1
     fi
 
@@ -59,7 +60,7 @@ qmp_socket_path() {
 
     socket=$(qmp_socket_candidate) || return 1
     if [ "$QEMU_QMP_SOCKET" = "qmp.sock" ] && [ ! -d qemu.d ] && ! qmp_in_default_socket_dir && [ ! -S "$socket" ]; then
-        echo "Could not identify QMP socket. Run qmp from a distro config directory with qemu.d/qmp.sock, from inside qemu.d, or pass -s SOCKET." >&2
+        log_error "Could not identify QMP socket. Run qmp from a distro config directory with qemu.d/qmp.sock, from inside qemu.d, or pass -s SOCKET."
         return 1
     fi
     printf '%s\n' "$socket"
@@ -70,22 +71,24 @@ qmp_require_socket() {
     local socket
 
     if [ "$QEMU_QMP_SOCKET" = "none" ]; then
-        echo "QMP socket is disabled" >&2
+        log_error "QMP socket is disabled"
         return 1
     fi
 
     socket=$(qmp_socket_path) || return 1
     if [ ! -S "$socket" ] && [ "${QMP_TIMEOUT:-0}" != "0" ]; then
+        log_debug "Waiting up to $QMP_TIMEOUT second(s) for QMP socket $socket"
         sleep "$QMP_TIMEOUT"
     fi
     if [ ! -S "$socket" ]; then
-        echo "QMP socket does not exist: $socket" >&2
+        log_error "QMP socket does not exist: $socket"
         return 1
     fi
 }
 
 # Initializes QMP defaults, prerequisites, and VGA settings.
 qmp_init() {
+    log_info "Initializing QMP control channel"
     qmp_set_defaults
     qmp_check_prereqs || return 1
     qmp_vga_validate_config
@@ -95,13 +98,13 @@ qmp_init() {
 qmp_vga_validate_config() {
     case "$VGA_COLS:$VGA_ROWS:$VGA_MEM_BYTES" in
     *[!0-9:]* | :* | *:)
-        echo "VGA_COLS, VGA_ROWS, and VGA_MEM_BYTES must be positive integers" >&2
+        log_error "VGA_COLS, VGA_ROWS, and VGA_MEM_BYTES must be positive integers"
         return 1
         ;;
     esac
 
     if [ "$VGA_COLS" -le 0 ] || [ "$VGA_ROWS" -le 0 ] || [ "$VGA_MEM_BYTES" -le 0 ]; then
-        echo "VGA_COLS, VGA_ROWS, and VGA_MEM_BYTES must be positive integers" >&2
+        log_error "VGA_COLS, VGA_ROWS, and VGA_MEM_BYTES must be positive integers"
         return 1
     fi
 }
@@ -122,11 +125,12 @@ qmp_hmp_command_raw() {
     response_status=0
 
     if [ -z "$command" ]; then
-        echo "Missing QMP HMP command" >&2
+        log_error "Missing QMP HMP command"
         return 1
     fi
 
     socket=$(qmp_socket_path) || return 1
+    log_debug "Sending QMP HMP command: $command"
 
     request=$(jq -nc --arg command "$command" \
         '{execute:"human-monitor-command",arguments:{"command-line":$command}}') || return 1
@@ -140,7 +144,7 @@ qmp_hmp_command_raw() {
     if [ -n "$response" ]; then
         error_response=$(printf '%s\n' "$response" |
             jq -c 'select(type == "object" and has("error"))' 2>/dev/null) || {
-            echo "Invalid QMP response for command: $command" >&2
+            log_error "Invalid QMP response for command: $command"
             printf '%s\n' "$response" >&2
             return 65
         }
@@ -176,14 +180,14 @@ qmp_hmp_command() {
         if [ "$status" -eq 64 ] || [ "$status" -eq 65 ]; then
             return 1
         fi
-        echo "QMP command failed with status $status: $1" >&2
+        log_error "QMP command failed with status $status: $1"
         return "$status"
     }
     if printf '%s\n' "$response" | qmp_hmp_response_has_hmp_return; then
         return 0
     fi
 
-    echo "QMP command returned no success response: $1" >&2
+    log_error "QMP command returned no success response: $1"
     if [ -n "$response" ]; then
         printf '%s\n' "$response" >&2
     fi
@@ -195,6 +199,7 @@ qmp_eject_disk() {
     local device
     device=${1:-floppy0}
 
+    log_info "Ejecting QEMU disk device $device"
     qmp_hmp_command "eject $device"
 }
 
@@ -205,18 +210,20 @@ qmp_change_image() {
     device=${2:-floppy0}
 
     if [ -z "$image" ]; then
-        echo "Missing image for QMP change command" >&2
+        log_error "Missing image for QMP change command"
         return 1
     fi
+    log_info "Changing QEMU disk device $device to $image"
     qmp_hmp_command "change $device $image"
 }
 
 # Sets the QEMU boot device order.
 qmp_boot_disk() {
     if [ -z "${1:-}" ]; then
-        echo "Missing boot device for QMP boot_set command" >&2
+        log_error "Missing boot device for QMP boot_set command"
         return 1
     fi
+    log_info "Setting QEMU boot device to $1"
     qmp_hmp_command "boot_set $1"
 }
 
@@ -228,7 +235,7 @@ qmp_dump_physical_memory() {
     response_status=0
 
     if [ -z "$addr" ] || [ -z "$bytes" ]; then
-        echo "Missing address or byte count for QMP physical memory dump" >&2
+        log_error "Missing address or byte count for QMP physical memory dump"
         return 1
     fi
 
@@ -238,12 +245,13 @@ qmp_dump_physical_memory() {
     # QEMU pmemsave creates the file itself; keep mktemp's unique name only.
     rm -f "$dump_file"
 
+    log_debug "Dumping QEMU physical memory at $addr for $bytes byte(s)"
     response=$(qmp_hmp_command_raw "pmemsave $addr $bytes $qemu_dump_file") || response_status=$?
 
     if [ ! -s "$dump_file" ]; then
-        echo "QMP pmemsave did not create screen dump: $dump_file" >&2
+        log_error "QMP pmemsave did not create screen dump: $dump_file"
         if [ "$response_status" -ne 0 ]; then
-            echo "QMP pmemsave command exited with status $response_status" >&2
+            log_error "QMP pmemsave command exited with status $response_status"
         fi
         if [ -n "$response" ]; then
             printf '%s\n' "$response" >&2
@@ -262,9 +270,10 @@ qmp_dump_physical_memory() {
 # Sends a QEMU sendkey key sequence.
 qmp_sendkey() {
     if [ -z "${1:-}" ]; then
-        echo "Missing key for QMP sendkey command" >&2
+        log_error "Missing key for QMP sendkey command"
         return 1
     fi
+    log_debug "Sending QEMU key sequence $1"
     qmp_hmp_command "sendkey $1"
 }
 
@@ -321,7 +330,7 @@ qmp_send_string() {
     for ((i = 0; i < ${#text}; i++)); do
         char=${text:i:1}
         key=$(qmp_char_to_sendkey "$char") || {
-            printf 'Unsupported character for QMP sendkey: %q\n' "$char" >&2
+            log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
             return 1
         }
         qmp_sendkey "$key"
@@ -338,7 +347,7 @@ qmp_send_stdin() {
             char=$'\n'
         fi
         key=$(qmp_char_to_sendkey "$char") || {
-            printf 'Unsupported character for QMP sendkey: %q\n' "$char" >&2
+            log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
             return 1
         }
         qmp_sendkey "$key"

@@ -63,7 +63,7 @@ retro_config_file() {
         dir=$1
         name=$2
     else
-        echo "Usage: retro_config_file [DIR] FILE" >&2
+        log_error "Usage: retro_config_file [DIR] FILE"
         return 1
     fi
 
@@ -114,8 +114,7 @@ retro_msys2_mingw_package_prefix() {
 retro_install_prereq_packages() {
     local package_manager install
     if [[ $# -lt 2 ]]; then
-        echo "Usage: retro_install_prereq_packages PACKAGE_MANAGER PACKAGE..."
-        exit 1
+        die "Usage: retro_install_prereq_packages PACKAGE_MANAGER PACKAGE..."
     fi
 
     package_manager=$1
@@ -138,16 +137,16 @@ retro_install_prereq_packages() {
         install=(pacman -S --needed)
         ;;
     *)
-        echo "Unsupported package manager: $package_manager"
-        exit 1
+        die "Unsupported package manager: $package_manager"
         ;;
     esac
 
-    echo "Installing prerequisites with $package_manager:"
+    log_info "Installing prerequisites with $package_manager:"
     printf '  %s\n' "$@"
     echo
 
     if [[ "${RETRO_PREREQ_DRY_RUN:-0}" == "1" ]]; then
+        log_info "Prerequisite dry run enabled"
         printf 'Dry run:'
         printf ' %q' "${install[@]}" "$@"
         echo
@@ -161,18 +160,19 @@ retro_install_prereq_packages() {
 retro_prereq() {
     local dry_run=0
     local mingw_package_prefix
+    log_info "Checking host prerequisite installer"
     if [[ "${1:-}" == "--dry-run" ]]; then
         dry_run=1
         shift
     fi
     if [[ $# -gt 0 ]]; then
-        echo "Unknown prereq option: $1"
-        exit 1
+        die "Unknown prereq option: $1"
     fi
 
     case "$(uname -s)" in
     Darwin)
         if command -v brew >/dev/null 2>&1; then
+            log_debug "Selected Homebrew prerequisite installer"
             RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq
             return
         fi
@@ -180,26 +180,29 @@ retro_prereq() {
     MSYS_NT* | MINGW*_NT* | UCRT*_NT* | CLANG*_NT*)
         if command -v pacman >/dev/null 2>&1; then
             if ! mingw_package_prefix=$(retro_msys2_mingw_package_prefix); then
-                cat <<EOF
-MSYS2 detected, but no supported MinGW environment is active.
-
+                log_error "MSYS2 detected, but no supported MinGW environment is active."
+                cat >&2 <<EOF
 Run this from an MSYS2 MinGW shell such as UCRT64, MINGW64, CLANG64, or
 CLANGARM64 so QEMU can be installed from the matching MinGW package repo.
 EOF
                 exit 1
             fi
+            log_debug "Selected MSYS2 pacman prerequisite installer"
             RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof openssh jq
             return
         fi
         ;;
     Linux)
         if command -v apt-get >/dev/null 2>&1; then
+            log_debug "Selected apt-get prerequisite installer"
             RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof openssh-client jq
             return
         elif command -v dnf >/dev/null 2>&1; then
+            log_debug "Selected dnf prerequisite installer"
             RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof openssh-clients jq
             return
         elif command -v pacman >/dev/null 2>&1; then
+            log_debug "Selected pacman prerequisite installer"
             RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof openssh jq
             return
         fi
@@ -207,11 +210,11 @@ EOF
     esac
 
     if command -v brew >/dev/null 2>&1; then
+        log_debug "Selected fallback Homebrew prerequisite installer"
         RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq
     else
-        cat <<EOF
-No supported package manager found.
-
+        log_error "No supported package manager found."
+        cat >&2 <<EOF
 Install the prerequisites manually:
   qemu-system-i386
   qemu-system-x86_64
@@ -235,16 +238,23 @@ EOF
 autoinst_prep() {
     local autoinst_d=$EXTRACTDIR/fat/autoinst.d
     local autoinst_file autoconf_file
+    log_info "Staging autoinstall runtime"
     cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
     rm -rf "$autoinst_d"
     mkdir -p "$autoinst_d"
     cp -R "$AUTOBASE"/. "$autoinst_d"
     mkdir -p "$autoinst_d/distro"
     if autoinst_file=$(retro_config_file autoinst.sh); then
+        log_debug "Staging distro autoinst manifest $autoinst_file"
         cp "$autoinst_file" "$autoinst_d/distro/autoinst.sh"
+    else
+        log_debug "No distro autoinst manifest configured"
     fi
     if autoconf_file=$(retro_config_file autoconf.sh); then
+        log_debug "Staging distro autoconf manifest $autoconf_file"
         cp "$autoconf_file" "$autoinst_d/distro/autoconf.sh"
+    else
+        log_debug "No distro autoconf manifest configured"
     fi
     slackware_prepare_tagfiles
 }

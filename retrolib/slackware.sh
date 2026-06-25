@@ -11,6 +11,7 @@ INSTALL_TAGSETS=${INSTALL_TAGSETS:-full}
 # into its series' first disk, tagroot/<series>1; tagfile.org lands as tagfile.
 slackware_consolidate_tagfiles() {
     local srcroot=$1 tagroot=$2 src fname diskdir firstdir
+    log_info "Consolidating Slackware tagfiles from $srcroot"
     find "$srcroot" -mindepth 2 -maxdepth 2 -type f \
         \( -name 'tagfile' -o -name 'tagfile.org' -o -name 'disk*' -o -name '*.txt' \) |
         while IFS= read -r src; do
@@ -29,15 +30,21 @@ slackware_extract_tagfiles() {
     local tagroot=$1
     local pkgroot
 
+    log_info "Extracting Slackware tagfile sources"
     rm -rf "$tagroot"
     mkdir -p "$tagroot"
 
     if pkgroot=$(slackware_staged_pkg_root); then
+        log_debug "Using staged package root $pkgroot"
         slackware_consolidate_tagfiles "$pkgroot" "$tagroot"
     elif [[ -f install.iso ]]; then
+        log_debug "Using staged install.iso for tagfile sources"
         slackware_extract_tagfiles_from_iso install.iso "$tagroot"
     elif [[ -f "$ORIGDIR/disc1.iso" ]]; then
+        log_debug "Using original disc1.iso for tagfile sources"
         slackware_extract_tagfiles_from_iso "$ORIGDIR/disc1.iso" "$tagroot"
+    else
+        log_warn "No Slackware tagfile source media found"
     fi
 }
 
@@ -47,8 +54,12 @@ slackware_extract_tagfiles_from_iso() {
     local iso=$1 tagroot=$2
     local pathroot tmpdir
 
+    log_info "Extracting Slackware tagfiles from $iso"
     # ensure_pkglist must run in this shell, not a subshell, so SLACKWARE_PKGLIST persists.
-    slackware_ensure_pkglist "$iso" || return
+    slackware_ensure_pkglist "$iso" || {
+        log_warn "No Slackware package listing found in $iso"
+        return
+    }
     pathroot=$(awk -F/ 'NF { print $1; exit }' "$SLACKWARE_PKGLIST")
     [[ -n "$pathroot" ]] || return
     tmpdir=$TEMPDIR/tagfile-extract
@@ -57,6 +68,8 @@ slackware_extract_tagfiles_from_iso() {
     7z x -y -o"$tmpdir" "$iso" "$pathroot/*/tagfile" "$pathroot/*/disk*" "$pathroot/*/*.txt" >/dev/null 2>&1 || true
     if [[ -d "$tmpdir/$pathroot" ]]; then
         slackware_consolidate_tagfiles "$tmpdir/$pathroot" "$tagroot"
+    else
+        log_warn "No tagfile tree extracted from $iso"
     fi
     rm -rf "$tmpdir"
 }
@@ -100,6 +113,7 @@ slackware_ensure_pkglist() {
     local iso=$1
 
     if [[ -n "${SLACKWARE_PKGLIST:-}" && -f "$SLACKWARE_PKGLIST" ]]; then
+        log_debug "Using cached Slackware package listing $SLACKWARE_PKGLIST"
         return 0
     fi
 
@@ -113,6 +127,7 @@ slackware_ensure_pkglist() {
         if [[ -s "$tmplist" ]]; then
             sort -u "$tmplist" -o "$tmplist"
             SLACKWARE_PKGLIST=$tmplist
+            log_debug "Cached Slackware package listing from $iso"
             return 0
         fi
     done
@@ -160,6 +175,7 @@ slackware_collect_tagsets() {
         case " $INSTALL_TAGSETS " in *" $stem "*) selected+=("$f") ;; esac
     done
     SLACKWARE_TAGSETS=("${selected[@]}")
+    log_debug "Selected Slackware tagsets: ${SLACKWARE_TAGSETS[*]:-(none)}"
 }
 
 # Writes each install tagfile from the package universe (default SKP, overridden
@@ -169,17 +185,30 @@ slackware_prepare_tagfiles() {
     local -a SLACKWARE_TAGSETS=()
 
     if pkgroot=$(slackware_staged_pkg_root); then
+        log_info "Preparing Slackware tagfiles from staged packages"
         slackware_universe_from_staged "$pkgroot" >"$universe"
     elif [[ -f install.iso ]]; then
-        slackware_ensure_pkglist install.iso || return
+        log_info "Preparing Slackware tagfiles from install.iso"
+        slackware_ensure_pkglist install.iso || {
+            log_warn "Could not prepare Slackware tagfiles; no package list in install.iso"
+            return
+        }
         slackware_universe_from_iso >"$universe"
     elif [[ -f "$ORIGDIR/disc1.iso" ]]; then
-        slackware_ensure_pkglist "$ORIGDIR/disc1.iso" || return
+        log_info "Preparing Slackware tagfiles from $ORIGDIR/disc1.iso"
+        slackware_ensure_pkglist "$ORIGDIR/disc1.iso" || {
+            log_warn "Could not prepare Slackware tagfiles; no package list in $ORIGDIR/disc1.iso"
+            return
+        }
         slackware_universe_from_iso >"$universe"
     else
+        log_debug "No Slackware package source available for tagfile preparation"
         return
     fi
-    [[ -s "$universe" ]] || return
+    [[ -s "$universe" ]] || {
+        log_warn "Slackware package universe is empty; skipping tagfile preparation"
+        return
+    }
 
     # Sort (byte order for determinism) to group each target's lines so the awk
     # writes each in one pass, then create the target dirs.
@@ -226,6 +255,7 @@ slackware_prepare_tagfiles() {
     ' <"$universe"
 
     sync
+    log_info "Slackware tagfile preparation complete"
 }
 
 # Generates default.tag in outfile from tagroot's tagfile/description sources;
@@ -234,8 +264,12 @@ slackware_generate_default_tag() {
     local tagroot=$1
     local outfile=$2
 
-    find "$tagroot" -name tagfile -print -quit | grep -q . || return 0
+    find "$tagroot" -name tagfile -print -quit | grep -q . || {
+        log_warn "No Slackware tagfiles found under $tagroot"
+        return 0
+    }
 
+    log_info "Generating default Slackware tagfile"
     awk -v tagroot="$tagroot" '
         function sort_arr(arr, n,   i, j, t) {
             for (i = 1; i <= n; i++)
@@ -294,14 +328,16 @@ slackware_generate_default_tag() {
             }
         }
     ' </dev/null >"$outfile"
-    printf 'Wrote %s\n' "$outfile"
+    log_info "Wrote $outfile"
 }
 
 # Top-level retro command handler for generating default.tag from install media.
 retro_tagfile() {
+    log_info "Starting tagfile generation for $CONFNAME"
     retro_extract
     pushd "$EXTRACTDIR" >/dev/null || return
     slackware_extract_tagfiles "$TAGFILEDIR"
     slackware_generate_default_tag "$TAGFILEDIR" "$CONFDIR/default.tag"
     popd >/dev/null || return
+    log_info "Tagfile generation complete for $CONFNAME"
 }

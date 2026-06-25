@@ -39,6 +39,50 @@ Shared utilities used across all other modules.
   then copies the distro's `autoinst.sh` and `autoconf.sh` manifests to
   `fat/autoinst.d/distro/`. See [autoinst/README.md](../autoinst/README.md).
 
+## `logging.sh`
+
+Host-side logging helpers. Messages are written to stderr and, when
+`RETRO_LOG_FILE` is set, appended to that file as well.
+
+- `log_debug MESSAGE...`
+  Logs only when `RETRO_DEBUG=1`.
+
+- `log_info MESSAGE...`
+  Logs an informational message.
+
+- `log_warn MESSAGE...`
+  Logs a warning.
+
+- `log_error MESSAGE...`
+  Logs an error.
+
+- `log_attention MESSAGE...`
+  Logs an attention-grabbing status message.
+
+- `log_div`
+  Logs a divider line.
+
+- `die MESSAGE...`
+  Logs an error and exits with status 1.
+
+Each level uses a configurable marker variable. The defaults are emoji, but the
+values can be plain text, ANSI-styled text, or an empty string:
+
+```bash
+RETRO_LOG_INFO=INFO retro boot slackware/3.0/walnut
+RETRO_LOG_WARN=$'\e[1;33mWARN\e[0m' retro boot slackware/3.0/walnut
+RETRO_LOG_ERROR= retro boot slackware/3.0/walnut
+```
+
+Marker variables:
+
+- `RETRO_LOG_DEBUG`
+- `RETRO_LOG_INFO`
+- `RETRO_LOG_WARN`
+- `RETRO_LOG_ERROR`
+- `RETRO_LOG_ATTENTION`
+- `RETRO_LOG_DIVIDER`
+
 ## Config Directory Hierarchy
 
 Distro configs live at `distro/version/variant/` (e.g., `slackware/3.0/walnut/`).

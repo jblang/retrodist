@@ -8,7 +8,20 @@ AUTOBASE=$SCRIPTDIR/autoinst
 
 # temp directory automatically cleaned up on exit
 TEMPDIR=$(mktemp -d)
-trap 'rm -rf "$TEMPDIR"' EXIT
+RETRO_COMMAND_STARTED=0
+# shellcheck disable=SC2329 # Invoked by the EXIT trap.
+retro_cleanup() {
+  local status=$?
+  if [[ ${RETRO_COMMAND_STARTED:-0} == "1" ]]; then
+    if [[ $status -eq 0 ]]; then
+      log_info "Completed retro $COMMAND for $CONFNAME"
+    else
+      log_error "retro $COMMAND failed for $CONFNAME (status $status)"
+    fi
+  fi
+  rm -rf "$TEMPDIR"
+}
+trap retro_cleanup EXIT
 
 for LIB in "$SCRIPTDIR"/retrolib/*.sh; do
   # shellcheck source=/dev/null
@@ -63,8 +76,7 @@ if [[ $# -ge 1 && $1 != -* ]]; then
     CONFDIR=$(cd "$SCRIPTDIR/$1" && pwd)
     shift
   else
-    echo "Configuration $1 doesn't exist"
-    exit 1
+    die "Configuration $1 doesn't exist"
   fi
 else
   CONFDIR=$PWD
@@ -89,24 +101,29 @@ DEBIANBASE=$ORIGDIR
 
 # output configuration details
 cat <<EOF
-Retro Distro Playground by J.B. Langston
+🐧 Retro Distro Playground by J.B. Langston
 
 Command:    $COMMAND
 Config:     $CONFDIR
-Download:   $ORIGDIR
-Extract:    $EXTRACTDIR
 QEMU:       $QEMUDIR
 
 EOF
 
 # run the selected command
+if [[ $COMMAND != "help" ]]; then
+  RETRO_COMMAND_STARTED=1
+  log_info "Starting retro $COMMAND for $CONFNAME"
+  log_debug "Temporary directory: $TEMPDIR"
+fi
+RUN_STATUS=0
 case $COMMAND in
   help) retro_usage 0;;
-  download) retro_download;;
-  extract) retro_extract;;
-  tagfile) retro_tagfile;;
-  boot | install) retro_boot "$@";;
-  package) retro_package "$@";;
-  prereq) retro_prereq "$@";;
-  reset) retro_reset;;
+  download) retro_download || RUN_STATUS=$?;;
+  extract) retro_extract || RUN_STATUS=$?;;
+  tagfile) retro_tagfile || RUN_STATUS=$?;;
+  boot | install) retro_boot "$@" || RUN_STATUS=$?;;
+  package) retro_package "$@" || RUN_STATUS=$?;;
+  prereq) retro_prereq "$@" || RUN_STATUS=$?;;
+  reset) retro_reset || RUN_STATUS=$?;;
 esac
+exit "$RUN_STATUS"

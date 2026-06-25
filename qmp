@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# shellcheck source=retrolib/logging.sh
+source "$SCRIPTDIR/retrolib/logging.sh"
 # shellcheck source=retrolib/qmp.sh
 source "$SCRIPTDIR/retrolib/qmp.sh"
 
