@@ -20,7 +20,7 @@ Each edition contained current distributions at the time as well as snapshots th
 | [1997_08](1997_08/) | 1997/08/19 | 3.3 | 1.3.1 | 4.2 |  |
 | [1998_01](1998_01/) | 1998/01/25 | 3.4 |  | 5.0 | SuSE 5.1 |
 | [1998_06](1998_06/) | 1998/07/09 | 3.5 | 1.3.1 | 5.1 | SuSE 5.2 |
-| 1998_11 (missing) | 1998/11/?? | 3.6 | 2.0 r3 | 5.2 | SuSE 5.3 |
+| [1998_11](1998_11/) | 1998/11/13 | 3.6 | 2.0 r3 | 5.2 | SuSE 5.3 |
 | [1999_12](1999_12/) | 1999/09/25 | 7.0 |  | 6.1 | Caldera 2.3; Mandrake 6.1 |
 
 *This is the infamous CD-ROM that included a broken pre-release of Debian 1.0 and resulted in Debian skipping to 1.1 for the official release.
