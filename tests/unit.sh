@@ -91,6 +91,32 @@ assert_eq "render/cmd" \
     'qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img "weird arg" "amp&x" pct%%v "par(s)"' \
     "$(qemu_render_command_cmd)"
 
+# --- QEMU display scaling ---------------------------------------------------
+qemu_mock_tmp=$(mktemp -d)
+qemu_mock="$qemu_mock_tmp/qemu-system-i386"
+# shellcheck disable=SC2016 # The mock reads QEMU_MOCK_VERSION at execution time.
+printf '#!/usr/bin/env bash\nprintf "QEMU emulator version %%s\\n" "$QEMU_MOCK_VERSION"\n' >"$qemu_mock"
+chmod +x "$qemu_mock"
+# shellcheck disable=SC2034 # Read by qemu_version_major through QEMU_SYSTEM.
+QEMU_SYSTEM=$qemu_mock
+
+export QEMU_MOCK_VERSION=11.0.0
+QEMU_DISPLAY="-display cocoa"
+qemu_configure_display_scaling
+assert_eq "display/cocoa-qemu11" "-display cocoa,zoom-to-fit=on,zoom-interpolation=on" "$QEMU_DISPLAY"
+
+export QEMU_MOCK_VERSION=10.1.0
+QEMU_DISPLAY="-display cocoa"
+qemu_configure_display_scaling
+assert_eq "display/cocoa-qemu10" "-display cocoa" "$QEMU_DISPLAY"
+
+export QEMU_MOCK_VERSION=11.0.0
+QEMU_DISPLAY="-display gtk"
+qemu_configure_display_scaling
+assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
+
+rm -rf "$qemu_mock_tmp"
+
 # --- slackware tagfile rules ------------------------------------------------
 # Reads the state token for a package out of a staged tagfile.
 tagstate() { awk -v p="$2:" '$1 == p { print $2 }' "$1"; }

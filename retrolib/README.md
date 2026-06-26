@@ -218,7 +218,8 @@ System:
 - `QEMU_ACCEL` — acceleration flags. Default: `-accel tcg`.
 - `QEMU_EXTRA` — extra QEMU arguments appended verbatim.
 - `QEMU_DISPLAY` — display backend flags. Default: `-display cocoa` on macOS,
-  `-display gtk` elsewhere.
+  `-display gtk` elsewhere. Cocoa zoom/scaling options are added
+  automatically only when running QEMU 11.x.
 
 Storage:
 
@@ -271,6 +272,10 @@ QEMU_DISPLAY="-display sdl" retro boot slackware/3.0/walnut
 If QEMU reports that the selected backend is unavailable, install a QEMU UI
 backend package such as `qemu-ui-gtk` or choose another backend supported by
 `qemu-system-i386 -display help`.
+
+On macOS, Cocoa zoom-to-fit and zoom interpolation are enabled automatically
+only when the selected backend is `cocoa` and the detected QEMU major version is
+11. They are not enabled for QEMU 10.x or other display backends.
 
 ### Profiles
 

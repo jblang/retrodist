@@ -5,7 +5,7 @@
 qemu_default_display() {
     case "$(uname -s)" in
     Darwin)
-        echo "-display cocoa,zoom-to-fit=on,zoom-interpolation=on"
+        echo "-display cocoa"
         ;;
     *)
         echo "-display gtk"
@@ -13,16 +13,51 @@ qemu_default_display() {
     esac
 }
 
+# Extracts the backend name from a QEMU_DISPLAY argument string.
+qemu_display_backend() {
+    local display=$1 backend
+    if [[ -z "$display" || "$display" != *"-display "* ]]; then
+        return 1
+    fi
+
+    backend=${display#*-display }
+    backend=${backend%%[ ,]*}
+    backend=${backend%%=*}
+    [[ -n "$backend" ]] || return 1
+    printf '%s\n' "$backend"
+}
+
+# Prints the detected QEMU major version.
+qemu_version_major() {
+    local version_line version
+    version_line=$("$QEMU_SYSTEM" --version 2>/dev/null | sed -n '1p' || true)
+    version=${version_line#* version }
+    case "$version" in
+    [0-9]*)
+        printf '%s\n' "${version%%.*}"
+        return 0
+        ;;
+    esac
+    return 1
+}
+
+# Enables Cocoa zoom/scaling options only where QEMU supports them.
+qemu_configure_display_scaling() {
+    local backend qemu_major
+    backend=$(qemu_display_backend "$QEMU_DISPLAY" || true)
+    if [[ "$backend" != "cocoa" ]]; then
+        return
+    fi
+    qemu_major=$(qemu_version_major || true)
+    if [[ "$qemu_major" == "11" ]]; then
+        QEMU_DISPLAY="$QEMU_DISPLAY,zoom-to-fit=on,zoom-interpolation=on"
+    fi
+}
+
 # Warns when the configured QEMU display backend is unavailable.
 qemu_warn_missing_display_backend() {
     local backend available
-    if [[ -z "$QEMU_DISPLAY" || "$QEMU_DISPLAY" != *"-display "* ]]; then
-        return
-    fi
-
-    backend=${QEMU_DISPLAY#*-display }
-    backend=${backend%%[ ,]*}
-    backend=${backend%%=*}
+    backend=$(qemu_display_backend "$QEMU_DISPLAY" || true)
     if [[ -z "$backend" || "$backend" == "none" ]]; then
         return
     fi
@@ -261,6 +296,7 @@ qemu_finish_config() {
     local install_script
 
     QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
+    qemu_configure_display_scaling
     QEMU_ACCEL="${QEMU_ACCEL:--accel tcg}"
     QEMU_EXTRA="${QEMU_EXTRA:-}"
     log_debug "Using QEMU display: $QEMU_DISPLAY"
