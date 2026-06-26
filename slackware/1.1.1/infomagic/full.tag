@@ -10,7 +10,7 @@ iv   *            ADD
 n    *            ADD
 oi   *            ADD
 oop  *            ADD
-q    *            ADD
+q    *            SKP
 t    *            ADD
 tcl  *            ADD
 x    *            ADD

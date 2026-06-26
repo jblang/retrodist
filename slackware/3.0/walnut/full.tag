@@ -6,7 +6,7 @@ d    *            ADD
 e    *            ADD
 f    *            ADD
 k    *            ADD
-q    *            ADD
+q    *            SKP
 n    *            ADD
 t    *            ADD
 tcl  *            ADD

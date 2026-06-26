@@ -11,7 +11,7 @@ iv   *            ADD
 n    *            ADD
 ncr  *            ADD
 oop  *            ADD
-q    *            ADD
+q    *            SKP
 t    *            ADD
 tcl  *            ADD
 u    *            ADD
