@@ -1,4 +1,5 @@
 # shellcheck shell=sh
+# Install a sample sendmail.cf when sendmail has no config.
 _mail_config() {
     log_div
     log_info "Configuring mail..."

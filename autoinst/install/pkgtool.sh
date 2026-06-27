@@ -1,6 +1,7 @@
 # shellcheck shell=sh
-# installer for pkgtool-based Slackware versions
+# pkgtool-based Slackware installer helpers.
 
+# Set Slackware release-specific admin paths and setup commands.
 slackware_pkgtool_layout() {
     SLACK_ADM_DIR=$1
     SLACK_SPOOL_DIR=$2
@@ -15,6 +16,7 @@ slackware_pkgtool_layout() {
     log_info "  SETUP_SOURCE=$SLACK_SETUP_SOURCE"
 }
 
+# Install using the Slackware 1.1.1 pkgtool layout.
 _slackware_pkgtool_install_111() {
     log_info "Installing Slackware with pkgtool"
     log_info "Using Slackware 1.1.1 pkgtool layout"
@@ -22,6 +24,7 @@ _slackware_pkgtool_install_111() {
     slackware_install_with_pkgtool
 }
 
+# Install using the later Slackware pkgtool layout.
 _slackware_pkgtool_install() {
     log_div
     log_info "Installing Slackware with pkgtool"
@@ -30,6 +33,7 @@ _slackware_pkgtool_install() {
     slackware_install_with_pkgtool
 }
 
+# Convert selected package sets to pkgtool's #set# format.
 normalize_sets() {
     if [ -z "$SETS" ] && [ -f "$INSTMOUNT/disksets.txt" ]; then
         SETS=$(cat "$INSTMOUNT/disksets.txt")
@@ -38,6 +42,7 @@ normalize_sets() {
     log_info "Slackware package sets: $SETS"
 }
 
+# Create pkgtool directories that do not already exist.
 pkgtool_mkdirs() {
     for DIR in "$@"; do
         if [ ! -d "$DIR" ]; then
@@ -47,12 +52,14 @@ pkgtool_mkdirs() {
     done
 }
 
+# Create each setup state directory used by pkgtool.
 setup_state_mkdirs() {
     for SETUPDIR in $(setup_state_dirs); do
         pkgtool_mkdirs "$SETUPDIR"
     done
 }
 
+# Print setup state directories for installer and target layouts.
 setup_state_dirs() {
     echo /tmp
     echo /var/log/setup/tmp
@@ -61,6 +68,7 @@ setup_state_dirs() {
     fi
 }
 
+# Write one setup state value to every setup state directory.
 write_setup_state() {
     STATEFILE=$1
     STATEVALUE=$2
@@ -70,6 +78,7 @@ write_setup_state() {
     done
 }
 
+# Remove one setup state file from every setup state directory.
 remove_setup_state() {
     STATEFILE=$1
     for SETUPDIR in $(setup_state_dirs); do
@@ -77,6 +86,7 @@ remove_setup_state() {
     done
 }
 
+# Print the Slackware package tree path on the mounted CD-ROM.
 find_cdrom_source_path() {
     for SOURCE in slakware slackware; do
         if [ -d "$CD_MOUNT/$SOURCE" ]; then
@@ -87,6 +97,7 @@ find_cdrom_source_path() {
     return 1
 }
 
+# Print the staged package tree path when it exists.
 find_staged_source_path() {
     if [ -d "$INSTMOUNT/packages" ]; then
         echo "$INSTMOUNT/packages"
@@ -95,6 +106,7 @@ find_staged_source_path() {
     return 1
 }
 
+# Print the first usable pkgtool binary path.
 find_pkgtool_bin() {
     for PKGTOOL_BIN in \
         /usr/lib/setup/cpkgtool \
@@ -110,6 +122,7 @@ find_pkgtool_bin() {
     return 1
 }
 
+# Mount the CD-ROM package source and record its fstab entry.
 mount_cdrom_source() {
     CD_DEVICE=${CD_DEVICE:-/dev/hdc}
     CD_MOUNT=${CD_MOUNT:-/var/adm/mount}
@@ -133,6 +146,7 @@ mount_cdrom_source() {
     SLACK_CD_FSTAB_ENTRY="$CD_DEVICE    /cdrom    iso9660    ro   1   1"
 }
 
+# Select staged tagfiles or generated .new tagfiles for pkgtool.
 setup_pkgtool_tags() {
     SLACK_PKG_TAG_MODE=custom_ext
     if [ -d "$INSTMOUNT/tagfiles" ]; then
@@ -144,6 +158,7 @@ setup_pkgtool_tags() {
     fi
 }
 
+# Tell pkgtool to use the generated .new tagfile extension.
 write_pkgtool_custom_ext() {
     if [ "$SLACK_PKG_TAG_MODE" = "custom_ext" ]; then
         write_setup_state SeTtagext ".new"
@@ -152,6 +167,7 @@ write_pkgtool_custom_ext() {
     fi
 }
 
+# Resolve pkgtool binary, tags, and package source.
 prepare_pkgtool_source() {
     SLACK_CD_SOURCE_MOUNTED=
     SLACK_PKG_SOURCE=$(find_staged_source_path)
@@ -172,6 +188,7 @@ prepare_pkgtool_source() {
     fi
 }
 
+# Remove temporary pkgtool state and unmount any CD source.
 cleanup_pkgtool_source() {
     remove_setup_state SeTtagext
     remove_setup_state SeTtagpath
@@ -183,6 +200,7 @@ cleanup_pkgtool_source() {
     fi
 }
 
+# Move a packaged setup hook into Slackware's setup directory.
 move_setup_hook() {
     if [ -f "$ROOTMOUNT/$1" ]; then
         pkgtool_mkdirs "$ROOTMOUNT/$SLACK_ADM_DIR/setup/install"
@@ -191,6 +209,7 @@ move_setup_hook() {
     fi
 }
 
+# Run pkgtool for the selected package sets.
 install_pkgtool_sets() {
     log_info "Installing packages..."
     normalize_sets
@@ -209,6 +228,7 @@ install_pkgtool_sets() {
     fi
 }
 
+# Write Slackware's ROOTDEV file when missing.
 write_rootdev() {
     pkgtool_mkdirs "$ROOTMOUNT/etc/rc.d"
     if [ ! -r "$ROOTMOUNT/etc/rc.d/ROOTDEV" ]; then
@@ -218,6 +238,7 @@ write_rootdev() {
     fi
 }
 
+# Install fstab and add proc and CD-ROM entries when needed.
 install_fstab() {
     if [ ! -r "$ROOTMOUNT/etc/fstab" -a -r "$ROOTMOUNT/fstab.tmp" ]; then
         log_info "Creating file: $ROOTMOUNT/etc/fstab"
@@ -242,6 +263,7 @@ install_fstab() {
     fi
 }
 
+# Create /dev/cdrom for the configured CD-ROM device.
 install_cdrom_link() {
     if [ -n "$CD_DEVICE" ]; then
         pkgtool_mkdirs "$ROOTMOUNT/dev"
@@ -255,6 +277,7 @@ install_cdrom_link() {
     fi
 }
 
+# Fix known target permissions and compatibility symlinks.
 fix_permissions() {
     log_info "Fixing permissions..."
     (
@@ -299,6 +322,7 @@ fix_permissions() {
     fi
 }
 
+# Link Slackware's localtime file to the selected timezone.
 set_timezone() {
     if [ -n "$TIMEZONE" -a -d "$ROOTMOUNT/usr/lib/zoneinfo" ]; then
         log_info "Setting timezone to $TIMEZONE..."
@@ -311,6 +335,7 @@ set_timezone() {
     fi
 }
 
+# Write and install Slackware LILO configuration.
 slackware_install_lilo() {
     if [ -x "$ROOTMOUNT/sbin/lilo" ]; then
         log_info "Installing lilo..."
@@ -365,6 +390,7 @@ EOF
     fi
 }
 
+# Install the first-boot autoconf hook through rc.local.
 install_autoconf_hook() {
     pkgtool_mkdirs "$ROOTMOUNT/etc/rc.d"
     if [ ! -f "$ROOTMOUNT/etc/rc.d/rc.local" ]; then
@@ -381,6 +407,7 @@ install_autoconf_hook() {
     echo "fi" >>"$ROOTMOUNT/etc/rc.d/rc.local"
 }
 
+# Run the full Slackware pkgtool install sequence.
 slackware_install_with_pkgtool() {
     install_pkgtool_sets
     log_div

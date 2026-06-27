@@ -24,6 +24,7 @@ if [[ ! ${RETRO_LOG_DIVIDER+x} ]]; then
     RETRO_LOG_DIVIDER=${RETRO_LOG_DIVIDER// /-}
 fi
 
+# Write one log message to stderr and RETRO_LOG_FILE when configured.
 log_write() {
     local marker
     marker=$1
@@ -44,6 +45,7 @@ log_write() {
     fi
 }
 
+# Log a debug message when debug logging is enabled.
 log_debug() {
     if [[ "${RETRO_DEBUG:-0}" != "1" ]]; then
         return 0
@@ -51,22 +53,27 @@ log_debug() {
     log_write "$RETRO_LOG_DEBUG" "$@"
 }
 
+# Log an informational message.
 log_info() {
     log_write "$RETRO_LOG_INFO" "$@"
 }
 
+# Log a warning message.
 log_warn() {
     log_write "$RETRO_LOG_WARN" "$@"
 }
 
+# Log an error message.
 log_error() {
     log_write "$RETRO_LOG_ERROR" "$@"
 }
 
+# Log an operator attention message.
 log_attention() {
     log_write "$RETRO_LOG_ATTENTION" "$@"
 }
 
+# Log a divider line.
 log_div() {
     printf '%s\n' "$RETRO_LOG_DIVIDER" >&2
     if [[ -n "${RETRO_LOG_FILE:-}" ]]; then
@@ -74,6 +81,7 @@ log_div() {
     fi
 }
 
+# Log an error and exit.
 die() {
     log_error "$@"
     exit 1

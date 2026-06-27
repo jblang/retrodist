@@ -10,6 +10,7 @@ AUTOBASE=$SCRIPTDIR/autoinst
 TEMPDIR=$(mktemp -d)
 RETRO_COMMAND_STARTED=0
 # shellcheck disable=SC2329 # Invoked by the EXIT trap.
+# Remove temporary files and report command status.
 retro_cleanup() {
   local status=$?
   if [[ ${RETRO_COMMAND_STARTED:-0} == "1" ]]; then
@@ -28,7 +29,7 @@ for LIB in "$SCRIPTDIR"/retrolib/*.sh; do
   source "$LIB"
 done
 
-# usage instructions
+# Print CLI usage and exit.
 retro_usage() {
 cat <<EOF
 Usage: $(basename "$0") [COMMAND] [CONFIG] [OPTIONS]

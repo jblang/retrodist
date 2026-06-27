@@ -70,8 +70,6 @@ qemu_warn_missing_display_backend() {
 }
 
 # Appends a whitespace-separated argument string to QEMU_ARGS.
-# Uses read -ra (not eval) so config/env strings cannot trigger command
-# substitution or glob expansion; -d '' lets multi-line strings split too.
 qemu_append_args_string() {
     local words=()
     if [[ -n "${1:-}" ]]; then
@@ -123,7 +121,6 @@ qemu_render_command_sh() {
 }
 
 # Renders QEMU_ARGS as a Windows cmd command line for the generated retro.bat.
-# Only used by retro_package; never applied to the printed/executed command.
 qemu_render_command_cmd() {
     local arg
     local rendered=
@@ -276,10 +273,6 @@ qemu_assign_port() {
 }
 
 # Assigns all monitor and guest forwarding ports.
-# Note: ports are scanned for availability and then handed to QEMU, so two
-# concurrent launches could theoretically pick the same free port before either
-# binds it. This is unlikely in practice; if a bind fails, just relaunch or set
-# explicit QEMU_*_PORT values.
 qemu_assign_ports() {
     log_debug "Assigning host ports"
     if [[ "$QEMU_NET_TYPE" == "user" ]]; then
@@ -733,8 +726,6 @@ qemu_cleanup_empty_dir() {
 }
 
 # Extracts files, loads config, and assembles the QEMU command without launching
-# QEMU. Self-contained: enters and leaves $QEMUDIR balanced. Leaves the prepared
-# command in QEMU_ARGS/QEMU_COMMAND for the caller to run or package.
 retro_prepare() {
     log_debug "Preparing QEMU workspace"
     retro_extract

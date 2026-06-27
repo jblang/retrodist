@@ -1,4 +1,5 @@
 # shellcheck shell=sh
+# Extract Debian 0.91 base disks into the target root.
 debian_091_extract_base() {
     log_info "Installing base system to $ROOTDEV..."
     # cd must succeed before extracting: cpio writes into the current directory,
@@ -16,6 +17,7 @@ debian_091_extract_base() {
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
 
+# Rewrite a Debian 0.91 config file with the selected root device.
 debian_091_replace_rootdev() {
     log_info "Creating file: $ROOTMOUNT/tmp/$2"
     sed "s|/dev/hda3|$ROOTDEV|g" "$1" >"$ROOTMOUNT/tmp/$2"
@@ -23,6 +25,7 @@ debian_091_replace_rootdev() {
     mv "$ROOTMOUNT/tmp/$2" "$1"
 }
 
+# Patch Debian 0.91 init scripts for the selected root device.
 debian_091_configure_init() {
     log_info "Configuring init scripts for $ROOTDEV..."
     debian_091_replace_rootdev "$ROOTMOUNT/etc/rc.d/rc.S" rc.S
@@ -31,6 +34,7 @@ debian_091_configure_init() {
     chmod 754 "$ROOTMOUNT/etc/rc.d/rc.K"
 }
 
+# Write and install Debian 0.91 LILO configuration.
 debian_091_configure_lilo() {
     log_info "Configuring lilo for $ROOTDEV..."
     "$ROOTMOUNT/usr/sbin/rdev" "$ROOTMOUNT/vmlinuz" "$ROOTDEV"
@@ -46,12 +50,14 @@ debian_091_configure_lilo() {
     "$ROOTMOUNT/sbin/lilo" -r "$ROOTMOUNT" -C /etc/lilo.conf
 }
 
+# Install the Debian 0.91 first-boot setup hook.
 debian_091_install_setup_hook() {
     log_info "Creating file: $ROOTMOUNT/sbin/setup.sh"
     "$ROOTMOUNT/bin/cp" "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/sbin/setup.sh"
     chmod 755 "$ROOTMOUNT/sbin/setup.sh"
 }
 
+# Install and prepare a Debian 0.91 base system.
 _debian_091_install_base() {
     log_info "Installing Debian 0.91 base system"
     log_info "Debian 0.91 install configuration:"
@@ -64,6 +70,7 @@ _debian_091_install_base() {
     debian_091_install_setup_hook
 }
 
+# Unpack one Debian 0.91 package archive.
 debian_091_install_one_package() {
     PKG=$(basename "$1" .deb)
     log_info "Installing $PKG..."
@@ -76,6 +83,7 @@ debian_091_install_one_package() {
     fi
 }
 
+# Run non-interactive Debian 0.91 package install scripts.
 debian_091_run_package_scripts() {
     for INST in $(ls /var/adm/dpkg/inst/*.inst); do
         egrep -q '\<read\>' "$INST"
@@ -86,6 +94,7 @@ debian_091_run_package_scripts() {
     done
 }
 
+# Install staged Debian 0.91 packages.
 _debian_091_install_packages() {
     log_div
     log_info "Installing Debian 0.91 packages"

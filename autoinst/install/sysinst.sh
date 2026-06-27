@@ -1,4 +1,5 @@
 # shellcheck shell=sh
+# Create target directories for sysinstall-based installers.
 sysinstall_mkdirs() {
     for DIR in "$@"; do
         log_debug "Creating directory: $ROOTMOUNT/$DIR"
@@ -6,6 +7,7 @@ sysinstall_mkdirs() {
     done
 }
 
+# Move the generated fstab into the installed system.
 sysinstall_finish_fstab() {
     if [ -f "$ROOTMOUNT/fstab.tmp" ]; then
         log_info "Creating file: $ROOTMOUNT/etc/fstab"
@@ -15,6 +17,7 @@ sysinstall_finish_fstab() {
     fi
 }
 
+# Install the first-boot autoconf hook through rc.local.
 sysinstall_install_autoconf_hook() {
     log_info "Creating file: $ROOTMOUNT/autoconf.sh"
     cp "$INSTMOUNT/autoinst.d/autoconf.sh" "$ROOTMOUNT/autoconf.sh"
@@ -25,6 +28,7 @@ sysinstall_install_autoconf_hook() {
     echo "fi" >>"$ROOTMOUNT/etc/rc.local"
 }
 
+# Select the Slackware sysinstall mode from config or media.
 slackware_detect_sysinstall_mode() {
     if [ -n "$SYSINSTALL_MODE" ]; then
         log_info "Using configured SYSINSTALL_MODE=$SYSINSTALL_MODE"
@@ -43,6 +47,7 @@ slackware_detect_sysinstall_mode() {
     fi
 }
 
+# Write Slackware 1.x hardware settings.
 slackware_write_hwconfig() {
     VGAMODE=${VGAMODE:--1}
     log_info "Hardware configuration:"
@@ -55,6 +60,7 @@ slackware_write_hwconfig() {
     echo "VGAMODE $VGAMODE" >>"$ROOTMOUNT/etc/hwconfig"
 }
 
+# Run Slackware syssetup with canned answers.
 slackware_run_syssetup() {
     # Skip modem/mouse config and install Linux-only LILO.
     if [ "$SYSSETUP_PROFILE" = "sls103" ]; then
@@ -82,6 +88,7 @@ slackware_run_syssetup() {
     fi
 }
 
+# Install Slackware releases that use sysinstall.
 _slackware_sysinstall() {
     # installer for SLS sysinstall-based Slackware versions
     log_div
@@ -110,10 +117,12 @@ _slackware_sysinstall() {
     sysinstall_install_autoconf_hook
 }
 
+# Install one SLS package with sysinstall.
 sls_install_pkg() {
     sysinstall -instroot "$ROOTMOUNT" -install "$1"
 }
 
+# Install every SLS package in one disk directory.
 sls_install_diskdir() {
     DISKDIR=$1
     for PKGNAME in $(ls "$DISKDIR"); do
@@ -128,6 +137,7 @@ sls_install_diskdir() {
     done
 }
 
+# Install packages from a mounted SLS /user disk.
 sls_install_mounted_disk() {
     if [ -d /user ]; then
         log_info "Detected mounted SLS disk at /user"
@@ -137,6 +147,7 @@ sls_install_mounted_disk() {
     fi
 }
 
+# Install one selected SLS package series.
 sls_install_series() {
     SERIES=$1
     if [ "$SERIES" = "a" ]; then
@@ -153,6 +164,7 @@ sls_install_series() {
     done
 }
 
+# Select SLS install mode from config or staged media.
 sls_detect_install_mode() {
     if [ -n "$SLS_INSTALL_MODE" ]; then
         log_info "Using configured SLS_INSTALL_MODE=$SLS_INSTALL_MODE"
@@ -169,6 +181,7 @@ sls_detect_install_mode() {
     fi
 }
 
+# Install the SLS series required by the selected mode.
 sls_install_selected_series() {
     sls_install_series a
 
@@ -188,6 +201,7 @@ sls_install_selected_series() {
     fi
 }
 
+# Install SLS using sysinstall.
 _sls_sysinstall() {
     log_div
     log_info "Installing SLS with sysinstall"

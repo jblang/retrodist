@@ -118,7 +118,6 @@ assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 rm -rf "$qemu_mock_tmp"
 
 # --- slackware tagfile rules ------------------------------------------------
-# Reads the state token for a package out of a staged tagfile.
 tagstate() { awk -v p="$2:" '$1 == p { print $2 }' "$1"; }
 
 # Two-pass application of *.tag rules over staged series tagfiles.

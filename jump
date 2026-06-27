@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs a jumpbox for retro Linux distros to talk to
+# Starts a Debian jump box for retro guest file transfer and network tests.
 set -euo pipefail
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 JUMPHOME=${JUMPHOME:-$SCRIPTDIR/jump.d}
@@ -17,6 +17,7 @@ TEMPDIR=$(mktemp -d)
 SEEDIMG=$TEMPDIR/seed.iso
 trap 'rm -rf "$TEMPDIR"' EXIT
 
+# Select Debian and QEMU settings for the host platform.
 jump_configure_platform() {
   case "$HOST_OS/$HOST_ARCH" in
     Linux/*)
@@ -55,6 +56,7 @@ jump_configure_platform() {
   JUMPIMG=$JUMPHOME/retrojump-$DEBIAN_CODENAME-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
 }
 
+# Verify the host has the tools needed for the selected platform.
 jump_check_platform_prereqs() {
   if ! command -v "$QEMU_BIN" >/dev/null 2>&1; then
     echo "Missing $QEMU_BIN in PATH" >&2
@@ -72,6 +74,7 @@ EOF
   fi
 }
 
+# Fail early when the configured SSH forward port is already occupied.
 jump_check_ssh_port_available() {
   if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$JUMP_SSH_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     cat <<EOF >&2
@@ -88,9 +91,7 @@ EOF
   fi
 }
 
-# Appends a whitespace-separated argument string to JUMP_QEMU_ARGS.
-# Uses read -ra (not eval) so platform/env strings cannot trigger command
-# substitution or glob expansion; -d '' lets multi-line strings split too.
+# Append a whitespace-separated argument string to JUMP_QEMU_ARGS.
 jump_append_shell_words() {
   local words=()
   if [[ -n "${1:-}" ]]; then
@@ -101,6 +102,7 @@ jump_append_shell_words() {
   fi
 }
 
+# Print the QEMU drive arguments for the jump box system disk.
 jump_system_drive_args() {
   case "$DEBIAN_ARCH" in
     arm64)
@@ -112,6 +114,7 @@ jump_system_drive_args() {
   esac
 }
 
+# Print the QEMU drive arguments for the cloud-init seed image.
 jump_seed_drive_args() {
   case "$DEBIAN_ARCH" in
     arm64)
@@ -123,6 +126,7 @@ jump_seed_drive_args() {
   esac
 }
 
+# Build the cloud-init seed ISO for first boot.
 jump_make_seed_image() {
   local seed_dir=$TEMPDIR/seed
   mkdir -p "$seed_dir"
@@ -167,6 +171,7 @@ EOF
   exit 1
 }
 
+# Download and initialize the jump box working disk and seed image.
 jump_init() {
   local pubkey
   mkdir -p "$JUMPHOME"
@@ -239,6 +244,7 @@ EOF
   jump_make_seed_image
 }
 
+# Start the jump box VM.
 jump_run() {
   local seed=
   local system_drive=
@@ -267,14 +273,17 @@ jump_run() {
   "${JUMP_QEMU_ARGS[@]}"
 }
 
+# SSH into the jump box.
 jump_ssh() {
   ssh -i "$JUMPHOME/id_rsa" -p "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
+# Open an SFTP session to the jump box.
 jump_sftp() {
   sftp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
+# Copy files to or from the jump box.
 jump_scp() {
   local arg
   local params=()
@@ -290,6 +299,7 @@ jump_scp() {
   scp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" "${params[@]}"
 }
 
+# Print CLI usage and exit.
 jump_usage() {
 cat <<EOF
 Usage: $(basename "$0") COMMAND ...

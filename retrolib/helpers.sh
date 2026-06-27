@@ -22,9 +22,6 @@ url_path_depth() {
 }
 
 # Quotes one argument for safe, readable reuse on a POSIX shell command line.
-# Single-quotes only when the argument contains characters outside a safe set,
-# so ordinary tokens (including ones with ',' and '=') stay unquoted. This avoids
-# the noisy backslash escaping that bash 3.2 'printf %q' adds to commas, etc.
 shell_quote_word() {
     local s=$1
     case $s in
@@ -35,8 +32,7 @@ shell_quote_word() {
     printf '%s' "$s"
 }
 
-# Tests whether a path is a safe relative path: not empty, not absolute, and with
-# no '..' component, so it cannot escape its intended destination directory.
+# Tests whether a path is safe, relative, and unable to escape its destination.
 path_is_safe_relative() {
     local path=$1 component
     case $path in

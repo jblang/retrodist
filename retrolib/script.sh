@@ -92,6 +92,7 @@ script_change_floppy() {
     sleep 1
 }
 
+# Set the next QEMU boot device.
 script_set_boot() {
     qmp_boot_disk "$1"
 }

@@ -24,7 +24,7 @@ This table summarizes the SLS releases currently scripted in this repo. The data
 
 ## Installation
 
-For SLS variants that include `script.sh`, run the scripted install from the repo root:
+Run a scripted install when the selected variant includes `script.sh`:
 
 ```sh
 retro install sls/VERSION/VARIANT
@@ -36,6 +36,5 @@ For example:
 retro install sls/0.99p2/oldlinux
 ```
 
-`retro install` starts QEMU, uses `script.sh` from the selected config directory or its parent to handle the SVGA prompt, root-disk swap, `/retro/autoinst`, fdisk reboot, boot-floppy write, and final reboot. After the installer finishes, the VM will reboot into the installed system.
-
-If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-image` command to mount the required image.
+For the original manual install flow, use `retro boot` and follow the release's
+own instructions. When prompted to change disks, use `qmp change-image`.

@@ -12,7 +12,7 @@ inside old installer environments, see [autoinst/README.md](autoinst/README.md).
 3. Add `extract.sh` to stage install media into `qemu.d/`.
 4. Add `qemu.sh` to select an era-appropriate QEMU profile and hardware.
 5. Add `script.sh` when the install can be driven through QMP.
-6. Add `autoinst.sh` for the in-guest install manifest.
+6. Add `autoinst.sh` when supporting unattended install.
 7. Optionally add `autoconf.sh` for first-boot configuration.
 8. Add a distro README when there are release-specific notes an end user should
    know before booting or installing.
@@ -75,24 +75,8 @@ EXTRACT_PACKAGES=slakware
 extract_install_files
 ```
 
-Available variables:
-
-- `EXTRACT_SOURCE`: archive file or source directory, relative to the original
-  media directory when not absolute.
-- `EXTRACT_BOOT_IMAGE`: boot floppy image to place in `qemu.d/` and link as
-  `boot.img`.
-- `EXTRACT_ROOT_IMAGE`: root floppy image to place in `qemu.d/` and link as
-  `root.img`.
-- `EXTRACT_EXTRA_IMAGES`: array of additional image files to place in `qemu.d/`.
-- `EXTRACT_FAT_FILES`: array of files to copy into `qemu.d/fat/`.
-- `EXTRACT_PACKAGES`: package directory to copy into `qemu.d/fat/packages/`.
-
-When `EXTRACT_SOURCE` names an ISO, extraction also updates `install.iso` to
-point at that ISO. `boot` and `install` use `install.iso` as the default CD-ROM
-image unless the config provides `hdc.iso`.
-
-Use `debian_extract_fat_image IMAGE DEST FILE...` when a Debian installer needs
-selected files copied out of a FAT floppy image with lowercase filenames.
+See [retrolib/README.md](retrolib/README.md#extractsh) for the full
+`EXTRACT_*` variable list and extraction helper reference.
 
 ## QEMU Configuration
 
@@ -161,23 +145,9 @@ generated `qemu.d/` copies.
 
 ## Slackware Tagsets
 
-Slackware automated installs choose packages with `*.tag` files. A tagset line
-is:
-
-```text
-series package state
-```
-
-`state` is normally `ADD` or `SKP`. A wildcard package name applies to an
-entire series:
-
-```text
-a * ADD
-xap xv SKP
-```
-
-The filename stem is the tagset name. `INSTALL_TAGSETS` selects one or more
-space-separated stems at install time and defaults to `full`.
+Slackware automated installs choose packages with `*.tag` files. See
+[slackware/README.md](slackware/README.md#package-selection) for tagset syntax
+and user-facing selection examples.
 
 A variant-level tagset shadows a same-named version-level tagset. Run
 `retro tagfile slackware/<version>/<variant>` to regenerate `default.tag` from
@@ -195,3 +165,24 @@ Edit the source files instead:
 - `slackware/VERSION/VARIANT/autoinst.sh` for Slackware install manifests.
 - The relevant distro config directory for `script.sh`, `qemu.sh`,
   `extract.sh`, tagsets, and per-release notes.
+
+## Validation
+
+Run cheap checks after source changes:
+
+```bash
+git diff --check
+tests/unit.sh
+```
+
+For config changes, run the most relevant command you can reasonably verify:
+
+```bash
+retro extract CONFIG
+retro boot CONFIG
+retro install CONFIG
+```
+
+Full installs are slower and may require manual VM interaction, so reserve
+`retro install` for changes that affect scripted installation or in-guest
+configuration.

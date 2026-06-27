@@ -1,10 +1,13 @@
 # Slackware
 
-[Slackware](http://www.slackware.com/), first released in July 1993 by Patrick Volkerding, is the oldest Linux distro still maintained.  
+[Slackware](http://www.slackware.com/), first released in July 1993 by Patrick
+Volkerding, is the oldest Linux distro still maintained.
 
 ## Release History
 
-This table summarizes Slackware releases and major component versions. The data comes from the README.txt and ChangeLog.txt files for each version, taken from the source CD-ROM or official mirror. Placeholder rows with release dates from [Wikipedia](https://en.wikipedia.org/wiki/Slackware) are included for releases that are not yet in this repo.
+This table summarizes Slackware releases represented in this repo and their
+major component versions. The data comes from the README.txt and ChangeLog.txt
+files for each version, taken from the source CD-ROM or official mirror.
 
 | Release | Date | Kernel | C library | Compiler | XFree86 |
 | --- | --- | --- | --- | --- | --- |
@@ -30,39 +33,11 @@ This table summarizes Slackware releases and major component versions. The data 
 | [8.0](./8.0/README.txt) | [2001-06-28](./8.0/ChangeLog.txt) | 2.2.19 | glibc 2.2.3 | gcc 2.95.3<br>egcs 1.1.2 | 4.1.0 |
 | [8.1](./8.1/README.txt) | [2002-06-18](./8.1/ChangeLog.txt) | 2.4.18 | glibc 2.2.5 | gcc 2.95.3<br>gcc 3.1 | 4.2.0 |
 | [9.0](./9.0/README.txt) | [2003-03-18](./9.0/ChangeLog.txt) | 2.4.20 | glibc 2.3.1 | gcc 3.2.2 | 4.3.0 |
-| 9.1 | 2003-09-26 | — | — | — | — |
-| 10.0 | 2004-06-23 | — | — | — | — |
-| 10.1 | 2005-02-02 | — | — | — | — |
-| 10.2 | 2005-09-14 | — | — | — | — |
-| 11.0 | 2006-10-02 | — | — | — | — |
-| 12.0 | 2007-07-01 | — | — | — | — |
-| 12.1 | 2008-05-02 | — | — | — | — |
-| 12.2 | 2008-12-10 | — | — | — | — |
-| 13.0 | 2009-08-26 | — | — | — | — |
-| 13.1 | 2010-05-24 | — | — | — | — |
-| 13.37 | 2011-04-27 | — | — | — | — |
-| 14.0 | 2012-09-28 | — | — | — | — |
-| 14.1 | 2013-11-04 | — | — | — | — |
-| 14.2 | 2016-06-30 | — | — | — | — |
-| 15.0 | 2022-02-02 | — | — | — | — |
-
-## Milestones
-
-- Slackware `1.0` started out as a collection of patches and new packages for the Softlanding Linux System (SLS). It still used the SLS `doinstall`/`sysinstall` scripts and could install SLS packages directly.
-- Slackware `1.1` was the first release series with Slackware's own installer and package tools. The `setup` script replaced `doinstall` and `pkgtool` replaced `sysinstall`, and `1.1.2` introduced the color `dialog`-based installer flow that remained recognizable for decades.
-- Slackware `2.0.0` was the first release in this timeline to ship Linux `1.0.x`, while also offering a `1.1.x` development kernel on the same media.
-- Slackware `2.2` was the first release here to ship a Linux `1.2.x` kernel, marking the next major stable kernel generation after the `1.0.x` series.
-- Slackware `3.0` was the first ELF release. Its release notes explicitly brand it as "Slackware Linux 3.0.0 (ELF)", marking the transition away from the older `a.out` binary format while retaining compatibility for older binaries.
-- Slackware `3.1` was the first release to move to Linux `2.0.x`, the long-lived kernel series that powered much of late-1990s Linux.
-- Slackware `3.5` was the first release here to adopt `egcs` as the primary compiler set. Its changelog also marks the practical end of bundled `a.out` development support, with the old `a.out` compiler packages removed and ELF established as the default toolchain.
-- Slackware `3.5` and `3.6` also show the first `glibc` support in this timeline as optional contrib packages, before `glibc` became the default system C library.
-- Slackware `4.0` was the first release to ship Linux `2.2.x`, another major kernel transition, and it was also the last major release here still based on `libc5`.
-- Slackware `7.0` was the full C library transition: the first release here based on `glibc` instead of `libc5`. It also introduced `gcc 2.95` alongside `egcs` and the older `gcc 2.7.2.3`, reflecting the compiler churn of the era.
 
 ## Historical Background
 
 - [Wikipedia article](https://en.wikipedia.org/wiki/Slackware)
-- A History of Slackware Devlopment by Eric Hamleers (aka alienbob)
+- A History of Slackware Development by Eric Hamleers (aka alienbob)
   - [Video](https://www.youtube.com/watch?v=Xh2eah5L4b8)
   - [Slides](http://www.slackware.com/~alien/tdose2009/t-dose-slackware.pdf)
 - Interviews with Patrick Volkerding:
@@ -71,7 +46,7 @@ This table summarizes Slackware releases and major component versions. The data 
 
 ## Installation
 
-For Slackware variants that include `script.sh`, run the scripted install from the repo root:
+Run a scripted install when the selected variant includes `script.sh`:
 
 ```sh
 retro install slackware/VERSION/VARIANT
@@ -83,6 +58,23 @@ For example:
 retro install slackware/3.6/linuxmall
 ```
 
-`retro install` starts QEMU, uses `script.sh` from the selected config directory or its parent to handle boot prompts, root-disk swaps, login, and `/retro/autoinst`, then switches the next boot to the hard disk for the final reboot. After the installer and post-install configuration finish, the VM will reboot into the installed system.
+For the original manual install flow, use `retro boot` and follow the release's
+own instructions. When prompted to change disks, use `qmp change-image`.
 
-If you want the original manual install flow instead, use the `retro boot` command instead, and follow the original installation instructions for the version you are installing.  When prompted to change disks, use the `qmp change-image` command to mount the required image.
+## Package Selection
+
+Automated Slackware installs use tagsets: files named `*.tag` in a config
+directory. Three conventional sets are provided:
+
+- `full`: install everything; this is the default.
+- `default`: Slackware's stock selection, generated by `retro tagfile`.
+- `base`: a minimal base system.
+
+Choose tagsets with `INSTALL_TAGSETS`:
+
+```bash
+INSTALL_TAGSETS=base retro install slackware/3.0/walnut
+```
+
+To customize package selection, edit or add a `*.tag` file. Each line is
+`series package state`, where state is `ADD` or `SKP`.

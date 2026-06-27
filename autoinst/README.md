@@ -98,45 +98,9 @@ variables and calling wrappers such as `mod_config`, `net_config`,
 `diskutil.sh`, then defines public wrapper functions that load the
 implementation scripts on demand.
 
-Install wrappers:
-
-- `slackware_sysinstall`
-  Loads `install/sysinst.sh` and calls `_slackware_sysinstall`.
-
-- `slackware_pkgtool_install_111`
-  Loads `install/pkgtool.sh` and calls `_slackware_pkgtool_install_111`.
-
-- `slackware_pkgtool_install`
-  Loads `install/pkgtool.sh` and calls `_slackware_pkgtool_install`.
-
-- `sls_sysinstall`
-  Loads `install/sysinst.sh` and calls `_sls_sysinstall`.
-
-- `debian_install_base`
-  Loads `install/debian.sh` and calls `_debian_install_base`.
-
-- `debian_091_install_base`
-  Loads `install/deb091.sh` and calls `_debian_091_install_base`.
-
-- `debian_091_install_packages`
-  Loads `install/deb091.sh` and calls `_debian_091_install_packages`.
-
-Configuration wrappers:
-
-- `mod_config`
-  Loads `config/modules.sh` and calls `_mod_config`.
-
-- `net_config`
-  Loads `config/net.sh` and calls `_net_config`.
-
-- `tty_config`
-  Loads `config/tty.sh` and calls `_tty_config`.
-
-- `x11_config`
-  Loads `config/x11.sh` and calls `_x11_config`.
-
-- `mail_config`
-  Loads `config/mail.sh` and calls `_mail_config`.
+Install wrappers are documented in [install/README.md](install/README.md).
+First-boot configuration wrappers are documented in
+[config/README.md](config/README.md).
 
 ## `logging.sh`
 
@@ -232,14 +196,12 @@ Common disk variables:
 ## `install/`
 
 `install/` contains distro-specific install helpers loaded through `common.sh`.
-See [install/README.md](install/README.md)
-for details.
+See [install/README.md](install/README.md) for details.
 
 ## `config/`
 
 `config/` contains first-boot configuration helpers loaded through `common.sh`.
-See [config/README.md](config/README.md)
-for details.
+See [config/README.md](config/README.md) for details.
 
 ## Distro Manifests
 

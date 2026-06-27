@@ -15,7 +15,7 @@ This table summarizes the early Debian releases represented in this repo.
 
 ## Installation
 
-For Debian variants that include `script.sh`, run the scripted install from the repo root:
+Run a scripted install when the selected variant includes `script.sh`:
 
 ```sh
 retro install debian/VERSION/VARIANT
@@ -27,9 +27,8 @@ For example:
 retro install debian/1.2/official
 ```
 
-`retro install` starts QEMU, uses `script.sh` from the selected config directory or its parent to handle installer prompts and run `/retro/autoinst`, then switches the next boot to the hard disk for the final reboot. After the installer and post-install configuration finish, the VM will reboot into the installed system.
-
-If you want the original manual install flow instead, use the `retro boot` command and follow the original installation instructions for the version you are installing. When prompted to change disks, use the `qmp change-image` command to mount the required image.
+For the original manual install flow, use `retro boot` and follow the release's
+own instructions. When prompted to change disks, use `qmp change-image`.
 
 ## Version Notes
 

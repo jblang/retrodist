@@ -12,7 +12,7 @@ Walnut Creek CD-ROM released several Linux Toolkit CDs with Linux distros availa
 
 ## Jan 1999
 
-- RedHat 5.2
+- Red Hat 5.2
 - Slackware 3.6
 - TurboLinux 3.0
 
@@ -27,5 +27,5 @@ Walnut Creek CD-ROM released several Linux Toolkit CDs with Linux distros availa
 
 - Debian 2.1
 - FreeBSD 3.3
-- RedHat 6.1
+- Red Hat 6.1
 - Slackware 7.0

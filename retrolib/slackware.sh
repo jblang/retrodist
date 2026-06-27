@@ -7,8 +7,7 @@ SLACKWARE_PKGLIST=
 # Space-separated *.tag stems to apply at install time (default: full).
 INSTALL_TAGSETS=${INSTALL_TAGSETS:-full}
 
-# Copies each disk's tagfile and description files (disk*, *.txt) from srcroot
-# into its series' first disk, tagroot/<series>1; tagfile.org lands as tagfile.
+# Consolidates each disk's tagfile and package descriptions under the first disk.
 slackware_consolidate_tagfiles() {
     local srcroot=$1 tagroot=$2 src fname diskdir firstdir
     log_info "Consolidating Slackware tagfiles from $srcroot"
@@ -24,8 +23,7 @@ slackware_consolidate_tagfiles() {
         done
 }
 
-# Extracts the tagfile/description sources for default.tag into tagroot, from
-# staged FAT packages if present, otherwise from an install ISO.
+# Extracts tagfile and description sources for generating default.tag.
 slackware_extract_tagfiles() {
     local tagroot=$1
     local pkgroot
@@ -48,8 +46,7 @@ slackware_extract_tagfiles() {
     fi
 }
 
-# Extracts an ISO's tagfile and disk*/*.txt members into tagroot, using the
-# cached package listing to locate them, then consolidates them.
+# Extracts an ISO's tagfile and description members into tagroot.
 slackware_extract_tagfiles_from_iso() {
     local iso=$1 tagroot=$2
     local pathroot tmpdir
@@ -74,8 +71,7 @@ slackware_extract_tagfiles_from_iso() {
     rm -rf "$tmpdir"
 }
 
-# Emits the staged-package universe as "target<TAB>series<TAB>pkg" lines (pkg
-# version-stripped), targeting each series' first-disk tagfile and tagfile.new.
+# Emits the staged-package universe for tagfile generation.
 slackware_universe_from_staged() {
     local pkgroot=$1 series firstdir seriesdir
     find "$pkgroot" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r seriesdir; do
@@ -107,8 +103,7 @@ slackware_staged_pkg_root() {
     return 1
 }
 
-# Lists the ISO's package paths once into $TEMPDIR, caching the path in
-# SLACKWARE_PKGLIST for reuse; returns 1 if no packages are found.
+# Lists an ISO's package paths once and caches the list path.
 slackware_ensure_pkglist() {
     local iso=$1
 
@@ -134,8 +129,7 @@ slackware_ensure_pkglist() {
     return 1
 }
 
-# Emits the ISO-package universe (from SLACKWARE_PKGLIST) as
-# "target<TAB>series<TAB>pkg" lines, targeting each disk's fat/tagfiles tagfile.
+# Emits the ISO-package universe for tagfile generation.
 slackware_universe_from_iso() {
     awk -F/ -v root=fat/tagfiles '
         NF >= 3 {
@@ -149,8 +143,7 @@ slackware_universe_from_iso() {
     ' "$SLACKWARE_PKGLIST"
 }
 
-# Collects *.tag from CONFDIR and parent into SLACKWARE_TAGSETS (CONFDIR shadows
-# parent), then filters to stems listed in INSTALL_TAGSETS.
+# Collects selected tagsets, with CONFDIR shadowing its parent.
 slackware_collect_tagsets() {
     local dir=$CONFDIR parent f name stem
     parent=$(dirname "$dir")
@@ -178,8 +171,7 @@ slackware_collect_tagsets() {
     log_debug "Selected Slackware tagsets: ${SLACKWARE_TAGSETS[*]:-(none)}"
 }
 
-# Writes each install tagfile from the package universe (default SKP, overridden
-# by *.tag wildcard then specific rules per INSTALL_TAGSETS) and fat/disksets.txt.
+# Writes install tagfiles and disksets.txt from tagset rules.
 slackware_prepare_tagfiles() {
     local pkgroot universe=$TEMPDIR/tagfile-universe d
     local -a SLACKWARE_TAGSETS=()
@@ -258,8 +250,7 @@ slackware_prepare_tagfiles() {
     log_info "Slackware tagfile preparation complete"
 }
 
-# Generates default.tag in outfile from tagroot's tagfile/description sources;
-# skips silently when none are present (non-Slackware or pre-tagfile media).
+# Generates default.tag from extracted tagfile and description sources.
 slackware_generate_default_tag() {
     local tagroot=$1
     local outfile=$2

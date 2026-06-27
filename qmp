@@ -8,6 +8,7 @@ source "$SCRIPTDIR/retrolib/logging.sh"
 # shellcheck source=retrolib/qmp.sh
 source "$SCRIPTDIR/retrolib/qmp.sh"
 
+# Print CLI usage.
 usage() {
   cat <<EOF
 Usage: $(basename "$0") COMMAND [OPTIONS] [ARGS]
@@ -43,10 +44,12 @@ QEMU_QMP_SOCKET, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
 EOF
 }
 
+# Prefix stdin with line numbers.
 qmp_number_lines() {
   cat -n
 }
 
+# Parse shared QMP CLI options.
 qmp_parse_options() {
   local optstring
   optstring=$1

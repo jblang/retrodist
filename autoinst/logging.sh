@@ -10,6 +10,7 @@ LOG_MAGENTA='[1;35m'
 LOG_WHITE='[1;37m'
 LOG_GREY='[0;37m'
 
+# Write one log message to stderr and AUTOINST_LOG when configured.
 log_write() {
     LOG_LEVEL=$1
     LOG_COLOR=$2
@@ -21,6 +22,7 @@ log_write() {
     fi
 }
 
+# Log a debug message when debug logging is enabled.
 log_debug() {
     if [ "$AUTOINST_DEBUG" != "1" ]; then
         return 0
@@ -28,22 +30,27 @@ log_debug() {
     log_write DEBUG "$LOG_BLUE" "$@"
 }
 
+# Log an informational message.
 log_info() {
     log_write INFO "$LOG_GREEN" "$@"
 }
 
+# Log a warning message.
 log_warn() {
     log_write WARN "$LOG_YELLOW" "$@"
 }
 
+# Log an error message.
 log_error() {
     log_write ERROR "$LOG_RED" "$@"
 }
 
+# Log an operator attention message.
 log_attention() {
     log_write ATTN "$LOG_MAGENTA" "$@"
 }
 
+# Log a divider line.
 log_div() {
     echo "--------------------------------------------------------------------------------" >&2
     if [ -n "$AUTOINST_LOG" ]; then
@@ -51,8 +58,7 @@ log_div() {
     fi
 }
 
-# Logs an error and aborts the install/config so a failed critical step does not
-# cascade into later, more confusing failures.
+# Log an error and abort the install or configuration run.
 die() {
     log_error "$1"
     exit 1

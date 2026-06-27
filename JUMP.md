@@ -1,88 +1,52 @@
 # Jump Box
 
-The `jump` script starts a modern Debian VM that can act as a network bridge
-between the host and one retro guest. It exists for cases where `qemu.d/fat/`
-is not enough and you specifically need FTP-style transfer from inside an old
-guest.
+`jump` starts a modern Debian VM for file transfer and network testing with one
+retro guest. Use it when the FAT disk is awkward or when you specifically need
+FTP from inside the guest.
 
-For ordinary file transfer, prefer `qemu.d/fat/` and tar archives. The FAT disk
-works without guest networking, and tar preserves Unix filenames, permissions,
-owners, symlinks, and other metadata that FAT cannot represent.
-
-## When to Use It
-
-Use the jump box when:
-
-- The retro guest has an FTP client and you want to pull files over the network.
-- You need to test guest networking against another machine.
-- The guest cannot conveniently mount or use the staged FAT disk.
-
-Avoid it when:
-
-- You only need to copy files in or out of a VM.
-- More than one retro guest needs the bridge at the same time.
-- The guest has no working network stack.
-
-## How It Works
-
-The jump box is a Debian cloud image configured by cloud-init. It has two
-network interfaces:
-
-- `internet0`: QEMU user-mode networking for host access and package setup.
-- `retronet0`: a socket network used by one retro guest.
-
-The host reaches the jump box with SSH, SFTP, or SCP through a forwarded local
-port. The retro guest reaches the jump box FTP server at `10.0.2.1`.
-
-The first run downloads a Debian cloud image, creates a resized working disk,
-generates an SSH key pair, builds a cloud-init seed ISO, installs `vsftpd`, and
-configures the FTP service.
+For ordinary file copies, prefer `qemu.d/fat/` plus tar archives. FAT works
+without guest networking; tar preserves Unix permissions, owners, symlinks, and
+case-sensitive names.
 
 ## Quick Start
 
-Start the jump box in one terminal:
+Start the jump box:
 
 ```bash
 jump run
 ```
 
-Start one retro VM in another terminal:
+Start one retro VM on the jump network:
 
 ```bash
 QEMU_NET_TYPE=jump retro boot slackware/3.0/walnut
 ```
 
-From the host, copy a file into the jump box:
+Copy a file from the host:
 
 ```bash
 jump scp local-file retro:
 ```
 
-From the retro guest, connect to FTP:
+Fetch it from the retro guest:
 
 ```text
 ftp 10.0.2.1
 ```
 
-The FTP server supports anonymous access and user login with username/password
-`retro`/`retro`.
+FTP supports anonymous access and the `retro`/`retro` user.
 
 ## Commands
 
 ```text
-Usage: jump COMMAND ...
-
-Commands:
-  run     start the jump box with a serial console
-  ssh     ssh into the jump box
-  sftp    sftp into the jump box
-  scp     scp a file into or out of the jump box
+jump run      start the jump box with a serial console
+jump ssh      SSH into the jump box
+jump sftp     SFTP into the jump box
+jump scp      copy files into or out of the jump box
 ```
 
-Additional parameters are passed verbatim to `ssh`, `sftp`, or `scp`. For
-`scp`, paths beginning with `retro:` are expanded to `retro@localhost:`.
-
-Examples:
+Extra arguments go to `ssh`, `sftp`, or `scp`. For `scp`, paths beginning with
+`retro:` expand to `retro@localhost:`.
 
 ```bash
 jump ssh
@@ -91,74 +55,68 @@ jump scp notes.txt retro:
 jump scp retro:notes.txt .
 ```
 
-## State Directory
+## Network Layout
+
+The jump box has two NICs:
+
+- `internet0`: QEMU user networking for SSH/SFTP/SCP and first-boot setup.
+- `retronet0`: socket networking for one retro guest.
+
+The host reaches SSH through a forwarded local port. The retro guest reaches the
+FTP server at `10.0.2.1`.
+
+Only run one retro guest on `QEMU_NET_TYPE=jump` at a time.
+
+## State
 
 Generated state lives in `jump.d/` by default:
 
-- `id_rsa` and `id_rsa.pub`: SSH key pair used by the helper commands.
-- Debian cloud image downloads.
-- The resized jump box working disk.
+- Debian cloud image download.
+- Resized working disk.
+- `id_rsa` and `id_rsa.pub` for the helper commands.
 
-`jump.d/` is gitignored and should not be shared or backed up into public
-artifacts because it contains a private SSH key.
+`jump.d/` is gitignored. Do not publish it; it contains a private SSH key.
 
-Set `JUMPHOME` to store this state elsewhere:
+Use `JUMPHOME` to put this state somewhere else:
 
 ```bash
 JUMPHOME=/path/to/retrodist-jump jump run
+JUMPHOME=/path/to/retrodist-jump jump ssh
 ```
-
-Use the same `JUMPHOME` value for `jump ssh`, `jump sftp`, and `jump scp`.
 
 ## Configuration
 
-`JUMP_SSH_PORT` sets the host port forwarded to the jump box's SSH service.
-The default is `2222`.
+- `JUMP_SSH_PORT`: host SSH forward. Default: `2222`.
+- `JUMP_IMAGE_FLAVOR`: Debian cloud image flavor. Default: `generic`.
+- `JUMP_RETRONET`: QEMU socket network arguments for the retro side. Default:
+  TCP port `1234`.
+- `QEMU_NET_DEVICE_RETRONET`: jump-box NIC model for the retro side. Default:
+  `e1000`.
+
+Example:
 
 ```bash
 JUMP_SSH_PORT=2223 jump run
 JUMP_SSH_PORT=2223 jump ssh
 ```
 
-`JUMP_IMAGE_FLAVOR` selects the Debian cloud image flavor. The default is
-`generic`.
+## Host Support
 
-`JUMP_RETRONET` overrides the QEMU socket network arguments used for the retro
-guest side. The default listens on TCP port `1234`.
-
-`QEMU_NET_DEVICE_RETRONET` overrides the emulated NIC model used by the jump
-box on its retro-facing network. The default is `e1000`.
-
-## Platform Notes
-
-The helper chooses a QEMU system binary and machine based on the host:
+The helper picks a QEMU system binary and machine from the host:
 
 - Linux: `qemu-system-x86_64` with KVM when available.
 - macOS Intel: `qemu-system-x86_64` with HVF.
-- macOS Apple Silicon: `qemu-system-aarch64` with HVF and Homebrew's AArch64
+- macOS Apple Silicon: `qemu-system-aarch64` with HVF and Homebrew AArch64
   EDK2 firmware.
 - Other hosts: `qemu-system-x86_64` with TCG.
 
-The first run needs network access to download the Debian cloud image. It also
-needs `qemu-img`, `wget`, `ssh`, `scp`, `sftp`, and an ISO builder such as
-`xorriso`, `mkisofs`, or macOS `hdiutil`.
-
-## Limitations
-
-Only one retro guest should connect to the jump box at a time. If multiple
-retro guests use `QEMU_NET_TYPE=jump`, networking may stop working; shut down
-the guests and restart only one.
-
-The jump box FTP service is plain FTP. Do not use it for sensitive data or real
-credentials. It is intended for local throwaway VM transfer workflows.
-
-Old FTP clients vary widely. Some may require active-mode FTP, some may not
-handle DNS, and some may have limited filename support. Use the numeric address
-`10.0.2.1` from the retro guest.
+First boot needs network access and these host tools: `qemu-img`, `wget`,
+`ssh`, `scp`, `sftp`, and an ISO builder such as `xorriso`, `mkisofs`, or macOS
+`hdiutil`.
 
 ## Shutdown
 
-Shut down the jump box from its serial console or an SSH session:
+From the serial console or SSH:
 
 ```bash
 sudo poweroff
@@ -168,18 +126,11 @@ Then stop any retro guest using `QEMU_NET_TYPE=jump`.
 
 ## Troubleshooting
 
-If `jump run` reports that the SSH port is already in use, choose another port:
+- SSH port in use: set `JUMP_SSH_PORT` to another port.
+- `jump ssh` fails right after first boot: wait for cloud-init and retry.
+- Retro guest cannot reach `10.0.2.1`: start `jump run` first and keep only one
+  retro guest on the jump network.
+- Need a clean jump box: stop it and remove or move `jump.d/`. This discards
+  the SSH key and working disk.
 
-```bash
-JUMP_SSH_PORT=2223 jump run
-```
-
-If `jump ssh` cannot connect immediately after first boot, wait for Debian
-cloud-init to finish and try again.
-
-If the retro guest cannot reach `10.0.2.1`, confirm that the jump box was
-started first and that only one retro guest is using `QEMU_NET_TYPE=jump`.
-
-If the Debian image needs to be rebuilt, stop the jump box and remove or move
-the generated `jump.d/` directory. This discards the generated SSH key and
-working disk.
+Plain FTP is not secure. Use this only for local throwaway transfer workflows.

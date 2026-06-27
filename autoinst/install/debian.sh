@@ -1,4 +1,5 @@
 # shellcheck shell=sh
+# Decompress stdin with gunzip when available, otherwise zcat.
 debian_gzip_extract() {
     if [ -x /bin/gunzip ] || [ -x /usr/bin/gunzip ]; then
         log_debug "Using gunzip for compressed archive extraction"
@@ -9,6 +10,7 @@ debian_gzip_extract() {
     fi
 }
 
+# Replace inittab with Debian's first-boot setup launcher.
 debian_install_first_boot_init() {
     if [ -f "$ROOTMOUNT/etc/inittab" ]; then
         log_info "Creating backup file: $ROOTMOUNT/etc/inittab.real"
@@ -23,6 +25,7 @@ debian_install_first_boot_init() {
     chown root.root "$ROOTMOUNT/etc/inittab"
 }
 
+# Copy Debian first-boot setup hooks into the target root.
 debian_copy_base_configuration_hooks() {
     if [ -f /etc/root.sh.tar.gz ]; then
         log_info "Using root.sh.tar.gz configuration hook"
@@ -48,6 +51,7 @@ debian_copy_base_configuration_hooks() {
     fi
 }
 
+# Extract the Debian base tarball into the target root.
 debian_extract_base_system() {
     log_info "Installing base system to $ROOTDEV..."
     # cd must succeed before extracting: star writes into the current directory,
@@ -68,6 +72,7 @@ debian_extract_base_system() {
     mv "$ROOTMOUNT/fstab.tmp" "$ROOTMOUNT/etc/fstab"
 }
 
+# Install the kernel from Debian's staged boot floppy files.
 debian_install_boot_floppy_kernel() {
     log_info "Installing boot kernel..."
     cd "$INSTMOUNT/bootflop" || die "Unable to cd to $INSTMOUNT/bootflop."
@@ -75,6 +80,7 @@ debian_install_boot_floppy_kernel() {
     cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
+# Install Debian driver modules when staged driver media exists.
 debian_install_driver_modules() {
     if [ ! -f "$INSTMOUNT/drivers/install.sh" ]; then
         return 0
@@ -86,6 +92,7 @@ debian_install_driver_modules() {
     cd "$ROOTMOUNT" || die "Unable to cd back to $ROOTMOUNT."
 }
 
+# Run target LILO with the target library path.
 debian_run_lilo() {
     (
         export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"
@@ -93,6 +100,7 @@ debian_run_lilo() {
     )
 }
 
+# Mark the Debian root partition active.
 debian_activate_partition() {
     (
         export LD_LIBRARY_PATH="$ROOTMOUNT/lib:$ROOTMOUNT/usr/lib"
@@ -100,6 +108,7 @@ debian_activate_partition() {
     )
 }
 
+# Write Debian LILO config, install the MBR, and activate root.
 debian_install_lilo() {
     log_info "Installing LILO for $ROOTDEV..."
     log_info "Creating file: $ROOTMOUNT/etc/lilo.conf"
@@ -134,6 +143,7 @@ EOF
     debian_activate_partition "$BOOTDEV" "$BOOTPART"
 }
 
+# Install and prepare a Debian 1.x base system.
 _debian_install_base() {
     log_div
     log_info "Installing Debian base system"
@@ -163,6 +173,7 @@ _debian_install_base() {
     debian_install_lilo
 }
 
+# Normalize Debian keyboard config when the base system ships one.
 _debian_kbd_config() {
     # Only normalize the keyboard config the base actually shipped. 1.1 ships
     # /etc/kbd/config with template values KEYMAP=N/SOFTFONT=N that crash 0kbd;
@@ -182,6 +193,7 @@ SOFTFONT=$DEBIAN_SOFTFONT
 EOF
 }
 
+# Set Debian timezone files when the requested zone exists.
 _debian_timezone_config() {
     DEBIAN_TIMEZONE=${DEBIAN_TIMEZONE:-America/Los_Angeles}
     if [ ! -f "$ROOTMOUNT/usr/lib/zoneinfo/$DEBIAN_TIMEZONE" ]; then
