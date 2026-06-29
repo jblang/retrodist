@@ -1,19 +1,32 @@
 # shellcheck shell=bash
 # Extraction helpers for mounting media images and building the staged install tree.
 
+# Updates a canonical image name to point at an extracted image name.
+retro_link_image_name() {
+    local link_name=$1
+    local image=${2:-}
+    local image_name=${image##*/}
+
+    if [[ -z "$image_name" ]]; then
+        return
+    fi
+
+    if [[ "$image_name" == "$link_name" ]]; then
+        log_debug "Install image already named $link_name"
+        return
+    fi
+
+    log_debug "Linking $link_name -> $image_name"
+    ln -sfn "$image_name" "$link_name"
+}
+
 # Updates boot.img and root.img symlinks to extracted image names.
 retro_link_boot_root() {
     local boot_image=${1:-}
     local root_image=${2:-}
 
-    if [[ -n "$boot_image" ]]; then
-        log_debug "Linking boot.img -> $boot_image"
-        ln -sfn "$boot_image" boot.img
-    fi
-    if [[ -n "$root_image" ]]; then
-        log_debug "Linking root.img -> $root_image"
-        ln -sfn "$root_image" root.img
-    fi
+    retro_link_image_name boot.img "$boot_image"
+    retro_link_image_name root.img "$root_image"
 }
 
 # Extracts selected FAT image files into a lowercase destination tree.

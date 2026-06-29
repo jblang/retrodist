@@ -12,6 +12,8 @@ source "$REPO_ROOT/retrolib/logging.sh"
 source "$REPO_ROOT/retrolib/qemu.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/slackware.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/extract.sh"
 
 tests_run=0
 tests_failed=0
@@ -116,6 +118,17 @@ qemu_configure_display_scaling
 assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
+
+# --- extract image links ----------------------------------------------------
+extract_tmp=$(mktemp -d)
+printf 'boot image\n' >"$extract_tmp/boot.img"
+(cd "$extract_tmp" && retro_link_boot_root boot.img)
+assert_eq "extract/boot-img-stays-file" "regular file" "$(cd "$extract_tmp" && if [ -f boot.img ] && [ ! -L boot.img ]; then printf 'regular file'; else printf 'other'; fi)"
+
+printf 'kernel image\n' >"$extract_tmp/bare.i"
+(cd "$extract_tmp" && retro_link_boot_root bare.i)
+assert_eq "extract/boot-img-links-other-name" "bare.i" "$(readlink "$extract_tmp/boot.img")"
+rm -rf "$extract_tmp"
 
 # --- slackware tagfile rules ------------------------------------------------
 tagstate() { awk -v p="$2:" '$1 == p { print $2 }' "$1"; }
