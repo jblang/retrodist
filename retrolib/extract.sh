@@ -116,6 +116,58 @@ extract_truncate_floppy_image() {
     fi
 }
 
+# Stages a Red Hat Kickstart file on a floppy image.
+redhat_stage_kickstart() {
+    local boot_image=${1:-boot.img}
+    local kickstart
+    local stripped_kickstart
+    local help_file
+    local status
+
+    case ${CONFNAME:-} in
+    redhat/*) ;;
+    *) return 0 ;;
+    esac
+
+    kickstart=$(retro_config_file ks.cfg || true)
+    if [[ -z "$kickstart" ]]; then
+        return 0
+    fi
+    if ! command -v mcopy >/dev/null 2>&1; then
+        log_error "mcopy is required to add ${kickstart##*/} to $boot_image. Run retro prereq to install mtools."
+        return 1
+    fi
+    if [[ -e "$boot_image" && ! -f "$boot_image" ]]; then
+        log_error "Kickstart file configured, but $boot_image is not a regular file."
+        return 1
+    fi
+    if [[ ! -f "$boot_image" ]]; then
+        log_warn "Kickstart file configured, but boot image $boot_image was not staged."
+        return 0
+    fi
+
+    stripped_kickstart=$(mktemp "${TEMPDIR:-${TMPDIR:-/tmp}}/ks.cfg.XXXXXX") || return 1
+    sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' "$kickstart" >"$stripped_kickstart" || {
+        rm -f "$stripped_kickstart"
+        return 1
+    }
+
+    log_info "Adding stripped ${kickstart##*/} to Red Hat floppy image $boot_image"
+    if mcopy -o -i "$boot_image" "$stripped_kickstart" ::ks.cfg 2>/dev/null; then
+        rm -f "$stripped_kickstart"
+        return 0
+    fi
+
+    log_warn "Kickstart file did not fit; removing Red Hat boot help messages and retrying."
+    for help_file in expert.msg general.msg kickit.msg param.msg rescue.msg examples.msg; do
+        mdel -i "$boot_image" "::$help_file" >/dev/null 2>&1 || true
+    done
+    mcopy -o -i "$boot_image" "$stripped_kickstart" ::ks.cfg
+    status=$?
+    rm -f "$stripped_kickstart"
+    return "$status"
+}
+
 # Extracts boot, root, and extra images from an archive source.
 extract_install_archive_images() {
     local source=$1
@@ -312,4 +364,9 @@ retro_extract() {
     else
         log_debug "Using extracted files"
     fi
+
+    pushd "$EXTRACTDIR" >/dev/null || return
+    redhat_stage_kickstart boot.img || return
+    autoinst_prep
+    popd >/dev/null || return
 }

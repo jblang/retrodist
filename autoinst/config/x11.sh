@@ -1,4 +1,6 @@
 # shellcheck shell=sh
+X11_CHIPSET=${X11_CHIPSET:-clgd5229}
+
 # Emit a startx wrapper that restores console fonts after early XFree86 exits.
 x11_build_startx_setfont_wrapper() {
     cat <<'EOF'
@@ -139,6 +141,7 @@ EndSection
 # Cirrus SVGA card.
 Section "Device"
     Identifier "QEMU"
+    Chipset "$X11_CHIPSET"
     Option "noaccel"
     Option "sw_cursor"
 EndSection
@@ -323,6 +326,7 @@ x11_3x4x_common_config() {
     log_info "  X11_DEPTHS=$X11_DEPTHS"
     log_info "  X11_DEFAULT_DEPTH=$X11_DEFAULT_DEPTH"
     log_info "  X11_MODES=$X11_MODES"
+    log_info "  X11_CHIPSET=$X11_CHIPSET"
     log_info "Found X11 server at $X11_SERVER"
     x11_link_var_x11r6_bin
 

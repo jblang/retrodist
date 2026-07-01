@@ -99,6 +99,7 @@ Variables:
 - `X11_DEPTHS`: display depths in preference order. Default: `16 8 32`.
 - `X11_MODES`: quoted mode list. Default:
   `"1024x768" "800x600" "640x480"`; mono defaults to `"640x480"`.
+- `X11_CHIPSET`: Cirrus chipset for SVGA configs. Default: `clgd5229`.
 
 Existing `XF86Config` or `Xconfig` files are saved as `.orig`.
 

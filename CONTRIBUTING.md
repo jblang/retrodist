@@ -120,7 +120,7 @@ Useful primitives:
 
 - `script_wait_string TEXT [TIMEOUT] [INTERVAL]`
 - `script_wait_line TEXT [TIMEOUT] [INTERVAL]`
-- `script_press_key KEY`
+- `script_press_key KEY [COUNT]`
 - `script_send_line TEXT`
 - `script_change_floppy IMAGE`
 - `script_set_boot DISK`

@@ -3,10 +3,10 @@
 This directory contains the shared runtime copied onto staged installer media
 for automated distro installation and first-boot configuration.
 
-`retrolib/helpers.sh` stages this tree with `autoinst_prep`: it copies the
-main install runner to `qemu.d/fat/autoinst`, copies this directory to
-`qemu.d/fat/autoinst.d`, and copies each distro's manifests to
-`qemu.d/fat/autoinst.d/distro/`.
+`retrolib/extract.sh` stages this tree during `retro extract` with
+`autoinst_prep`: it copies the main install runner to `qemu.d/fat/autoinst`,
+copies this directory to `qemu.d/fat/autoinst.d`, and copies any configured
+distro manifests to `qemu.d/fat/autoinst.d/distro/`.
 
 For the host-side staging process and config file lookup rules, see
 [retrolib/README.md](../retrolib/README.md). For adding a new distro manifest,
@@ -86,7 +86,7 @@ At runtime it:
    `AUTOINST_LOG=/autoinst.log` unless overridden.
 6. Sources `/retro/autoinst.d/distro/autoconf.sh`.
 7. Removes the running script so it does not run again.
-8. Syncs and reboots.
+8. Syncs and reboots unless `AUTOCONF_REBOOT` is `0`, `false`, or `no`.
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `mod_config`, `net_config`,

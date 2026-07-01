@@ -1,4 +1,3 @@
 EXTRACT_SOURCE=disc1.iso
 EXTRACT_BOOT_IMAGE=images/boot.img
 extract_install_files
-#extract_truncate_floppy_image boot.img

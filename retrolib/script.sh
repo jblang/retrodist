@@ -75,9 +75,28 @@ script_wait_line() {
     script_wait_until script_screen_contains_line "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
 }
 
-# Sends one QEMU sendkey token to the guest.
+# Sends one QEMU sendkey token to the guest one or more times.
 script_press_key() {
-    qmp_sendkey "$1"
+    local key count
+    key=$1
+    count=${2:-1}
+
+    case "$count" in
+    *[!0-9]*)
+        log_error "script_press_key count must be a non-negative integer: $count"
+        return 1
+        ;;
+    esac
+
+    while [ "$count" -gt 0 ]; do
+        qmp_sendkey "$key" || return 1
+        count=$((count - 1))
+    done
+}
+
+# Sends a string
+script_send_text() {
+	qmp_send_string "$1"
 }
 
 # Sends a string followed by return

@@ -169,7 +169,7 @@ retro_prereq() {
     Darwin)
         if command -v brew >/dev/null 2>&1; then
             log_debug "Selected Homebrew prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq mtools
             return
         fi
         ;;
@@ -184,22 +184,22 @@ EOF
                 exit 1
             fi
             log_debug "Selected MSYS2 pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof openssh jq
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof openssh jq mtools
             return
         fi
         ;;
     Linux)
         if command -v apt-get >/dev/null 2>&1; then
             log_debug "Selected apt-get prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof openssh-client jq
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof openssh-client jq mtools
             return
         elif command -v dnf >/dev/null 2>&1; then
             log_debug "Selected dnf prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof openssh-clients jq
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof openssh-clients jq mtools
             return
         elif command -v pacman >/dev/null 2>&1; then
             log_debug "Selected pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof openssh jq
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof openssh jq mtools
             return
         fi
         ;;
@@ -207,7 +207,7 @@ EOF
 
     if command -v brew >/dev/null 2>&1; then
         log_debug "Selected fallback Homebrew prerequisite installer"
-        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq
+        RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages brew qemu p7zip unzip wget bchunk xorriso jq mtools
     else
         log_error "No supported package manager found."
         cat >&2 <<EOF
@@ -218,6 +218,7 @@ Install the prerequisites manually:
   qemu-img
   QEMU window display backend
   7z
+  mcopy
   unzip
   wget
   bchunk
@@ -235,6 +236,7 @@ autoinst_prep() {
     local autoinst_d=$EXTRACTDIR/fat/autoinst.d
     local autoinst_file autoconf_file
     log_info "Staging autoinstall runtime"
+    mkdir -p "$EXTRACTDIR/fat"
     cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
     rm -rf "$autoinst_d"
     mkdir -p "$autoinst_d"

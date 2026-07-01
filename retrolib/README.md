@@ -42,8 +42,8 @@ Shared utilities used across all other modules.
   Detects the host package manager (Homebrew, apt-get, dnf, pacman, MSYS2
   pacman) and installs the required tools for that platform, including QEMU,
   archive/download tools, CD image tools, port-inspection tools, JSON helpers,
-  and SSH client tools where they are not provided by the base system. Supports
-  `--dry-run`.
+  mtools, and SSH client tools where they are not provided by the base system.
+  Supports `--dry-run`.
 
 - `autoinst_prep`
   Stages the `autoinst/` tree onto `qemu.d/fat/` for the current config. Copies
@@ -111,6 +111,7 @@ for the usual flow when adding a distro.
 | `config.sh` | Distro-wide settings; loaded before QEMU config |
 | `qemu.sh` | Set `QEMU_PROFILE`, RAM, disk size, net device, extra QEMU args |
 | `extract.sh` | Set `EXTRACT_*` vars and call `extract_install_files` |
+| `ks.cfg` | Red Hat Kickstart file copied to the staged boot floppy image |
 | `script.sh` | Host-side install automation; sourced after QEMU starts |
 | `autoinst.sh` | In-guest install manifest; copied to `fat/autoinst.d/distro/` |
 | `autoconf.sh` | In-guest first-boot manifest; copied to `fat/autoinst.d/distro/` |
@@ -210,8 +211,10 @@ Key functions:
 
 - `retro_extract`
   Top-level handler for `retro extract CONFIG`. Runs `retro_download`, sources
-  the distro's `extract.sh`, and writes `qemu.d/.extracted`. Later runs reuse
-  the extracted files.
+  the distro's `extract.sh`, copies a configured Red Hat `ks.cfg` into
+  `boot.img`, stages the autoinstall runtime and any configured distro
+  autoinstall manifests, and writes `qemu.d/.extracted`. Later runs reuse the
+  extracted files.
 
 ## QEMU Runtime
 
@@ -505,8 +508,9 @@ Functions:
 - `script_wait_line TEXT [TIMEOUT [INTERVAL]]`
   Polls until `TEXT` appears as a trimmed full line on screen.
 
-- `script_press_key KEY`
-  Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`).
+- `script_press_key KEY [COUNT]`
+  Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`), repeated
+  `COUNT` times when provided.
 
 - `script_send_line TEXT`
   Types `TEXT` into the guest and presses Return.

@@ -46,4 +46,8 @@ log_info "Configuration complete!"
 # prevent script from running again
 rm -f "$SCRIPTNAME"
 sync
-reboot
+case "${AUTOCONF_REBOOT:-true}" in
+    true|TRUE|True|yes|YES|Yes|1)
+        reboot
+        ;;
+esac
