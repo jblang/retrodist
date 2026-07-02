@@ -35,8 +35,29 @@ if [ -z "$HEADS" -o -z "$SECTORS" -o -z "$CYLINDERS" ]; then
     exit 1
 fi
 
-if [ -n "$BASH_VERSION" ]; then
-    # calculate using bash math expressions (for Slackware)
+if [ -x /bin/expr ]; then
+    # calculate using expr
+	SECTORS_PER_CYLINDER=$(expr $HEADS * $SECTORS)
+	SWAP_SECTORS=$(expr $SWAP_MB * 2048)
+	HALF_CYLINDER=$(expr $SECTORS_PER_CYLINDER / 2)
+	SWAP_END=$(expr $(expr $SWAP_SECTORS + $HALF_CYLINDER) / $SECTORS_PER_CYLINDER)
+	ROOT_START=$(expr $SWAP_END + 1)
+elif [ -x /usr/bin/perl ]; then
+    # calculate using perl (for Red Hat 1.x-3.x)
+    SECTORS_PER_CYLINDER=$(perl -e "print $HEADS * $SECTORS")
+    SWAP_SECTORS=$(perl -e "print $SWAP_MB * 2048")
+    HALF_CYLINDER=$(perl -e "print int($SECTORS_PER_CYLINDER / 2)")
+    SWAP_END=$(perl -e "print int(($SWAP_SECTORS + $HALF_CYLINDER) / $SECTORS_PER_CYLINDER)")
+    ROOT_START=$(perl -e "print $SWAP_END + 1")
+elif [ -x /bin/math ]; then
+    # calculate using Debian /bin/math command
+    SECTORS_PER_CYLINDER=$(math $HEADS $SECTORS mul)
+    SWAP_SECTORS=$(math $SWAP_MB 2048 mul)
+    HALF_CYLINDER=$(math $SECTORS_PER_CYLINDER 2 div)
+    SWAP_END=$(math $SWAP_SECTORS $HALF_CYLINDER add $SECTORS_PER_CYLINDER div)
+    ROOT_START=$(math $SWAP_END 1 add)
+elif [ -n "$BASH_VERSION" ]; then
+    # calculate using bash math expressions (quoted to avoid syntax errors on sh)
     eval '
         SECTORS_PER_CYLINDER=$((HEADS * SECTORS))
         SWAP_SECTORS=$((SWAP_MB * 2048))
@@ -44,27 +65,13 @@ if [ -n "$BASH_VERSION" ]; then
         SWAP_END=$(((SWAP_SECTORS + HALF_CYLINDER) / SECTORS_PER_CYLINDER))
         ROOT_START=$((SWAP_END + 1))
     '
-elif [ -x /usr/bin/perl ]; then
-    # calculate using perl (for Red Hat)
-    SECTORS_PER_CYLINDER=$(perl -e "print $HEADS * $SECTORS")
-    SWAP_SECTORS=$(perl -e "print $SWAP_MB * 2048")
-    HALF_CYLINDER=$(perl -e "print int($SECTORS_PER_CYLINDER / 2)")
-    SWAP_END=$(perl -e "print int(($SWAP_SECTORS + $HALF_CYLINDER) / $SECTORS_PER_CYLINDER)")
-    ROOT_START=$(perl -e "print $SWAP_END + 1")
-elif [ -x /bin/math ]; then
-    # calculate using debian /bin/math command (for Debian)
-    SECTORS_PER_CYLINDER=$(math $HEADS $SECTORS mul)
-    SWAP_SECTORS=$(math $SWAP_MB 2048 mul)
-    HALF_CYLINDER=$(math $SECTORS_PER_CYLINDER 2 div)
-    SWAP_END=$(math $SWAP_SECTORS $HALF_CYLINDER add $SECTORS_PER_CYLINDER div)
-    ROOT_START=$(math $SWAP_END 1 add)
 else
-    echo "non-bash partition calculations require /usr/bin/perl or /bin/math" >&2
+    echo "no math tools available for partition calculations" >&2
     exit 1
 fi
 
 if [ -z "$SWAP_END" -o -z "$ROOT_START" -o -z "$CYLINDERS" ]; then
-    echo "partition calculations did not produce swap, root, and cylinder values" >&2
+    echo "partition calculations did not produce required values" >&2
     exit 1
 fi
 

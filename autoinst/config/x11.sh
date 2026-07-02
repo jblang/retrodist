@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-X11_CHIPSET=${X11_CHIPSET:-clgd5229}
+X11_CHIPSET=${X11_CHIPSET:-clgd5434}
 
 # Emit a startx wrapper that restores console fonts after early XFree86 exits.
 x11_build_startx_setfont_wrapper() {
@@ -66,7 +66,8 @@ $X11_MOUSETYPE "$X11_MOUSEDEV"
 
 # Cirrus SVGA mode selection.
 VGA256
-  Chipset   "clgd5422"
+  Chipset   "clgd5426"
+  Option	"noaccel"
   Modes     $X11_MODES
 
 # Video mode database.

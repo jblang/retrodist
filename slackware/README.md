@@ -12,8 +12,8 @@ files for each version, taken from the source CD-ROM or official mirror.
 | Release | Date | Kernel | C library | Compiler | XFree86 |
 | --- | --- | --- | --- | --- | --- |
 | [1.01](./1.01/ANNOUNCE.txt) | 1993-08-04 | 0.99pl12 | 4.4.1 | gcc 2.4.5 | 1.3 |
-| [1.1.1](./1.1.1/README.txt) | 1993-12-12 | 0.99pl14 | 4.4.4 | gcc 2.4.5 | 2.0 |
-| [1.1.2](./1.1.2/README.txt) | 1994-02-05 | 0.99.15 | 4.5.19 | gcc 2.5.8 | 2.0 |
+| [1.1.1](./1.1.1-infomagic/README.txt) | 1993-12-12 | 0.99pl14 | 4.4.4 | gcc 2.4.5 | 2.0 |
+| [1.1.2](./1.1.2-official/README.txt) | 1994-02-05 | 0.99.15 | 4.5.19 | gcc 2.5.8 | 2.0 |
 | [2.0.0](./2.0.0/README.txt) | 1994-07-01 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
 | [2.0.1](./2.0.1/README.txt) | 1994-09-18 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
 | [2.1](./2.1/README.txt) | 1994-10-31 | 1.1.59 | 4.5.26 | gcc 2.5.8 | 3.1 |
