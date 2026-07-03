@@ -79,12 +79,16 @@ The `script.sh` files are host-side QMP scripts. They wait for installer screen
 text, send keys or boot commands, and change floppy images when the installer
 asks for another disk.
 
-The older Red Hat installers are less uniform than Slackware's setup scripts:
+The older Red Hat installers are less uniform than Slackware's setup scripts,
+but they now share driver blocks by installer family:
 
-- 1.1 through 3.0.3 use boot/root/ramdisk floppy handoffs before the installer
-  can continue from CD-ROM.
-- 4.0 through 5.1 are driven through the text UI, including partitioning,
-  package group selection, X11 setup, networking, LILO, and reboot.
+- `perl-install.sh` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
+  handles boot/root/ramdisk floppy handoffs and the common partitioning,
+  networking, X11, LILO, and reboot prompts used by 2.1 and 3.0.3. Version-only
+  package series and startup prompts stay in each release's `script.sh`.
+- `c-install.sh` covers the 4.0 through 5.1 C-based text installer era. Version
+  `script.sh` files set prompt-order flags and compose the common blocks with
+  release-specific partitioning, package component, and X11 prompt sequences.
 - 5.2 uses the installer Kickstart support instead of driving every screen.
 - 6.1 currently boots the text installer from the CD-ROM media; Kickstart is
   not configured for it.
