@@ -19,7 +19,6 @@ CDROM_TYPE_PROMPT=true
 INSERT_CD_PROMPT="Insert your Red Hat CD into your CD drive"
 POST_INSTALL_FLOW=4x
 X_CARD_DOWN=66
-MOUSE_TIMEOUT=600
 MONITOR_SELECT_KEY=ret
 TIMEZONE_PROMPT="Configure Timezone"
 LILO_EXTRA_F12=0
@@ -30,17 +29,21 @@ NET_IPADDR=10.0.2.15
 NET_NETMASK=255.255.255.0
 NET_NETWORK=10.0.2.0
 NET_BROADCAST=10.0.2.255
-NET_DOMAINNAME=retro.net
 NET_HOSTNAME=redhat
+NET_DOMAINNAME=retro.net
+NET_FQDN=$NET_HOSTNAME.$NET_DOMAINNAME
 NET_GATEWAY=10.0.2.2
 NET_NAMESERVER=10.0.2.3
 
+redhat_update_network_names() {
+    NET_FQDN=$NET_HOSTNAME.$NET_DOMAINNAME
+}
+
 boot_installer() {
-    script_wait_line "$BOOT_PROMPT"
     if [ -n "$BOOT_COMMAND" ]; then
-        script_send_line "$BOOT_COMMAND"
+        script_boot "$BOOT_COMMAND"
     else
-        script_press_key ret
+        script_boot
     fi
     if [ "$BOOT_SLEEP" != "0" ]; then
         sleep "$BOOT_SLEEP"
@@ -82,15 +85,16 @@ start_install() {
 }
 
 partition_disk_helper() {
+    local SHELL_PROMPT="bash#"
+
     script_press_key alt-f2 # cli terminal
-    script_send_line "mkdir /mnt &&
-	mknod /dev/hda b 3 0 &&
-	mknod /dev/hdb1 b 3 65 &&
-	mount -t msdos /dev/hdb1 /mnt"
-    script_wait_line "bash#"
+    script_shell \
+        "mkdir /mnt" \
+        "mknod /dev/hda b 3 0" \
+        "mknod /dev/hdb1 b 3 65" \
+        "mount -t msdos /dev/hdb1 /mnt"
     script_partition_swaproot /dev/hda 64 /mnt
-    script_send_line "umount /mnt"
-    script_wait_line "bash#"
+    script_shell "umount /mnt"
     script_press_key alt-f1 # installer terminal
 }
 
@@ -214,17 +218,13 @@ finish_components_selection() {
     script_wait_string "Install log"
     script_press_key f12
     if [ "$KEYBOARD_AFTER_PACKAGES" = "true" ]; then
-        script_wait_string "Configure Keyboard" 600
+        script_wait_string "Configure Keyboard"
         script_press_key f12
     fi
 }
 
 configure_x11_4x() {
-    if [ -n "$MOUSE_TIMEOUT" ]; then
-        script_wait_string "Configure Mouse" "$MOUSE_TIMEOUT"
-    else
-        script_wait_string "Configure Mouse"
-    fi
+    script_wait_string "Configure Mouse"
     script_press_key down
     script_press_key down # select PS/2
     script_press_key f12 # next screen
@@ -261,6 +261,7 @@ configure_x11_5x_common() {
 }
 
 configure_network() {
+    redhat_update_network_names
     script_wait_string "Network Configuration"
     script_press_key f12
     if [ "$POST_INSTALL_FLOW" = "51" ]; then
@@ -353,8 +354,11 @@ install_lilo() {
 }
 
 reboot_and_autoconf() {
+    redhat_update_network_names
     script_wait_string "Congratulations, installation is complete."
     script_set_boot c
     script_press_key ret
+    LOGIN_PROMPT="$NET_HOSTNAME login:"
+    SHELL_PROMPT="[root@$NET_HOSTNAME /root]#"
     script_run_autoconf "$ROOT_PASSWORD"
 }

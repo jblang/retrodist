@@ -105,21 +105,22 @@ are not standalone entry points; they call functions from `retrolib/qmp.sh` and
 The usual flow is to wait for known screen text, send a key or line, and repeat:
 
 ```sh
-script_wait_line "boot:"
-script_press_key ret
-script_wait_line "slackware login:"
-script_send_line root
-script_wait_line "#"
-script_send_line "$SCRIPT_AUTOINST_COMMAND"
-script_wait_line "ATTN: Press ENTER to reboot." 600
+script_boot
+script_login
+script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
+script_wait_line "ATTN: Press ENTER to reboot."
 script_set_boot c
 script_press_key ret
 ```
 
 Useful primitives:
 
-- `script_wait_string TEXT [TIMEOUT] [INTERVAL]`
-- `script_wait_line TEXT [TIMEOUT] [INTERVAL]`
+- `script_wait_string TEXT [TEXT ...]`
+- `script_wait_line TEXT [TEXT ...]`
+- `script_boot [COMMAND]`
+- `script_login [USER]`
+- `script_shell [--no-wait] COMMAND [COMMAND ...]`
+- `script_prompt QUESTION [QUESTION ...] ANSWER`
 - `script_press_key KEY [COUNT]`
 - `script_send_line TEXT`
 - `script_change_floppy IMAGE`
@@ -127,6 +128,8 @@ Useful primitives:
 
 `SCRIPT_AUTOINST_COMMAND` mounts the staged FAT media at `/retro` and runs
 `/retro/autoinst`. Send it once the installer has reached a shell prompt.
+Override `BOOT_PROMPT`, `LOGIN_PROMPT`, or `SHELL_PROMPT` when a guest uses
+non-default prompt text.
 
 ## In-Guest Autoinstall
 

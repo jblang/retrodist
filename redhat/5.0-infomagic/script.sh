@@ -30,7 +30,7 @@ script_press_key f12 # next screen
 select_components_default
 finish_components_selection
 
-script_wait_string "Probing found a PS/2 mouse" 600
+script_wait_string "Probing found a PS/2 mouse"
 script_press_key f12 # next screen
 script_wait_string "Emulate Three Buttons"
 script_press_key f12 # next screen

@@ -222,7 +222,7 @@ qmp_boot_disk() {
         log_error "Missing boot device for QMP boot_set command"
         return 1
     fi
-    echo "🎬 Set QEMU boot device to $1"
+    echo "🥾 Set boot device to $1"
     qmp_hmp_command "boot_set $1"
 }
 
@@ -352,7 +352,7 @@ qmp_send_stdin() {
             log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
             return 1
         }
-        qmp_sendkey "$key"
+        qmp_sendkey "$key" || return 1
     done
 }
 

@@ -35,9 +35,9 @@ script_press_key f12 # next screen
 select_components_default
 finish_components_selection
 
-script_wait_string "Probing found a PS/2 mouse" 600
+script_wait_string "Probing found a PS/2 mouse"
 script_press_key f12 # next screen
-script_wait_string "Configure Mouse" 600
+script_wait_string "Configure Mouse"
 script_press_key f12 # next screen
 configure_x11_5x_common
 

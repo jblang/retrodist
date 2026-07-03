@@ -73,7 +73,7 @@ script_calculate_swaproot_geometry() {
 # Detects guest fdisk geometry and calculates the default swap/root layout.
 script_detect_swaproot_geometry() {
     local device swap_mb geometry_script
-    local screen geometry heads sectors cylinders layout
+    local screen geometry heads sectors cylinders layout wait_status
     local swap_start swap_end root_start root_end
     local device_q geometry_script_q geometry_success geometry_error
 
@@ -91,15 +91,14 @@ script_detect_swaproot_geometry() {
 
     geometry_success="geometry.sh: fdisk geometry query suceeded"
     geometry_error="geometry.sh: fdisk geometry query returned error "
-    script_send_line "sh $geometry_script_q $device_q"
-    script_wait_until \
-        script_screen_contains_string "$geometry_error" \
-        script_screen_contains_string "$geometry_success" \
-        -- 30
-    screen=$SCRIPT_WAIT_SCREEN
-    if [ "$SCRIPT_WAIT_EXPECTED" = "$geometry_error" ]; then
-        die "Guest fdisk helper failed: $(grep -F -- "$geometry_error" <<<"$screen" | sed -n '1p')"
+    script_shell "sh $geometry_script_q $device_q"
+    script_wait_string "$geometry_success" "$geometry_error"
+    wait_status=$?
+    if [ "$wait_status" -ne 0 ]; then
+        die "Guest fdisk helper failed during geometry query."
     fi
+    screen=$(qmp_vga_dump_text) ||
+        die "Unable to read guest screen after fdisk geometry query."
     geometry=$(script_parse_fdisk_geometry "$screen") ||
         die "Unable to parse fdisk geometry for $device from guest screen."
 
@@ -119,7 +118,7 @@ script_detect_swaproot_geometry() {
 # Creates guest swap/root partitions using an already-calculated layout.
 script_create_swaproot_partitions() {
     local device swaproot_script layout root_start root_end
-    local device_q swaproot_script_q swaproot_success swaproot_error screen
+    local device_q swaproot_script_q swaproot_success swaproot_error wait_status
 
     if [[ $# -ne 5 ]]; then
         log_error "Usage: script_create_swaproot_partitions DEVICE SWAPROOT_SCRIPT LAYOUT ROOT_START ROOT_END"
@@ -136,15 +135,9 @@ script_create_swaproot_partitions() {
 
     swaproot_success="swaproot.sh: created root partition ${device}2 from $root_start-$root_end"
     swaproot_error="swaproot.sh: fdisk partition creation returned error "
-    script_send_line "sh $swaproot_script_q $device_q $layout"
-    script_wait_until \
-        script_screen_contains_string "$swaproot_error" \
-        script_screen_contains_string "$swaproot_success" \
-        -- 60
-    screen=$SCRIPT_WAIT_SCREEN
-    if [ "$SCRIPT_WAIT_EXPECTED" = "$swaproot_error" ]; then
-        die "Guest fdisk helper failed: $(grep -F -- "$swaproot_error" <<<"$screen" | sed -n '1p')"
-    fi
+    script_shell "sh $swaproot_script_q $device_q $layout"
+    script_wait_string "$swaproot_success" "$swaproot_error" ||
+        die "Guest fdisk helper failed during partition creation."
 }
 
 # Partitions a guest disk by probing fdisk geometry in the guest, calculating
@@ -204,14 +197,9 @@ script_screen_contains_line() {
 
 # Waits until VGA text memory satisfies one of the given matcher functions.
 script_wait_until() {
-    local timeout interval start screen label
+    local interval screen label
     local separator_index condition_count i
     local matchers=() expected=()
-
-    SCRIPT_WAIT_MATCHER=
-    SCRIPT_WAIT_EXPECTED=
-    SCRIPT_WAIT_INDEX=
-    SCRIPT_WAIT_SCREEN=
 
     separator_index=0
     for ((i = 1; i <= $#; i++)); do
@@ -223,15 +211,19 @@ script_wait_until() {
 
     if [ "$separator_index" -eq 0 ]; then
         if [ $# -lt 2 ]; then
-            die "script_wait_until requires MATCHER EXPECTED [TIMEOUT [INTERVAL]]"
+            die "script_wait_until requires MATCHER EXPECTED"
+        fi
+        if [ $# -ne 2 ]; then
+            die "script_wait_until single-condition form requires exactly MATCHER EXPECTED"
         fi
         matchers=("$1")
         expected=("$2")
-        timeout=${3:-${WAIT_TIMEOUT:-60}}
-        interval=${4:-${WAIT_INTERVAL:-1}}
     else
         if [ $(((separator_index - 1) % 2)) -ne 0 ] || [ "$separator_index" -eq 1 ]; then
             die "script_wait_until conditions must be MATCHER EXPECTED pairs"
+        fi
+        if [ "$separator_index" -ne "$#" ]; then
+            die "script_wait_until does not accept arguments after --"
         fi
         local expected_index
         for ((i = 1; i < separator_index; i += 2)); do
@@ -239,68 +231,93 @@ script_wait_until() {
             matchers+=("${!i}")
             expected+=("${!expected_index}")
         done
-        i=$((separator_index + 1))
-        timeout=${!i:-${WAIT_TIMEOUT:-60}}
-        i=$((separator_index + 2))
-        interval=${!i:-${WAIT_INTERVAL:-1}}
     fi
+    interval=${WAIT_INTERVAL:-1}
     condition_count=${#matchers[@]}
     label=${expected[0]}
     for ((i = 1; i < condition_count; i++)); do
         label="$label' || '${expected[$i]}"
     done
-    start=$SECONDS
-
-    if [ "$condition_count" -gt 1 ]; then
-        printf "⏳ awaiting alternatives:\n"
-        for ((i = 0; i < condition_count; i++)); do
-            printf "   '%s'\n" "${expected[$i]}"
-        done
-    else
-        printf "⏳ '%s' ..." "$label"
-    fi
     while :; do
         if ! qmp_qemu_running; then
-            printf '\n'
             die "QEMU exited while waiting for screen match: $label"
         fi
 
         if screen=$(qmp_vga_dump_text); then
             for ((i = 0; i < condition_count; i++)); do
                 if "${matchers[$i]}" "$screen" "${expected[$i]}"; then
-                    SCRIPT_WAIT_MATCHER=${matchers[$i]}
-                    SCRIPT_WAIT_EXPECTED=${expected[$i]}
-                    SCRIPT_WAIT_INDEX=$i
-                    SCRIPT_WAIT_SCREEN=$screen
-                    if [ "$condition_count" -gt 1 ]; then
-                        printf "🖥️  '%s'\n" "${expected[$i]}"
-                    else
-                        printf "\r🖥️  '%s'\033[K\n" "${expected[$i]}"
-                    fi
-                    return 0
+                    printf '%s\n' "$screen"
+                    return "$i"
                 fi
             done
-        else
-            log_debug "Unable to read guest screen while waiting for: $label"
-        fi
-
-        if [ "$timeout" != "0" ] && [ $((SECONDS - start)) -ge "$timeout" ]; then
-            printf "\r❌ '%s' timed out!\033[K\n" "$label"
-            exit 124
         fi
 
         sleep "$interval"
     done
 }
 
+# Echoes the waiting message for a set of alternative screen matches.
+script_wait_message() {
+    local expected
+    [ $# -gt 0 ] || die "script_wait_message requires TEXT [TEXT ...]"
+
+    if [ "$#" -gt 1 ]; then
+        printf "🔀 Awaiting alternatives:\n"
+        for expected in "$@"; do
+            printf "   %s\n" "$expected"
+        done
+    else
+        printf "⏳ %s" "$1"
+    fi
+}
+
+# Echoes the result from the most recent successful script_wait_until call.
+script_wait_result() {
+    local status expected expected_index alternative_count
+    [ $# -gt 1 ] || die "script_wait_result requires STATUS TEXT [TEXT ...]"
+    status=$1
+    shift
+    alternative_count=$#
+    expected_index=$((status + 1))
+    expected=${!expected_index}
+
+    if [ "$alternative_count" -gt 1 ]; then
+        printf "✅ %s\n" "$expected"
+    else
+        printf "\r✅ %s\033[K\n" "$expected"
+    fi
+
+    return 0
+}
+
 # Waits until VGA text memory contains expected screen text anywhere.
 script_wait_string() {
-    script_wait_until script_screen_contains_string "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
+    local status args=() expected
+    [ $# -gt 0 ] || die "script_wait_string requires TEXT [TEXT ...]"
+    for expected in "$@"; do
+        args+=(script_screen_contains_string "$expected")
+    done
+    args+=(--)
+    script_wait_message "$@"
+    script_wait_until "${args[@]}" >/dev/null
+    status=$?
+    script_wait_result "$status" "$@"
+    return "$status"
 }
 
 # Waits until VGA text memory contains expected text on a line by itself.
 script_wait_line() {
-    script_wait_until script_screen_contains_line "$1" "${2:-${WAIT_TIMEOUT:-60}}" "${3:-${WAIT_INTERVAL:-1}}"
+    local status args=() expected
+    [ $# -gt 0 ] || die "script_wait_line requires TEXT [TEXT ...]"
+    for expected in "$@"; do
+        args+=(script_screen_contains_line "$expected")
+    done
+    args+=(--)
+    script_wait_message "$@"
+    script_wait_until "${args[@]}" >/dev/null
+    status=$?
+    script_wait_result "$status" "$@"
+    return "$status"
 }
 
 # Sends one QEMU sendkey token to the guest one or more times.
@@ -318,7 +335,7 @@ script_press_key() {
 
 	times=$([[ $count -gt 1 ]] && echo "($count times)")
 
-	echo "⌨️  $key $times"
+	echo "👇 $key $times"
 
     while [ "$count" -gt 0 ]; do
         qmp_sendkey "$key" || return 1
@@ -329,14 +346,109 @@ script_press_key() {
 # Sends a string
 script_send_text() {
 	echo "⌨️  $1"
-	qmp_send_string "$1"
+	qmp_send_string "$1" || return 1
 }
 
 # Sends a string followed by return
 script_send_line() {
-	echo "⌨️  $1 ↩️" 
-	qmp_send_string "$1"
-	qmp_sendkey ret
+	echo "⌨️  $1 ↩️"
+	qmp_send_string "$1" || return 1
+	qmp_sendkey ret || return 1
+}
+
+# Shell prompt script_shell waits for; override to match the guest's prompt.
+# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
+SHELL_PROMPT="#"
+
+# Waits for the shell prompt, sends commands, then waits for it to return (pass --no-wait to skip).
+script_shell() {
+    local cmd wait_return=true
+
+    if [ "$1" = "--no-wait" ]; then
+        wait_return=false
+        shift
+    fi
+    [ $# -gt 0 ] || die "script_shell requires COMMAND [COMMAND ...]"
+
+    for cmd in "$@"; do
+        printf "⏳ %s" "$SHELL_PROMPT"
+        script_wait_line "$SHELL_PROMPT" >/dev/null
+        printf "\r🐚 %s %s\033[K\n" "$SHELL_PROMPT" "$cmd"
+        qmp_send_string "$cmd" || return 1
+        qmp_sendkey ret || return 1
+    done
+
+    if [ "$wait_return" = true ]; then
+        printf "⏳ %s" "$SHELL_PROMPT"
+        script_wait_line "$SHELL_PROMPT" >/dev/null
+		printf "\r\033[K"
+    fi
+}
+
+# Boot loader prompt script_boot waits for; override to match the guest's boot loader.
+# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
+BOOT_PROMPT="boot:"
+
+# Waits for the boot loader prompt, then sends a string (or just Enter if none given).
+script_boot() {
+    local response
+
+    printf "⏳ %s" "$BOOT_PROMPT"
+    script_wait_line "$BOOT_PROMPT" >/dev/null
+
+    if [ $# -gt 0 ]; then
+        response=$1
+        qmp_send_string "$response" || return 1
+    else
+        response="↩️"
+    fi
+    qmp_sendkey ret || return 1
+
+    printf "\r🥾 %s %s\033[K\n" "$BOOT_PROMPT" "$response"
+}
+
+# Login prompt script_login waits for; override to match the guest's hostname.
+# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
+LOGIN_PROMPT="login:"
+
+# Waits for the login prompt, then sends a username (or root if none given).
+script_login() {
+    local response
+
+    printf "⏳ %s" "$LOGIN_PROMPT"
+    script_wait_line "$LOGIN_PROMPT" >/dev/null
+
+    response=${1:-root}
+    qmp_send_string "$response" || return 1
+    qmp_sendkey ret || return 1
+
+    printf "\r🔑 %s %s\033[K\n" "$LOGIN_PROMPT" "$response"
+}
+
+# Waits for a question prompt (pass multiple wrapped lines if it spans more than one), then sends the final argument as the answer.
+script_prompt() {
+    local last final_i question answer i marker
+
+    [ $# -ge 2 ] || die "script_prompt requires QUESTION [QUESTION ...] ANSWER"
+    last=$#
+    answer=${!last}
+    final_i=$((last - 1))
+
+    for ((i = 1; i <= final_i; i++)); do
+        question=${!i}
+        printf "⏳ %s" "$question"
+        script_wait_line "$question" >/dev/null
+        marker="  "
+        [ "$i" -eq 1 ] && marker="💬"
+        [ "$i" -lt "$final_i" ] && printf "\r%s %s\033[K\n" "$marker" "$question"
+    done
+
+    qmp_send_string "$answer" || return 1
+    qmp_sendkey ret || return 1
+
+    marker="  "
+    [ "$final_i" -eq 1 ] && marker="💬"
+    printf "\r%s %s %s\033[K\n" "$marker" "$question" "$answer"
 }
 
 # Logs in as root after first boot and runs autoconf. Pass the root password
@@ -344,8 +456,7 @@ script_send_line() {
 script_run_autoconf() {
     local password
 
-    script_wait_string "login:" 120
-    script_send_line root
+    script_login
 
     if [ "$#" -gt 0 ]; then
         password=$1
@@ -356,8 +467,7 @@ script_run_autoconf() {
         script_press_key ret
     fi
 
-    script_wait_string "#"
-    script_send_line "$SCRIPT_AUTOCONF_COMMAND"
+    script_shell --no-wait "$SCRIPT_AUTOCONF_COMMAND"
 }
 
 # Swaps the first floppy image.

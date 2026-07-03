@@ -89,7 +89,7 @@ script_press_key ret
 # packages install here
 
 # post installation configuration
-configure_x11_common 600
+configure_x11_common
 confirm_network_configured
 skip_modem_setup
 configure_system_clock "Is your system clock set to local time"

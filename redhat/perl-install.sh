@@ -10,16 +10,24 @@ BOOT_PROMPT="boot:"
 BOOT_COMMAND=
 NET_HOSTNAME=redhat
 NET_DOMAINNAME=retro.net
+NET_FQDN=$NET_HOSTNAME.$NET_DOMAINNAME
 NET_IPADDR=10.0.2.15
-NET_GATEWAY=0.2.2
+NET_NETMASK=255.255.255.0
+NET_NETWORK=10.0.2.0
+NET_BROADCAST=10.0.2.255
+NET_GATEWAY=10.0.2.2
 NET_NAMESERVER=10.0.2.3
+LOGIN_PROMPT="$NET_FQDN login:"
+
+redhat_update_network_names() {
+    NET_FQDN=$NET_HOSTNAME.$NET_DOMAINNAME
+}
 
 boot_loader() {
-    script_wait_line "$BOOT_PROMPT"
     if [ -n "$BOOT_COMMAND" ]; then
-        script_send_line "$BOOT_COMMAND"
+        script_boot "$BOOT_COMMAND"
     else
-        script_press_key ret
+        script_boot
     fi
 }
 
@@ -51,11 +59,9 @@ partition_disk() {
 
     script_wait_string "$prompt"
     script_press_key alt-f2
-    script_wait_line "bash#"
-    script_send_line "mount -t msdos /dev/hdb1 /mnt"
-    script_wait_line "bash#"
+    script_shell "mount -t msdos /dev/hdb1 /mnt"
     script_partition_swaproot /dev/hda 64 /mnt
-    script_send_line "umount /mnt"
+    script_shell "umount /mnt"
     script_press_key alt-f1
     script_wait_string "$prompt"
     script_press_key n
@@ -65,35 +71,44 @@ configure_network_common() {
     local order
     order=$1
 
+    redhat_update_network_names
     script_press_key y
     script_wait_string "What hostname have you selected for this computer?"
     script_send_line "$NET_HOSTNAME"
     script_wait_string "What domain name is this computer part of?"
     script_send_line "$NET_DOMAINNAME"
     script_wait_string "What is the fully qualified domain name (FQDN) of this computer?"
-    script_press_key ret
+    script_press_key backspace 30 # erase default
+    script_send_line "$NET_FQDN"
     script_wait_string "What is the IP address of this computer?"
     script_send_line "$NET_IPADDR"
     if [ "$order" = "network-first" ]; then
         script_wait_string "What is the network address of this computer?"
-        script_press_key ret
+        script_press_key backspace 15 # erase default
+        script_send_line "$NET_NETWORK"
         script_wait_string "What is the netmask used by this computer?"
-        script_press_key ret
+        script_press_key backspace 15 # erase default
+        script_send_line "$NET_NETMASK"
     else
         script_wait_string "What is the netmask used by this computer?"
-        script_press_key ret
+        script_press_key backspace 15 # erase default
+        script_send_line "$NET_NETMASK"
         script_wait_string "What is the network address of this computer?"
-        script_press_key ret
+        script_press_key backspace 15 # erase default
+        script_send_line "$NET_NETWORK"
     fi
     script_wait_string "What is the broadcast address used by this computer?"
-    script_press_key ret
+    script_press_key backspace 15 # erase default
+    script_send_line "$NET_BROADCAST"
     script_wait_string "Does this computer use a gateway?"
     script_press_key y
     script_wait_string "What is the IP address of the gateway used by this computer?"
+    script_press_key backspace 15 # erase default
     script_send_line "$NET_GATEWAY"
     script_wait_string "Does this computer use a nameserver?"
     script_press_key y
     script_wait_string "What is the IP address of the nameserver?"
+    script_press_key backspace 15 # erase default
     script_send_line "$NET_NAMESERVER"
     script_wait_string "Does this computer use another nameserver?"
     script_press_key n
@@ -110,11 +125,7 @@ format_root() {
 }
 
 configure_x11_common() {
-    if [ "$#" -gt 0 ]; then
-        script_wait_string "Which type of mouse do you have?" "$1"
-    else
-        script_wait_string "Which type of mouse do you have?"
-    fi
+    script_wait_string "Which type of mouse do you have?"
     script_press_key p # selects ps2-bus
     script_press_key ret
     script_wait_string "Do you want to autoprobe?"
@@ -193,5 +204,8 @@ reboot_to_installed_system() {
 }
 
 run_first_boot_autoconf() {
+    redhat_update_network_names
+    LOGIN_PROMPT="$NET_FQDN login:"
+    SHELL_PROMPT="[root@$NET_HOSTNAME /root]#"
     script_run_autoconf
 }

@@ -6,4 +6,5 @@ script_press_key ret
 script_wait_string "VFS: Insert root floppy and press ENTER"
 script_press_key ret
 
+SETUP_HOSTNAME="darkstar"
 tty_setup

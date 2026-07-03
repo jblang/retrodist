@@ -488,12 +488,12 @@ QMP-driven install automation primitives. These are sourced when QEMU starts
 during `retro install` and are the building blocks for per-distro `script.sh`
 manifests. A script waits for the screen to reach a known state, then sends a
 key, a line of text, or swaps media. A per-distro `script.sh` is written by
-composing these directly — for example, wait for a login prompt then
-`script_send_line root`, or wait for a boot prompt then `script_press_key ret`.
+composing these directly or by using the prompt-aware wrappers such as
+`script_boot`, `script_login`, `script_shell`, and `script_prompt`.
 
 `SCRIPT_AUTOINST_COMMAND` holds the shell one-liner that mounts the staged FAT
-media at `/retro` and runs `autoinst`; send it with `script_send_line` once a
-shell prompt appears.
+media at `/retro` and runs `autoinst`; send it with `script_shell --no-wait`
+once a shell prompt appears.
 
 `SCRIPT_AUTOCONF_COMMAND` holds the first-boot shell one-liner that verifies the
 staged FAT media is visible at `/retro`, mounting `/dev/hdb1` there if needed,
@@ -502,22 +502,41 @@ root after first boot and sends that command.
 
 Timing variables:
 
-- `WAIT_TIMEOUT` — default timeout in seconds for screen-match waits. Default: `60`.
-- `WAIT_INTERVAL` — polling interval in seconds. Default: `1`.
+- `WAIT_INTERVAL` — polling interval in seconds. Default: `1`. Wait helpers do
+  not time out; use a QEMU-level stop or interrupt if an install stalls.
 
 Functions:
 
-- `script_wait_until MATCHER TEXT [TIMEOUT [INTERVAL]]`
+- `script_wait_until MATCHER TEXT`
   Polls VGA text memory until `MATCHER SCREEN TEXT` succeeds. When multiple
-  outcomes are possible, pass matcher/text pairs followed by `-- [TIMEOUT
-  [INTERVAL]]`; the matched condition is recorded in `SCRIPT_WAIT_MATCHER`,
-  `SCRIPT_WAIT_EXPECTED`, `SCRIPT_WAIT_INDEX`, and `SCRIPT_WAIT_SCREEN`.
+  outcomes are possible, pass matcher/text pairs followed by `--`. Prints the
+  matching screen to stdout and returns the zero-based matched alternative index
+  as the shell status.
 
-- `script_wait_string TEXT [TIMEOUT [INTERVAL]]`
-  Polls VGA text memory until `TEXT` appears anywhere on screen.
+- `script_wait_string TEXT [TEXT ...]`
+  Polls VGA text memory until any `TEXT` appears anywhere on screen. Prints the
+  matched text and returns the zero-based matched alternative index as the shell
+  status. A status of `1` means the second alternative matched.
 
-- `script_wait_line TEXT [TIMEOUT [INTERVAL]]`
-  Polls until `TEXT` appears as a trimmed full line on screen.
+- `script_wait_line TEXT [TEXT ...]`
+  Polls until any `TEXT` appears as a trimmed full line on screen. Prints the
+  matched text and returns the zero-based matched alternative index as the shell
+  status. A status of `1` means the second alternative matched.
+
+- `script_boot [COMMAND]`
+  Waits for `BOOT_PROMPT` (default: `boot:`), sends `COMMAND` when provided,
+  then presses Return.
+
+- `script_login [USER]`
+  Waits for `LOGIN_PROMPT` (default: `login:`), sends `USER` or `root`, then
+  presses Return.
+
+- `script_shell [--no-wait] COMMAND [COMMAND ...]`
+  Waits for `SHELL_PROMPT` (default: `#`), sends each command, and waits for
+  the prompt to return unless `--no-wait` is provided.
+
+- `script_prompt QUESTION [QUESTION ...] ANSWER`
+  Waits for one or more prompt lines, then sends `ANSWER` followed by Return.
 
 - `script_press_key KEY [COUNT]`
   Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`), repeated

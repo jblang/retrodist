@@ -143,34 +143,50 @@ wait_screen="ready"
 qmp_qemu_running() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
 qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
-script_wait_until script_screen_contains_string "ready" 1 0 >/dev/null
-assert_eq "script/wait-single-expected" "ready" "$SCRIPT_WAIT_EXPECTED"
-assert_eq "script/wait-single-index" "0" "$SCRIPT_WAIT_INDEX"
+wait_output=$(script_wait_until script_screen_contains_string "ready")
+wait_status=$?
+assert_eq "script/wait-single-status" "0" "$wait_status"
+assert_eq "script/wait-single-output" "ready" "$wait_output"
+wait_output=$(script_wait_string "ready")
+tests_run=$((tests_run + 1))
+case "$wait_output" in
+*"✅ ready"*) ;;
+*)
+    tests_failed=$((tests_failed + 1))
+    printf "FAIL script/wait-string-output\n  actual:   [%s]\n" "$wait_output"
+    ;;
+esac
 
 wait_screen="fatal error"
-wait_output_tmp=$(mktemp)
-script_wait_until \
+wait_output=$(script_wait_until \
     script_screen_contains_string "fatal error" \
     script_screen_contains_string "all done" \
-    -- 1 0 >"$wait_output_tmp"
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-multi-expected" "fatal error" "$SCRIPT_WAIT_EXPECTED"
-assert_eq "script/wait-multi-index" "0" "$SCRIPT_WAIT_INDEX"
-assert_eq "script/wait-multi-output" \
-    "⏳ awaiting alternatives:
-   'fatal error'
-   'all done'
-🖥️  'fatal error'" \
-    "$wait_output"
+    --)
+wait_status=$?
+assert_eq "script/wait-multi-status" "0" "$wait_status"
+assert_eq "script/wait-multi-output" "fatal error" "$wait_output"
 
 wait_screen="all done"
-script_wait_until \
+wait_output=$(script_wait_until \
     script_screen_contains_string "fatal error" \
     script_screen_contains_string "all done" \
-    -- 1 0 >/dev/null
-assert_eq "script/wait-multi-second-expected" "all done" "$SCRIPT_WAIT_EXPECTED"
-assert_eq "script/wait-multi-second-index" "1" "$SCRIPT_WAIT_INDEX"
+    --)
+wait_status=$?
+assert_eq "script/wait-multi-second-status" "1" "$wait_status"
+assert_eq "script/wait-multi-second-output" "all done" "$wait_output"
+
+wait_output_tmp=$(mktemp)
+script_wait_string "fatal error" "all done" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-string-alt-status" "1" "$wait_status"
+assert_eq "script/wait-string-alt-output" \
+    "🔀 Awaiting alternatives:
+   fatal error
+   all done
+✅ all done" \
+    "$wait_output"
 
 # --- extract image links ----------------------------------------------------
 extract_tmp=$(mktemp -d)

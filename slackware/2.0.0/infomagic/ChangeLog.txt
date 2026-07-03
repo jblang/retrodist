@@ -13,7 +13,7 @@ slakware/a2/ldso.tgz: Upgraded from 1.4.3 to 1.4.4.
 slakware/d4/kernel.tgz: Updated PPP drivers.
 slakware/n1/tcpip.tgz: Recompiled dip-3.3.7-uri to look for ifconfig in /sbin.
 slakware/n3/ppp.tgz: Added (an empty) /etc/ppp/options so pppd doesn't complain.
-slakware/ncr1/*, slakware/ncr2/*: New disk series to support the ALPHA 
+slakware/ncr1/*, slakware/ncr2/*: New disk series to support the ALPHA
    NCR53c810 PCI SCSI (release 3) drivers.
 
 --------------
@@ -87,7 +87,7 @@ Sun Apr 24 22:58:59 CDT 1994
 ./ap4/diskap4: added texinfo entry.
 ./ap4/texinfo.tgz: New - GNU texinfo-3.1 with patches to allow the use of
         GNU zipped info pages with the standalone 'info' program. This cuts
-        the drive space used by a full set of info pages from around 6 MB to 
+        the drive space used by a full set of info pages from around 6 MB to
         2.5 MB. And it was just last week that I uncompressed them all so that
         they'd work with the 'info' Slackware was using.
         Nothing causes progress like wasting drive space, I guess. :^)
@@ -133,7 +133,7 @@ Release of Slackware 1.2.0.3:
 ./a1/sysvinit.tgz: made rc.* files derive hostname from /etc/HOSTNAME
 ./a2/diska2: edited
 ./a2/getty.tgz: Recompiled from new source + backspace patch.
-./a2/ps.tgz: upgraded to procps-0.95 
+./a2/ps.tgz: upgraded to procps-0.95
 ./a2/util.tgz: Switched to bdflush version of the update daemon (This will be
     needed by some of the newer 1.1.x kernels)
 ./a3/diska3: edited
@@ -212,7 +212,7 @@ current.
 ./a3/e2fsbn.tgz: Upgraded from 0.5 to 0.5a.
 ./ap1/maketag: edited
 ./ap1/tagfile: edited
-./ap1/tagfile.org: edited 
+./ap1/tagfile.org: edited
 ./ap1/tagfile.pat: edited
 ./ap4/diskap4: edited
 ./ap4/ftape.tgz: Recompiled to use Linux 1.0.8
@@ -226,7 +226,7 @@ current.
 ./e1/tagfile: edited
 ./e1/tagfile.org: edited
 ./e1/tagfile.pat: edited
-On all of the rootdisks below, the following changes were made: 
+On all of the rootdisks below, the following changes were made:
     1. New e2fsprogs 0.5a, and badblocks added.
     2. mkswap is now 'mkswap -c' by default.
 ./install/1_2meg/rootdisks/colrlite.gz
@@ -261,7 +261,7 @@ Return of the Q series! This will contain Alpha kernel images and source.
 Sun Apr 10 18:02:30 PDT 1994
 ./downgrad: 3 disks comprising a "downgrade" package for people that want
 to run libc-4.4.4 and GNU gcc 2.4.5. I don't plan to use this, but I've seen
-interest in libc-4.4.4 on the net. 
+interest in libc-4.4.4 on the net.
 
 -------------
 
@@ -302,7 +302,7 @@ All kinds of upgrades and bug fixes have been going on over the past
 few days. I suppose I should have bumped the version numbers, but I
 didn't. Let's call this 1.2.0.1 ;^) Thanks for the extensive bug reports
 everyone! (especially Andreas Klemm, who hit me with a *huge* list ;^)
-/UPGRADE-HOWTO: A new piece of documentation that explains how to 
+/UPGRADE-HOWTO: A new piece of documentation that explains how to
 upgrade existing Linux installations using the new pkgtool.
 ./install/1_2meg/rootdisks/colrlite.gz: Switched over to new cpkgtool.
 Fixed several other bugs, too. All of these new root-install disks can be
@@ -316,10 +316,10 @@ still experimental. Quick survey - is anyone using this successfully (besides
 me)?
 ./install/umsdos/boot12.gz: New UMSDOS Linux 1.0 bootkernel for 1.2 meg.
 ./install/umsdos/boot144.gz: New UMSDOS Linux 1.0 bootkernel for 1.44 meg.
-./install/umsdos/root144.gz: New UMSDOS Linux 1.0 root-install disk for 
+./install/umsdos/root144.gz: New UMSDOS Linux 1.0 root-install disk for
 Slackware 1.2.0.1.
 ./a1/base.tgz: chmod'ed 755 /bin/mtools. Removed some old duplicates.
-./a1/devs.tgz: chmod'ed 666 /dev/fd* (some people may consider this a 
+./a1/devs.tgz: chmod'ed 666 /dev/fd* (some people may consider this a
 ./a1/etc.tgz: changed $HOME for uucp to /var/spool/uucppublic, and the
 $HOME for news to /usr/lib/news.
 security risk, so chmod them back to 660 if you don't want to give your
@@ -469,7 +469,7 @@ the 0.9.9d version is the new default. This is selectable via a link in /boot.
 --------------
 
 Sun Mar 20 22:36:51 PST 1994
-./a3/shellutl.tgz: GNU su wasn't working, so I replaced it with a version 
+./a3/shellutl.tgz: GNU su wasn't working, so I replaced it with a version
 derived from FreeBSD source. This works better, but doesn't have all the nice
 options of the GNU version included with shellutils-1.9.2. If anyone gets that
 to work again, please let me know.
@@ -539,7 +539,7 @@ was causing problems on system using YP.
 
 Wed Feb 16 19:29:08 PST 1994
 
-I managed to put the wrong tty12.gz up... I hope you 5.25" users will be 
+I managed to put the wrong tty12.gz up... I hope you 5.25" users will be
 patient with me. I've replaced it with a copy I believe works. I'm doing some
 tests on it right now to double check.
 
@@ -557,11 +557,11 @@ disk - there wasn't enough room. I may eliminate some of the features and
 bring it back in the future. For instance, it would be easy to make a color12
 without international keyboard support. (I know that wouldn't make everyone
 happy, but...) Another option is to make some more bootdisks that allow you
-to boot a 3.5" disk in the second floppy drive. Again, not everyone has a 
+to boot a 3.5" disk in the second floppy drive. Again, not everyone has a
 1.44MB drive. But, rest assured that I'll do what I can.
 
 Anyway, these are the files that comprise the latest upgrade. If you downloaded
-soon after the initial 1.1.2 release, you should check the filesizes of your 
+soon after the initial 1.1.2 release, you should check the filesizes of your
 other disks as well and upgrade anything that needs it. (Including the disk??
 maketag, and other seemingly insignificant files)
 
@@ -587,7 +587,7 @@ Patrick Volkerding <volkerdi@ftp.cdrom.com>
 -rw-r--r--    1 volkerdi    25457 Feb 14 16:38 sysvinit.tgz (slight change)
 ./a2:
 -rw-r--r--    1 volkerdi   554450 Feb 14 23:52 bin.tgz (removed dups)
--rw-r--r--    1 volkerdi   276670 Feb 14 16:39 util.tgz 
+-rw-r--r--    1 volkerdi   276670 Feb 14 16:39 util.tgz
 ./a3:
 -rw-r--r--    1 volkerdi     4932 Feb 15 12:04 diska3
 -rw-r--r--    1 volkerdi    83064 Feb 15 12:04 keytbls.tgz (0.83 -> 0.84)
@@ -689,9 +689,9 @@ Added a new bootdisk with *only* scsi drivers.
 Removed the Mitsumi driver from scsiboot (scsi+net).
 
 Since this site can do gzip on-the-fly, I've removed the compressed versions
-of the bootdisks. This is also to benefit mirror sites that are running low 
+of the bootdisks. This is also to benefit mirror sites that are running low
 on disk space. I'm considering compressing them all and adding GZIP.EXE to
-the bootdisk directory. If you think that's a bad plan, I'm open to 
+the bootdisk directory. If you think that's a bad plan, I'm open to
 suggestions.
 
 ---------------
@@ -759,7 +759,7 @@ slackware/a2/util.tgz
 slackware/libc444/a2/bin.tgz
 Fixed problem of no su.
 
-I inadvertently left many of my own tagfiles in place as the default. 
+I inadvertently left many of my own tagfiles in place as the default.
 tagfile and tagfile.org were replaced in these directories:
 
 slackware/ap1, slackware/n1, slackware/xap1, slackware/xd1, slackware/xv1
@@ -771,7 +771,7 @@ Mon Feb  7 23:13:06 PST 1994
 
 Replaced:
 slackware/a1/hdsetup.tgz
-slackware/libc444/a1/hdsetup.tgz 
+slackware/libc444/a1/hdsetup.tgz
 (added CD-ROM setup by default)
 
 slackware/ap1/maketag (updated quota version #)
@@ -922,7 +922,7 @@ Slackware Linux 1.1.1 released.
 
 ---------------
 
-[ This part of the file lists the changes since the first 1.1.1 beta 
+[ This part of the file lists the changes since the first 1.1.1 beta
 release until the official 1.1.1 release. ]
 
 Sun Dec 12 23:40:18 CST 1993
@@ -934,15 +934,15 @@ Disk F1 brought up to date. Documentation rewritten to reflect changes.
 
 Sun Dec 12 03:15:08 PST 1993
 
-This should do it for changes prior to the real release (now, how many times 
+This should do it for changes prior to the real release (now, how many times
 have I said that? ;^)
 
 The files below were added, and xrest.tgz (XAP2) was deleted.
-The files listed below are also present in new.tar, found in this 
+The files listed below are also present in new.tar, found in this
 directory, so if you get that, delete xrest.tgz, and untar it in your
 slackware directory you'll be up to date.
 
-Also, two new pieces of source were added, and these are not 
+Also, two new pieces of source were added, and these are not
 in the new.tar file:
 /pub/linux/slackware_source/drivers/ftape-0.9.8.tar.gz
 /pub/linux/slackware_source/a/syslogd/syslogdk1.0.tar.gz

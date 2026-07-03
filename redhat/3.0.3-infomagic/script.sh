@@ -50,7 +50,7 @@ script_press_key s # selects SVGA
 script_press_key ret
 script_wait_string "Would you like to select and unselect individual packages"
 script_press_key n
-script_wait_string "Package Installation is complete." 600
+script_wait_string "Package Installation is complete."
 script_press_key ret
 
 configure_x11_common
