@@ -133,24 +133,24 @@ rm -rf "$extract_tmp"
 # --- Red Hat Kickstart floppy staging ---------------------------------------
 if command -v mcopy >/dev/null 2>&1 && command -v mformat >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1; then
     rh_tmp=$(mktemp -d)
-    mkdir -p "$rh_tmp/redhat/5.0/infomagic" "$rh_tmp/qemu.d"
-    printf '# comment\n\nkickstart\n  # indented comment\n  \n' >"$rh_tmp/redhat/5.0/ks.cfg"
+    mkdir -p "$rh_tmp/redhat/5.0-infomagic" "$rh_tmp/qemu.d"
+    printf '# comment\n\nkickstart\n  # indented comment\n  \n' >"$rh_tmp/redhat/5.0-infomagic/ks.cfg"
     truncate -s 1440k "$rh_tmp/qemu.d/boot.img"
     mformat -i "$rh_tmp/qemu.d/boot.img" ::
     (
-        CONFDIR="$rh_tmp/redhat/5.0/infomagic"
-        CONFNAME=redhat/5.0/infomagic
+        CONFDIR="$rh_tmp/redhat/5.0-infomagic"
+        CONFNAME=redhat/5.0-infomagic
         redhat_stage_kickstart "$rh_tmp/qemu.d/boot.img"
     )
     assert_eq "redhat/ks.cfg" "kickstart" "$(mtype -i "$rh_tmp/qemu.d/boot.img" ::ks.cfg | tr -d '\r\n')"
     rm -rf "$rh_tmp"
 
     rh_tmp=$(mktemp -d)
-    mkdir -p "$rh_tmp/redhat/5.2/infomagic" "$rh_tmp/qemu.d"
-    printf '# comment\n\ncreated\n' >"$rh_tmp/redhat/5.2/ks.cfg"
+    mkdir -p "$rh_tmp/redhat/5.2-infomagic" "$rh_tmp/qemu.d"
+    printf '# comment\n\ncreated\n' >"$rh_tmp/redhat/5.2-infomagic/ks.cfg"
     (
-        CONFDIR="$rh_tmp/redhat/5.2/infomagic"
-        CONFNAME=redhat/5.2/infomagic
+        CONFDIR="$rh_tmp/redhat/5.2-infomagic"
+        CONFNAME=redhat/5.2-infomagic
         redhat_stage_kickstart "$rh_tmp/qemu.d/boot.img"
     )
     assert_eq "redhat/ks.cfg-missing-boot-image" "missing" "$(if [ -e "$rh_tmp/qemu.d/boot.img" ]; then printf 'exists'; else printf 'missing'; fi)"
