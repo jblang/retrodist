@@ -278,6 +278,8 @@ qmp_sendkey() {
 
 # Converts one character to a QEMU sendkey token.
 qmp_char_to_sendkey() {
+    local LC_ALL=C	# Force C collation so [a-z]/[A-Z] match by byte.
+
     case "$1" in
     [a-z] | [0-9]) printf '%s' "$1" ;;
     [A-Z]) printf 'shift-%s' "$1" | tr '[:upper:]' '[:lower:]' ;;
@@ -332,6 +334,7 @@ qmp_send_string() {
             log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
             return 1
         }
+		log_debug "Sending '$key'"
         qmp_sendkey "$key"
     done
 }
