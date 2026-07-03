@@ -78,9 +78,10 @@ tty_setup_login_as_root() {
 # Run the staged partitioning helper for the target disk.
 tty_setup_partition_disk() {
     script_wait_line "#"
-    script_send_line "mount -t msdos $FAT_PARTITION /mnt &&
-/mnt/autoinst.d/diskpart.sh $TARGET_DISK $SWAP_MB &&
-umount /mnt"
+    script_send_line "mount -t msdos $FAT_PARTITION /mnt"
+    script_wait_line "#"
+    script_partition_swaproot "$TARGET_DISK" "$SWAP_MB" /mnt
+    script_send_line "umount /mnt"
 }
 
 # Launch Slackware's tty setup program.

@@ -11,6 +11,8 @@ source "$REPO_ROOT/retrolib/logging.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/qemu.sh"
 # shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/script.sh"
+# shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/slackware.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/extract.sh"
@@ -119,6 +121,57 @@ assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
 
+# --- install script fdisk geometry helpers ---------------------------------
+fdisk_old_screen='
+Disk /dev/hda: 16 heads, 63 sectors/track, 1015 cylinders
+Units = cylinders of 1008 * 512 bytes
+'
+assert_eq "script/fdisk-geometry-old" "16 63 1015" "$(script_parse_fdisk_geometry "$fdisk_old_screen")"
+
+fdisk_new_screen='
+Disk /dev/hda: 528 MB, 528482304 bytes
+64 heads, 63 sectors, 256 cylinders
+Units = cylinders of 4032 * 512 = 2064384 bytes
+'
+assert_eq "script/fdisk-geometry-new" "64 63 256" "$(script_parse_fdisk_geometry "$fdisk_new_screen")"
+assert_eq "script/swaproot-geometry" "1 130 131 1015" "$(script_calculate_swaproot_geometry 16 63 1015 64)"
+assert_fail "script/fdisk-geometry-missing" script_parse_fdisk_geometry "no fdisk geometry here"
+assert_fail "script/swaproot-too-large" script_calculate_swaproot_geometry 16 63 10 64
+
+wait_screen="ready"
+# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+qmp_qemu_running() { return 0; }
+# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
+script_wait_until script_screen_contains_string "ready" 1 0 >/dev/null
+assert_eq "script/wait-single-expected" "ready" "$SCRIPT_WAIT_EXPECTED"
+assert_eq "script/wait-single-index" "0" "$SCRIPT_WAIT_INDEX"
+
+wait_screen="fatal error"
+wait_output_tmp=$(mktemp)
+script_wait_until \
+    script_screen_contains_string "fatal error" \
+    script_screen_contains_string "all done" \
+    -- 1 0 >"$wait_output_tmp"
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-multi-expected" "fatal error" "$SCRIPT_WAIT_EXPECTED"
+assert_eq "script/wait-multi-index" "0" "$SCRIPT_WAIT_INDEX"
+assert_eq "script/wait-multi-output" \
+    "⏳ awaiting alternatives:
+   'fatal error'
+   'all done'
+🖥️  'fatal error'" \
+    "$wait_output"
+
+wait_screen="all done"
+script_wait_until \
+    script_screen_contains_string "fatal error" \
+    script_screen_contains_string "all done" \
+    -- 1 0 >/dev/null
+assert_eq "script/wait-multi-second-expected" "all done" "$SCRIPT_WAIT_EXPECTED"
+assert_eq "script/wait-multi-second-index" "1" "$SCRIPT_WAIT_INDEX"
+
 # --- extract image links ----------------------------------------------------
 extract_tmp=$(mktemp -d)
 printf 'boot image\n' >"$extract_tmp/boot.img"
@@ -149,7 +202,9 @@ if command -v mcopy >/dev/null 2>&1 && command -v mformat >/dev/null 2>&1 && com
     mkdir -p "$rh_tmp/redhat/5.2-infomagic" "$rh_tmp/qemu.d"
     printf '# comment\n\ncreated\n' >"$rh_tmp/redhat/5.2-infomagic/ks.cfg"
     (
+        # shellcheck disable=SC2034 # Read indirectly by redhat_stage_kickstart.
         CONFDIR="$rh_tmp/redhat/5.2-infomagic"
+        # shellcheck disable=SC2034 # Read indirectly by redhat_stage_kickstart.
         CONFNAME=redhat/5.2-infomagic
         redhat_stage_kickstart "$rh_tmp/qemu.d/boot.img"
     )

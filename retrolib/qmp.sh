@@ -213,7 +213,6 @@ qmp_change_image() {
         log_error "Missing image for QMP change command"
         return 1
     fi
-    echo "💾 Changing $device to $image"
     qmp_hmp_command "change $device $image"
 }
 

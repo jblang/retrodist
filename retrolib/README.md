@@ -507,6 +507,12 @@ Timing variables:
 
 Functions:
 
+- `script_wait_until MATCHER TEXT [TIMEOUT [INTERVAL]]`
+  Polls VGA text memory until `MATCHER SCREEN TEXT` succeeds. When multiple
+  outcomes are possible, pass matcher/text pairs followed by `-- [TIMEOUT
+  [INTERVAL]]`; the matched condition is recorded in `SCRIPT_WAIT_MATCHER`,
+  `SCRIPT_WAIT_EXPECTED`, `SCRIPT_WAIT_INDEX`, and `SCRIPT_WAIT_SCREEN`.
+
 - `script_wait_string TEXT [TIMEOUT [INTERVAL]]`
   Polls VGA text memory until `TEXT` appears anywhere on screen.
 
@@ -519,6 +525,12 @@ Functions:
 
 - `script_send_line TEXT`
   Types `TEXT` into the guest and presses Return.
+
+- `script_partition_swaproot DEVICE SWAP_MB [AUTOINST_MOUNT]`
+  Runs `fdisk/geometry.sh` from the staged autoinstall media inside the guest,
+  parses the visible fdisk geometry from the VGA screen on the host, calculates
+  a swap/root cylinder layout, then calls guest-side `fdisk/swaproot.sh` with
+  explicit cylinders. `AUTOINST_MOUNT` defaults to `/mnt`.
 
 - `script_run_autoconf [PASSWORD]`
   Waits for a first-boot login prompt, logs in as root, and runs

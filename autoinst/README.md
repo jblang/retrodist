@@ -155,6 +155,15 @@ It also provides:
 - `make_boot_floppy`
   Writes the installed kernel to a boot floppy and sets its root device.
 
+## `fdisk/`
+
+`fdisk/geometry.sh` and `fdisk/swaproot.sh` are small guest-side helpers used
+by host-driven install scripts. `geometry.sh DEVICE` prints the interactive
+fdisk geometry listing for the target disk. `retrolib/script.sh` parses that
+screen output and calculates the partition split on the host, then calls
+`swaproot.sh DEVICE swapstart swapend rootstart rootend` in the guest to write
+the partition table.
+
 Common disk variables:
 
 - `DISKDEV`

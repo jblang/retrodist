@@ -86,10 +86,11 @@ partition_disk_helper() {
     script_send_line "mkdir /mnt &&
 	mknod /dev/hda b 3 0 &&
 	mknod /dev/hdb1 b 3 65 &&
-	mount -t msdos /dev/hdb1 /mnt &&
-	/mnt/autoinst.d/diskpart.sh /dev/hda 64 &&
-	umount /mnt"
-    script_wait_string "partitioned /dev/hda:"
+	mount -t msdos /dev/hdb1 /mnt"
+    script_wait_line "bash#"
+    script_partition_swaproot /dev/hda 64 /mnt
+    script_send_line "umount /mnt"
+    script_wait_line "bash#"
     script_press_key alt-f1 # installer terminal
 }
 
