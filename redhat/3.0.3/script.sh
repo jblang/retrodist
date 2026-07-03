@@ -125,3 +125,4 @@ script_press_key y
 script_wait_string "Be sure to remove the boot floppy from your floppy drive!"
 script_set_boot c
 script_press_key ret
+script_run_autoconf

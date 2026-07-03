@@ -495,6 +495,11 @@ composing these directly — for example, wait for a login prompt then
 media at `/retro` and runs `autoinst`; send it with `script_send_line` once a
 shell prompt appears.
 
+`SCRIPT_AUTOCONF_COMMAND` holds the first-boot shell one-liner that verifies the
+staged FAT media is visible at `/retro`, mounting `/dev/hdb1` there if needed,
+then runs `autoinst.d/autoconf.sh`. `script_run_autoconf [PASSWORD]` logs in as
+root after first boot and sends that command.
+
 Timing variables:
 
 - `WAIT_TIMEOUT` — default timeout in seconds for screen-match waits. Default: `60`.
@@ -514,6 +519,11 @@ Functions:
 
 - `script_send_line TEXT`
   Types `TEXT` into the guest and presses Return.
+
+- `script_run_autoconf [PASSWORD]`
+  Waits for a first-boot login prompt, logs in as root, and runs
+  `SCRIPT_AUTOCONF_COMMAND`. Pass `PASSWORD` only when the install configured a
+  root password.
 
 - `script_change_floppy IMAGE`
   Swaps the first floppy to `IMAGE` and waits briefly for the change to settle.

@@ -5,6 +5,10 @@
 # shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
 SCRIPT_AUTOINST_COMMAND="mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
 
+# command to find the staged fat partition and run first-boot autoconf
+# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
+SCRIPT_AUTOCONF_COMMAND='if [ ! -d /retro/autoinst.d ]; then mkdir -p /retro && mount -t msdos /dev/hdb1 /retro; fi; /retro/autoinst.d/autoconf.sh'
+
 # Tests whether screen text contains expected fixed text.
 script_screen_contains_string() {
     local screen text
@@ -103,6 +107,27 @@ script_send_text() {
 script_send_line() {
 	qmp_send_string "$1"
 	qmp_sendkey ret
+}
+
+# Logs in as root after first boot and runs autoconf. Pass the root password
+# only for installers that configured one.
+script_run_autoconf() {
+    local password
+
+    script_wait_string "login:" 120
+    script_send_line root
+
+    if [ "$#" -gt 0 ]; then
+        password=$1
+        script_wait_string "Password:"
+        script_send_line "$password"
+    else
+        sleep 1
+        script_press_key ret
+    fi
+
+    script_wait_string "#"
+    script_send_line "$SCRIPT_AUTOCONF_COMMAND"
 }
 
 # Swaps the first floppy image.

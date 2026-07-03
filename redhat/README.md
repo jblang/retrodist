@@ -89,9 +89,10 @@ The older Red Hat installers are less uniform than Slackware's setup scripts:
 - 6.1 currently boots the text installer from the CD-ROM media; Kickstart is
   not configured for it.
 
-After installation, each version's `autoconf.sh` runs first-boot configuration.
-The later versions set `X11_CHIPSET=clgd5446` to match the emulated Cirrus
-Logic video hardware.
+After installation, each scripted version's `autoconf.sh` runs first-boot
+configuration. The autoconf launch checks whether the staged FAT disk is already
+available at `/retro` and mounts it when needed. The later versions set
+`X11_CHIPSET=clgd5446` to match the emulated Cirrus Logic video hardware.
 
 ## Known Issues
 
