@@ -45,15 +45,16 @@ script_wait_until() {
     interval=${4:-${WAIT_INTERVAL:-1}}
     start=$SECONDS
 
-    log_info "Waiting for guest screen: $expected"
+    printf "⏳ '$expected' ..."
     while :; do
         if ! qmp_qemu_running; then
+            printf '\n'
             die "QEMU exited while waiting for screen match: $expected"
         fi
 
         if screen=$(qmp_vga_dump_text); then
             if "$matcher" "$screen" "$expected"; then
-                log_info "Guest screen matched: $expected"
+                printf "\r✅ '$expected'    \n"
                 return 0
             fi
         else
@@ -61,7 +62,7 @@ script_wait_until() {
         fi
 
         if [ "$timeout" != "0" ] && [ $((SECONDS - start)) -ge "$timeout" ]; then
-            log_error "Timed out waiting for screen match: '$expected'"
+            echo "\r❌ '$expected' timed out!"
             exit 124
         fi
 
@@ -81,7 +82,7 @@ script_wait_line() {
 
 # Sends one QEMU sendkey token to the guest one or more times.
 script_press_key() {
-    local key count
+    local key count times
     key=$1
     count=${2:-1}
 
@@ -92,6 +93,10 @@ script_press_key() {
         ;;
     esac
 
+	times=$([[ $count -gt 1 ]] && echo "($count times)")
+
+	echo "*️⃣  $key $times" 
+
     while [ "$count" -gt 0 ]; do
         qmp_sendkey "$key" || return 1
         count=$((count - 1))
@@ -100,11 +105,13 @@ script_press_key() {
 
 # Sends a string
 script_send_text() {
+	echo "⌨️  $1"
 	qmp_send_string "$1"
 }
 
 # Sends a string followed by return
 script_send_line() {
+	echo "⌨️  $1 ↩️" 
 	qmp_send_string "$1"
 	qmp_sendkey ret
 }

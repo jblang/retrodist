@@ -199,7 +199,7 @@ qmp_eject_disk() {
     local device
     device=${1:-floppy0}
 
-    log_info "Ejecting QEMU disk device $device"
+    echo "⏏️  Ejecting $device"
     qmp_hmp_command "eject $device"
 }
 
@@ -213,7 +213,7 @@ qmp_change_image() {
         log_error "Missing image for QMP change command"
         return 1
     fi
-    log_info "Changing QEMU disk device $device to $image"
+    echo "💾 Changing $device to $image"
     qmp_hmp_command "change $device $image"
 }
 
@@ -223,7 +223,7 @@ qmp_boot_disk() {
         log_error "Missing boot device for QMP boot_set command"
         return 1
     fi
-    log_info "Setting QEMU boot device to $1"
+    echo "🎬 Set QEMU boot device to $1"
     qmp_hmp_command "boot_set $1"
 }
 

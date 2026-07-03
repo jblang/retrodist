@@ -386,7 +386,7 @@ qemu_run_with_install_script() {
         return "$script_status"
     fi
 
-    log_info "Install script completed; waiting for QEMU to exit"
+    echo "🎉 Install script complete!"
     wait "$qemu_pid" || qemu_status=$?
     log_info "QEMU exited with status $qemu_status"
     return "$qemu_status"
