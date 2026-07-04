@@ -286,49 +286,53 @@ script_wait_one() {
     script_wait_result "$expected"
 }
 
-# Echoes the waiting message for a set of alternative screen matches.
-script_wait_alternative_message() {
-    local expected
-    [ $# -gt 0 ] || die "script_wait_alternative_message requires TEXT [TEXT ...]"
-
-    printf "🔀 Awaiting alternatives:\n"
-    for expected in "$@"; do
-        printf "   %s\n" "$expected"
-    done
-}
-
-# Echoes the matched alternative from a successful script_wait_alternative call.
-script_wait_alternative_result() {
-    local status expected_index expected
-    [ $# -gt 1 ] || die "script_wait_alternative_result requires STATUS TEXT [TEXT ...]"
-    status=$1
-    shift
-    expected_index=$((status + 1))
-    expected=${!expected_index}
-
-    printf "✅ %s\n" "$expected"
-}
-
 # Waits until VGA text memory contains any one of the expected screen texts.
 # Pass -l to match alternatives as trimmed full lines instead of substrings.
+# Pass -q to suppress echoing the matched alternative.
 script_wait_alternative() {
-    local status matcher args=() expected
+    local status matcher matched_index matched
+    local quiet=false
+    local args=() expected
     matcher=script_screen_contains_string
 
-    if [ "${1:-}" = "-l" ]; then
-        matcher=script_screen_contains_line
-        shift
-    fi
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        -l)
+            matcher=script_screen_contains_line
+            shift
+            ;;
+        -q)
+            quiet=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            die "script_wait_alternative unknown option: $1"
+            ;;
+        *)
+            break
+            ;;
+        esac
+    done
 
-    [ $# -gt 0 ] || die "script_wait_alternative requires [-l] TEXT [TEXT ...]"
+    [ $# -gt 0 ] || die "script_wait_alternative requires [-l] [-q] TEXT [TEXT ...]"
+    printf "🔀 Awaiting %s alternatives... " "$#"
     for expected in "$@"; do
         args+=("$matcher" "$expected")
     done
     args+=(--)
-    script_wait_alternative_message "$@"
     script_wait_until "${args[@]}" >/dev/null
     status=$?
-    script_wait_alternative_result "$status" "$@"
+    matched_index=$((status + 1))
+    matched=${!matched_index}
+    if [ "$quiet" = true ]; then
+        printf "matched #%s\n" "$status"
+    else
+        printf "matched #%s\n🖥️  %s\n" "$status" "$matched"
+    fi
     return "$status"
 }
 
@@ -457,7 +461,7 @@ script_login() {
 
 # Waits for a question prompt (pass multiple wrapped lines if it spans more than one), then sends the final argument as the answer.
 script_prompt() {
-    local last final_i question answer i marker
+    local last final_i question answer i
 
     [ $# -ge 2 ] || die "script_prompt requires QUESTION [QUESTION ...] ANSWER"
     last=$#
@@ -468,17 +472,10 @@ script_prompt() {
         question=${!i}
         printf "⏳ %s" "$question"
         script_wait_line "$question" >/dev/null
-        marker="  "
-        [ "$i" -eq 1 ] && marker="💬"
-        [ "$i" -lt "$final_i" ] && printf "\r%s %s\033[K\n" "$marker" "$question"
+        printf "\r🖥️  %s\033[K\n" "$question"
     done
 
-    qmp_send_string "$answer" || return 1
-    qmp_sendkey ret || return 1
-
-    marker="  "
-    [ "$final_i" -eq 1 ] && marker="💬"
-    printf "\r%s %s %s\033[K\n" "$marker" "$question" "$answer"
+    script_send_line "$answer" || return 1
 }
 
 # Logs in as root after first boot and runs autoconf. Pass the root password

@@ -182,10 +182,8 @@ wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
 assert_eq "script/wait-alternative-status" "1" "$wait_status"
 assert_eq "script/wait-alternative-output" \
-    "🔀 Awaiting alternatives:
-   fatal error
-   all done
-✅ all done" \
+    "🔀 Awaiting 2 alternatives... matched #1
+🖥️  all done" \
     "$wait_output"
 
 wait_screen="prefix all done suffix
@@ -197,10 +195,18 @@ wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
 assert_eq "script/wait-alternative-line-status" "1" "$wait_status"
 assert_eq "script/wait-alternative-line-output" \
-    "🔀 Awaiting alternatives:
-   all done
-   exact line
-✅ exact line" \
+    "🔀 Awaiting 2 alternatives... matched #1
+🖥️  exact line" \
+    "$wait_output"
+
+wait_output_tmp=$(mktemp)
+script_wait_alternative -q -l "all done" "exact line" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-alternative-quiet-status" "1" "$wait_status"
+assert_eq "script/wait-alternative-quiet-output" \
+    "🔀 Awaiting 2 alternatives... matched #1" \
     "$wait_output"
 
 wait_screen="first line

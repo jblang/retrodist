@@ -95,75 +95,105 @@ tty_setup_keep_default_keyboard() {
 		"Would you like to remap your keyboard?" \
 		"1 - yes" \
 		"2 - no" \
-		"Your choice (1/2)?" "2"
+		"Your choice (1/2)?" \
+		"2"
 }
 
 # Enable and initialize the configured swap partition.
 tty_setup_enable_swap() {
-    script_prompt "Do you wish to install this partition as your swapspace ([y]es, [n]o)?" "y"
-    script_prompt "Do you want setup to use mkswap on your swap partitions ([y]es, [n]o)?" "y"
+    script_prompt \
+        "Do you wish to install this partition as your swapspace ([y]es, [n]o)?" \
+        "y"
+    script_prompt \
+        "Do you want setup to use mkswap on your swap partitions ([y]es, [n]o)?" \
+        "y"
 }
 
 # Install from scratch and format the root partition as ext2.
 tty_setup_format_root_ext2() {
-    script_prompt "Would you like to [a]dd more software, or [i]nstall from scratch?" "i"
+    script_prompt \
+        "Would you like to [a]dd more software, or [i]nstall from scratch?" \
+        "i"
     script_prompt \
         "What filesystem do you have (or do you plan to use) on your root" \
-        "partition (/dev/hda2 ), [e]xt2fs or [x]iafs?" "e"
+        "partition (/dev/hda2 ), [e]xt2fs or [x]iafs?" \
+        "e"
     script_prompt \
 		"Enter [i] again to install from scratch, or [a] to add" \
-		"software to your existing system." "i"
-    script_prompt "Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)?" "y"
-	script_wait_alternative -l \
+		"software to your existing system." \
+        "i"
+    script_prompt \
+        "Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)?" \
+        "y"
+	script_wait_alternative -q \
 		"Enter '2048' or '1024', or just hit enter to accept the" \
         "Would you like to set up some of these partitions to be visible"
+	# shellcheck disable=SC2181 # The matched alternative index is meaningful here.
 	if [[ $? == 0 ]]; then
 		script_prompt \
-		"Enter '2048' or '1024', or just hit enter to accept the" \
-		"default of 4096:" "4096"
-	fi                                                
+			"Enter '2048' or '1024', or just hit enter to accept the" \
+			"default of 4096:" \
+			"4096"
+	fi
 }
 
 # Mount the FAT staging partition inside the installed system.
 tty_setup_mount_staging_partition() {
     script_prompt \
         "Would you like to set up some of these partitions to be visible" \
-        "from Linux ([y]es, [n]o)?" "y"
+        "from Linux ([y]es, [n]o)?" \
+        "y"
     script_prompt \
         "Please enter the partition you would like to access from Linux, or" \
-        "type <q> to quit adding new partitions:" "$FAT_PARTITION"
-    script_prompt "Where would you like to mount $FAT_PARTITION?" "$FAT_MOUNT"
+        "type <q> to quit adding new partitions:" \
+        "$FAT_PARTITION"
+    script_prompt \
+        "Where would you like to mount $FAT_PARTITION?" \
+        "$FAT_MOUNT"
     script_wait_line "Done adding partition $FAT_PARTITION."
 	script_prompt \
         "Please enter the partition you would like to access from Linux, or" \
-        "type <q> to quit adding new partitions:" "q"
+        "type <q> to quit adding new partitions:" \
+        "q"
 }
 
 # Select the FAT partition as the Slackware package source.
 tty_setup_select_hard_drive_source() {
     script_prompt \
 		"1 -- Install from a hard drive partition." \
-		"From which source will you be installing Linux (1/2/3/4/5)?" "1"
+		"From which source will you be installing Linux (1/2/3/4/5)?" \
+        "1"
     script_prompt \
         "Please enter the partition where the Slackware sources can be" \
-        "found, or [p] to see a partition list:" "$FAT_PARTITION"
-    script_prompt "What directory are the Slackware sources in?" "$PACKAGE_DIR"
+        "found, or [p] to see a partition list:" \
+        "$FAT_PARTITION"
+    script_prompt \
+        "What directory are the Slackware sources in?" \
+        "$PACKAGE_DIR"
     script_prompt \
 		"1 - FAT (MS-DOS, DR-DOS, OS/2)" \
-		"What type of filesystem does your Slackware source partition contain?" "1"
+		"What type of filesystem does your Slackware source partition contain?" \
+        "1"
 }
 
 # Select the Slackware package sets to install.
 tty_setup_select_disk_sets() {
-    script_prompt "Which disk sets do you want to install?" "$PACKAGE_SETS"
-    script_prompt "Do you want to use PROMPT mode (y/n)?" "y" # note: this doesn't prompt; it uses tagfiles
-	script_wait_alternative \
+    script_prompt \
+        "Which disk sets do you want to install?" \
+        "$PACKAGE_SETS"
+    # This doesn't prompt; it uses tagfiles.
+    script_prompt \
+        "Do you want to use PROMPT mode (y/n)?" \
+        "y"
+	script_wait_alternative -q \
 		"Enter your custom tagfile extension (including the leading '.'), or just" \
         "It is recommended that you make a boot disk."
+	# shellcheck disable=SC2181 # The matched alternative index is meaningful here.
 	if [[ $? == 0 ]]; then
 		script_prompt \
-		"Enter your custom tagfile extension (including the leading '.'), or just" \
-		"press ENTER to continue without a custom extension. ==>" ""
+			"Enter your custom tagfile extension (including the leading '.'), or just" \
+			"press ENTER to continue without a custom extension. ==>" \
+			""
 	fi
 }
 
@@ -171,7 +201,8 @@ tty_setup_select_disk_sets() {
 tty_setup_skip_boot_disk() {
     script_prompt \
         "It is recommended that you make a boot disk." \
-        "Would you like to do this ([y]es, [n]o)?" "n"
+        "Would you like to do this ([y]es, [n]o)?" \
+        "n"
 }
 
 # Install LILO to the target disk boot sector using 1.x question flow
@@ -192,7 +223,8 @@ tty_setup_install_lilo_1x() {
     #    considerably faster than a normal boot disk.
     script_prompt \
 		"LILO (Linux Loader) Installation:" \
-		"Which option would you like? (1/2/3/4):" "2"
+		"Which option would you like? (1/2/3/4):" \
+        "2"
 }
 
 # Install LILO to the target disk boot sector using 2.x+ question flow
@@ -200,41 +232,52 @@ tty_setup_install_lilo_2x() {
     script_prompt \
 		"LILO INSTALLATION" \
 		"1 -- Start LILO configuration with a new LILO header" \
-		"Which option would you like (1 - 9)?" "1"
-	script_wait_alternative -l \
-		"Enter extra parameters==>" \
+		"Which option would you like (1 - 9)?" \
+        "1"
+	script_wait_alternative -q \
+		'OPTIONAL append="" LINE' \
 		"SELECT LILO TARGET LOCATION"
+	# shellcheck disable=SC2181 # The matched alternative index is meaningful here.
 	if [[ $? == 0 ]]; then
-		script_press_key ret
-	fi                                                
+		script_prompt \
+			'OPTIONAL append="" LINE' \
+			"Enter extra parameters==>" \
+			""
+	fi
     script_prompt \
 		"SELECT LILO TARGET LOCATION" \
 		"1. The Master Boot Record of your first hard drive" \
-		"Please pick a target location (1 - 3):" "1"
+		"Please pick a target location (1 - 3):" \
+        "1"
     script_prompt \
 		"CHOOSE LILO DELAY" \
 		"1 -- None, don't wait at all - boot straight into the first OS" \
-		"Which choice would you like (1 - 4)?" "1"
+		"Which choice would you like (1 - 4)?" \
+        "1"
     script_prompt \
 		"LILO INSTALLATION" \
 		"2 -- Add a Linux partition to the LILO config file" \
-		"Which option would you like (1 - 9)?" "2"
+		"Which option would you like (1 - 9)?" \
+        "2"
     script_prompt \
 		"SELECT LINUX PARTITION" \
-		"Which one would you like LILO to boot?" "/dev/hda2"
+		"Which one would you like LILO to boot?" \
+        "/dev/hda2"
     script_prompt \
 		"SELECT PARTITION NAME" \
-		"Enter name:" "linux"
+		"Enter name:" \
+        "linux"
     script_prompt \
 		"LILO INSTALLATION" \
 		"5 -- Install LILO" \
-		"Which option would you like (1 - 9)?" "5"
+		"Which option would you like (1 - 9)?" \
+        "5"
 }
 
 # Skip CD-ROM configuration.
 setup_dispatch_questions() {
 	while true; do
-		script_wait_alternative -l \
+		script_wait_alternative -q -l \
 			"LILO (Linux Loader) Installation:" \
 			"LILO INSTALLATION" \
 			"Enter speed ==>" \
@@ -244,51 +287,129 @@ setup_dispatch_questions() {
 			"Would you like to try out some custom screen fonts ([y]es, [n]o)?" \
 			"Would you like to load the FTAPE module at boot time ([y]es, [n]o)?"
 		case $? in
-		0) # 1.x lilo configuration
+		0)
 			tty_setup_install_lilo_1x
 			break
 			;;
-		1) # 2.0+ lilo configuration
+		1)
 			tty_setup_install_lilo_2x
 			break
 			;;
-		2) # modem speed
+		2)
 			script_prompt \
 				"SELECT DEFAULT MODEM SPEED" \
-				"Enter speed ==>" "38400"
+				"Enter speed ==>" \
+				"38400"
 			;;
-		*) # optional steps (answer no)
-			script_send_line "n"
+		3)
+			script_prompt \
+                "Would you like to set up your modem ([y]es, [n]o)?" \
+                "n"
 			;;
+		4)
+			script_prompt \
+                "Would you like to set up your mouse ([y]es, [n]o)?" \
+                "n"
+			;;
+		5)
+			script_prompt \
+                "Do you have a CD-ROM ([y]es, [n]o)?" \
+                "n"
+			;;
+		6)
+			script_prompt \
+                "Would you like to try out some custom screen fonts ([y]es, [n]o)?" \
+                "n"
+			;;
+		7)
+			script_prompt \
+                "Would you like to load the FTAPE module at boot time ([y]es, [n]o)?" \
+                "n"
 		esac
 	done
 }
 
 # Configure TCP/IP networking with the selected NET_* values.
 tty_setup_configure_network() {
-    script_prompt "Would you like to configure your network ([y]es, [n]o)?" "y"
-    script_prompt "Enter hostname:" "$NET_HOSTNAME"
-    script_prompt "Enter domain name for $NET_HOSTNAME:" "$NET_DOMAINNAME"
-    script_prompt "Do you plan to ONLY use loopback ([y]es, [n]o)?" "n"
-    script_prompt "Enter IP address for $NET_HOSTNAME (aaa.bbb.ccc.ddd):" "$NET_IPADDR"
-    script_prompt "Enter network address (aaa.bbb.ccc.ddd):" "$NET_NETWORK"
-    script_prompt "Enter gateway address (aaa.bbb.ccc.ddd):" "$NET_GATEWAY"
-    script_prompt "Enter netmask (aaa.bbb.ccc.ddd):" "$NET_NETMASK"
-    script_prompt "Enter broadcast address (aaa.bbb.ccc.ddd):" "$NET_BROADCAST"
-    script_prompt "Name Server for domain $NET_DOMAINNAME (aaa.bbb.ccc.ddd):" "$NET_NAMESERVER"
+    script_prompt \
+        "Would you like to configure your network ([y]es, [n]o)?" \
+        "y"
+    while true; do
+        script_wait_alternative -l \
+            "Enter hostname:" \
+            "Enter domain name for $NET_HOSTNAME:" \
+            "Do you plan to ONLY use loopback ([y]es, [n]o)?" \
+            "Enter IP address for $NET_HOSTNAME (aaa.bbb.ccc.ddd):" \
+            "Enter network address (aaa.bbb.ccc.ddd):" \
+            "Enter gateway address (aaa.bbb.ccc.ddd):" \
+            "Enter netmask (aaa.bbb.ccc.ddd):" \
+            "Enter broadcast address (aaa.bbb.ccc.ddd):" \
+			"Will you be accessing a nameserver ([y]es, [n]o)?" \
+            "Name Server for domain $NET_DOMAINNAME (aaa.bbb.ccc.ddd):" \
+			"Your networking software has now been configured."
+        case $? in
+			0) script_send_line "$NET_HOSTNAME" ;;
+			1) script_send_line "$NET_DOMAINNAME" ;;
+			2) script_send_line "n" ;; # Do you plan to ONLY use loopback?
+			3) script_send_line "$NET_IPADDR" ;;
+			4) script_send_line "$NET_NETWORK" ;;
+			5) script_send_line "$NET_GATEWAY" ;;
+			6) script_send_line "$NET_NETMASK" ;;
+			7) script_send_line "$NET_BROADCAST" ;;
+			8) script_send_line "y" ;; # Will you be accessing a nameserver?
+			9) script_send_line "$NET_NAMESERVER" ;;
+			10) break ;; # done
+        esac
+    done
 }
 
 # Skip loading the selection daemon from rc.local.
-tty_setup_skip_selection_daemon() {
-    script_prompt \
-        'Would you like to add "selection -t none &" to /etc/rc.d/rc.local so that' \
-        "selection will load at boot time ([y]es, [n]o)?" "n"
+tty_setup_skip_mouse_daemon() {
+	script_wait_alternative -l \
+		'Would you like to add "selection -t none &" to /etc/rc.d/rc.local so that' \
+		'Would you like to add "gpm -t none &" to /etc/rc.d/rc.local so that'
+	case $? in
+		0)
+			script_prompt \
+                "selection will load at boot time ([y]es, [n]o)?" \
+                "n"
+			;;
+		1)
+			script_prompt \
+                "gpm will load at boot time ([y]es, [n]o)?" \
+                "n"
+			;;
+	esac
+}
+
+# configure sendmail if prompted
+tty_setup_configure_sendmail() {
+	script_wait_alternative \
+		"SENDMAIL CONFIGURATION" \
+        "Would you like to configure your timezone ([y]es, [n]o)?"
+	# shellcheck disable=SC2181 # The matched alternative index is meaningful here.
+	if [[ $? == 0 ]]; then
+		script_prompt \
+			"Would you like to install a sendmail.cf file in /etc ([y]es, [n]o)?" \
+            "y"
+		script_prompt \
+			"CONFIG FILE (/etc/sendmail.cf) SELECTION" \
+			"1 - Systems actually on the Internet (including SLIP/CSLIP/PPP) that use" \
+			"a nameserver." \
+			"Which choice would you like (1/2/3/4)?" \
+            "1"
+	fi
 }
 
 # Configure the installed system timezone.
 tty_setup_configure_timezone() {
-    script_prompt "Would you like to configure your timezone ([y]es, [n]o)?" "y"
-    script_prompt "Select one of these timezones:" "Timezone?" "$TIMEZONE"
+    script_prompt \
+        "Would you like to configure your timezone ([y]es, [n]o)?" \
+        "y"
+    script_prompt \
+        "Select one of these timezones:" \
+        "Timezone?" \
+        "$TIMEZONE"
 }
 
 # Reboot from the installed hard disk.
@@ -300,7 +421,9 @@ tty_setup_reboot_to_installed_system() {
 
 # Run the staged first-boot autoconfiguration script.
 tty_setup_run_first_boot_autoconf() {
+    # shellcheck disable=SC2034 # Used by script_login and script_shell via dynamic scope.
     local SHELL_PROMPT="$NET_HOSTNAME:~#"
+    # shellcheck disable=SC2034 # Used by script_login via dynamic scope.
     local LOGIN_PROMPT="$NET_HOSTNAME login:"
 
     script_login
@@ -321,7 +444,8 @@ tty_setup() {
     tty_setup_skip_boot_disk
 	setup_dispatch_questions
     tty_setup_configure_network
-    tty_setup_skip_selection_daemon
+    tty_setup_skip_mouse_daemon
+	tty_setup_configure_sendmail
     tty_setup_configure_timezone
     tty_setup_reboot_to_installed_system
     tty_setup_run_first_boot_autoconf

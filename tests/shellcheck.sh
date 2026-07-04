@@ -14,7 +14,7 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 # Bash host scripts: strict.
-HOST_SCRIPTS=(retro jump qmp retrolib/*.sh tests/*.sh)
+HOST_SCRIPTS=(retro jump qmp retrolib/*.sh slackware/tty-setup.sh tests/*.sh)
 
 # POSIX guest fragments: run on legacy guest shells, so accept patterns that are
 # intentional there (word splitting, expr math, -a/-o tests, $? checks, legacy

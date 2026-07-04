@@ -117,7 +117,7 @@ Useful primitives:
 
 - `script_wait_string TEXT [TEXT ...]`
 - `script_wait_line TEXT [TEXT ...]`
-- `script_wait_alternative [-l] TEXT [TEXT ...]`
+- `script_wait_alternative [-l] [-q] TEXT [TEXT ...]`
 - `script_boot [COMMAND]`
 - `script_login [USER]`
 - `script_shell [--no-wait] COMMAND [COMMAND ...]`

@@ -521,11 +521,12 @@ Functions:
   Polls until each `TEXT` appears as a trimmed full line on screen, in the
   argument order. This is useful for wrapped or multi-line messages.
 
-- `script_wait_alternative [-l] TEXT [TEXT ...]`
+- `script_wait_alternative [-l] [-q] TEXT [TEXT ...]`
   Polls VGA text memory until any one of the expected texts appears. By default,
   texts match anywhere on screen; pass `-l` to match trimmed full lines. Prints
-  the matched text and returns the zero-based matched alternative index as the
-  shell status. A status of `1` means the second alternative matched.
+  the matched text unless `-q` is provided, and returns the zero-based matched
+  alternative index as the shell status. A status of `1` means the second
+  alternative matched.
 
 - `script_boot [COMMAND]`
   Waits for `BOOT_PROMPT` (default: `boot:`), sends `COMMAND` when provided,
