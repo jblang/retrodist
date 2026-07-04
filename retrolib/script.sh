@@ -92,7 +92,7 @@ script_detect_swaproot_geometry() {
     geometry_success="geometry.sh: fdisk geometry query suceeded"
     geometry_error="geometry.sh: fdisk geometry query returned error "
     script_shell "sh $geometry_script_q $device_q"
-    script_wait_string "$geometry_success" "$geometry_error"
+    script_wait_alternative "$geometry_success" "$geometry_error"
     wait_status=$?
     if [ "$wait_status" -ne 0 ]; then
         die "Guest fdisk helper failed during geometry query."
@@ -136,8 +136,11 @@ script_create_swaproot_partitions() {
     swaproot_success="swaproot.sh: created root partition ${device}2 from $root_start-$root_end"
     swaproot_error="swaproot.sh: fdisk partition creation returned error "
     script_shell "sh $swaproot_script_q $device_q $layout"
-    script_wait_string "$swaproot_success" "$swaproot_error" ||
+    script_wait_alternative "$swaproot_success" "$swaproot_error"
+    wait_status=$?
+    if [ "$wait_status" -ne 0 ]; then
         die "Guest fdisk helper failed during partition creation."
+    fi
 }
 
 # Partitions a guest disk by probing fdisk geometry in the guest, calculating
@@ -256,68 +259,87 @@ script_wait_until() {
     done
 }
 
-# Echoes the waiting message for a set of alternative screen matches.
+# Echoes the waiting message for one screen match.
 script_wait_message() {
-    local expected
-    [ $# -gt 0 ] || die "script_wait_message requires TEXT [TEXT ...]"
+    [ $# -eq 1 ] || die "script_wait_message requires TEXT"
 
-    if [ "$#" -gt 1 ]; then
-        printf "🔀 Awaiting alternatives:\n"
-        for expected in "$@"; do
-            printf "   %s\n" "$expected"
-        done
-    else
-        printf "⏳ %s" "$1"
-    fi
+    printf "⏳ %s" "$1"
 }
 
-# Echoes the result from the most recent successful script_wait_until call.
+# Echoes a successful wait result.
 script_wait_result() {
-    local status expected expected_index alternative_count
-    [ $# -gt 1 ] || die "script_wait_result requires STATUS TEXT [TEXT ...]"
-    status=$1
-    shift
-    alternative_count=$#
-    expected_index=$((status + 1))
-    expected=${!expected_index}
+    [ $# -eq 1 ] || die "script_wait_result requires TEXT"
 
-    if [ "$alternative_count" -gt 1 ]; then
-        printf "✅ %s\n" "$expected"
-    else
-        printf "\r✅ %s\033[K\n" "$expected"
-    fi
-
+    printf "\r✅ %s\033[K\n" "$1"
     return 0
 }
 
-# Waits until VGA text memory contains expected screen text anywhere.
-script_wait_string() {
+# Waits for one screen matcher/text pair and prints progress.
+script_wait_one() {
+    local matcher expected
+    [ $# -eq 2 ] || die "script_wait_one requires MATCHER TEXT"
+    matcher=$1
+    expected=$2
+
+    script_wait_message "$expected"
+    script_wait_until "$matcher" "$expected" >/dev/null
+    script_wait_result "$expected"
+}
+
+# Echoes the waiting message for a set of alternative screen matches.
+script_wait_alternative_message() {
+    local expected
+    [ $# -gt 0 ] || die "script_wait_alternative_message requires TEXT [TEXT ...]"
+
+    printf "🔀 Awaiting alternatives:\n"
+    for expected in "$@"; do
+        printf "   %s\n" "$expected"
+    done
+}
+
+# Echoes the matched alternative from a successful script_wait_alternative call.
+script_wait_alternative_result() {
+    local status expected_index expected
+    [ $# -gt 1 ] || die "script_wait_alternative_result requires STATUS TEXT [TEXT ...]"
+    status=$1
+    shift
+    expected_index=$((status + 1))
+    expected=${!expected_index}
+
+    printf "✅ %s\n" "$expected"
+}
+
+# Waits until VGA text memory contains any one of the expected screen texts.
+script_wait_alternative() {
     local status args=() expected
-    [ $# -gt 0 ] || die "script_wait_string requires TEXT [TEXT ...]"
+    [ $# -gt 0 ] || die "script_wait_alternative requires TEXT [TEXT ...]"
     for expected in "$@"; do
         args+=(script_screen_contains_string "$expected")
     done
     args+=(--)
-    script_wait_message "$@"
+    script_wait_alternative_message "$@"
     script_wait_until "${args[@]}" >/dev/null
     status=$?
-    script_wait_result "$status" "$@"
+    script_wait_alternative_result "$status" "$@"
     return "$status"
+}
+
+# Waits until VGA text memory contains expected screen text anywhere.
+script_wait_string() {
+    local expected
+    [ $# -gt 0 ] || die "script_wait_string requires TEXT [TEXT ...]"
+    for expected in "$@"; do
+        script_wait_one script_screen_contains_string "$expected" || return 1
+    done
 }
 
 # Waits until VGA text memory contains expected text on a line by itself.
 script_wait_line() {
-    local status args=() expected
+    local expected
     [ $# -gt 0 ] || die "script_wait_line requires TEXT [TEXT ...]"
     for expected in "$@"; do
-        args+=(script_screen_contains_line "$expected")
+        script_wait_one script_screen_contains_line "$expected" || return 1
     done
-    args+=(--)
-    script_wait_message "$@"
-    script_wait_until "${args[@]}" >/dev/null
-    status=$?
-    script_wait_result "$status" "$@"
-    return "$status"
 }
 
 # Sends one QEMU sendkey token to the guest one or more times.

@@ -514,12 +514,15 @@ Functions:
   as the shell status.
 
 - `script_wait_string TEXT [TEXT ...]`
-  Polls VGA text memory until any `TEXT` appears anywhere on screen. Prints the
-  matched text and returns the zero-based matched alternative index as the shell
-  status. A status of `1` means the second alternative matched.
+  Polls VGA text memory until each `TEXT` appears anywhere on screen, in the
+  argument order. This is useful for wrapped or multi-line messages.
 
 - `script_wait_line TEXT [TEXT ...]`
-  Polls until any `TEXT` appears as a trimmed full line on screen. Prints the
+  Polls until each `TEXT` appears as a trimmed full line on screen, in the
+  argument order. This is useful for wrapped or multi-line messages.
+
+- `script_wait_alternative TEXT [TEXT ...]`
+  Polls VGA text memory until any one of the expected texts appears. Prints the
   matched text and returns the zero-based matched alternative index as the shell
   status. A status of `1` means the second alternative matched.
 

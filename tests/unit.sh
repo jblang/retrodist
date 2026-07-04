@@ -176,16 +176,29 @@ assert_eq "script/wait-multi-second-status" "1" "$wait_status"
 assert_eq "script/wait-multi-second-output" "all done" "$wait_output"
 
 wait_output_tmp=$(mktemp)
-script_wait_string "fatal error" "all done" >"$wait_output_tmp"
+script_wait_alternative "fatal error" "all done" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
-assert_eq "script/wait-string-alt-status" "1" "$wait_status"
-assert_eq "script/wait-string-alt-output" \
+assert_eq "script/wait-alternative-status" "1" "$wait_status"
+assert_eq "script/wait-alternative-output" \
     "🔀 Awaiting alternatives:
    fatal error
    all done
 ✅ all done" \
+    "$wait_output"
+
+wait_screen="first line
+second line"
+wait_output_tmp=$(mktemp)
+script_wait_line "first line" "second line" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-line-sequence-status" "0" "$wait_status"
+assert_eq "script/wait-line-sequence-output" \
+    "⏳ first line✅ first line[K
+⏳ second line✅ second line[K" \
     "$wait_output"
 
 # --- extract image links ----------------------------------------------------
