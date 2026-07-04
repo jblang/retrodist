@@ -310,11 +310,19 @@ script_wait_alternative_result() {
 }
 
 # Waits until VGA text memory contains any one of the expected screen texts.
+# Pass -l to match alternatives as trimmed full lines instead of substrings.
 script_wait_alternative() {
-    local status args=() expected
-    [ $# -gt 0 ] || die "script_wait_alternative requires TEXT [TEXT ...]"
+    local status matcher args=() expected
+    matcher=script_screen_contains_string
+
+    if [ "${1:-}" = "-l" ]; then
+        matcher=script_screen_contains_line
+        shift
+    fi
+
+    [ $# -gt 0 ] || die "script_wait_alternative requires [-l] TEXT [TEXT ...]"
     for expected in "$@"; do
-        args+=(script_screen_contains_string "$expected")
+        args+=("$matcher" "$expected")
     done
     args+=(--)
     script_wait_alternative_message "$@"

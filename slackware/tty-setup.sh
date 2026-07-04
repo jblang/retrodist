@@ -114,6 +114,14 @@ tty_setup_format_root_ext2() {
 		"Enter [i] again to install from scratch, or [a] to add" \
 		"software to your existing system." "i"
     script_prompt "Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)?" "y"
+	script_wait_alternative -l \
+		"Enter '2048' or '1024', or just hit enter to accept the" \
+        "Would you like to set up some of these partitions to be visible"
+	if [[ $? == 0 ]]; then
+		script_prompt \
+		"Enter '2048' or '1024', or just hit enter to accept the" \
+		"default of 4096:" "4096"
+	fi                                                
 }
 
 # Mount the FAT staging partition inside the installed system.
@@ -149,6 +157,14 @@ tty_setup_select_hard_drive_source() {
 tty_setup_select_disk_sets() {
     script_prompt "Which disk sets do you want to install?" "$PACKAGE_SETS"
     script_prompt "Do you want to use PROMPT mode (y/n)?" "y" # note: this doesn't prompt; it uses tagfiles
+	script_wait_alternative \
+		"Enter your custom tagfile extension (including the leading '.'), or just" \
+        "It is recommended that you make a boot disk."
+	if [[ $? == 0 ]]; then
+		script_prompt \
+		"Enter your custom tagfile extension (including the leading '.'), or just" \
+		"press ENTER to continue without a custom extension. ==>" ""
+	fi
 }
 
 # Skip creating an installer boot disk.
@@ -158,18 +174,8 @@ tty_setup_skip_boot_disk() {
         "Would you like to do this ([y]es, [n]o)?" "n"
 }
 
-# Skip modem configuration.
-tty_setup_skip_modem_setup() {
-    script_prompt "Would you like to set up your modem ([y]es, [n]o)?" "n"
-}
-
-# Skip mouse configuration.
-tty_setup_skip_mouse_setup() {
-    script_prompt "Would you like to set up your mouse ([y]es, [n]o)?" "n"
-}
-
-# Install LILO to the target disk boot sector.
-tty_setup_install_lilo_to_mbr() {
+# Install LILO to the target disk boot sector using 1.x question flow
+tty_setup_install_lilo_1x() {
     # LILO, the Linux Loader, allows you to boot Linux directly off your hard drive
     # without using a boot floppy disk.
     # 1. If you are using OS/2's Boot Manager, this choice will allow you to boot
@@ -187,6 +193,75 @@ tty_setup_install_lilo_to_mbr() {
     script_prompt \
 		"LILO (Linux Loader) Installation:" \
 		"Which option would you like? (1/2/3/4):" "2"
+}
+
+# Install LILO to the target disk boot sector using 2.x+ question flow
+tty_setup_install_lilo_2x() {
+    script_prompt \
+		"LILO INSTALLATION" \
+		"1 -- Start LILO configuration with a new LILO header" \
+		"Which option would you like (1 - 9)?" "1"
+	script_wait_alternative -l \
+		"Enter extra parameters==>" \
+		"SELECT LILO TARGET LOCATION"
+	if [[ $? == 0 ]]; then
+		script_press_key ret
+	fi                                                
+    script_prompt \
+		"SELECT LILO TARGET LOCATION" \
+		"1. The Master Boot Record of your first hard drive" \
+		"Please pick a target location (1 - 3):" "1"
+    script_prompt \
+		"CHOOSE LILO DELAY" \
+		"1 -- None, don't wait at all - boot straight into the first OS" \
+		"Which choice would you like (1 - 4)?" "1"
+    script_prompt \
+		"LILO INSTALLATION" \
+		"2 -- Add a Linux partition to the LILO config file" \
+		"Which option would you like (1 - 9)?" "2"
+    script_prompt \
+		"SELECT LINUX PARTITION" \
+		"Which one would you like LILO to boot?" "/dev/hda2"
+    script_prompt \
+		"SELECT PARTITION NAME" \
+		"Enter name:" "linux"
+    script_prompt \
+		"LILO INSTALLATION" \
+		"5 -- Install LILO" \
+		"Which option would you like (1 - 9)?" "5"
+}
+
+# Skip CD-ROM configuration.
+setup_dispatch_questions() {
+	while true; do
+		script_wait_alternative -l \
+			"LILO (Linux Loader) Installation:" \
+			"LILO INSTALLATION" \
+			"Enter speed ==>" \
+			"Would you like to set up your modem ([y]es, [n]o)?" \
+			"Would you like to set up your mouse ([y]es, [n]o)?" \
+			"Do you have a CD-ROM ([y]es, [n]o)?" \
+			"Would you like to try out some custom screen fonts ([y]es, [n]o)?" \
+			"Would you like to load the FTAPE module at boot time ([y]es, [n]o)?"
+		case $? in
+		0) # 1.x lilo configuration
+			tty_setup_install_lilo_1x
+			break
+			;;
+		1) # 2.0+ lilo configuration
+			tty_setup_install_lilo_2x
+			break
+			;;
+		2) # modem speed
+			script_prompt \
+				"SELECT DEFAULT MODEM SPEED" \
+				"Enter speed ==>" "38400"
+			;;
+		*) # optional steps (answer no)
+			script_send_line "n"
+			;;
+		esac
+	done
 }
 
 # Configure TCP/IP networking with the selected NET_* values.
@@ -244,9 +319,7 @@ tty_setup() {
     tty_setup_select_hard_drive_source
     tty_setup_select_disk_sets
     tty_setup_skip_boot_disk
-    tty_setup_skip_modem_setup
-    tty_setup_skip_mouse_setup
-    tty_setup_install_lilo_to_mbr
+	setup_dispatch_questions
     tty_setup_configure_network
     tty_setup_skip_selection_daemon
     tty_setup_configure_timezone

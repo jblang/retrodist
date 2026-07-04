@@ -188,6 +188,21 @@ assert_eq "script/wait-alternative-output" \
 ✅ all done" \
     "$wait_output"
 
+wait_screen="prefix all done suffix
+exact line"
+wait_output_tmp=$(mktemp)
+script_wait_alternative -l "all done" "exact line" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-alternative-line-status" "1" "$wait_status"
+assert_eq "script/wait-alternative-line-output" \
+    "🔀 Awaiting alternatives:
+   all done
+   exact line
+✅ exact line" \
+    "$wait_output"
+
 wait_screen="first line
 second line"
 wait_output_tmp=$(mktemp)
