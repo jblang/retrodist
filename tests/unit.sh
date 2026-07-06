@@ -164,22 +164,13 @@ assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
 
-# --- install script fdisk geometry helpers ---------------------------------
-fdisk_old_screen='
-Disk /dev/hda: 16 heads, 63 sectors/track, 1015 cylinders
-Units = cylinders of 1008 * 512 bytes
-'
-assert_eq "script/fdisk-geometry-old" "16 63 1015" "$(script_parse_fdisk_geometry "$fdisk_old_screen")"
-
-fdisk_new_screen='
-Disk /dev/hda: 528 MB, 528482304 bytes
-64 heads, 63 sectors, 256 cylinders
-Units = cylinders of 4032 * 512 = 2064384 bytes
-'
-assert_eq "script/fdisk-geometry-new" "64 63 256" "$(script_parse_fdisk_geometry "$fdisk_new_screen")"
-assert_eq "script/swaproot-geometry" "1 130 131 1015" "$(script_calculate_swaproot_geometry 16 63 1015 64)"
-assert_fail "script/fdisk-geometry-missing" script_parse_fdisk_geometry "no fdisk geometry here"
-assert_fail "script/swaproot-too-large" script_calculate_swaproot_geometry 16 63 10 64
+# --- install script fdisk prompt helpers ------------------------------------
+assert_eq "script/fdisk-range-first" "1 1015" "$(script_fdisk_parse_range "First cylinder (1-1015):   ")"
+assert_eq "script/fdisk-range-last" "131 1015" "$(script_fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK (131-1015): ")"
+assert_eq "script/fdisk-range-default" "131 1015" "$(script_fdisk_parse_range "First cylinder (131-1015, default 131): ")"
+assert_eq "script/fdisk-range-bracketed" "1 520" "$(script_fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK ([1]-520): ")"
+assert_fail "script/fdisk-range-answered" script_fdisk_parse_range "First cylinder (1-1015): 1"
+assert_fail "script/fdisk-range-missing" script_fdisk_parse_range "no fdisk prompt here"
 
 wait_screen="ready"
 # shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
@@ -197,7 +188,7 @@ assert_eq "script/wait-single-output" "ready" "$wait_output"
 wait_output=$(script_wait_string "ready")
 tests_run=$((tests_run + 1))
 case "$wait_output" in
-*"✅ ready"*) ;;
+*"🖥️  ready"*) ;;
 *)
     tests_failed=$((tests_failed + 1))
     printf "FAIL script/wait-string-output\n  actual:   [%s]\n" "$wait_output"
@@ -265,8 +256,8 @@ wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
 assert_eq "script/wait-line-sequence-status" "0" "$wait_status"
 assert_eq "script/wait-line-sequence-output" \
-    "⏳ first line✅ first line[K
-⏳ second line✅ second line[K" \
+    "⏳ first line🖥️  first line[K
+⏳ second line🖥️  second line[K" \
     "$wait_output"
 
 # --- regex matcher -----------------------------------------------------------
@@ -285,7 +276,7 @@ rm -f "$wait_output_tmp"
 assert_eq "script/wait-string-regex-status" "0" "$wait_status"
 tests_run=$((tests_run + 1))
 case "$wait_output" in
-*"✅ version [0-9.]*"*) ;;
+*"🖥️  version [0-9.]*"*) ;;
 *)
     tests_failed=$((tests_failed + 1))
     printf "FAIL script/wait-string-regex-output\n  actual:   [%s]\n" "$wait_output"

@@ -55,9 +55,7 @@ partition_disk() {
 
     script_wait_string "$prompt"
     script_press_key alt-f2
-    script_shell "mount -t msdos /dev/hdb1 /mnt"
-    script_partition_swaproot /dev/hda 64 /mnt
-    script_shell "umount /mnt"
+    script_fdisk /dev/hda 64
     script_press_key alt-f1
     script_wait_string "$prompt"
     script_press_key n

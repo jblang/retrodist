@@ -31,30 +31,40 @@ NET_BROADCAST=10.0.2.255
 NET_NAMESERVER=10.0.2.3
 
 # Select one of these timezones:
-# Australia/LHI Australia/NSW Australia/North Australia/Queensland
-# Australia/South Australia/Tasmania Australia/Victoria Australia/West
-# Australia/Yancowinna Brazil/Acre Brazil/DeNoronha Brazil/East Brazil/West
-# Canada/Atlantic Canada/Central Canada/East-Saskatche Canada/Eastern
-# Canada/Mountain Canada/Newfoundland Canada/Pacific Canada/Yukon
-# Chile/Continental Chile/EasterIsland CET Cuba EET Egypt Factory GB-Eire GMT
-# GMT+0 GMT+1 GMT+10 GMT+11 GMT+12 GMT+13 GMT+2 GMT+3 GMT+4 GMT+5 GMT+6 GMT+7
-# GMT+8 GMT+9 GMT-0 GMT-1 GMT-10 GMT-11 GMT-12 GMT-2 GMT-3 GMT-4 GMT-5 GMT-6 GMT-
-# GMT-8 GMT-9 GMT0 GMT1 GMT10 GMT11 GMT12 GMT13 GMT2 GMT3 GMT4 GMT5 GMT6 GMT7
-# GMT8 GMT9 Greenwich Hongkong Iceland Iran Israel Jamaica Japan Libya
-# Mexico/BajaNorte Mexico/BajaSur Mexico/General MET NZ Navajo PRC Poland ROC ROK
-# Singapore SystemV/AST4 SystemV/AST4ADT SystemV/CST6 SystemV/CST6CDT
-# SystemV/EST5 SystemV/EST5EDT SystemV/MST7 SystemV/MST7MDT
-# SystemV/PST8 SystemV/PST8PDT SystemV/YST9 SystemV/YST9YDT Turkey UCT UTC
-# Universal US/Alaska US/Aleutian US/Arizona US/Central US/East-Indiana
-# US/Eastern US/Hawaii US/Michigan US/Mountain US/Pacific US/Pacific-New US/Samoa
-# W-SU WET Zulu
+# Brazil/West             GMT-6                   SystemV/EST5
+# Canada/Atlantic         GMT-                    SystemV/EST5EDT
+# Canada/Central          GMT-8                   SystemV/MST7
+# Canada/East-Saskatche   GMT-9                   SystemV/MST7MDT
+# Canada/Eastern          GMT0                    SystemV/PST8
+# Canada/Mountain         GMT1                    SystemV/PST8PDT
+# Canada/Newfoundland     GMT10                   SystemV/YST9
+# Canada/Pacific          GMT11                   SystemV/YST9YDT
+# Canada/Yukon            GMT12                   Turkey
+# Chile/Continental       GMT13                   UCT
+# Chile/EasterIsland      GMT2                    UTC
+# CET                     GMT3                    Universal
+# Cuba                    GMT4                    US/Alaska
+# EET                     GMT5                    US/Aleutian
+# Egypt                   GMT6                    US/Arizona
+# Factory                 GMT7                    US/Central
+# GB-Eire                 GMT8                    US/East-Indiana
+# GMT                     GMT9                    US/Eastern
+# GMT+0                   Greenwich               US/Hawaii
+# GMT+1                   Hongkong                US/Michigan
+# GMT+10                  Iceland                 US/Mountain
+# GMT+11                  Iran                    US/Pacific
+# GMT+12                  Israel                  US/Pacific-New
+# GMT+13                  Jamaica                 US/Samoa
+# GMT+2                   Japan                   W-SU
+# GMT+3                   Libya                   WET
+# GMT+4                   Mexico/BajaNorte        Zulu
+# GMT+5                   Mexico/BajaSur
+# GMT+6                   Mexico/General
 TIMEZONE=US/Central
 
 script_prompt "darkstar login:" "root"
 
-script_shell "mount -t msdos /dev/hdb1 /mnt"
-script_partition_swaproot "/dev/hda" "64"
-script_shell "umount /mnt"
+script_fdisk /dev/hda 64
 
 script_shell --no-wait "setup"
 

@@ -22,166 +22,102 @@ script_import() {
     source "$helper" || die "Failed to import $helper"
 }
 
-# Extracts disk geometry from fdisk output currently visible on the guest screen.
-script_parse_fdisk_geometry() {
-    local screen
-    screen=$1
+# Extended regex for a bare fdisk cylinder prompt still awaiting input; the
+# available first-last range fdisk advertises in parentheses is captured.
+# Some fdisks bracket the default value, e.g. ([1]-520); newer ones append
+# ", default N" instead.
+SCRIPT_FDISK_RANGE='\(\[?([0-9]+)\]?-\[?([0-9]+)\]?(, default [0-9]+)?\): *$'
 
-    if [[ $screen =~ ([0-9]+)[[:space:]]+heads,[[:space:]]+([0-9]+)[[:space:]]+sectors(/track)?,[[:space:]]+([0-9]+)[[:space:]]+cylinders ]]; then
-        printf '%s %s %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[4]}"
+# Extracts the first and last available cylinders from a bare fdisk prompt line.
+script_fdisk_parse_range() {
+    local line
+    line=$1
+
+    if [[ $line =~ $SCRIPT_FDISK_RANGE ]]; then
+        printf '%s %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
         return 0
     fi
 
     return 1
 }
 
-# Tests whether screen text contains an fdisk geometry line.
-script_screen_contains_fdisk_geometry() {
-    local screen
-    screen=$1
+# Waits for a bare fdisk prompt advertising a cylinder range and stores the
+# range in SCRIPT_FDISK_FIRST/SCRIPT_FDISK_LAST.
+script_fdisk_wait_range() {
+    local label pattern screen line range
 
-    script_parse_fdisk_geometry "$screen" >/dev/null
+    [ $# -eq 2 ] || die "script_fdisk_wait_range requires LABEL PATTERN"
+    label=$1
+    pattern=$2
+
+    script_wait_message "$label"
+    screen=$(script_wait_until script_screen_contains_regex "$pattern")
+    script_wait_result "$label"
+
+    line=$(grep -E -- "$pattern" <<<"$screen" | tail -n 1)
+    range=$(script_fdisk_parse_range "$line") || {
+        log_error "Unable to parse fdisk cylinder range: $line"
+        return 1
+    }
+    read -r SCRIPT_FDISK_FIRST SCRIPT_FDISK_LAST <<<"$range"
 }
 
-# Calculates the default swap/root partition cylinder layout on the host.
-script_calculate_swaproot_geometry() {
-    local heads sectors cylinders swap_mb
-    local sectors_per_cylinder swap_sectors half_cylinder swap_end root_start
-    if [[ $# -ne 4 ]]; then
-        log_error "Usage: script_calculate_swaproot_geometry HEADS SECTORS CYLINDERS SWAP_MB"
-        return 1
-    fi
+# Creates swap and root partitions by driving fdisk at its interactive
+# prompts. The swap partition is sized with fdisk's +sizeM shorthand and the
+# root partition takes the remaining cylinders fdisk advertises, so no
+# geometry math is needed on the host.
+script_fdisk() {
+    local device swap_mb first_prompt last_prompt
 
-    heads=$1
-    sectors=$2
-    cylinders=$3
-    swap_mb=$4
-
-    case "$heads:$sectors:$cylinders:$swap_mb" in
-    *[!0-9:]* | *::* | :* | *:)
-        log_error "Invalid fdisk geometry values: heads=$heads sectors=$sectors cylinders=$cylinders swap_mb=$swap_mb"
-        return 1
-        ;;
-    esac
-
-    sectors_per_cylinder=$((heads * sectors))
-    if [[ $sectors_per_cylinder -lt 1 ]]; then
-        log_error "Invalid fdisk sectors per cylinder: $sectors_per_cylinder"
-        return 1
-    fi
-
-    swap_sectors=$((swap_mb * 2048))
-    half_cylinder=$((sectors_per_cylinder / 2))
-    swap_end=$(((swap_sectors + half_cylinder) / sectors_per_cylinder))
-    root_start=$((swap_end + 1))
-
-    if [[ $swap_end -lt 1 || $swap_end -ge $cylinders ]]; then
-        log_error "Swap size is too large for disk geometry: swap_end=$swap_end cylinders=$cylinders"
-        return 1
-    fi
-
-    printf '1 %s %s %s\n' "$swap_end" "$root_start" "$cylinders"
-}
-
-# Detects guest fdisk geometry and calculates the default swap/root layout.
-script_detect_swaproot_geometry() {
-    local device swap_mb geometry_script
-    local screen geometry heads sectors cylinders layout wait_status
-    local swap_start swap_end root_start root_end
-    local device_q geometry_script_q geometry_success geometry_error
-
-    if [[ $# -ne 3 ]]; then
-        log_error "Usage: script_detect_swaproot_geometry DEVICE SWAP_MB GEOMETRY_SCRIPT"
+    if [[ $# -ne 2 ]]; then
+        log_error "Usage: script_fdisk DEVICE SWAP_MB"
         return 1
     fi
 
     device=$1
     swap_mb=$2
-    geometry_script=$3
+    first_prompt="First cylinder $SCRIPT_FDISK_RANGE"
+    last_prompt="Last cylinder .*$SCRIPT_FDISK_RANGE"
 
-    device_q=$(shell_quote_word "$device")
-    geometry_script_q=$(shell_quote_word "$geometry_script")
+    script_shell --no-wait "fdisk $device"
 
-    geometry_success="geometry.sh: fdisk geometry query suceeded"
-    geometry_error="geometry.sh: fdisk geometry query returned error "
-    script_shell "sh $geometry_script_q $device_q"
-    script_wait_alternative "$geometry_success" "$geometry_error"
-    wait_status=$?
-    if [ "$wait_status" -ne 0 ]; then
-        die "Guest fdisk helper failed during geometry query."
-    fi
-    screen=$(qmp_vga_dump_text) ||
-        die "Unable to read guest screen after fdisk geometry query."
-    geometry=$(script_parse_fdisk_geometry "$screen") ||
-        die "Unable to parse fdisk geometry for $device from guest screen."
+    # delete any partitions left over from a previous run; fdisk silently
+    # clears slots that are already empty, so this is safe on a fresh disk
+    script_prompt "Command (m for help):" "d"
+    script_prompt "Partition number (1-4):" "1"
+    script_prompt "Command (m for help):" "d"
+    script_prompt "Partition number (1-4):" "2"
 
-    read -r heads sectors cylinders <<<"$geometry"
-    layout=$(script_calculate_swaproot_geometry "$heads" "$sectors" "$cylinders" "$swap_mb") ||
-        die "Unable to calculate partition geometry for $device."
-    read -r swap_start swap_end root_start root_end <<<"$layout"
+    # swap partition, sized in MB
+    script_prompt "Command (m for help):" "n"
+    script_send_line "p" # primary; fdisk buffers this while printing the menu
+    script_prompt "Partition number (1-4):" "1"
+    script_fdisk_wait_range "First cylinder" "$first_prompt" || return 1
+    script_send_line "$SCRIPT_FDISK_FIRST"
+    script_fdisk_wait_range "Last cylinder" "$last_prompt" || return 1
+    script_send_line "+${swap_mb}M"
 
-    log_info "Detected $device geometry: heads=$heads sectors=$sectors cylinders=$cylinders"
-    log_info "Partition geometry: swap=$swap_start-$swap_end root=$root_start-$root_end"
+    # root partition filling the rest of the disk
+    script_prompt "Command (m for help):" "n"
+    script_send_line "p" # primary
+    script_prompt "Partition number (1-4):" "2"
+    script_fdisk_wait_range "First cylinder" "$first_prompt" || return 1
+    script_send_line "$SCRIPT_FDISK_FIRST"
+    script_fdisk_wait_range "Last cylinder" "$last_prompt" || return 1
+    script_send_line "$SCRIPT_FDISK_LAST"
 
-    SCRIPT_SWAPROOT_GEOMETRY=$layout
-    SCRIPT_SWAPROOT_ROOT_START=$root_start
-    SCRIPT_SWAPROOT_ROOT_END=$root_end
-}
+    # partition types: Linux swap and Linux native
+    script_prompt "Command (m for help):" "t"
+    script_prompt "Partition number (1-4):" "1"
+    script_prompt "Hex code (type L to list codes):" "82"
+    script_prompt "Command (m for help):" "t"
+    script_prompt "Partition number (1-4):" "2"
+    script_prompt "Hex code (type L to list codes):" "83"
 
-# Creates guest swap/root partitions using an already-calculated layout.
-script_create_swaproot_partitions() {
-    local device swaproot_script layout root_start root_end
-    local device_q swaproot_script_q swaproot_success swaproot_error wait_status
-
-    if [[ $# -ne 5 ]]; then
-        log_error "Usage: script_create_swaproot_partitions DEVICE SWAPROOT_SCRIPT LAYOUT ROOT_START ROOT_END"
-        return 1
-    fi
-
-    device=$1
-    swaproot_script=$2
-    layout=$3
-    root_start=$4
-    root_end=$5
-    device_q=$(shell_quote_word "$device")
-    swaproot_script_q=$(shell_quote_word "$swaproot_script")
-
-    swaproot_success="swaproot.sh: created root partition ${device}2 from $root_start-$root_end"
-    swaproot_error="swaproot.sh: fdisk partition creation returned error "
-    script_shell "sh $swaproot_script_q $device_q $layout"
-    script_wait_alternative "$swaproot_success" "$swaproot_error"
-    wait_status=$?
-    if [ "$wait_status" -ne 0 ]; then
-        die "Guest fdisk helper failed during partition creation."
-    fi
-}
-
-# Partitions a guest disk by probing fdisk geometry in the guest, calculating
-# the layout on the host, then calling the guest fdisk command emitter.
-script_partition_swaproot() {
-    local device swap_mb autoinst_mount geometry_script swaproot_script
-    if [[ $# -lt 2 || $# -gt 3 ]]; then
-        log_error "Usage: script_partition_swaproot DEVICE SWAP_MB [AUTOINST_MOUNT]"
-        return 1
-    fi
-
-    device=$1
-    swap_mb=$2
-    autoinst_mount=${3:-/mnt}
-    geometry_script=$autoinst_mount/autoinst.d/fdisk/geometry.sh
-    swaproot_script=$autoinst_mount/autoinst.d/fdisk/swaproot.sh
-
-    SCRIPT_SWAPROOT_GEOMETRY=
-    SCRIPT_SWAPROOT_ROOT_START=
-    SCRIPT_SWAPROOT_ROOT_END=
-
-    script_detect_swaproot_geometry "$device" "$swap_mb" "$geometry_script" || return 1
-    script_create_swaproot_partitions \
-        "$device" \
-        "$swaproot_script" \
-        "$SCRIPT_SWAPROOT_GEOMETRY" \
-        "$SCRIPT_SWAPROOT_ROOT_START" \
-        "$SCRIPT_SWAPROOT_ROOT_END" || return 1
+    # write the table and wait for fdisk to exit back to the shell
+    script_prompt "Command (m for help):" "p"
+    script_prompt "Command (m for help):" "w"
+    script_wait_line "$SHELL_PROMPT"
 }
 
 # Tests whether screen text contains expected fixed text.
@@ -257,7 +193,7 @@ script_wait_until() {
             expected+=("${!expected_index}")
         done
     fi
-    interval=${WAIT_INTERVAL:-1}
+    interval=${WAIT_INTERVAL:-0.1}
     condition_count=${#matchers[@]}
     label=${expected[0]}
     for ((i = 1; i < condition_count; i++)); do
@@ -292,7 +228,7 @@ script_wait_message() {
 script_wait_result() {
     [ $# -eq 1 ] || die "script_wait_result requires TEXT"
 
-    printf "\r✅ %s\033[K\n" "$1"
+    printf "\r🖥️  %s\033[K\n" "$1"
     return 0
 }
 

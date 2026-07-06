@@ -84,13 +84,8 @@ partition_disk_helper() {
     local SHELL_PROMPT="bash#"
 
     script_press_key alt-f2 # cli terminal
-    script_shell \
-        "mkdir /mnt" \
-        "mknod /dev/hda b 3 0" \
-        "mknod /dev/hdb1 b 3 65" \
-        "mount -t msdos /dev/hdb1 /mnt"
-    script_partition_swaproot /dev/hda 64 /mnt
-    script_shell "umount /mnt"
+    script_shell "mknod /dev/hda b 3 0"
+    script_fdisk /dev/hda 64
     script_press_key alt-f1 # installer terminal
 }
 
