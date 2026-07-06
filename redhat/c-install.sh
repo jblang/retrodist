@@ -40,11 +40,7 @@ redhat_update_network_names() {
 }
 
 boot_installer() {
-    if [ -n "$BOOT_COMMAND" ]; then
-        script_boot "$BOOT_COMMAND"
-    else
-        script_boot
-    fi
+    script_prompt "$BOOT_PROMPT" "$BOOT_COMMAND"
     if [ "$BOOT_SLEEP" != "0" ]; then
         sleep "$BOOT_SLEEP"
     fi

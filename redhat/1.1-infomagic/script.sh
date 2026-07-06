@@ -1,4 +1,4 @@
-source "$(dirname "$QEMU_INSTALL_SCRIPT")/../perl-install.sh"
+script_import ../perl-install.sh
 
 boot_loader
 load_single_ramdisk rootdisk.img

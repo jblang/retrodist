@@ -1,4 +1,4 @@
-source "$(dirname "$QEMU_INSTALL_SCRIPT")/../c-install.sh"
+script_import ../c-install.sh
 
 BOOT_PROMPT="LILO boot:"
 POST_INSTALL_FLOW=4x

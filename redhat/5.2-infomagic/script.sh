@@ -1,4 +1,4 @@
-script_boot "linux ks=floppy"
+script_prompt "boot:" "linux ks=floppy"
 script_wait_string "Congratulations, installation is complete."
 script_set_boot c
 script_press_key ret

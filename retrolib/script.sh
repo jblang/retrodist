@@ -9,6 +9,19 @@ SCRIPT_AUTOINST_COMMAND="mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /
 # shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
 SCRIPT_AUTOCONF_COMMAND='if [ ! -d /retro/autoinst.d ]; then mkdir -p /retro && mount -t msdos /dev/hdb1 /retro; fi; /retro/autoinst.d/autoconf.sh'
 
+# Sources a shared helper by path relative to the install script's directory.
+# Exits the install subshell on failure so a missing or syntactically broken
+# helper aborts immediately instead of surfacing later as "command not found".
+script_import() {
+    local helper
+    if [[ -z "${QEMU_INSTALL_SCRIPT:-}" ]]; then
+        die "script_import requires QEMU_INSTALL_SCRIPT to be set"
+    fi
+    helper=$(dirname "$QEMU_INSTALL_SCRIPT")/$1
+    # shellcheck source=/dev/null
+    source "$helper" || die "Failed to import $helper"
+}
+
 # Extracts disk geometry from fdisk output currently visible on the guest screen.
 script_parse_fdisk_geometry() {
     local screen
@@ -198,6 +211,15 @@ script_screen_contains_line() {
     return 1
 }
 
+# Tests whether screen text contains a substring matching an extended regex.
+script_screen_contains_regex() {
+    local screen pattern
+    screen=$1
+    pattern=$2
+
+    grep -E -- "$pattern" <<<"$screen" >/dev/null
+}
+
 # Waits until VGA text memory satisfies one of the given matcher functions.
 script_wait_until() {
     local interval screen label
@@ -288,10 +310,11 @@ script_wait_one() {
 
 # Waits until VGA text memory contains any one of the expected screen texts.
 # Pass -l to match alternatives as trimmed full lines instead of substrings.
-# Pass -q to suppress echoing the matched alternative.
+# Pass -r to match alternatives as extended regex patterns instead of substrings.
+# Pass -e to echo the matched alternative.
 script_wait_alternative() {
     local status matcher matched_index matched
-    local quiet=false
+    local echo_match=false
     local args=() expected
     matcher=script_screen_contains_string
 
@@ -301,8 +324,12 @@ script_wait_alternative() {
             matcher=script_screen_contains_line
             shift
             ;;
-        -q)
-            quiet=true
+        -r)
+            matcher=script_screen_contains_regex
+            shift
+            ;;
+        -e)
+            echo_match=true
             shift
             ;;
         --)
@@ -318,7 +345,7 @@ script_wait_alternative() {
         esac
     done
 
-    [ $# -gt 0 ] || die "script_wait_alternative requires [-l] [-q] TEXT [TEXT ...]"
+    [ $# -gt 0 ] || die "script_wait_alternative requires [-l] [-r] [-e] TEXT [TEXT ...]"
     printf "🔀 Awaiting %s alternatives... " "$#"
     for expected in "$@"; do
         args+=("$matcher" "$expected")
@@ -328,29 +355,39 @@ script_wait_alternative() {
     status=$?
     matched_index=$((status + 1))
     matched=${!matched_index}
-    if [ "$quiet" = true ]; then
-        printf "matched #%s\n" "$status"
-    else
+    if [ "$echo_match" = true ]; then
         printf "matched #%s\n🖥️  %s\n" "$status" "$matched"
+    else
+        printf "matched #%s\n" "$status"
     fi
     return "$status"
 }
 
 # Waits until VGA text memory contains expected screen text anywhere.
+# Pass -r to match TEXT as an extended regex pattern instead of a substring.
 script_wait_string() {
-    local expected
-    [ $# -gt 0 ] || die "script_wait_string requires TEXT [TEXT ...]"
+    local expected matcher=script_screen_contains_string
+    if [ "$1" = "-r" ]; then
+        matcher=script_screen_contains_regex
+        shift
+    fi
+    [ $# -gt 0 ] || die "script_wait_string requires [-r] TEXT [TEXT ...]"
     for expected in "$@"; do
-        script_wait_one script_screen_contains_string "$expected" || return 1
+        script_wait_one "$matcher" "$expected" || return 1
     done
 }
 
 # Waits until VGA text memory contains expected text on a line by itself.
+# Pass -r to match TEXT as an extended regex pattern instead of a full line.
 script_wait_line() {
-    local expected
-    [ $# -gt 0 ] || die "script_wait_line requires TEXT [TEXT ...]"
+    local expected matcher=script_screen_contains_line
+    if [ "$1" = "-r" ]; then
+        matcher=script_screen_contains_regex
+        shift
+    fi
+    [ $# -gt 0 ] || die "script_wait_line requires [-r] TEXT [TEXT ...]"
     for expected in "$@"; do
-        script_wait_one script_screen_contains_line "$expected" || return 1
+        script_wait_one "$matcher" "$expected" || return 1
     done
 }
 
@@ -407,7 +444,7 @@ script_shell() {
     for cmd in "$@"; do
         printf "⏳ %s" "$SHELL_PROMPT"
         script_wait_line "$SHELL_PROMPT" >/dev/null
-        printf "\r🐚 %s %s\033[K\n" "$SHELL_PROMPT" "$cmd"
+        printf "\r⚙️  %s %s\033[K\n" "$SHELL_PROMPT" "$cmd"
         qmp_send_string "$cmd" || return 1
         qmp_sendkey ret || return 1
     done
@@ -417,28 +454,6 @@ script_shell() {
         script_wait_line "$SHELL_PROMPT" >/dev/null
 		printf "\r\033[K"
     fi
-}
-
-# Boot loader prompt script_boot waits for; override to match the guest's boot loader.
-# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
-BOOT_PROMPT="boot:"
-
-# Waits for the boot loader prompt, then sends a string (or just Enter if none given).
-script_boot() {
-    local response
-
-    printf "⏳ %s" "$BOOT_PROMPT"
-    script_wait_line "$BOOT_PROMPT" >/dev/null
-
-    if [ $# -gt 0 ]; then
-        response=$1
-        qmp_send_string "$response" || return 1
-    else
-        response="↩️"
-    fi
-    qmp_sendkey ret || return 1
-
-    printf "\r🥾 %s %s\033[K\n" "$BOOT_PROMPT" "$response"
 }
 
 # Login prompt script_login waits for; override to match the guest's hostname.
@@ -460,10 +475,17 @@ script_login() {
 }
 
 # Waits for a question prompt (pass multiple wrapped lines if it spans more than one), then sends the final argument as the answer.
+# Pass -r to match QUESTION lines as extended regex patterns instead of literal text.
 script_prompt() {
     local last final_i question answer i
+    local matcher=script_screen_contains_line
 
-    [ $# -ge 2 ] || die "script_prompt requires QUESTION [QUESTION ...] ANSWER"
+    if [ "$1" = "-r" ]; then
+        matcher=script_screen_contains_regex
+        shift
+    fi
+
+    [ $# -ge 2 ] || die "script_prompt requires [-r] QUESTION [QUESTION ...] ANSWER"
     last=$#
     answer=${!last}
     final_i=$((last - 1))
@@ -471,7 +493,7 @@ script_prompt() {
     for ((i = 1; i <= final_i; i++)); do
         question=${!i}
         printf "⏳ %s" "$question"
-        script_wait_line "$question" >/dev/null
+        script_wait_one "$matcher" "$question" >/dev/null
         printf "\r🖥️  %s\033[K\n" "$question"
     done
 

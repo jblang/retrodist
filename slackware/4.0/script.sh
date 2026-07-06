@@ -1,4 +1,4 @@
-script_boot
+script_prompt "boot:" ""
 LOGIN_PROMPT="slackware login:"
 script_login
 script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"

@@ -1,4 +1,4 @@
-source "$(dirname "$QEMU_INSTALL_SCRIPT")/../c-install.sh"
+script_import ../c-install.sh
 
 BOOT_SLEEP=1
 COLOR_PROMPT=false

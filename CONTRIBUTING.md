@@ -105,7 +105,7 @@ are not standalone entry points; they call functions from `retrolib/qmp.sh` and
 The usual flow is to wait for known screen text, send a key or line, and repeat:
 
 ```sh
-script_boot
+script_prompt "boot:" ""
 script_login
 script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
 script_wait_line "ATTN: Press ENTER to reboot."
@@ -115,13 +115,12 @@ script_press_key ret
 
 Useful primitives:
 
-- `script_wait_string TEXT [TEXT ...]`
-- `script_wait_line TEXT [TEXT ...]`
-- `script_wait_alternative [-l] [-q] TEXT [TEXT ...]`
-- `script_boot [COMMAND]`
+- `script_wait_string [-r] TEXT [TEXT ...]`
+- `script_wait_line [-r] TEXT [TEXT ...]`
+- `script_wait_alternative [-l] [-r] [-e] TEXT [TEXT ...]`
 - `script_login [USER]`
 - `script_shell [--no-wait] COMMAND [COMMAND ...]`
-- `script_prompt QUESTION [QUESTION ...] ANSWER`
+- `script_prompt [-r] QUESTION [QUESTION ...] ANSWER`
 - `script_press_key KEY [COUNT]`
 - `script_send_line TEXT`
 - `script_change_floppy IMAGE`
@@ -129,8 +128,16 @@ Useful primitives:
 
 `SCRIPT_AUTOINST_COMMAND` mounts the staged FAT media at `/retro` and runs
 `/retro/autoinst`. Send it once the installer has reached a shell prompt.
-Override `BOOT_PROMPT`, `LOGIN_PROMPT`, or `SHELL_PROMPT` when a guest uses
-non-default prompt text.
+Override `LOGIN_PROMPT` or `SHELL_PROMPT` when a guest uses non-default
+prompt text.
+
+Slackware 1.1.2 through 2.3 use the dialog-based setup driver in
+`slackware/dialog-setup.sh`. It replaces the guest's `dialog` binary with the
+`autoinst/dialog.sh` adapter, which renders every widget as plain text
+(`TITLE:`, `TYPE:`, `ITEM:`, `RESPONSE:` lines), then answers screens by title
+with `dialog_answer`. `dialog_case` and `dialog_answer_any` handle screens
+that vary in order or presence across versions: they answer whichever listed
+titles appear and return when a terminating title shows up.
 
 ## In-Guest Autoinstall
 

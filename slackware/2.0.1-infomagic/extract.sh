@@ -1,9 +1,9 @@
 EXTRACT_SOURCE=disc1.iso
 EXTRACT_BOOT_IMAGE=distributions/slakinst/boot144/bare.gz
-EXTRACT_ROOT_IMAGE=distributions/slakinst/root144/tty144.gz
+EXTRACT_ROOT_IMAGE=distributions/slakinst/root144/color144.gz
 EXTRACT_PACKAGES=distributions/slackware
 extract_install_files
-gunzip -f bare.gz tty144.gz
+gunzip -f bare.gz color144.gz
 extract_truncate_floppy_image bare
-extract_truncate_floppy_image tty144
-retro_link_boot_root bare tty144
+extract_truncate_floppy_image color144
+retro_link_boot_root bare color144

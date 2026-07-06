@@ -92,6 +92,18 @@ The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `mod_config`, `net_config`,
 `mail_config`, and `x11_config`.
 
+## `dialog.sh`
+
+`dialog.sh` is a plain-text adapter for the `dialog` binary used by
+dialog-based installers such as Slackware's color `setup`. Install scripts copy
+it over the guest's `/bin/dialog` before starting setup. Each widget is
+rendered as labeled lines (`TITLE:`, `TYPE:`, `TEXT:`, `ITEM:`, `DEFAULT:`)
+followed by a `RESPONSE:` prompt read from the console, so the host-side
+driver (`slackware/dialog-setup.sh`) can match screens by title and type and
+answer them over QMP. Menu, checklist, and input responses are written to the
+same output stream real `dialog` would use; yes/no and cancel/esc responses
+map to the matching exit statuses.
+
 ## `common.sh`
 
 `common.sh` is sourced by both main runners. It sources `logging.sh` and

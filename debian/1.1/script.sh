@@ -1,4 +1,4 @@
-script_boot
+script_prompt "boot:" ""
 script_wait_line "VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER"
 script_change_floppy root.img
 script_press_key ret

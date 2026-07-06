@@ -14,13 +14,13 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 # Bash host scripts: strict.
-HOST_SCRIPTS=(retro jump qmp retrolib/*.sh slackware/tty-setup.sh tests/*.sh)
+HOST_SCRIPTS=(retro jump qmp retrolib/*.sh slackware/dialog-setup.sh tests/*.sh)
 
 # POSIX guest fragments: run on legacy guest shells, so accept patterns that are
 # intentional there (word splitting, expr math, -a/-o tests, $? checks, legacy
-# egrep/fgrep, ls iteration over controlled package dirs, etc.).
+# egrep/fgrep, echo -n, ls iteration over controlled package dirs, etc.).
 GUEST_SCRIPTS=(autoinst/*.sh autoinst/install/*.sh autoinst/config/*.sh)
-GUEST_EXCLUDES=SC1091,SC2034,SC2086,SC2003,SC2166,SC2181,SC2162,SC2129,SC2196,SC2197,SC2153,SC2030,SC2031,SC3043,SC2045
+GUEST_EXCLUDES=SC1091,SC2034,SC2086,SC2003,SC2166,SC2181,SC2162,SC2129,SC2196,SC2197,SC2153,SC2030,SC2031,SC3043,SC2045,SC3037
 
 status=0
 

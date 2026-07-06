@@ -1,4 +1,4 @@
-source "$(dirname "$QEMU_INSTALL_SCRIPT")/../c-install.sh"
+script_import ../c-install.sh
 
 POST_INSTALL_FLOW=4x
 X_CARD_DOWN=66

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Plain-text dialog replacement for installer scripting.
+# Plain-text dialog adapter for installer scripting.
 
 DIALOG_TITLE=
 DIALOG_BACKTITLE=
@@ -7,6 +7,7 @@ DIALOG_OUTPUT_FD=2
 DIALOG_SEPARATE_OUTPUT=0
 DIALOG_PROMPT_FD=1
 DIALOG_SAVED_LINES=
+DIALOG_DIVIDER=--------------------------------------------------------------------------------
 
 dialog_usage() {
     echo "fake dialog: converts dialog widgets to plain text prompts" >&2
@@ -21,17 +22,29 @@ dialog_prompt_line() {
     fi
 }
 
+dialog_prompt_raw() {
+    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
+        echo "$1" >&2
+    else
+        echo "$1"
+    fi
+}
+
 dialog_prompt_text() {
-    while IFS= read -r dialog_line || [ -n "$dialog_line" ]; do
+    while read dialog_line; do
         dialog_prompt_line "$1" "$dialog_line"
     done
 }
 
+dialog_prompt_item() {
+    dialog_prompt_line ITEM "$1"
+}
+
 dialog_prompt_response() {
     if [ "$DIALOG_PROMPT_FD" = 2 ]; then
-        printf '%s' 'RESPONSE: ' >&2
+        echo -n "RESPONSE: " >&2
     else
-        printf '%s' 'RESPONSE: '
+        echo -n "RESPONSE: "
     fi
 }
 
@@ -47,16 +60,16 @@ $1: $2"
 dialog_print_saved_lines() {
     if [ -n "$DIALOG_SAVED_LINES" ]; then
         if [ "$DIALOG_PROMPT_FD" = 2 ]; then
-            printf '%s\n' "$DIALOG_SAVED_LINES" >&2
+            echo "$DIALOG_SAVED_LINES" >&2
         else
-            printf '%s\n' "$DIALOG_SAVED_LINES"
+            echo "$DIALOG_SAVED_LINES"
         fi
     fi
 }
 
 dialog_read_response() {
     dialog_prompt_response
-    IFS= read -r DIALOG_RESPONSE
+    read DIALOG_RESPONSE
 }
 
 dialog_write_response() {
@@ -89,6 +102,7 @@ dialog_control_exit() {
 }
 
 dialog_print_header() {
+    dialog_prompt_raw "$DIALOG_DIVIDER"
     if [ -n "$DIALOG_BACKTITLE" ]; then
         dialog_prompt_line BACKTITLE "$DIALOG_BACKTITLE"
     fi
@@ -178,14 +192,23 @@ fi
 dialog_print_saved_lines
 
 case "$dialog_widget" in
-    --msgbox | --infobox)
+    --msgbox)
         dialog_text=$1
         dialog_height=$2
         dialog_width=$3
-        dialog_print_header "${dialog_widget#--}"
-        printf '%s\n' "$dialog_text" | dialog_prompt_text TEXT
+        dialog_print_header msgbox
+        echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_read_status
+        exit 0
+        ;;
+    --infobox)
+        dialog_text=$1
+        dialog_height=$2
+        dialog_width=$3
+        dialog_print_header infobox
+        echo "$dialog_text" | dialog_prompt_text TEXT
+        dialog_prompt_line SIZE "$dialog_height $dialog_width"
         exit 0
         ;;
     --textbox)
@@ -206,7 +229,7 @@ case "$dialog_widget" in
         dialog_height=$2
         dialog_width=$3
         dialog_print_header yesno
-        printf '%s\n' "$dialog_text" | dialog_prompt_text TEXT
+        echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_read_response
         case "$DIALOG_RESPONSE" in
@@ -226,8 +249,15 @@ case "$dialog_widget" in
         dialog_height=$2
         dialog_width=$3
         dialog_initial=$4
-        dialog_print_header "${dialog_widget#--}"
-        printf '%s\n' "$dialog_text" | dialog_prompt_text TEXT
+        case "$dialog_widget" in
+            --inputbox)
+                dialog_print_header inputbox
+                ;;
+            --passwordbox)
+                dialog_print_header passwordbox
+                ;;
+        esac
+        echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line DEFAULT "$dialog_initial"
         dialog_read_response
@@ -242,11 +272,11 @@ case "$dialog_widget" in
         dialog_menu_height=$4
         shift 4
         dialog_print_header menu
-        printf '%s\n' "$dialog_text" | dialog_prompt_text TEXT
+        echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line MENUHEIGHT "$dialog_menu_height"
         while [ $# -gt 1 ]; do
-            dialog_prompt_line ITEM "$1 $2"
+            dialog_prompt_item "$1 :: $2"
             shift 2
         done
         dialog_read_response
@@ -260,12 +290,19 @@ case "$dialog_widget" in
         dialog_width=$3
         dialog_list_height=$4
         shift 4
-        dialog_print_header "${dialog_widget#--}"
-        printf '%s\n' "$dialog_text" | dialog_prompt_text TEXT
+        case "$dialog_widget" in
+            --checklist)
+                dialog_print_header checklist
+                ;;
+            --radiolist)
+                dialog_print_header radiolist
+                ;;
+        esac
+        echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line LISTHEIGHT "$dialog_list_height"
         while [ $# -gt 2 ]; do
-            dialog_prompt_line ITEM "$1 $2 $3"
+            dialog_prompt_item "$1 :: $2 $3"
             shift 3
         done
         dialog_read_response

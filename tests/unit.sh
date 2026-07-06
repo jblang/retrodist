@@ -85,6 +85,49 @@ assert_eq "config/parent" "$tmp/parent/shared.txt"        "$(retro_config_file "
 assert_fail "config/missing" retro_config_file "$tmp/parent/child" missing.txt
 rm -rf "$tmp"
 
+# --- script_import ----------------------------------------------------------
+imp_tmp=$(mktemp -d)
+mkdir -p "$imp_tmp/distro/1.0"
+printf 'imported_ok() { echo yes; }\n' >"$imp_tmp/distro/helper.sh"
+printf 'broken() {\n}\n' >"$imp_tmp/distro/broken.sh"
+
+# A good helper is sourced relative to the install script's directory.
+assert_eq "import/good-helper" "yes" "$(
+    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+    script_import ../helper.sh
+    imported_ok
+)"
+
+# A syntax error aborts the install subshell before any later commands run.
+assert_eq "import/broken-aborts" "" "$(
+    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+    script_import ../broken.sh 2>/dev/null
+    echo "not reached"
+)"
+
+# Runs script_import for a broken helper in a subshell to observe its status.
+# shellcheck disable=SC2329 # Invoked indirectly by assert_fail.
+import_broken_status() {
+    (
+        # shellcheck disable=SC2030,SC2034 # Read by script_import.
+        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+        script_import ../broken.sh 2>/dev/null
+    )
+}
+assert_fail "import/broken-status" import_broken_status
+
+# Runs script_import for a missing helper in a subshell to observe its status.
+# shellcheck disable=SC2329 # Invoked indirectly by assert_fail.
+import_missing_status() {
+    (
+        # shellcheck disable=SC2030,SC2034 # Read by script_import.
+        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+        script_import ../missing.sh 2>/dev/null
+    )
+}
+assert_fail "import/missing-status" import_missing_status
+rm -rf "$imp_tmp"
+
 # --- qemu_render_command_sh / _cmd ------------------------------------------
 # shellcheck disable=SC2034  # Read by the render functions via the global.
 QEMU_ARGS=(qemu-system-i386 -drive "if=ide,index=0,format=qcow2,file=hda.img" "weird arg" "amp&x" "pct%v" "par(s)")
@@ -143,6 +186,10 @@ wait_screen="ready"
 qmp_qemu_running() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
 qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
+# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via script_prompt.
+qmp_send_string() { return 0; }
+# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via script_prompt.
+qmp_sendkey() { return 0; }
 wait_output=$(script_wait_until script_screen_contains_string "ready")
 wait_status=$?
 assert_eq "script/wait-single-status" "0" "$wait_status"
@@ -176,7 +223,7 @@ assert_eq "script/wait-multi-second-status" "1" "$wait_status"
 assert_eq "script/wait-multi-second-output" "all done" "$wait_output"
 
 wait_output_tmp=$(mktemp)
-script_wait_alternative "fatal error" "all done" >"$wait_output_tmp"
+script_wait_alternative -e "fatal error" "all done" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
@@ -189,7 +236,7 @@ assert_eq "script/wait-alternative-output" \
 wait_screen="prefix all done suffix
 exact line"
 wait_output_tmp=$(mktemp)
-script_wait_alternative -l "all done" "exact line" >"$wait_output_tmp"
+script_wait_alternative -e -l "all done" "exact line" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
@@ -200,7 +247,7 @@ assert_eq "script/wait-alternative-line-output" \
     "$wait_output"
 
 wait_output_tmp=$(mktemp)
-script_wait_alternative -q -l "all done" "exact line" >"$wait_output_tmp"
+script_wait_alternative -l "all done" "exact line" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
@@ -221,6 +268,127 @@ assert_eq "script/wait-line-sequence-output" \
     "⏳ first line✅ first line[K
 ⏳ second line✅ second line[K" \
     "$wait_output"
+
+# --- regex matcher -----------------------------------------------------------
+# Patterns are extended regexes (grep -E), so escaped parens match literally,
+# matching the style used by dialog_answer -r callers.
+regex_screen="Slackware Linux Setup (version 3.4)"
+assert_ok "script/screen-contains-regex" script_screen_contains_regex "$regex_screen" "Setup \(version .*\)"
+assert_fail "script/screen-contains-regex-miss" script_screen_contains_regex "$regex_screen" "Setup \(build .*\)"
+
+wait_screen="Slackware Linux Setup (version 3.4)"
+wait_output_tmp=$(mktemp)
+script_wait_string -r "version [0-9.]*" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-string-regex-status" "0" "$wait_status"
+tests_run=$((tests_run + 1))
+case "$wait_output" in
+*"✅ version [0-9.]*"*) ;;
+*)
+    tests_failed=$((tests_failed + 1))
+    printf "FAIL script/wait-string-regex-output\n  actual:   [%s]\n" "$wait_output"
+    ;;
+esac
+
+wait_output_tmp=$(mktemp)
+script_wait_line -r "Setup \(version .*\)" >"$wait_output_tmp"
+wait_status=$?
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-line-regex-status" "0" "$wait_status"
+
+wait_output_tmp=$(mktemp)
+script_wait_alternative -e -r "no match here" "version [0-9.]*" >"$wait_output_tmp"
+wait_status=$?
+wait_output=$(cat "$wait_output_tmp")
+rm -f "$wait_output_tmp"
+assert_eq "script/wait-alternative-regex-status" "1" "$wait_status"
+assert_eq "script/wait-alternative-regex-output" \
+    "🔀 Awaiting 2 alternatives... matched #1
+🖥️  version [0-9.]*" \
+    "$wait_output"
+
+wait_output_tmp=$(mktemp)
+script_prompt -r "Setup \(version .*\)" "answer" >"$wait_output_tmp"
+wait_status=$?
+rm -f "$wait_output_tmp"
+assert_eq "script/prompt-regex-status" "0" "$wait_status"
+
+# --- dialog_case ---------------------------------------------------------
+# shellcheck source=/dev/null
+source "$REPO_ROOT/slackware/dialog-setup.sh"
+
+case_tmp=$(mktemp -d)
+echo 0 >"$case_tmp/state"
+: >"$case_tmp/answers"
+
+# The fake console raises screens in the reverse of the listed order, advances
+# to the next screen whenever an answer is sent, and ends on the terminator.
+# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+qmp_vga_dump_text() {
+    case "$(cat "$case_tmp/state")" in
+    0) printf 'TITLE: SECOND\nRESPONSE:\n' ;;
+    1) printf 'TITLE: FIRST\nRESPONSE:\n' ;;
+    *) printf 'TITLE: DONE\nRESPONSE:\n' ;;
+    esac
+}
+# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via dialog_answer.
+qmp_send_string() {
+    printf '%s\n' "$1" >>"$case_tmp/answers"
+    echo "$(($(cat "$case_tmp/state") + 1))" >"$case_tmp/state"
+}
+
+# Handlers receive the matched title as their only argument and answer the
+# screen themselves; the terminator returns immediately, leaving it
+# unanswered along with any titles that were never asked.
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_echo_title() { dialog_answer "$1" "$1"; }
+dialog_case \
+    "FIRST" case_echo_title \
+    "SECOND" case_echo_title \
+    "NEVER ASKED" case_echo_title \
+    "DONE" >/dev/null
+wait_status=$?
+assert_eq "dialog/case-status" "0" "$wait_status"
+assert_eq "dialog/case-out-of-order" "SECOND
+FIRST" "$(cat "$case_tmp/answers")"
+
+# dialog_answer_any takes TITLE ANSWER pairs and answers them directly, in
+# whatever order the screens appear, until the terminator shows up.
+echo 0 >"$case_tmp/state"
+: >"$case_tmp/answers"
+dialog_answer_any "FIRST" "one" "SECOND" "two" "DONE" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-status" "0" "$wait_status"
+assert_eq "dialog/answer-out-of-order" "two
+one" "$(cat "$case_tmp/answers")"
+
+# A repeated title is handled once per occurrence, in the order listed.
+echo 0 >"$case_tmp/state"
+: >"$case_tmp/answers"
+# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+qmp_vga_dump_text() {
+    if [ "$(cat "$case_tmp/state")" -lt 2 ]; then
+        printf 'TITLE: REPEAT\nRESPONSE:\n'
+    else
+        printf 'TITLE: DONE\nRESPONSE:\n'
+    fi
+}
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_answer_one() { dialog_answer "$1" "one"; }
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_answer_two() { dialog_answer "$1" "two"; }
+dialog_case "REPEAT" case_answer_one "REPEAT" case_answer_two "DONE" >/dev/null
+assert_eq "dialog/case-repeat" "one
+two" "$(cat "$case_tmp/answers")"
+rm -rf "$case_tmp"
+
+# Restore the simple screen mocks for any later screen-driven tests.
+# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
+# shellcheck disable=SC2329 # Invoked indirectly by script_send_line.
+qmp_send_string() { return 0; }
 
 # --- extract image links ----------------------------------------------------
 extract_tmp=$(mktemp -d)

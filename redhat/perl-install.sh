@@ -24,11 +24,7 @@ redhat_update_network_names() {
 }
 
 boot_loader() {
-    if [ -n "$BOOT_COMMAND" ]; then
-        script_boot "$BOOT_COMMAND"
-    else
-        script_boot
-    fi
+    script_prompt "$BOOT_PROMPT" "$BOOT_COMMAND"
 }
 
 load_single_ramdisk() {
