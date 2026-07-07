@@ -488,85 +488,107 @@ QMP-driven install automation primitives. These are sourced when QEMU starts
 during `retro install` and are the building blocks for per-distro `script.sh`
 manifests. A script waits for the screen to reach a known state, then sends a
 key, a line of text, or swaps media. A per-distro `script.sh` is written by
-composing these directly or by using the prompt-aware wrappers such as
-`script_boot`, `script_login`, `script_shell`, and `script_prompt`.
+composing these primitives directly. Prefer [`serial_shell`](#serialsh) for
+shell commands whose output does not need to stay on the VGA screen.
 
 `SCRIPT_AUTOINST_COMMAND` holds the shell one-liner that mounts the staged FAT
-media at `/retro` and runs `autoinst`; send it with `script_shell --no-wait`
-once a shell prompt appears.
+media at `/retro` and runs `autoinst`; send it with
+`serial_shell --no-wait` once a shell prompt appears.
 
-`SCRIPT_AUTOCONF_COMMAND` holds the first-boot shell one-liner that verifies the
-staged FAT media is visible at `/retro`, mounting `/dev/hdb1` there if needed,
-then runs `autoinst.d/autoconf.sh`. `script_run_autoconf [PASSWORD]` logs in as
-root after first boot and sends that command.
+`SCRIPT_AUTOCONF_COMMAND` holds the first-boot shell one-liner that mounts the
+staged FAT media at `/retro` if needed, then runs `autoinst.d/autoconf.sh`.
+`script_run_autoconf [PASSWORD]` logs in as root after first boot and sends
+that command.
 
 Timing variables:
 
 - `WAIT_INTERVAL` — polling interval in seconds. Default: `1`. Wait helpers do
   not time out; use a QEMU-level stop or interrupt if an install stalls.
 
+Screen, keyboard, and serial APIs are intentionally separate. `screen_*`
+helpers scrape VGA text memory over QMP and never read the serial pipe.
+`kb_*` helpers type through QMP keyboard input and never write to the serial
+pipe. Serial helpers live in [`serial.sh`](#serialsh).
+
 Functions:
 
-- `script_wait_until MATCHER TEXT`
-  Polls VGA text memory until `MATCHER SCREEN TEXT` succeeds. When multiple
-  outcomes are possible, pass matcher/text pairs followed by `--`. Prints the
-  matching screen to stdout and returns the zero-based matched alternative index
-  as the shell status.
-
-- `script_wait_string TEXT [TEXT ...]`
+- `screen_wait [-l] TEXT [TEXT ...]`
   Polls VGA text memory until each `TEXT` appears anywhere on screen, in the
-  argument order. This is useful for wrapped or multi-line messages.
+  argument order. Pass `-l` to match trimmed full lines instead.
 
-- `script_wait_line TEXT [TEXT ...]`
-  Polls until each `TEXT` appears as a trimmed full line on screen, in the
-  argument order. This is useful for wrapped or multi-line messages.
-
-- `script_wait_alternative [-l] [-q] TEXT [TEXT ...]`
-  Polls VGA text memory until any one of the expected texts appears. By default,
-  texts match anywhere on screen; pass `-l` to match trimmed full lines. Prints
-  the matched text unless `-q` is provided, and returns the zero-based matched
-  alternative index as the shell status. A status of `1` means the second
-  alternative matched.
-
-- `script_boot [COMMAND]`
-  Waits for `BOOT_PROMPT` (default: `boot:`), sends `COMMAND` when provided,
-  then presses Return.
-
-- `script_login [USER]`
-  Waits for `LOGIN_PROMPT` (default: `login:`), sends `USER` or `root`, then
-  presses Return.
-
-- `script_shell [--no-wait] COMMAND [COMMAND ...]`
-  Waits for `SHELL_PROMPT` (default: `#`), sends each command, and waits for
-  the prompt to return unless `--no-wait` is provided.
-
-- `script_prompt QUESTION [QUESTION ...] ANSWER`
-  Waits for one or more prompt lines, then sends `ANSWER` followed by Return.
-
-- `script_press_key KEY [COUNT]`
+- `kb_press_key KEY [COUNT]`
   Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`), repeated
   `COUNT` times when provided.
 
-- `script_send_line TEXT`
+- `kb_send_line TEXT`
   Types `TEXT` into the guest and presses Return.
-
-- `script_partition_swaproot DEVICE SWAP_MB [AUTOINST_MOUNT]`
-  Runs `fdisk/geometry.sh` from the staged autoinstall media inside the guest,
-  parses the visible fdisk geometry from the VGA screen on the host, calculates
-  a swap/root cylinder layout, then calls guest-side `fdisk/swaproot.sh` with
-  explicit cylinders. `AUTOINST_MOUNT` defaults to `/mnt`.
 
 - `script_run_autoconf [PASSWORD]`
   Waits for a first-boot login prompt, logs in as root, and runs
   `SCRIPT_AUTOCONF_COMMAND`. Pass `PASSWORD` only when the install configured a
-  root password.
+  root password. Override `LOGIN_PROMPT` when the guest uses a non-default
+  login prompt.
 
 - `script_change_floppy IMAGE`
   Swaps the first floppy to `IMAGE` and waits briefly for the change to settle.
-  Pair with a preceding `script_wait_*` and a following key/line as needed.
+  Use after the installer prompts for different media.
 
 - `script_set_boot DISK`
   Sets the next boot device order (e.g. `a`, `c`).
+
+### `serial.sh`
+
+Serial-pipe install automation primitives. `serial_*` helpers read guest output
+from the serial pipe and write answers back over the same channel.
+
+Serial scripting prints a combined transcript of guest output and host input:
+ordinary serial text received from the guest is prefixed with `➡️`, text
+transmitted to the guest is prefixed with `⬅️`, and the line that satisfies the
+active wait is prefixed with `✅`. Dialog adapter screens also use this channel.
+
+Functions:
+
+- `serial_wait [-l] [-r] TEXT [TEXT ...]`
+  Waits until each `TEXT` appears in the serial stream, in argument order. Pass
+  `-l` to match trimmed full lines, or `-r` to match extended regexes.
+
+- `serial_send TEXT`
+  Writes `TEXT` plus a newline to the guest serial pipe and logs it in the
+  serial transcript.
+
+- `serial_prompt [-r] QUESTION [QUESTION ...] ANSWER`
+  Waits for one or more serial prompt lines, then sends `ANSWER` to the serial
+  pipe.
+
+- `serial_shell_start`
+  Starts a serial-backed interactive shell and waits for its prompt. Use this
+  when several phases must share one shell process.
+
+- `serial_shell_send [--no-wait] COMMAND`
+  Sends one command to an active serial shell and waits for the serial shell
+  prompt to return unless `--no-wait` is passed.
+
+- `serial_shell_exit`
+  Sends `exit` to the active serial shell and waits for the screen prompt
+  to return.
+
+- `serial_shell [--no-wait] COMMAND [COMMAND ...]`
+  Uses the keyboard/screen shell to start `sh -i` with stdin, stdout, and
+  stderr redirected to the guest serial device, then sends each command over
+  the serial pipe. Pass `--no-wait` for commands that take over, reboot, or
+  prompt for later serial input.
+
+### `fdisk.sh`
+
+Host-side fdisk automation helpers. These build the standard swap/root
+partition layout by starting fdisk from a serial shell and driving its
+interactive prompts over the serial pipe.
+
+Functions:
+
+- `script_fdisk DEVICE SWAP_MB`
+  Creates swap and root partitions, sizing swap with fdisk's `+sizeM`
+  shorthand and giving root the remaining cylinders fdisk advertises.
 
 ## Slackware Tagfiles
 

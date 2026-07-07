@@ -3,21 +3,21 @@ script_import ../perl-install.sh
 BOOT_COMMAND="linux root=/dev/hdc"
 
 boot_loader
-script_wait_string "This script will walk you through each step of the installation."
-script_press_key ret
-script_wait_string "Color Screen"
-script_press_key ret
-script_wait_string "Text based install"
-script_press_key ret
+screen_wait "This script will walk you through each step of the installation."
+kb_press_key ret
+screen_wait "Color Screen"
+kb_press_key ret
+screen_wait "Text based install"
+kb_press_key ret
 
 partition_disk "Disk Partitions"
-script_wait_string "Do you want to use this as a swap partition?"
-script_press_key y
-script_wait_string "Do you want to configure ethernet TCP/IP networking"
+screen_wait "Do you want to use this as a swap partition?"
+kb_press_key y
+screen_wait "Do you want to configure ethernet TCP/IP networking"
 configure_network_common netmask-first
 format_root
 
-script_wait_string "Select each series that you want to install."
+screen_wait "Select each series that you want to install."
 # Default selection:
 # 	[X]   15.0 MB - Applications
 # 	[ ]    2.0 MB - DOS Compatibility
@@ -44,14 +44,14 @@ script_wait_string "Select each series that you want to install."
 # 	[ ]    4.9 MB - XView
 # 	[ ]    3.8 MB - a.out compatitibility
 # 	[ ]   39.9 MB - Other
-script_press_key ret
-script_wait_string "Which X server would you like to use?"
-script_press_key s # selects SVGA
-script_press_key ret
-script_wait_string "Would you like to select and unselect individual packages"
-script_press_key n
-script_wait_string "Package Installation is complete."
-script_press_key ret
+kb_press_key ret
+screen_wait "Which X server would you like to use?"
+kb_press_key s # selects SVGA
+kb_press_key ret
+screen_wait "Would you like to select and unselect individual packages"
+kb_press_key n
+screen_wait "Package Installation is complete."
+kb_press_key ret
 
 configure_x11_common
 confirm_network_configured

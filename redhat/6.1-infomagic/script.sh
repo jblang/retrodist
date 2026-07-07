@@ -1,4 +1,5 @@
-script_prompt "boot:" "text"
-script_wait_string "Congratulations, installation is complete."
+screen_wait -l "boot:"
+kb_send_line "text"
+screen_wait "Congratulations, installation is complete."
 script_set_boot c
-script_press_key ret
+kb_press_key ret

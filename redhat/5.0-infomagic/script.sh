@@ -10,30 +10,30 @@ LILO_EXTRA_F12=1
 
 start_install
 
-script_wait_string "Which tool would you like to use?"
-script_press_key tab # fdisk
-script_press_key ret
-script_wait_string "Partition Disks"
+screen_wait "Which tool would you like to use?"
+kb_press_key tab # fdisk
+kb_press_key ret
+screen_wait "Partition Disks"
 partition_disk_helper
-script_wait_string "Partition Disks"
-script_press_key ret # done
-script_wait_string "Select Root Partition"
-script_press_key ret # /dev/hda2
-script_wait_string "Partition Disk"
-script_press_key f12 # done
-script_wait_string "Active Swap Space" # [sic]
-script_press_key f12 # ok
-script_wait_string "Format Partitions"
-script_press_key spc # hda2
-script_press_key f12 # next screen
+screen_wait "Partition Disks"
+kb_press_key ret # done
+screen_wait "Select Root Partition"
+kb_press_key ret # /dev/hda2
+screen_wait "Partition Disk"
+kb_press_key f12 # done
+screen_wait "Active Swap Space" # [sic]
+kb_press_key f12 # ok
+screen_wait "Format Partitions"
+kb_press_key spc # hda2
+kb_press_key f12 # next screen
 
 select_components_default
 finish_components_selection
 
-script_wait_string "Probing found a PS/2 mouse"
-script_press_key f12 # next screen
-script_wait_string "Emulate Three Buttons"
-script_press_key f12 # next screen
+screen_wait "Probing found a PS/2 mouse"
+kb_press_key f12 # next screen
+screen_wait "Emulate Three Buttons"
+kb_press_key f12 # next screen
 configure_x11_5x_common
 
 configure_network

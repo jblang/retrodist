@@ -3,6 +3,7 @@
 
 DIALOG_TITLE=
 DIALOG_BACKTITLE=
+DIALOG_DEFAULT_ITEM=
 DIALOG_OUTPUT_FD=2
 DIALOG_SEPARATE_OUTPUT=0
 DIALOG_PROMPT_FD=1
@@ -14,20 +15,51 @@ dialog_usage() {
     exit 1
 }
 
-dialog_prompt_line() {
-    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
-        echo "$1: $2" >&2
-    else
-        echo "$1: $2"
+# Match real dialog's no-item usage error before drawing anything.
+dialog_require_items() {
+    if [ "$1" -lt "$2" ]; then
+        echo "fake dialog: $3 requires at least one item" >&2
+        exit 255
     fi
 }
 
+dialog_prompt_line() {
+    dialog_prompt_raw "$1: $2"
+}
+
 dialog_prompt_raw() {
+    if [ "$DIALOG_SERIAL_ON" = 1 ]; then
+        echo "$1" >&5
+    fi
+    if [ "$DIALOG_VIEW_ON" = 1 ]; then
+        return 0
+    fi
     if [ "$DIALOG_PROMPT_FD" = 2 ]; then
         echo "$1" >&2
     else
         echo "$1"
     fi
+}
+
+# Shows real --infobox widgets exactly as requested.
+dialog_view_infobox() {
+    if [ "$DIALOG_VIEW_ON" != 1 ]; then
+        return 0
+    fi
+    if [ -n "$DIALOG_TITLE" ]; then
+        "$0.bak" --title "$DIALOG_TITLE" --infobox "$1" "$2" "$3"
+    else
+        "$0.bak" --infobox "$1" "$2" "$3"
+    fi
+}
+
+# Shows a simple status infobox for widgets answered over serial.
+dialog_view_wait() {
+    if [ "$DIALOG_VIEW_ON" != 1 ]; then
+        return 0
+    fi
+    "$0.bak" --title "Scripted Install" --infobox "
+             Please wait..." 5 45
 }
 
 dialog_prompt_text() {
@@ -41,6 +73,12 @@ dialog_prompt_item() {
 }
 
 dialog_prompt_response() {
+    if [ "$DIALOG_SERIAL_ON" = 1 ]; then
+        echo -n "RESPONSE: " >&5
+    fi
+    if [ "$DIALOG_VIEW_ON" = 1 ]; then
+        return 0
+    fi
     if [ "$DIALOG_PROMPT_FD" = 2 ]; then
         echo -n "RESPONSE: " >&2
     else
@@ -59,20 +97,39 @@ $1: $2"
 
 dialog_print_saved_lines() {
     if [ -n "$DIALOG_SAVED_LINES" ]; then
-        if [ "$DIALOG_PROMPT_FD" = 2 ]; then
-            echo "$DIALOG_SAVED_LINES" >&2
-        else
-            echo "$DIALOG_SAVED_LINES"
-        fi
+        dialog_prompt_raw "$DIALOG_SAVED_LINES"
     fi
 }
 
 dialog_read_response() {
     dialog_prompt_response
-    read DIALOG_RESPONSE
+    if [ "$DIALOG_SERIAL_ON" != 1 ]; then
+        read DIALOG_RESPONSE
+        return
+    fi
+    read DIALOG_RESPONSE <&4
+    if [ "$DIALOG_VIEW_ON" = 1 ]; then
+        return 0
+    fi
+    # Echo the piped answer so the plain-text console transcript is complete.
+    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
+        echo "$DIALOG_RESPONSE" >&2
+    else
+        echo "$DIALOG_RESPONSE"
+    fi
 }
 
+# Writes one result without a newline, like real dialog.
 dialog_write_response() {
+    case "$DIALOG_OUTPUT_FD" in
+        1) echo -n "$1" ;;
+        2) echo -n "$1" >&2 ;;
+        *) eval 'echo -n "$1" >&'"$DIALOG_OUTPUT_FD" ;;
+    esac
+}
+
+# Writes one tag per line for --separate-output.
+dialog_write_line() {
     case "$DIALOG_OUTPUT_FD" in
         1) echo "$1" ;;
         2) echo "$1" >&2 ;;
@@ -82,8 +139,10 @@ dialog_write_response() {
 
 dialog_write_words() {
     if [ "$DIALOG_SEPARATE_OUTPUT" = 1 ]; then
-        for dialog_word in $1; do
-            dialog_write_response "$dialog_word"
+        # Preserve quoted multi-word tags, then print one tag per line.
+        eval "set -- $1"
+        for dialog_word in "$@"; do
+            dialog_write_line "$dialog_word"
         done
     else
         dialog_write_response "$1"
@@ -117,6 +176,31 @@ dialog_read_status() {
     dialog_control_exit "$DIALOG_RESPONSE"
 }
 
+# Gauges are display-only, so let the real dialog draw them when available.
+for dialog_arg in "$@"; do
+    case "$dialog_arg" in
+        --gauge)
+            [ -x "$0.bak" ] && exec "$0.bak" "$@"
+            break
+            ;;
+    esac
+done
+
+# Keep the tty open on fds 4/5; otherwise it can discard buffered input.
+DIALOG_SERIAL=${DIALOG_SERIAL:-/dev/ttyS3}
+DIALOG_SERIAL_ON=0
+if [ -w "$DIALOG_SERIAL" ]; then
+    # shellcheck disable=SC2094 # Duplex device: reads and writes are distinct streams.
+    exec 4<"$DIALOG_SERIAL" 5>"$DIALOG_SERIAL"
+    DIALOG_SERIAL_ON=1
+fi
+
+# With dialog.bak present, answerable widgets show a fixed wait infobox.
+DIALOG_VIEW_ON=0
+if [ "$DIALOG_SERIAL_ON" = 1 ] && [ -x "$0.bak" ]; then
+    DIALOG_VIEW_ON=1
+fi
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --title)
@@ -145,6 +229,7 @@ while [ $# -gt 0 ]; do
             ;;
         --default-item)
             dialog_save_line DEFAULT_ITEM "$2"
+            DIALOG_DEFAULT_ITEM=$2
             shift 2
             ;;
         --defaultno)
@@ -170,7 +255,7 @@ while [ $# -gt 0 ]; do
             echo "fake-dialog"
             exit 0
             ;;
-        --msgbox | --infobox | --yesno | --inputbox | --passwordbox | --menu | --checklist | --radiolist | --textbox)
+        --msgbox | --infobox | --yesno | --inputbox | --passwordbox | --menu | --checklist | --radiolist | --textbox | --gauge)
             dialog_widget=$1
             shift
             break
@@ -199,6 +284,7 @@ case "$dialog_widget" in
         dialog_print_header msgbox
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
+        dialog_view_wait
         dialog_read_status
         exit 0
         ;;
@@ -209,6 +295,7 @@ case "$dialog_widget" in
         dialog_print_header infobox
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
+        dialog_view_infobox "$dialog_text" "$dialog_height" "$dialog_width"
         exit 0
         ;;
     --textbox)
@@ -221,6 +308,7 @@ case "$dialog_widget" in
         if [ -f "$dialog_file" ]; then
             dialog_prompt_text TEXT < "$dialog_file"
         fi
+        dialog_view_wait
         dialog_read_status
         exit 0
         ;;
@@ -231,6 +319,7 @@ case "$dialog_widget" in
         dialog_print_header yesno
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
+        dialog_view_wait
         dialog_read_response
         case "$DIALOG_RESPONSE" in
             y | Y | yes | YES | Yes | ok | OK | true | TRUE | 1)
@@ -260,6 +349,7 @@ case "$dialog_widget" in
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line DEFAULT "$dialog_initial"
+        dialog_view_wait
         dialog_read_response
         dialog_control_exit "$DIALOG_RESPONSE"
         dialog_write_response "$DIALOG_RESPONSE"
@@ -271,16 +361,26 @@ case "$dialog_widget" in
         dialog_width=$3
         dialog_menu_height=$4
         shift 4
+        dialog_require_items $# 2 --menu
         dialog_print_header menu
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line MENUHEIGHT "$dialog_menu_height"
+        dialog_default_item=$DIALOG_DEFAULT_ITEM
         while [ $# -gt 1 ]; do
+            if [ -z "$dialog_default_item" ]; then
+                dialog_default_item=$1
+            fi
             dialog_prompt_item "$1 :: $2"
             shift 2
         done
+        dialog_view_wait
         dialog_read_response
         dialog_control_exit "$DIALOG_RESPONSE"
+        # An empty response selects the highlighted item, like real dialog.
+        if [ -z "$DIALOG_RESPONSE" ]; then
+            DIALOG_RESPONSE=$dialog_default_item
+        fi
         dialog_write_response "$DIALOG_RESPONSE"
         exit 0
         ;;
@@ -290,6 +390,7 @@ case "$dialog_widget" in
         dialog_width=$3
         dialog_list_height=$4
         shift 4
+        dialog_require_items $# 3 "$dialog_widget"
         case "$dialog_widget" in
             --checklist)
                 dialog_print_header checklist
@@ -301,17 +402,67 @@ case "$dialog_widget" in
         echo "$dialog_text" | dialog_prompt_text TEXT
         dialog_prompt_line SIZE "$dialog_height $dialog_width"
         dialog_prompt_line LISTHEIGHT "$dialog_list_height"
+        dialog_defaults=
+        dialog_default_item=
         while [ $# -gt 2 ]; do
             dialog_prompt_item "$1 :: $2 $3"
+            case "$3" in
+                [Oo][Nn] | 1)
+                    if [ -n "$dialog_defaults" ]; then
+                        dialog_defaults="$dialog_defaults \"$1\""
+                    else
+                        dialog_defaults="\"$1\""
+                    fi
+                    dialog_default_item=$1
+                    ;;
+            esac
             shift 3
         done
+        dialog_view_wait
         dialog_read_response
         dialog_control_exit "$DIALOG_RESPONSE"
         if [ "$dialog_widget" = "--checklist" ]; then
+            # An empty response keeps the preselected items, like real dialog.
+            if [ -z "$DIALOG_RESPONSE" ]; then
+                DIALOG_RESPONSE=$dialog_defaults
+            fi
             dialog_write_words "$DIALOG_RESPONSE"
         else
+            if [ -z "$DIALOG_RESPONSE" ]; then
+                DIALOG_RESPONSE=$dialog_default_item
+            fi
             dialog_write_response "$DIALOG_RESPONSE"
         fi
+        exit 0
+        ;;
+    --gauge)
+        dialog_text=$1
+        dialog_height=$2
+        dialog_width=$3
+        dialog_percent=${4:-0}
+        dialog_print_header gauge
+        echo "$dialog_text" | dialog_prompt_text TEXT
+        dialog_prompt_line SIZE "$dialog_height $dialog_width"
+        dialog_prompt_line PERCENT "$dialog_percent"
+        # Consume updates until the writer closes the pipe: bare percent
+        # lines and XXX markers are dropped, message lines are echoed when
+        # they change so progress stays visible.
+        dialog_gauge_last=
+        while read dialog_line; do
+            case "$dialog_line" in
+                XXX | [0-9]*) ;;
+                *)
+                    if [ "$dialog_line" != "$dialog_gauge_last" ]; then
+                        dialog_prompt_line GAUGE "$dialog_line"
+                        dialog_gauge_last=$dialog_line
+                    fi
+                    ;;
+            esac
+        done
+        exit 0
+        ;;
+    "")
+        # Invoked with options but no widget (e.g. `dialog --clear`).
         exit 0
         ;;
     *)

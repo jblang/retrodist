@@ -163,8 +163,9 @@ qemu_base_defaults() {
     QEMU_INTERNET="${QEMU_INTERNET:-}"
 
     # Serial/parallel ports (chardev)
-    QEMU_SERIAL_SOCKET_COUNT="${QEMU_SERIAL_SOCKET_COUNT:-4}"
+    QEMU_SERIAL_SOCKET_COUNT="${QEMU_SERIAL_SOCKET_COUNT:-3}"
     QEMU_SERIAL_SOCKET_PREFIX="${QEMU_SERIAL_SOCKET_PREFIX:-ttyS}"
+    QEMU_SERIAL_PIPE="${QEMU_SERIAL_PIPE:-ttyS3}"
     QEMU_PARALLEL_SOCKET_COUNT="${QEMU_PARALLEL_SOCKET_COUNT:-1}"
     QEMU_PARALLEL_SOCKET_PREFIX="${QEMU_PARALLEL_SOCKET_PREFIX:-lp}"
 
@@ -367,6 +368,8 @@ qemu_run_with_install_script() {
         wait "$qemu_pid" 2>/dev/null || true
         return 1
     fi
+
+    serial_start
 
     log_info "Running install script $QEMU_INSTALL_SCRIPT"
     (
@@ -595,9 +598,18 @@ qemu_build_socket_chardevs() {
     done
 }
 
-# Builds guest serial socket arguments.
+# Builds guest serial socket arguments, plus the scripting pipe on the last
+    # port: a named-pipe chardev the guest-side dialog adapter can use to talk
+    # to the host (see serial_start in serial.sh). Set
+# QEMU_SERIAL_PIPE= to disable it when the serial ports are needed elsewhere.
 qemu_build_serials() {
     qemu_build_socket_chardevs QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX" serial
+    if [[ -n "${QEMU_SERIAL_PIPE:-}" ]]; then
+        log_debug "Creating serial pipe chardev $QEMU_SERIAL_PIPE"
+        rm -f "$QEMU_SERIAL_PIPE.in" "$QEMU_SERIAL_PIPE.out"
+        mkfifo "$QEMU_SERIAL_PIPE.in" "$QEMU_SERIAL_PIPE.out"
+        QEMU_SERIALS+=(-serial "pipe:$QEMU_SERIAL_PIPE")
+    fi
 }
 
 # Builds guest parallel socket arguments.

@@ -10,23 +10,23 @@ LILO_EXTRA_F12=1
 start_install
 partition_4x
 
-script_wait_string "Components to Install"
+screen_wait "Components to Install"
 # Manual selection:
 # [ ] C Development
-script_press_key spc
+kb_press_key spc
 # [X] C Development
 # [ ] Development Libraries
-script_press_key down 2
+kb_press_key down 2
 # [ ] C++ Development
-script_press_key spc
+kb_press_key spc
 # [X] C++ Development
-script_press_key down
+kb_press_key down
 # [ ] Printer Support
-script_press_key spc
+kb_press_key spc
 # [X] Printer Support
-script_press_key down
+kb_press_key down
 # [ ] Print Server
-script_press_key spc
+kb_press_key spc
 # [X] Print Server
 # [ ] News Server
 # [ ] NFS Server
@@ -36,25 +36,25 @@ script_press_key spc
 # [ ] Web Server
 # [ ] Network Management Workstation
 # [ ] Dialup Workstation
-script_press_key down 9
+kb_press_key down 9
 # [ ] Game Machine
-script_press_key spc
+kb_press_key spc
 # [X] Game Machine
-script_press_key down
+kb_press_key down
 # [ ] Multimedia Machine
-script_press_key spc
+kb_press_key spc
 # [X] Multimedia Machine
-script_press_key down
+kb_press_key down
 # [ ] X Window System
-script_press_key spc
+kb_press_key spc
 # [X] X Window System
-script_press_key down
+kb_press_key down
 # [ ] X Development
-script_press_key spc
+kb_press_key spc
 # [X] X Development
-script_press_key down
+kb_press_key down
 # [ ] X multimedia support
-script_press_key spc
+kb_press_key spc
 # [X] X multimedia support
 # [ ] Java Development
 # [ ] TeX Document Formatting
@@ -62,12 +62,12 @@ script_press_key spc
 # [ ] Emacs with X windows
 # [ ] DOS/Windows Connectivity
 # [ ] LAN Manager Connectivity
-script_press_key down 7
+kb_press_key down 7
 # [ ] Extra Documentation
-script_press_key spc
+kb_press_key spc
 # [X] Extra Documentation
 # [ ] Everything
-script_press_key f12 # next screen
+kb_press_key f12 # next screen
 
 finish_components_selection
 configure_x11_4x

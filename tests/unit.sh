@@ -13,6 +13,10 @@ source "$REPO_ROOT/retrolib/qemu.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/script.sh"
 # shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/serial.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/fdisk.sh"
+# shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/slackware.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/extract.sh"
@@ -173,19 +177,17 @@ assert_fail "script/fdisk-range-answered" script_fdisk_parse_range "First cylind
 assert_fail "script/fdisk-range-missing" script_fdisk_parse_range "no fdisk prompt here"
 
 wait_screen="ready"
-# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+# shellcheck disable=SC2329 # Invoked indirectly by screen_wait.
 qmp_qemu_running() { return 0; }
-# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
+# shellcheck disable=SC2329 # Invoked indirectly by screen_wait.
 qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
-# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via script_prompt.
+# shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
 qmp_send_string() { return 0; }
-# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via script_prompt.
+# shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
 qmp_sendkey() { return 0; }
-wait_output=$(script_wait_until script_screen_contains_string "ready")
+wait_output=$(screen_wait "ready")
 wait_status=$?
-assert_eq "script/wait-single-status" "0" "$wait_status"
-assert_eq "script/wait-single-output" "ready" "$wait_output"
-wait_output=$(script_wait_string "ready")
+assert_eq "script/wait-string-status" "0" "$wait_status"
 tests_run=$((tests_run + 1))
 case "$wait_output" in
 *"🖥️  ready"*) ;;
@@ -195,62 +197,10 @@ case "$wait_output" in
     ;;
 esac
 
-wait_screen="fatal error"
-wait_output=$(script_wait_until \
-    script_screen_contains_string "fatal error" \
-    script_screen_contains_string "all done" \
-    --)
-wait_status=$?
-assert_eq "script/wait-multi-status" "0" "$wait_status"
-assert_eq "script/wait-multi-output" "fatal error" "$wait_output"
-
-wait_screen="all done"
-wait_output=$(script_wait_until \
-    script_screen_contains_string "fatal error" \
-    script_screen_contains_string "all done" \
-    --)
-wait_status=$?
-assert_eq "script/wait-multi-second-status" "1" "$wait_status"
-assert_eq "script/wait-multi-second-output" "all done" "$wait_output"
-
-wait_output_tmp=$(mktemp)
-script_wait_alternative -e "fatal error" "all done" >"$wait_output_tmp"
-wait_status=$?
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-alternative-status" "1" "$wait_status"
-assert_eq "script/wait-alternative-output" \
-    "🔀 Awaiting 2 alternatives... matched #1
-🖥️  all done" \
-    "$wait_output"
-
-wait_screen="prefix all done suffix
-exact line"
-wait_output_tmp=$(mktemp)
-script_wait_alternative -e -l "all done" "exact line" >"$wait_output_tmp"
-wait_status=$?
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-alternative-line-status" "1" "$wait_status"
-assert_eq "script/wait-alternative-line-output" \
-    "🔀 Awaiting 2 alternatives... matched #1
-🖥️  exact line" \
-    "$wait_output"
-
-wait_output_tmp=$(mktemp)
-script_wait_alternative -l "all done" "exact line" >"$wait_output_tmp"
-wait_status=$?
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-alternative-quiet-status" "1" "$wait_status"
-assert_eq "script/wait-alternative-quiet-output" \
-    "🔀 Awaiting 2 alternatives... matched #1" \
-    "$wait_output"
-
 wait_screen="first line
 second line"
 wait_output_tmp=$(mktemp)
-script_wait_line "first line" "second line" >"$wait_output_tmp"
+screen_wait -l "first line" "second line" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
@@ -260,81 +210,34 @@ assert_eq "script/wait-line-sequence-output" \
 ⏳ second line🖥️  second line[K" \
     "$wait_output"
 
-# --- regex matcher -----------------------------------------------------------
+# --- serial regex matcher ----------------------------------------------------
 # Patterns are extended regexes (grep -E), so escaped parens match literally,
 # matching the style used by dialog_answer -r callers.
 regex_screen="Slackware Linux Setup (version 3.4)"
-assert_ok "script/screen-contains-regex" script_screen_contains_regex "$regex_screen" "Setup \(version .*\)"
-assert_fail "script/screen-contains-regex-miss" script_screen_contains_regex "$regex_screen" "Setup \(build .*\)"
+assert_ok "serial/contains-regex" serial_contains_regex "$regex_screen" "Setup \(version .*\)"
+assert_fail "serial/contains-regex-miss" serial_contains_regex "$regex_screen" "Setup \(build .*\)"
 
-wait_screen="Slackware Linux Setup (version 3.4)"
-wait_output_tmp=$(mktemp)
-script_wait_string -r "version [0-9.]*" >"$wait_output_tmp"
-wait_status=$?
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-string-regex-status" "0" "$wait_status"
-tests_run=$((tests_run + 1))
-case "$wait_output" in
-*"🖥️  version [0-9.]*"*) ;;
-*)
-    tests_failed=$((tests_failed + 1))
-    printf "FAIL script/wait-string-regex-output\n  actual:   [%s]\n" "$wait_output"
-    ;;
-esac
-
-wait_output_tmp=$(mktemp)
-script_wait_line -r "Setup \(version .*\)" >"$wait_output_tmp"
-wait_status=$?
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-line-regex-status" "0" "$wait_status"
-
-wait_output_tmp=$(mktemp)
-script_wait_alternative -e -r "no match here" "version [0-9.]*" >"$wait_output_tmp"
-wait_status=$?
-wait_output=$(cat "$wait_output_tmp")
-rm -f "$wait_output_tmp"
-assert_eq "script/wait-alternative-regex-status" "1" "$wait_status"
-assert_eq "script/wait-alternative-regex-output" \
-    "🔀 Awaiting 2 alternatives... matched #1
-🖥️  version [0-9.]*" \
-    "$wait_output"
-
-wait_output_tmp=$(mktemp)
-script_prompt -r "Setup \(version .*\)" "answer" >"$wait_output_tmp"
-wait_status=$?
-rm -f "$wait_output_tmp"
-assert_eq "script/prompt-regex-status" "0" "$wait_status"
-
-# --- dialog_case ---------------------------------------------------------
+# --- dialog helpers ----------------------------------------------------------
+# Dialog screens are seeded up front and answered through serial_send.
 # shellcheck source=/dev/null
-source "$REPO_ROOT/slackware/dialog-setup.sh"
+source "$REPO_ROOT/retrolib/dialog.sh"
 
 case_tmp=$(mktemp -d)
-echo 0 >"$case_tmp/state"
+SERIAL_LOG=$case_tmp/log
+# shellcheck disable=SC2329 # Invoked indirectly by dialog helpers.
+serial_send() { printf '%s\n' "$1" >>"$case_tmp/answers"; }
+exec 4>&2 2>/dev/null
+
+# Screens are answered in stream order; the terminator remains unanswered.
+SERIAL_LINE=0
 : >"$case_tmp/answers"
-
-# The fake console raises screens in the reverse of the listed order, advances
-# to the next screen whenever an answer is sent, and ends on the terminator.
-# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
-qmp_vga_dump_text() {
-    case "$(cat "$case_tmp/state")" in
-    0) printf 'TITLE: SECOND\nRESPONSE:\n' ;;
-    1) printf 'TITLE: FIRST\nRESPONSE:\n' ;;
-    *) printf 'TITLE: DONE\nRESPONSE:\n' ;;
-    esac
-}
-# shellcheck disable=SC2329 # Invoked indirectly by script_send_line via dialog_answer.
-qmp_send_string() {
-    printf '%s\n' "$1" >>"$case_tmp/answers"
-    echo "$(($(cat "$case_tmp/state") + 1))" >"$case_tmp/state"
-}
-
-# Handlers receive the matched title as their only argument and answer the
-# screen themselves; the terminator returns immediately, leaving it
-# unanswered along with any titles that were never asked.
+printf '%s\n' \
+    'TITLE: SECOND' 'RESPONSE: ' \
+    'TITLE: FIRST' 'RESPONSE: ' \
+    'TITLE: DONE' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_echo_title() { dialog_answer "$1" "$1"; }
+case_echo_title() { dialog_answer "$1" "" "$1"; }
 dialog_case \
     "FIRST" case_echo_title \
     "SECOND" case_echo_title \
@@ -345,9 +248,8 @@ assert_eq "dialog/case-status" "0" "$wait_status"
 assert_eq "dialog/case-out-of-order" "SECOND
 FIRST" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any takes TITLE ANSWER pairs and answers them directly, in
-# whatever order the screens appear, until the terminator shows up.
-echo 0 >"$case_tmp/state"
+# dialog_answer_any directly answers matching TITLE ANSWER pairs.
+SERIAL_LINE=0
 : >"$case_tmp/answers"
 dialog_answer_any "FIRST" "one" "SECOND" "two" "DONE" >/dev/null
 wait_status=$?
@@ -356,30 +258,303 @@ assert_eq "dialog/answer-out-of-order" "two
 one" "$(cat "$case_tmp/answers")"
 
 # A repeated title is handled once per occurrence, in the order listed.
-echo 0 >"$case_tmp/state"
+SERIAL_LINE=0
 : >"$case_tmp/answers"
-# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
-qmp_vga_dump_text() {
-    if [ "$(cat "$case_tmp/state")" -lt 2 ]; then
-        printf 'TITLE: REPEAT\nRESPONSE:\n'
-    else
-        printf 'TITLE: DONE\nRESPONSE:\n'
-    fi
-}
+printf '%s\n' \
+    'TITLE: REPEAT' 'RESPONSE: ' \
+    'TITLE: REPEAT' 'RESPONSE: ' \
+    'TITLE: DONE' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_one() { dialog_answer "$1" "one"; }
+case_answer_one() { dialog_answer "$1" "" "one"; }
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_two() { dialog_answer "$1" "two"; }
+case_answer_two() { dialog_answer "$1" "" "two"; }
 dialog_case "REPEAT" case_answer_one "REPEAT" case_answer_two "DONE" >/dev/null
 assert_eq "dialog/case-repeat" "one
 two" "$(cat "$case_tmp/answers")"
+
+# Typed wrappers wait for TYPE/TEXT lines before answering.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Installation Type' 'TYPE: menu' 'TEXT: Which do you prefer?' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_menu "Installation Type" "Which do you prefer?" cdrom >/dev/null
+assert_eq "dialog/menu-wrapper" "cdrom" "$(cat "$case_tmp/answers")"
+
+# dialog_answer_any -s matches keys as plain substrings.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Network Configuration' 'TEXT: What is the netmask?' 'RESPONSE: ' \
+    'TITLE: Network Configuration' 'TEXT: What is the network address?' 'RESPONSE: ' \
+    'TITLE: Net Config' 'TEXT: Is this correct?' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer_any -s \
+    "What is the network address?" "10.0.2.0" \
+    "What is the netmask?" "255.255.255.0" \
+    "Is this correct?" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-any-substring-status" "0" "$wait_status"
+assert_eq "dialog/answer-any-substring" "255.255.255.0
+10.0.2.0" "$(cat "$case_tmp/answers")"
+exec 2>&4 4>&-
 rm -rf "$case_tmp"
 
-# Restore the simple screen mocks for any later screen-driven tests.
-# shellcheck disable=SC2329 # Invoked indirectly by script_wait_until.
-qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
-# shellcheck disable=SC2329 # Invoked indirectly by script_send_line.
-qmp_send_string() { return 0; }
+# --- serial transport --------------------------------------------------------
+# Restore the real serial helpers after dialog tests mocked serial_send.
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/script.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/serial.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/fdisk.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/dialog.sh"
+serial_tmp=$(mktemp -d)
+SERIAL_LOG=$serial_tmp/log
+SERIAL_LINE=0
+SERIAL_TRANSCRIPT_LINE=0
+
+# Transcript order: received text, matched waits, then transmitted text.
+printf '%s\n' 'noise' 'MATCH' 'late' >"$SERIAL_LOG"
+exec 9>"$serial_tmp/input"
+serial_wait_one text_contains_line "MATCH" >/dev/null 2>"$serial_tmp/transcript"
+serial_send "typed" 2>>"$serial_tmp/transcript"
+printf '%s\n' 'typed' 'DONE' >>"$SERIAL_LOG"
+serial_wait_one text_contains_line "DONE" >/dev/null 2>>"$serial_tmp/transcript"
+assert_eq "serial/transcript" "➡️  noise
+✅ MATCH
+➡️  late
+⬅️  typed
+✅ DONE" "$(cat "$serial_tmp/transcript")"
+assert_eq "serial/transcript-input" "typed" "$(cat "$serial_tmp/input")"
+exec 9>&-
+
+# serial_shell starts a screen-launched shell redirected to serial.
+SERIAL_LOG=$serial_tmp/shell
+SERIAL_LINE=0
+SERIAL_TRANSCRIPT_LINE=0
+# shellcheck disable=SC2034 # Read by serial_shell_start.
+SERIAL_SHELL_PROMPT="SERIAL#"
+# shellcheck disable=SC2034 # Read by serial_shell_start.
+SERIAL_SHELL_DEV=/dev/ttyS2
+wait_screen="#"
+qmp_strings=
+# shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
+qmp_send_string() { qmp_strings="${qmp_strings}${qmp_strings:+
+}$1"; }
+# shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
+qmp_sendkey() { return 0; }
+printf '%s\n' \
+    'SERIAL# ' \
+    'one' \
+    'SERIAL# ' \
+    'two' \
+    'stderr' \
+    'SERIAL# ' \
+    >"$SERIAL_LOG"
+: >"$serial_tmp/shell-input"
+exec 9>"$serial_tmp/shell-input"
+serial_shell "echo one" "echo two >&2" >/dev/null 2>/dev/null
+assert_eq "serial/shell-launcher" "[ -c /dev/ttyS2 ] || mknod /dev/ttyS2 c 4 67; PS1='SERIAL# ' sh -i </dev/ttyS2 >/dev/ttyS2 2>&1" "$qmp_strings"
+assert_eq "serial/shell-input" "echo one
+echo two >&2
+exit" "$(cat "$serial_tmp/shell-input")"
+exec 9>&-
+unset SERIAL_SHELL_PROMPT SERIAL_SHELL_DEV
+
+SERIAL_LOG=$serial_tmp/shell-nowait
+SERIAL_LINE=0
+SERIAL_TRANSCRIPT_LINE=0
+qmp_strings=
+printf '%s\n' '# ' >"$SERIAL_LOG"
+: >"$serial_tmp/shell-nowait-input"
+exec 9>"$serial_tmp/shell-nowait-input"
+serial_shell --no-wait "long-running install" >/dev/null 2>/dev/null
+assert_eq "serial/shell-nowait-input" "long-running install" "$(cat "$serial_tmp/shell-nowait-input")"
+exec 9>&-
+
+SERIAL_LINE=0
+SERIAL_TRANSCRIPT_LINE=0
+exec 3>&2 2>/dev/null
+
+# A prompt blocks without a trailing newline, so the partial line matches too.
+printf 'TITLE: Foo\nRESPONSE: ' >"$SERIAL_LOG"
+serial_wait_one text_contains_line "TITLE: Foo" >/dev/null
+assert_eq "serial/title-consumed" "TITLE: Foo" "$SERIAL_MATCHED_TEXT"
+serial_wait_one text_contains_line "RESPONSE:" >/dev/null
+assert_eq "serial/partial-consumed" "RESPONSE: " "$SERIAL_MATCHED_TEXT"
+
+# Consumed text never matches again; a fresh occurrence does.
+assert_fail "serial/no-rematch" serial_scan text_contains_line "TITLE: Foo"
+printf '\nTITLE: Foo\n' >>"$SERIAL_LOG"
+serial_wait_one text_contains_line "TITLE: Foo" >/dev/null
+assert_eq "serial/second-occurrence" "TITLE: Foo" "$SERIAL_MATCHED_TEXT"
+
+# Consuming a partial prompt must not hide later text on the same line.
+SERIAL_LOG=$serial_tmp/appended-prompt
+SERIAL_LINE=0
+# shellcheck disable=SC2034 # Read by serial_scan.
+SERIAL_TRANSCRIPT_LINE=0
+printf 'Command (m for help): ' >"$SERIAL_LOG"
+serial_wait_one text_contains_line "Command (m for help):" >/dev/null
+printf 't\r\nPartition number (1-4): ' >>"$SERIAL_LOG"
+serial_wait_one text_contains_line "Partition number (1-4):" >/dev/null
+assert_eq "serial/appended-prompt" "Partition number (1-4): " "$SERIAL_MATCHED_TEXT"
+
+# Alternatives match in stream order, not argument order.
+printf 'beta\nalpha\n' >>"$SERIAL_LOG"
+serial_wait_until \
+    text_contains_string "alpha" \
+    text_contains_string "beta" \
+    -- >"$serial_tmp/matched"
+wait_status=$?
+assert_eq "serial/stream-order-status" "1" "$wait_status"
+assert_eq "serial/stream-order-text" "beta" "$(cat "$serial_tmp/matched")"
+
+# Dialog answers go through serial_send instead of the console keyboard path.
+# shellcheck disable=SC2329 # Invoked indirectly by dialog helpers.
+serial_send() { printf '%s\n' "$1" >>"$serial_tmp/answers"; }
+printf 'TITLE: Serial Screen\nTYPE: menu\nRESPONSE: ' >>"$SERIAL_LOG"
+dialog_answer "Serial Screen" menu "picked" >/dev/null
+assert_eq "serial/dialog-answer" "picked" "$(cat "$serial_tmp/answers")"
+
+# Terminator matches must remain available for the caller's next wait.
+: >"$serial_tmp/answers"
+printf '\nTITLE: Confirm\nTYPE: yesno\nTEXT: Is this correct?\nRESPONSE: ' >>"$SERIAL_LOG"
+dialog_answer_any -s "never asked" "unused" "Is this correct?" >/dev/null
+dialog_answer "Confirm" yesno "y" >/dev/null
+assert_eq "serial/terminator-preserved" "y" "$(cat "$serial_tmp/answers")"
+
+# dialog_case must only peek before its handler re-waits for the title.
+: >"$serial_tmp/answers"
+printf '\nTITLE: Handled\nTYPE: menu\nRESPONSE: \nTITLE: Done\n' >>"$SERIAL_LOG"
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_serial_answer() { dialog_answer "$1" menu "handled"; }
+dialog_case "Handled" case_serial_answer "Done" >/dev/null
+assert_eq "serial/case-handler" "handled" "$(cat "$serial_tmp/answers")"
+
+# Echoed answers and CRLF output do not confuse serial matching.
+printf 'picked\r\nTITLE: After Echo\r\n' >>"$SERIAL_LOG"
+serial_wait_one text_contains_line "TITLE: After Echo" >/dev/null
+assert_eq "serial/echo-crlf-consumed" "TITLE: After Echo" "$SERIAL_MATCHED_TEXT"
+
+# script_fdisk drives every fdisk prompt over the serial pipe; the shell
+# prompt waits around it stay on the screen.
+SERIAL_LOG=$serial_tmp/fdisk
+# shellcheck disable=SC2034 # Read by script_fdisk through serial helpers.
+SERIAL_LINE=0
+: >"$serial_tmp/answers"
+wait_screen="#"
+printf '%s\n' \
+    '# ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    '   First cylinder (1-1015): ' \
+    'Last cylinder or +size or +sizeM or +sizeK (1-1015): ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    'First cylinder (131-1015, default 131): ' \
+    'Last cylinder or +size or +sizeM or +sizeK ([131]-1015): ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    'Hex code (type L to list codes): ' \
+    'Command (m for help): ' \
+    'Partition number (1-4): ' \
+    'Hex code (type L to list codes): ' \
+    'Command (m for help): ' \
+    'Command (m for help): ' \
+    '# ' \
+    >"$SERIAL_LOG"
+script_fdisk /dev/hda 64 >"$serial_tmp/fdisk-out" 2>"$serial_tmp/fdisk-err"
+assert_eq "fdisk/serial-status" "0" "$?"
+assert_eq "fdisk/serial-answers" "fdisk /dev/hda
+d
+1
+d
+2
+n
+p
+1
+1
++64M
+n
+p
+2
+131
+1015
+t
+1
+82
+t
+2
+83
+p
+w
+exit" "$(cat "$serial_tmp/answers")"
+tests_run=$((tests_run + 1))
+case $(cat "$serial_tmp/fdisk-err") in
+*"⏳"*|*"🖥️"*)
+    tests_failed=$((tests_failed + 1))
+    printf "FAIL fdisk/serial-log-no-screen-progress\n  actual:   [%s]\n" "$(cat "$serial_tmp/fdisk-err")"
+    ;;
+esac
+exec 2>&3 3>&-
+
+# --- dialog adapter serial routing -------------------------------------------
+# The adapter sends screens and reads answers over DIALOG_SERIAL.
+mkfifo "$serial_tmp/port"
+exec 8<>"$serial_tmp/port"
+printf 'ok\n' >&8
+DIALOG_SERIAL=$serial_tmp/port sh "$REPO_ROOT/autoinst/dialog.sh" \
+    --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/console" 2>&1
+assert_eq "adapter/serial-exit" "0" "$?"
+IFS= read -r serial_line <&8 # divider
+IFS= read -r serial_line <&8
+assert_eq "adapter/serial-title" "TITLE: Serial" "$serial_line"
+assert_ok "adapter/console-tee" grep -q "TITLE: Serial" "$serial_tmp/console"
+exec 8<&-
+
+# dialog.bak makes answerable widgets display the fixed wait infobox.
+cp "$REPO_ROOT/autoinst/dialog.sh" "$serial_tmp/dialog"
+printf '#!/bin/sh\necho "VIEW $*"\n' >"$serial_tmp/dialog.bak"
+chmod +x "$serial_tmp/dialog" "$serial_tmp/dialog.bak"
+mkfifo "$serial_tmp/port2"
+exec 8<>"$serial_tmp/port2"
+printf 'ok\n' >&8
+DIALOG_SERIAL=$serial_tmp/port2 sh "$serial_tmp/dialog" \
+    --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/view" 2>&1
+assert_eq "adapter/view-exit" "0" "$?"
+assert_ok "adapter/view-title" grep -q -- "VIEW --title Scripted Install --infobox" "$serial_tmp/view"
+assert_ok "adapter/view-message" grep -q -- "             Please wait..." "$serial_tmp/view"
+assert_fail "adapter/view-no-plaintext" grep -q "TITLE: Serial" "$serial_tmp/view"
+exec 8<&-
+
+# Display-only infobox widgets keep their requested text and dimensions.
+mkfifo "$serial_tmp/port2b"
+exec 8<>"$serial_tmp/port2b"
+DIALOG_SERIAL=$serial_tmp/port2b sh "$serial_tmp/dialog" \
+    --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox" 2>&1
+assert_eq "adapter/infobox-view-exit" "0" "$?"
+assert_ok "adapter/infobox-view-exact" grep -q -- "VIEW --title Info --infobox real progress 7 50" "$serial_tmp/infobox"
+exec 8<&-
+
+# Empty menu response selects the highlighted item, like real dialog.
+# Run under bash because macOS sh handles echo -n differently.
+mkfifo "$serial_tmp/port3"
+exec 8<>"$serial_tmp/port3"
+printf '\n' >&8
+DIALOG_SERIAL=$serial_tmp/port3 bash "$REPO_ROOT/autoinst/dialog.sh" \
+    --menu "pick" 10 40 2 first one second two \
+    </dev/null >/dev/null 2>"$serial_tmp/menu-result"
+assert_eq "adapter/menu-empty-default" "first" "$(cat "$serial_tmp/menu-result")"
+exec 8<&-
+rm -rf "$serial_tmp"
 
 # --- extract image links ----------------------------------------------------
 extract_tmp=$(mktemp -d)

@@ -1,22 +1,22 @@
-script_wait_string "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
-script_press_key spc
-script_wait_line "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
+screen_wait "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
+kb_press_key spc
+screen_wait -l "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
 script_change_floppy root.img
-script_send_line "1"
-script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-script_wait_string "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
+kb_send_line "1"
+serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
+serial_wait "Reattach boot.img and press Ctrl-Alt-Del in the VM to reboot."
 script_change_floppy boot.img
-script_press_key ctrl-alt-delete
-script_wait_string "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
-script_press_key spc
-script_wait_line "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
+kb_press_key ctrl-alt-delete
+screen_wait "Press <RETURN> to see SVGA-modes available or <SPACE> to continue"
+kb_press_key spc
+screen_wait -l "Enter Drive You Will Be Doing The Installation From (1/2/3/4):"
 script_change_floppy root.img
-script_send_line "1"
-script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-script_wait_line "ATTN: Reattach boot.img and press ENTER."
+kb_send_line "1"
+serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
+serial_wait -l "ATTN: Reattach boot.img and press ENTER."
 script_change_floppy boot.img
-script_press_key ret
-script_wait_line "ATTN: Press ENTER to reboot."
+serial_send ""
+serial_wait -l "ATTN: Press ENTER to reboot."
 script_set_boot a
-script_press_key ret
-script_press_key ctrl-alt-delete
+serial_send ""
+kb_press_key ctrl-alt-delete

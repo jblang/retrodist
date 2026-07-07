@@ -14,31 +14,31 @@ BOOTDISK_PROMPT=true
 
 start_install
 
-script_wait_string "Disk Setup"
-script_press_key tab # choose fdisk
-script_press_key ret # choose initialize
-script_wait_string "Partition Disks"
+screen_wait "Disk Setup"
+kb_press_key tab # choose fdisk
+kb_press_key ret # choose initialize
+screen_wait "Partition Disks"
 partition_disk_helper
-script_wait_string "Partition Disks"
-script_press_key ret
-script_wait_string "Current Disk Partitions"
-script_press_key down
-script_press_key ret
-script_send_line "/"
-script_press_key f12
-script_wait_string "Active Swap Space" # [sic]
-script_press_key f12 # selects OK
-script_wait_string "Partitions To Format"
-script_press_key spc # selects hda2
-script_press_key f12 # next screen
+screen_wait "Partition Disks"
+kb_press_key ret
+screen_wait "Current Disk Partitions"
+kb_press_key down
+kb_press_key ret
+kb_send_line "/"
+kb_press_key f12
+screen_wait "Active Swap Space" # [sic]
+kb_press_key f12 # selects OK
+screen_wait "Partitions To Format"
+kb_press_key spc # selects hda2
+kb_press_key f12 # next screen
 
 select_components_default
 finish_components_selection
 
-script_wait_string "Probing found a PS/2 mouse"
-script_press_key f12 # next screen
-script_wait_string "Configure Mouse"
-script_press_key f12 # next screen
+screen_wait "Probing found a PS/2 mouse"
+kb_press_key f12 # next screen
+screen_wait "Configure Mouse"
+kb_press_key f12 # next screen
 configure_x11_5x_common
 
 configure_network

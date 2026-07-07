@@ -105,39 +105,38 @@ are not standalone entry points; they call functions from `retrolib/qmp.sh` and
 The usual flow is to wait for known screen text, send a key or line, and repeat:
 
 ```sh
-script_prompt "boot:" ""
-script_login
-script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-script_wait_line "ATTN: Press ENTER to reboot."
+screen_wait -l "boot:"
+kb_send_line ""
+screen_wait -l "login:"
+kb_send_line root
+serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
+serial_wait -l "ATTN: Press ENTER to reboot."
 script_set_boot c
-script_press_key ret
+serial_send ""
 ```
 
 Useful primitives:
 
-- `script_wait_string [-r] TEXT [TEXT ...]`
-- `script_wait_line [-r] TEXT [TEXT ...]`
-- `script_wait_alternative [-l] [-r] [-e] TEXT [TEXT ...]`
-- `script_login [USER]`
-- `script_shell [--no-wait] COMMAND [COMMAND ...]`
-- `script_prompt [-r] QUESTION [QUESTION ...] ANSWER`
-- `script_press_key KEY [COUNT]`
-- `script_send_line TEXT`
+- `screen_wait [-l] TEXT [TEXT ...]`
+- `serial_shell [--no-wait] COMMAND [COMMAND ...]`
+- `serial_wait [-l] TEXT [TEXT ...]`
+- `serial_send TEXT`
+- `kb_press_key KEY [COUNT]`
+- `kb_send_line TEXT`
 - `script_change_floppy IMAGE`
 - `script_set_boot DISK`
 
 `SCRIPT_AUTOINST_COMMAND` mounts the staged FAT media at `/retro` and runs
-`/retro/autoinst`. Send it once the installer has reached a shell prompt.
-Override `LOGIN_PROMPT` or `SHELL_PROMPT` when a guest uses non-default
-prompt text.
+`/retro/autoinst`. Send it with `serial_shell --no-wait` once the installer
+has reached a shell prompt, then match its output with `serial_wait` and
+answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
+non-default shell prompt text.
 
-Slackware 1.1.2 through 2.3 use the dialog-based setup driver in
-`slackware/dialog-setup.sh`. It replaces the guest's `dialog` binary with the
-`autoinst/dialog.sh` adapter, which renders every widget as plain text
-(`TITLE:`, `TYPE:`, `ITEM:`, `RESPONSE:` lines), then answers screens by title
-with `dialog_answer`. `dialog_case` and `dialog_answer_any` handle screens
-that vary in order or presence across versions: they answer whichever listed
-titles appear and return when a terminating title shows up.
+Slackware 1.1.2 through 2.3 (`slackware/dialog-setup.sh`) and Red Hat 2.1 and
+3.0.3 (`redhat/perl-install.sh`) replace the guest's `dialog` binary with the
+`autoinst/dialog.sh` adapter. The host-side helpers live in
+`retrolib/dialog.sh`: use `dialog_answer` or its typed wrappers for expected
+screens, and `dialog_case`/`dialog_answer_any` when screens vary by version.
 
 ## In-Guest Autoinstall
 

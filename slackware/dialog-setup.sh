@@ -1,20 +1,12 @@
 # shellcheck shell=bash
-#
-# Shared QMP driver for Slackware's dialog-based setup installer.
-#
-# This script covers Slackware 1.1.2-2.3, whose boot/root disks include a
-# real `dialog` binary. autoinst/dialog.sh is copied over /bin/dialog before
-# `setup` runs, turning every dialog widget into a plain-text prompt with a
-# "TITLE:" header and a trailing "RESPONSE:" line. That fixed shape is what
-# dialog_answer matches against. Version-specific script.sh files should
-# source it, override defaults below when needed, then call dialog_setup.
+# Shared driver for Slackware 1.1.2-2.3 dialog-based setup.
 
 SETUP_HOSTNAME=slackware
 
 TARGET_DISK=/dev/hda
 SWAP_MB=64
 
-# QEMU exposes the qemu.d/fat directory here; Slackware mounts it at FAT_MOUNT.
+# QEMU exposes qemu.d/fat here; Slackware mounts it at FAT_MOUNT.
 FAT_PARTITION=/dev/hdb1
 FAT_MOUNT=/retro
 
@@ -23,35 +15,14 @@ SETUP_SOURCE=/dev/hdc
 LINUX_PARTITION=/dev/hda2
 LINUX_PARTITION_NAME=linux
 
-# Custom tagfiles let PROMPT mode work when installing from read-only media.
-# 1.1.2 has no Path mode; override to Normal to use the tagfiles staged in
-# the package directories.
+# Custom tagfiles let PROMPT mode work from read-only media.
 PROMPT_MODE=Path
 TAGFILE_PATH=/retro/tagfiles
 
 MODEM_SPEED=38400
 SENDMAIL_MODE=SMTP
 
-# These disk sets (and possibly more) are available
-#       A   - Base Linux system
-#       AP  - Various applications that do not need X
-#       D   - Program Development (C, C++, Kernel source, Lisp, Perl, etc.)
-#       E   - GNU Emacs
-#       F   - FAQ lists, HOWTO documentation
-#       I   - Info files readable with info, JED, or Emacs
-#       IV  - Interviews: libraries, include files, Doc and Idraw apps for X
-#       N   - Networking (TCP/IP, UUCP, Mail, News)
-#       OOP - Object Oriented Programming (GNU Smalltalk)
-#       Q   - Extra Linux kernels with UMSDOS/non-SCSI CD drivers
-#       T   - TeX
-#       TCL - Tcl/Tk/TclX, Tcl language, and Tk toolkit for X
-#       X   - XFree86 X Window System
-#       XAP - X Applications
-#       XD  - XFree86 X11 Server Development System
-#       XV  - XView (OpenLook Window Manager, apps)
-#       Y   - Games (that do not require X)
-# The SERIES SELECTION screen is a checklist, so each set must be its own
-# quoted token rather than a bare space-separated word.
+# SERIES SELECTION is a checklist, so each set must be its own quoted token.
 #PACKAGE_SETS='"A" "AP" "D" "E" "F" "I" "IV" "N" "OOP" "Q" "T" "TCL" "X" "XAP" "XD" "XV" "Y"'
 PACKAGE_SETS='"A" "AP" "N" "X" "XAP"'
 
@@ -65,174 +36,26 @@ NET_GATEWAY=10.0.2.2
 NET_NETMASK=255.255.255.0
 NET_NAMESERVER=10.0.2.3
 
-# Select one of these timezones:
-# Brazil/West             GMT-6                   SystemV/EST5
-# Canada/Atlantic         GMT-                    SystemV/EST5EDT
-# Canada/Central          GMT-8                   SystemV/MST7
-# Canada/East-Saskatche   GMT-9                   SystemV/MST7MDT
-# Canada/Eastern          GMT0                    SystemV/PST8
-# Canada/Mountain         GMT1                    SystemV/PST8PDT
-# Canada/Newfoundland     GMT10                   SystemV/YST9
-# Canada/Pacific          GMT11                   SystemV/YST9YDT
-# Canada/Yukon            GMT12                   Turkey
-# Chile/Continental       GMT13                   UCT
-# Chile/EasterIsland      GMT2                    UTC
-# CET                     GMT3                    Universal
-# Cuba                    GMT4                    US/Alaska
-# EET                     GMT5                    US/Aleutian
-# Egypt                   GMT6                    US/Arizona
-# Factory                 GMT7                    US/Central
-# GB-Eire                 GMT8                    US/East-Indiana
-# GMT                     GMT9                    US/Eastern
-# GMT+0                   Greenwich               US/Hawaii
-# GMT+1                   Hongkong                US/Michigan
-# GMT+10                  Iceland                 US/Mountain
-# GMT+11                  Iran                    US/Pacific
-# GMT+12                  Israel                  US/Pacific-New
-# GMT+13                  Jamaica                 US/Samoa
-# GMT+2                   Japan                   W-SU
-# GMT+3                   Libya                   WET
-# GMT+4                   Mexico/BajaNorte        Zulu
-# GMT+5                   Mexico/BajaSur
-# GMT+6                   Mexico/General
 TIMEZONE=UTC
-
-# Waits for one dialog screen by its title — and its widget type, when given
-# — then sends the answer that follows its "RESPONSE:" prompt. Covers menu,
-# yesno, inputbox, checklist, and msgbox widgets alike, since the adapter
-# prompts for a response (even if blank) on all of them except infobox.
-# Usage: dialog_answer [-r] TITLE [TYPE] ANSWER
-# Pass -r to match the title as an extended regex pattern instead of literal text.
-dialog_answer() {
-    local args=()
-    if [ "${1:-}" = "-r" ]; then
-        args+=(-r)
-        shift
-    fi
-    args+=("TITLE: $1")
-    if [ $# -eq 3 ]; then
-        args+=("TYPE: $2" "RESPONSE:" "$3")
-    else
-        args+=("RESPONSE:" "$2")
-    fi
-    script_prompt "${args[@]}"
-}
-
-# Handles dialog screens in whatever order the installer raises them. Each
-# TITLE HANDLER pair names a screen and a function or command to run when
-# that screen appears. The last argument is a terminating title: dialog_case
-# returns as soon as it appears, leaving that screen unanswered.
-# The handler receives the matched title as its only argument and should
-# answer the screen itself, e.g. with dialog_answer. Each pair is handled
-# once; list a title more than once to handle each occurrence in the order
-# given.
-# Pass -r to match titles as extended regex patterns instead of literal text.
-dialog_case() {
-    local wait_opt=-l
-    local usage="dialog_case requires [-r] [TITLE HANDLER ...] TERMINATOR"
-    local terminator titles=() handlers=() answered=()
-    local pending=() map=() count matched i
-
-    if [ "${1:-}" = "-r" ]; then
-        wait_opt=-r
-        shift
-    fi
-
-    [ $(($# % 2)) -eq 1 ] || die "$usage"
-    terminator=${!#}
-
-    while [ $# -gt 1 ]; do
-        titles+=("$1")
-        handlers+=("$2")
-        answered+=(false)
-        shift 2
-    done
-
-    count=${#titles[@]}
-    while :; do
-        pending=("TITLE: $terminator")
-        map=(0)
-        for ((i = 0; i < count; i++)); do
-            if [ "${answered[$i]}" = false ]; then
-                pending+=("TITLE: ${titles[$i]}")
-                map+=("$i")
-            fi
-        done
-        script_wait_alternative "$wait_opt" "${pending[@]}"
-        matched=$?
-        if [ "$matched" -eq 0 ]; then
-            return 0
-        fi
-        i=${map[$matched]}
-        "${handlers[$i]}" "${titles[$i]}"
-        answered[i]=true
-    done
-}
-
-# Like dialog_case, but takes TITLE ANSWER pairs: each matched screen is
-# answered with dialog_answer directly instead of through a handler.
-# Pass -r to match titles as extended regex patterns instead of literal text.
-dialog_answer_any() {
-    local wait_opt=-l
-    local usage="dialog_answer_any requires [-r] [TITLE ANSWER ...] TERMINATOR"
-    local terminator titles=() answers=() answered=()
-    local pending=() map=() count matched i
-
-    if [ "${1:-}" = "-r" ]; then
-        wait_opt=-r
-        shift
-    fi
-
-    [ $(($# % 2)) -eq 1 ] || die "$usage"
-    terminator=${!#}
-
-    while [ $# -gt 1 ]; do
-        titles+=("$1")
-        answers+=("$2")
-        answered+=(false)
-        shift 2
-    done
-
-    count=${#titles[@]}
-    while :; do
-        pending=("TITLE: $terminator")
-        map=(0)
-        for ((i = 0; i < count; i++)); do
-            if [ "${answered[$i]}" = false ]; then
-                pending+=("TITLE: ${titles[$i]}")
-                map+=("$i")
-            fi
-        done
-        script_wait_alternative "$wait_opt" "${pending[@]}"
-        matched=$?
-        if [ "$matched" -eq 0 ]; then
-            return 0
-        fi
-        i=${map[$matched]}
-        if [ "$wait_opt" = -r ]; then
-            dialog_answer -r "${titles[$i]}" "${answers[$i]}"
-        else
-            dialog_answer "${titles[$i]}" "${answers[$i]}"
-        fi
-        answered[i]=true
-    done
-}
 
 # Log in to the installer environment as root.
 dialog_login_as_root() {
-    local LOGIN_PROMPT="$SETUP_HOSTNAME login:"
-    script_login
+    screen_wait -l "$SETUP_HOSTNAME login:"
+    kb_send_line root
 }
 
 # Perform pre-setup steps and then start the setup script
 dialog_start_setup() {
-    script_shell \
-		"mkdir -p $FAT_MOUNT" \
-        "mount -t msdos $FAT_PARTITION $FAT_MOUNT" \
-        "mv /bin/dialog /bin/dialog.bak" \
-        "cp $FAT_MOUNT/autoinst.d/dialog.sh /bin/dialog"
-    script_fdisk "$TARGET_DISK" "$SWAP_MB"
-    script_shell --no-wait "setup"
+    serial_shell_start || return 1
+    serial_shell_send "mkdir -p $FAT_MOUNT" || return 1
+    serial_shell_send "mount -t msdos $FAT_PARTITION $FAT_MOUNT" || return 1
+    serial_shell_send "mv /bin/dialog /bin/dialog.bak" || return 1
+    serial_shell_send "cp $FAT_MOUNT/autoinst.d/dialog.sh /bin/dialog" || return 1
+    serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
+    script_fdisk_partitions "$SWAP_MB" || return 1
+    serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
+    serial_shell_exit || return 1
+    kb_send_line "setup" || return 1
     dialog_setup_step ADDSWAP
 }
 
@@ -251,10 +74,7 @@ dialog_enable_swap() {
     dialog_yes "CONTINUE WITH INSTALLATION?"
 }
 
-# Format the root partition, answering only the screens this version's setup
-# raises: the filesystem choice through 2.1, inode density from 2.1 on. The
-# DOS partition screen that follows ends the sequence and is answered by
-# dialog_mount_fat.
+# Format root, answering only the optional screens this setup version raises.
 dialog_format_root() {
     dialog_ok "Using this partition for Linux:"
     dialog_answer_any \
@@ -300,25 +120,7 @@ dialog_select_sets() {
     fi
 }
 
-# The functions below are dialog_case handlers for the post-install
-# configuration screens: each receives the matched title and answers that
-# screen (and any screens that follow from it).
-
-# Accept an optional configuration screen.
-dialog_yes() {
-    dialog_answer "$1" yesno yes
-}
-
-# Decline an optional configuration screen (modem, mouse, CD-ROM, screen
-# font, FTAPE, gpm).
-dialog_no() {
-    dialog_answer "$1" yesno no
-}
-
-# Acknowledge an informational screen.
-dialog_ok() {
-    dialog_answer "$1" msgbox ok
-}
+# The functions below are dialog_case handlers for post-install configuration.
 
 # Skip creating an installer boot disk.
 dialog_skip_boot_disk() {
@@ -330,27 +132,23 @@ dialog_set_modem_speed() {
     dialog_answer "$1" menu "$MODEM_SPEED"
 }
 
-# Install LILO to the target disk's master boot record. The append= screen
-# is only asked from 2.1 on, so answer it if it appears before the target
-# location menu.
+# Install LILO to the target disk MBR, handling the optional append= screen.
 dialog_install_lilo() {
     dialog_answer "$1" menu Begin
     dialog_answer_any \
         "OPTIONAL append= LINE" "" \
         "SELECT LILO TARGET LOCATION"
     dialog_answer "SELECT LILO TARGET LOCATION" menu MBR
-    dialog_answer "CHOOSE LILO DELAY" None
+    dialog_answer "CHOOSE LILO DELAY" "" None
     dialog_answer "LILO INSTALLATION" menu Linux
-    dialog_answer "SELECT LINUX PARTITION" "$LINUX_PARTITION"
-    dialog_answer "SELECT PARTITION NAME" "$LINUX_PARTITION_NAME"
+    dialog_answer "SELECT LINUX PARTITION" "" "$LINUX_PARTITION"
+    dialog_answer "SELECT PARTITION NAME" "" "$LINUX_PARTITION_NAME"
     dialog_answer "LILO INSTALLATION" menu Install
 }
 
-# Configure TCP/IP networking with the selected NET_* values. The prompt
-# order varies across versions (2.0 and earlier ask for the network address
-# before the gateway), so answer them in whatever order they appear.
+# Configure TCP/IP with NET_* values; prompt order varies by version.
 dialog_configure_network() {
-    dialog_answer "$1" yes
+    dialog_answer "$1" "" yes
     dialog_answer_any \
         "NETWORK CONFIGURATION" "" \
         "ENTER HOSTNAME" "$NET_HOSTNAME" \
@@ -369,18 +167,15 @@ dialog_configure_network() {
 
 # Install a sendmail.cf suited to a networked host with a nameserver.
 dialog_configure_sendmail() {
-    dialog_answer "$1" "$SENDMAIL_MODE"
+    dialog_answer "$1" "" "$SENDMAIL_MODE"
 }
 
 # Configure the installed system timezone.
 dialog_configure_timezone() {
-    dialog_answer "$1" "$TIMEZONE"
+    dialog_answer "$1" "" "$TIMEZONE"
 }
 
-# Answer the post-install configuration screens in whatever order this
-# Slackware version asks them, returning when SETUP COMPLETE appears.
-# Screens a version never shows (including the boot disk title's other
-# spelling) are simply abandoned at that point.
+# Answer post-install configuration screens until SETUP COMPLETE appears.
 dialog_configure() {
     dialog_case \
         "CONFIGURE YOUR SYSTEM?" dialog_yes \
@@ -411,22 +206,20 @@ dialog_finish() {
 # Reboot from the installed hard disk.
 dialog_reboot() {
     script_set_boot c
-    script_press_key ctrl-alt-delete
+    kb_press_key ctrl-alt-delete
 }
 
 # Run the staged first-boot autoconfiguration script.
 dialog_autoconf() {
-    # shellcheck disable=SC2034 # Used by script_login via dynamic scope.
-    local LOGIN_PROMPT="$NET_HOSTNAME login:"
-    # shellcheck disable=SC2034 # Used by script_shell via dynamic scope.
     local SHELL_PROMPT="$NET_HOSTNAME:~#"
 
-    script_login
-    script_shell --no-wait "$FAT_MOUNT/autoinst.d/autoconf.sh"
+    screen_wait -l "$NET_HOSTNAME login:"
+    kb_send_line root
+    screen_wait -l "$SHELL_PROMPT"
+    kb_send_line "$FAT_MOUNT/autoinst.d/autoconf.sh"
 }
 
-# Set up the target partitions and pick the source in this version's chained
-# order; 1.1.2 asks SOURCE before TARGET, so its script overrides this.
+# Set up target partitions and pick the source in this version's order.
 dialog_target_source() {
     dialog_format_root
     dialog_mount_fat

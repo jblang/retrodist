@@ -94,15 +94,14 @@ variables and calling wrappers such as `mod_config`, `net_config`,
 
 ## `dialog.sh`
 
-`dialog.sh` is a plain-text adapter for the `dialog` binary used by
-dialog-based installers such as Slackware's color `setup`. Install scripts copy
-it over the guest's `/bin/dialog` before starting setup. Each widget is
-rendered as labeled lines (`TITLE:`, `TYPE:`, `TEXT:`, `ITEM:`, `DEFAULT:`)
-followed by a `RESPONSE:` prompt read from the console, so the host-side
-driver (`slackware/dialog-setup.sh`) can match screens by title and type and
-answer them over QMP. Menu, checklist, and input responses are written to the
-same output stream real `dialog` would use; yes/no and cancel/esc responses
-map to the matching exit statuses.
+`dialog.sh` adapts dialog-based installers, including Slackware's color
+`setup` and Red Hat's Perl installer, for host-side scripting. When serial is
+available, it sends labeled widget fields to the host and reads the scripted
+answer from the same port.
+
+Real infobox and gauge widgets are displayed through `dialog.bak` when
+available. Widgets that require a scripted answer display a simple infobox
+titled `Scripted Install` with centered `Please wait...` text.
 
 ## `common.sh`
 
@@ -150,31 +149,14 @@ Logging helpers:
 `diskutil.sh` contains shared disk preparation helpers and is loaded by
 `common.sh`.
 
-When `disk_init` is called without partition geometry arguments, it detects the
-target disk geometry from the interactive `p`/`q` fdisk listing for `DISKDEV`.
-
-Manifests may still pass explicit geometry as
-`swapstart swapend rootstart rootend` when needed.
-
-It also provides:
-
 - `disk_init`
   Detects or creates the default swap/root partition layout, formats swap,
-  formats and mounts the root filesystem, and creates `fstab.tmp`. Four
-  optional arguments may be provided as `swapstart swapend rootstart rootend`;
-  otherwise fdisk geometry is autodetected.
+  formats and mounts the root filesystem, and creates `fstab.tmp`. Pass
+  `swapstart swapend rootstart rootend` only when a manifest needs explicit
+  geometry.
 
 - `make_boot_floppy`
   Writes the installed kernel to a boot floppy and sets its root device.
-
-## `fdisk/`
-
-`fdisk/geometry.sh` and `fdisk/swaproot.sh` are small guest-side helpers used
-by host-driven install scripts. `geometry.sh DEVICE` prints the interactive
-fdisk geometry listing for the target disk. `retrolib/script.sh` parses that
-screen output and calculates the partition split on the host, then calls
-`swaproot.sh DEVICE swapstart swapend rootstart rootend` in the guest to write
-the partition table.
 
 Common disk variables:
 

@@ -1,7 +1,7 @@
-LOGIN_PROMPT="darkstar login:"
-script_login
+screen_wait -l "darkstar login:"
+kb_send_line "root"
 SHELL_PROMPT="darkstar:/#"
-script_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-script_wait_line "ATTN: Press ENTER to reboot."
+serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
+serial_wait -l "ATTN: Press ENTER to reboot."
 script_set_boot c
-script_press_key ret
+serial_send ""

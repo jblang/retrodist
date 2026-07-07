@@ -1,10 +1,5 @@
 # shellcheck shell=bash
-#
-# Shared QMP driver blocks for Red Hat's C-based text installer.
-#
-# This covers shared pieces of the UI-driven 4.0 through 5.1 installers.
-# Release script.sh files should source it, override the defaults they need, and
-# call the common blocks in installer prompt order.
+# Shared driver blocks for Red Hat's C-based text installer.
 
 BOOT_PROMPT="boot:"
 BOOT_COMMAND=
@@ -40,7 +35,8 @@ redhat_update_network_names() {
 }
 
 boot_installer() {
-    script_prompt "$BOOT_PROMPT" "$BOOT_COMMAND"
+    screen_wait -l "$BOOT_PROMPT"
+    kb_send_line "$BOOT_COMMAND"
     if [ "$BOOT_SLEEP" != "0" ]; then
         sleep "$BOOT_SLEEP"
     fi
@@ -49,306 +45,239 @@ boot_installer() {
 start_install() {
     boot_installer
     if [ "$COLOR_PROMPT" = "true" ]; then
-        script_wait_string "Are you using a color monitor?"
-        script_press_key f12 # selects yes
+        screen_wait "Are you using a color monitor?"
+        kb_press_key f12 # selects yes
     fi
-    script_wait_string "Welcome to Red Hat Linux!"
-    script_press_key f12
+    screen_wait "Welcome to Red Hat Linux!"
+    kb_press_key f12
     if [ "$LANGUAGE_PROMPT" = "true" ]; then
-        script_wait_string "Choose a Language"
-        script_press_key f12
+        screen_wait "Choose a Language"
+        kb_press_key f12
     fi
     if [ "$KEYBOARD_EARLY" = "true" ]; then
-        script_wait_string "Keyboard Type"
-        script_press_key f12 # us
+        screen_wait "Keyboard Type"
+        kb_press_key f12 # us
     fi
     if [ "$PCMCIA_PROMPT" = "true" ]; then
-        script_wait_string "Do you need PCMCIA support?"
-        script_press_key f12 # selects no
+        screen_wait "Do you need PCMCIA support?"
+        kb_press_key f12 # selects no
     fi
-    script_wait_string "Installation Method"
-    script_press_key f12 # selects CDROM
-    script_wait_string "$INSERT_CD_PROMPT"
-    script_press_key f12
+    screen_wait "Installation Method"
+    kb_press_key f12 # selects CDROM
+    screen_wait "$INSERT_CD_PROMPT"
+    kb_press_key f12
     if [ "$CDROM_TYPE_PROMPT" = "true" ]; then
-        script_wait_string "What type of CDROM do you have?"
-        script_press_key f12 # selects IDE (ATAPI)
+        screen_wait "What type of CDROM do you have?"
+        kb_press_key f12 # selects IDE (ATAPI)
     fi
-    script_wait_string "Installation Path"
-    script_press_key f12 # selects Install
-    script_wait_string "Do you have any SCSI adapters?"
-    script_press_key f12 # selects no
+    screen_wait "Installation Path"
+    kb_press_key f12 # selects Install
+    screen_wait "Do you have any SCSI adapters?"
+    kb_press_key f12 # selects no
 }
 
 partition_disk_helper() {
     local SHELL_PROMPT="bash#"
 
-    script_press_key alt-f2 # cli terminal
-    script_shell "mknod /dev/hda b 3 0"
+    kb_press_key alt-f2 # cli terminal
+    serial_shell "mknod /dev/hda b 3 0"
     script_fdisk /dev/hda 64
-    script_press_key alt-f1 # installer terminal
+    kb_press_key alt-f1 # installer terminal
 }
 
 partition_4x() {
-    script_wait_string "Partition Disks"
+    screen_wait "Partition Disks"
     partition_disk_helper
-    script_wait_string "Partition Disks"
-    script_press_key f12 # selects done
-    script_wait_string "Active Swap Space" # [sic]
-    script_press_key f12 # selects OK
-    script_wait_string "Select Root Partition"
-    script_press_key f12 # selects hda2
-    script_wait_string "You may now mount other partitions within your filesystem."
-    script_press_key down # selects /dev/hdb1
-    script_press_key ret # edits mount point
-    script_wait_string "Edit Mount Point"
-    script_send_line "/retro"
-    script_press_key f12 # next screen
-    script_wait_string "Format Partitions"
-    script_press_key spc # selects hda2
-    script_press_key f12 # next screen
+    screen_wait "Partition Disks"
+    kb_press_key f12 # selects done
+    screen_wait "Active Swap Space" # [sic]
+    kb_press_key f12 # selects OK
+    screen_wait "Select Root Partition"
+    kb_press_key f12 # selects hda2
+    screen_wait "You may now mount other partitions within your filesystem."
+    kb_press_key down # selects /dev/hdb1
+    kb_press_key ret # edits mount point
+    screen_wait "Edit Mount Point"
+    kb_send_line "/retro"
+    kb_press_key f12 # next screen
+    screen_wait "Format Partitions"
+    kb_press_key spc # selects hda2
+    kb_press_key f12 # next screen
 }
 
 select_components_40() {
-    script_wait_string "Components to Install"
-    # Manual selection:
-    # [ ] C Development
-    script_press_key spc
-    # [X] C Development
-    # [ ] Development Libraries
-    script_press_key down 2
-    # [ ] C++ Development
-    script_press_key spc
-    # [X] C++ Development
-    script_press_key down
-    # [ ] Print Server
-    script_press_key spc
-    # [X] Print Server
-    # [ ] News Server
-    # [ ] NFS Server
-    # [ ] Networked Workstation
-    # [ ] Anonymous FTP/Gopher Server
-    # [ ] Web Server
-    # [ ] Network Management Workstation
-    # [ ] Dialup Workstation
-    script_press_key down 8
-    # [ ] Game Machine
-    script_press_key spc
-    # [X] Game Machine
-    script_press_key down
-    # [ ] Multimedia Machine
-    script_press_key spc
-    # [X] Multimedia Machine
-    script_press_key down
-    # [ ] X Window System
-    script_press_key spc
-    # [X] X Window System
-    script_press_key down
-    # [ ] X Development
-    script_press_key spc
-    # [X] X Development
-    script_press_key down
-    # [ ] X multimedia support
-    script_press_key spc
-    # [X] X multimedia support
-    # [ ] TeX Document Formatting
-    # [ ] Emacs
-    # [ ] Emacs with X windows
-    # [ ] DOS/Windows Connectivity
-    script_press_key down 5
-    # [ ] Extra Documentation
-    script_press_key spc
-    # [X] Extra Documentation
-    # [ ] Everything
-    script_press_key f12 # next screen
+    screen_wait "Components to Install"
+    # Select a compact but useful package set.
+    kb_press_key spc
+    kb_press_key down 2
+    kb_press_key spc
+    kb_press_key down
+    kb_press_key spc
+    kb_press_key down 8
+    kb_press_key spc
+    kb_press_key down
+    kb_press_key spc
+    kb_press_key down
+    kb_press_key spc
+    kb_press_key down
+    kb_press_key spc
+    kb_press_key down
+    kb_press_key spc
+    kb_press_key down 5
+    kb_press_key spc
+    kb_press_key f12 # next screen
 }
 
 select_components_default() {
-    script_wait_string "Components to Install"
-    # Default selection:
-    # 	[ ] Printer Support
-    # 	[*] X Window System
-    # 	[*] Mail/WWW/News Tools
-    # 	[ ] DOS/Windows Connectivity
-    # 	[*] File Managers
-    # 	[ ] Graphics Manipulation
-    # 	[ ] X Games
-    # 	[ ] Console Games
-    # 	[*] X multimedia support
-    # 	[*] Console Multimedia
-    # 	[ ] Print Server
-    # 	[*] Networked Workstation
-    # 	[*] Dialup Workstation
-    # 	[ ] News Server
-    # 	[ ] NFS Server
-    # 	[ ] SMB (Samba) Connectivity
-    # 	[ ] IPX/Netware(tm) Connectivity
-    # 	[ ] Anonymous FTP/Gopher Server
-    # 	[ ] Web Server
-    # 	[ ] DNS Name Server
-    # 	[ ] Postgres (SQL) Server
-    # 	[ ] Network Management Workstation
-    # 	[ ] TeX Document Formatting
-    # 	[ ] Emacs
-    # 	[ ] Emacs with X windows
-    # 	[ ] C Development
-    # 	[ ] Development Libraries
-    # 	[ ] TeX Document Formatting
-    # 	[ ] Emacs
-    # 	[ ] Emacs with X windows
-    # 	[ ] C Development
-    # 	[ ] Development Libraries
-    # 	[ ] C++ Development
-    # 	[ ] X Development
-    # 	[ ] Extra Documentation
-    # 	[ ] Everything
-    script_press_key f12 # next screen
+    screen_wait "Components to Install"
+    # Keep the installer's default component selection.
+    kb_press_key f12 # next screen
 }
 
 finish_components_selection() {
-    script_wait_string "Install log"
-    script_press_key f12
+    screen_wait "Install log"
+    kb_press_key f12
     if [ "$KEYBOARD_AFTER_PACKAGES" = "true" ]; then
-        script_wait_string "Configure Keyboard"
-        script_press_key f12
+        screen_wait "Configure Keyboard"
+        kb_press_key f12
     fi
 }
 
 configure_x11_4x() {
-    script_wait_string "Configure Mouse"
-    script_press_key down
-    script_press_key down # select PS/2
-    script_press_key f12 # next screen
-    script_wait_string "Choose A Card"
-    script_press_key down "$X_CARD_DOWN" # scroll down to Cirrus Logic
-    script_press_key f12 # next screen
-    script_wait_string "Monitor Setup"
-    script_press_key down # highlight first non-custom
-    script_press_key "$MONITOR_SELECT_KEY" # select it
-    script_wait_string "Video Memory"
-    script_press_key down 4 # scroll down to 4096
-    script_press_key f12
-    script_wait_string "Clockchip Configuration"
-    script_press_key f12 # select No Clockchip Setting
-    script_wait_string "Select Video Modes"
-    script_press_key f12 # next screen
+    screen_wait "Configure Mouse"
+    kb_press_key down
+    kb_press_key down # select PS/2
+    kb_press_key f12 # next screen
+    screen_wait "Choose A Card"
+    kb_press_key down "$X_CARD_DOWN" # scroll down to Cirrus Logic
+    kb_press_key f12 # next screen
+    screen_wait "Monitor Setup"
+    kb_press_key down # highlight first non-custom
+    kb_press_key "$MONITOR_SELECT_KEY" # select it
+    screen_wait "Video Memory"
+    kb_press_key down 4 # scroll down to 4096
+    kb_press_key f12
+    screen_wait "Clockchip Configuration"
+    kb_press_key f12 # select No Clockchip Setting
+    screen_wait "Select Video Modes"
+    kb_press_key f12 # next screen
 }
 
 configure_x11_5x_common() {
-    script_wait_string "X Server : SVGA"
-    script_press_key f12 # next screen
-    script_wait_string "Monitor Setup"
-    script_press_key down # highlight first non-custom
-    script_press_key f12 # select it
-    script_wait_string "Screen Configuration"
-    script_press_key f12 # select Don't Probe
-    script_wait_string "Video Memory"
-    script_press_key down 4 # scroll down to 4096
-    script_press_key f12
-    script_wait_string "Clockchip Configuration"
-    script_press_key f12 # Don't Probe
-    script_wait_string "Select Video Modes"
-    script_press_key f12 # next screen
+    screen_wait "X Server : SVGA"
+    kb_press_key f12 # next screen
+    screen_wait "Monitor Setup"
+    kb_press_key down # highlight first non-custom
+    kb_press_key f12 # select it
+    screen_wait "Screen Configuration"
+    kb_press_key f12 # select Don't Probe
+    screen_wait "Video Memory"
+    kb_press_key down 4 # scroll down to 4096
+    kb_press_key f12
+    screen_wait "Clockchip Configuration"
+    kb_press_key f12 # Don't Probe
+    screen_wait "Select Video Modes"
+    kb_press_key f12 # next screen
 }
 
 configure_network() {
     redhat_update_network_names
-    script_wait_string "Network Configuration"
-    script_press_key f12
+    screen_wait "Network Configuration"
+    kb_press_key f12
     if [ "$POST_INSTALL_FLOW" = "51" ]; then
-        script_wait_string "Digital 21040 (Tulip)"
-        script_press_key f12
-        script_wait_string "Boot Protocol"
-        script_press_key f12
+        screen_wait "Digital 21040 (Tulip)"
+        kb_press_key f12
+        screen_wait "Boot Protocol"
+        kb_press_key f12
     fi
-    script_wait_string "Configure TCP/IP"
-    script_send_line "$NET_IPADDR"
-    script_press_key backspace 15 # erase default
-    script_send_line "$NET_NETMASK" # netmask
-    script_press_key backspace 15 # erase default
-    script_send_line "$NET_NETWORK" # network
-    script_press_key backspace 15 # erase default
-    script_send_line "$NET_BROADCAST" # broadcast
-    script_press_key f12
-    script_wait_string "Configure Network"
-    script_send_line "$NET_DOMAINNAME" # domain name
-    script_send_line "$NET_HOSTNAME" # hostname
-    script_press_key backspace 15 # erase default
-    script_send_line "$NET_GATEWAY" # gateway
-    script_press_key backspace 15 # erase default
-    script_send_line "$NET_NAMESERVER" # primary nameserver
-    script_press_key f12
+    screen_wait "Configure TCP/IP"
+    kb_send_line "$NET_IPADDR"
+    kb_press_key backspace 15 # erase default
+    kb_send_line "$NET_NETMASK" # netmask
+    kb_press_key backspace 15 # erase default
+    kb_send_line "$NET_NETWORK" # network
+    kb_press_key backspace 15 # erase default
+    kb_send_line "$NET_BROADCAST" # broadcast
+    kb_press_key f12
+    screen_wait "Configure Network"
+    kb_send_line "$NET_DOMAINNAME" # domain name
+    kb_send_line "$NET_HOSTNAME" # hostname
+    kb_press_key backspace 15 # erase default
+    kb_send_line "$NET_GATEWAY" # gateway
+    kb_press_key backspace 15 # erase default
+    kb_send_line "$NET_NAMESERVER" # primary nameserver
+    kb_press_key f12
 }
 
 configure_timezone() {
-    script_wait_string "$TIMEZONE_PROMPT"
-    script_press_key f12 # next screen
+    screen_wait "$TIMEZONE_PROMPT"
+    kb_press_key f12 # next screen
 }
 
 configure_late_keyboard() {
     if [ "$KEYBOARD_LATE" = "true" ]; then
-        script_wait_string "Configure Keyboard"
-        script_press_key f12
+        screen_wait "Configure Keyboard"
+        kb_press_key f12
     fi
 }
 
 configure_services() {
     if [ "$POST_INSTALL_FLOW" = "50" ] || [ "$POST_INSTALL_FLOW" = "51" ]; then
-        script_wait_string "Services"
-        script_press_key f12 # next screen
+        screen_wait "Services"
+        kb_press_key f12 # next screen
     fi
 }
 
 skip_printer_setup() {
     if [ "$POST_INSTALL_FLOW" = "42" ]; then
-        script_wait_string "Add Printers"
-        script_press_key tab # select No
-        script_press_key ret # press No
+        screen_wait "Add Printers"
+        kb_press_key tab # select No
+        kb_press_key ret # press No
     elif [ "$POST_INSTALL_FLOW" = "50" ] || [ "$POST_INSTALL_FLOW" = "51" ]; then
-        script_wait_string "Configure Printer"
-        script_press_key tab # select No
-        script_press_key ret # press No
+        screen_wait "Configure Printer"
+        kb_press_key tab # select No
+        kb_press_key ret # press No
     fi
 }
 
 set_root_password() {
-    script_wait_string "Root Password"
-    script_send_line "$ROOT_PASSWORD"
-    script_send_line "$ROOT_PASSWORD"
-    script_press_key f12
+    screen_wait "Root Password"
+    kb_send_line "$ROOT_PASSWORD"
+    kb_send_line "$ROOT_PASSWORD"
+    kb_press_key f12
 }
 
 skip_bootdisk() {
     if [ "$BOOTDISK_PROMPT" = "true" ]; then
-        script_wait_string "Bootdisk"
-        script_press_key tab # select No
-        script_press_key ret # press No
+        screen_wait "Bootdisk"
+        kb_press_key tab # select No
+        kb_press_key ret # press No
     fi
 }
 
 install_lilo() {
     local count
 
-    script_wait_string "Lilo Installation"
-    script_press_key f12 # select Master Boot Record
+    screen_wait "Lilo Installation"
+    kb_press_key f12 # select Master Boot Record
     count=$LILO_EXTRA_F12
     while [ "$count" -gt 0 ]; do
-        script_press_key f12
+        kb_press_key f12
         count=$((count - 1))
     done
-    script_wait_string "Bootable Partitions"
-    script_press_key down
-    script_press_key ret # edit dos partition
-    script_press_key backspace 3
-    script_press_key ret # close dialog
-    script_press_key f12 # next screen
+    screen_wait "Bootable Partitions"
+    kb_press_key down
+    kb_press_key ret # edit dos partition
+    kb_press_key backspace 3
+    kb_press_key ret # close dialog
+    kb_press_key f12 # next screen
 }
 
 reboot_and_autoconf() {
     redhat_update_network_names
-    script_wait_string "Congratulations, installation is complete."
+    screen_wait "Congratulations, installation is complete."
     script_set_boot c
-    script_press_key ret
+    kb_press_key ret
     LOGIN_PROMPT="$NET_HOSTNAME login:"
     SHELL_PROMPT="[root@$NET_HOSTNAME /root]#"
     script_run_autoconf "$ROOT_PASSWORD"
