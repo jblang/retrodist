@@ -100,8 +100,10 @@ available, it sends labeled widget fields to the host and reads the scripted
 answer from the same port.
 
 Real infobox and gauge widgets are displayed through `dialog.bak` when
-available. Widgets that require a scripted answer display a simple infobox
-titled `Scripted Install` with centered `Please wait...` text.
+available. Infobox widgets are muted on the serial transcript by default; set
+`DIALOG_SERIAL_INFOBOXES=1` to include them. Widgets that require a scripted
+answer display a simple infobox titled `Scripted Install` with centered
+`Please wait...` text.
 
 ## `common.sh`
 

@@ -535,14 +535,20 @@ assert_ok "adapter/view-message" grep -q -- "             Please wait..." "$seri
 assert_fail "adapter/view-no-plaintext" grep -q "TITLE: Serial" "$serial_tmp/view"
 exec 8<&-
 
-# Display-only infobox widgets keep their requested text and dimensions.
-mkfifo "$serial_tmp/port2b"
-exec 8<>"$serial_tmp/port2b"
-DIALOG_SERIAL=$serial_tmp/port2b sh "$serial_tmp/dialog" \
+# Display-only infobox widgets keep their requested text and dimensions, but
+# stay quiet on the serial transcript by default.
+: >"$serial_tmp/infobox-serial"
+DIALOG_SERIAL=$serial_tmp/infobox-serial sh "$serial_tmp/dialog" \
     --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox" 2>&1
 assert_eq "adapter/infobox-view-exit" "0" "$?"
 assert_ok "adapter/infobox-view-exact" grep -q -- "VIEW --title Info --infobox real progress 7 50" "$serial_tmp/infobox"
-exec 8<&-
+assert_eq "adapter/infobox-serial-muted" "" "$(cat "$serial_tmp/infobox-serial")"
+
+: >"$serial_tmp/infobox-serial-unmuted"
+DIALOG_SERIAL_INFOBOXES=1 DIALOG_SERIAL=$serial_tmp/infobox-serial-unmuted sh "$serial_tmp/dialog" \
+    --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox-unmuted" 2>&1
+assert_eq "adapter/infobox-unmuted-exit" "0" "$?"
+assert_ok "adapter/infobox-serial-unmuted" grep -q "TITLE: Info" "$serial_tmp/infobox-serial-unmuted"
 
 # Empty menu response selects the highlighted item, like real dialog.
 # Run under bash because macOS sh handles echo -n differently.

@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Shared driver for Slackware 1.1.2-2.3 dialog-based setup.
+# Shared driver for Slackware 1.1.2-3.1 dialog-based setup.
 
 SETUP_HOSTNAME=slackware
 
@@ -11,11 +11,13 @@ FAT_PARTITION=/dev/hdb1
 FAT_MOUNT=/retro
 
 SETUP_SOURCE=/dev/hdc
+CDROM_TYPE=7
 
 LINUX_PARTITION=/dev/hda2
 LINUX_PARTITION_NAME=linux
 
 # Custom tagfiles let PROMPT mode work from read-only media.
+INSTALL_MODE=
 PROMPT_MODE=Path
 TAGFILE_PATH=/retro/tagfiles
 
@@ -56,12 +58,23 @@ dialog_start_setup() {
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1
     kb_send_line "setup" || return 1
-    dialog_setup_step ADDSWAP
 }
 
 # Choose a step from the Slackware Linux Setup main menu.
 dialog_setup_step() {
-    dialog_answer -r "Slackware Linux Setup \(version .*\)" menu "$1"
+    dialog_answer -r "Slackware(96)? Linux Setup \(version .*\)" menu "$1"
+}
+
+# Select verbose install mode from the setup main menu when the release exposes
+# it there. Slackware 3.0 otherwise stays in QUICK mode and ignores tagfiles.
+dialog_select_install_mode() {
+    if [ -z "$INSTALL_MODE" ]; then
+        dialog_setup_step ADDSWAP
+        return
+    fi
+    dialog_setup_step QUICK
+    dialog_answer "CHANGE INSTALL MODE" menu "$INSTALL_MODE"
+    dialog_setup_step ADDSWAP
 }
 
 # Install the detected swap partition and let setup activate it.
@@ -76,11 +89,14 @@ dialog_enable_swap() {
 
 # Format root, answering only the optional screens this setup version raises.
 dialog_format_root() {
-    dialog_ok "Using this partition for Linux:"
-    dialog_answer_any \
+    dialog_answer_any -r \
+        "Select Linux installation partition:" "$LINUX_PARTITION" \
+        "Using this partition for Linux:" ok \
+        "(CHOOSE LINUX FILESYSTEM|FORMAT PARTITION( .*)?)"
+    dialog_answer_any -r \
         "CHOOSE LINUX FILESYSTEM" ext2 \
-        "FORMAT PARTITION" Format \
-        "SELECT INODE DENSITY" 4096 \
+        "FORMAT PARTITION( .*)?" Format \
+        "SELECT INODE DENSITY( .*)?" 4096 \
         "DOS AND OS/2 PARTITION SETUP"
 }
 
@@ -98,7 +114,7 @@ dialog_mount_fat() {
 dialog_select_source() {
 	if [[ $SETUP_SOURCE == "/dev/hdc" ]]; then
 		dialog_answer "SOURCE MEDIA SELECTION" menu 5 # CD-ROM
-		dialog_answer "Install from the Slackware CD-ROM" menu 7 # IDE
+		dialog_answer "Install from the Slackware CD-ROM" menu "$CDROM_TYPE"
 		dialog_answer "SELECT IDE DEVICE" menu "$SETUP_SOURCE"
 		dialog_answer "Pick your installation method" menu slakware
 	elif [[ $SETUP_SOURCE == "$FAT_PARTITION" ]]; then
@@ -115,7 +131,7 @@ dialog_select_sets() {
     dialog_answer "SERIES SELECTION" checklist "$PACKAGE_SETS"
     dialog_yes "CONTINUE?"
     dialog_answer "SELECT PROMPTING MODE" menu "$PROMPT_MODE"
-    if [ "$PROMPT_MODE" = Path ]; then
+    if [[ $PROMPT_MODE == [Pp][Aa][Tt][Hh] ]]; then
         dialog_answer "PROVIDE A CUSTOM PATH TO YOUR TAGFILES" inputbox "$TAGFILE_PATH"
     fi
 }
@@ -130,6 +146,11 @@ dialog_skip_boot_disk() {
 # Answer the modem speed selection with MODEM_SPEED.
 dialog_set_modem_speed() {
     dialog_answer "$1" menu "$MODEM_SPEED"
+}
+
+# Keep the kernel installed from the selected package set.
+dialog_skip_kernel_install() {
+    dialog_answer "$1" menu skip
 }
 
 # Install LILO to the target disk MBR, handling the optional append= screen.
@@ -188,6 +209,7 @@ dialog_configure() {
         "SCREEN FONT CONFIGURATION" dialog_no \
         "FTAPE CONFIGURATION" dialog_no \
         "SET YOUR MODEM SPEED" dialog_set_modem_speed \
+        "INSTALL LINUX KERNEL" dialog_skip_kernel_install \
         "LILO INSTALLATION" dialog_install_lilo \
         "CONFIGURE NETWORK?" dialog_configure_network \
         "GPM CONFIGURATION" dialog_no \
@@ -230,6 +252,7 @@ dialog_target_source() {
 dialog_setup() {
     dialog_login_as_root
     dialog_start_setup
+    dialog_select_install_mode
     dialog_enable_swap
     dialog_target_source
     dialog_select_sets

@@ -9,6 +9,14 @@ DIALOG_SEPARATE_OUTPUT=0
 DIALOG_PROMPT_FD=1
 DIALOG_SAVED_LINES=
 DIALOG_DIVIDER=--------------------------------------------------------------------------------
+DIALOG_REAL=$0.bak
+DIALOG_SERIAL_INFOBOXES=${DIALOG_SERIAL_INFOBOXES:-0}
+DIALOG_SERIAL_MUTED=0
+
+case "$DIALOG_REAL" in
+    */*) ;;
+    *) DIALOG_REAL=/bin/$DIALOG_REAL ;;
+esac
 
 dialog_usage() {
     echo "fake dialog: converts dialog widgets to plain text prompts" >&2
@@ -28,7 +36,7 @@ dialog_prompt_line() {
 }
 
 dialog_prompt_raw() {
-    if [ "$DIALOG_SERIAL_ON" = 1 ]; then
+    if [ "$DIALOG_SERIAL_ON" = 1 ] && [ "$DIALOG_SERIAL_MUTED" != 1 ]; then
         echo "$1" >&5
     fi
     if [ "$DIALOG_VIEW_ON" = 1 ]; then
@@ -47,9 +55,9 @@ dialog_view_infobox() {
         return 0
     fi
     if [ -n "$DIALOG_TITLE" ]; then
-        "$0.bak" --title "$DIALOG_TITLE" --infobox "$1" "$2" "$3"
+        "$DIALOG_REAL" --title "$DIALOG_TITLE" --infobox "$1" "$2" "$3"
     else
-        "$0.bak" --infobox "$1" "$2" "$3"
+        "$DIALOG_REAL" --infobox "$1" "$2" "$3"
     fi
 }
 
@@ -58,7 +66,7 @@ dialog_view_wait() {
     if [ "$DIALOG_VIEW_ON" != 1 ]; then
         return 0
     fi
-    "$0.bak" --title "Scripted Install" --infobox "
+    "$DIALOG_REAL" --title "Scripted Install" --infobox "
              Please wait..." 5 45
 }
 
@@ -180,7 +188,7 @@ dialog_read_status() {
 for dialog_arg in "$@"; do
     case "$dialog_arg" in
         --gauge)
-            [ -x "$0.bak" ] && exec "$0.bak" "$@"
+            [ -x "$DIALOG_REAL" ] && exec "$DIALOG_REAL" "$@"
             break
             ;;
     esac
@@ -197,7 +205,7 @@ fi
 
 # With dialog.bak present, answerable widgets show a fixed wait infobox.
 DIALOG_VIEW_ON=0
-if [ "$DIALOG_SERIAL_ON" = 1 ] && [ -x "$0.bak" ]; then
+if [ "$DIALOG_SERIAL_ON" = 1 ] && [ -x "$DIALOG_REAL" ]; then
     DIALOG_VIEW_ON=1
 fi
 
@@ -272,6 +280,10 @@ done
 
 if [ "$DIALOG_OUTPUT_FD" = 1 ]; then
     DIALOG_PROMPT_FD=2
+fi
+
+if [ "$dialog_widget" = "--infobox" ] && [ "$DIALOG_SERIAL_INFOBOXES" != 1 ]; then
+    DIALOG_SERIAL_MUTED=1
 fi
 
 dialog_print_saved_lines

@@ -132,7 +132,7 @@ has reached a shell prompt, then match its output with `serial_wait` and
 answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
 non-default shell prompt text.
 
-Slackware 1.1.2 through 2.3 (`slackware/dialog-setup.sh`) and Red Hat 2.1 and
+Slackware 1.1.2 through 3.1 (`slackware/dialog-setup.sh`) and Red Hat 2.1 and
 3.0.3 (`redhat/perl-install.sh`) replace the guest's `dialog` binary with the
 `autoinst/dialog.sh` adapter. The host-side helpers live in
 `retrolib/dialog.sh`: use `dialog_answer` or its typed wrappers for expected
