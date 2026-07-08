@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Shared driver for Slackware 1.1.2-3.1 dialog-based setup.
+# Shared driver for Slackware 1.1.2-9.0 dialog-based setup.
 
 SETUP_HOSTNAME=slackware
 
@@ -11,14 +11,15 @@ FAT_PARTITION=/dev/hdb1
 FAT_MOUNT=/retro
 
 SETUP_SOURCE=/dev/hdc
-CDROM_TYPE=7
 
 LINUX_PARTITION=/dev/hda2
 LINUX_PARTITION_NAME=linux
 
-# Custom tagfiles let PROMPT mode work from read-only media.
+# LILO frame buffer console mode; only offered by kernels with fbcon support.
+LILO_FRAMEBUFFER=standard
+
+# Custom tagfiles let path prompting mode work from read-only media.
 INSTALL_MODE=
-PROMPT_MODE=Path
 TAGFILE_PATH=/retro/tagfiles
 
 MODEM_SPEED=38400
@@ -40,6 +41,10 @@ NET_NAMESERVER=10.0.2.3
 
 TIMEZONE=UTC
 
+# 7.0+ runs xwmconfig with the installed dialog binary, which bypasses the
+# serial interposer; acknowledge its console screen after timezone setup.
+XWMCONFIG=false
+
 # Log in to the installer environment as root.
 dialog_login_as_root() {
     screen_wait -l "$SETUP_HOSTNAME login:"
@@ -51,7 +56,9 @@ dialog_start_setup() {
     serial_shell_start || return 1
     serial_shell_send "mkdir -p $FAT_MOUNT" || return 1
     serial_shell_send "mount -t msdos $FAT_PARTITION $FAT_MOUNT" || return 1
-    serial_shell_send "mv /bin/dialog /bin/dialog.bak" || return 1
+    # Delete rather than rename: keeping the 64KB dialog binary on the nearly
+    # full install ramdisk starves setup's /tmp result files (ENOSPC).
+    serial_shell_send "rm /bin/dialog" || return 1
     serial_shell_send "cp $FAT_MOUNT/autoinst.d/dialog.sh /bin/dialog" || return 1
     serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
     script_fdisk_partitions "$SWAP_MB" || return 1
@@ -79,44 +86,86 @@ dialog_select_install_mode() {
 
 # Install the detected swap partition and let setup activate it.
 dialog_enable_swap() {
-    dialog_yes "SWAP SPACE DETECTED"
-    dialog_ok "MKSWAP WARNING"
-    dialog_yes "USE MKSWAP?"
-    dialog_yes "ACTIVATE SWAP SPACE?"
-    dialog_ok "SWAP SPACE CONFIGURED"
-    dialog_yes "CONTINUE WITH INSTALLATION?"
+    dialog_answer_any \
+        yesno "SWAP SPACE DETECTED" yes \
+        msgbox "MKSWAP WARNING" ok \
+        yesno "USE MKSWAP?" yes \
+        yesno "ACTIVATE SWAP SPACE?" yes \
+        msgbox "SWAP SPACE CONFIGURED" ok \
+        -t yesno "CONTINUE WITH INSTALLATION?" yes
 }
 
 # Format root, answering only the optional screens this setup version raises.
 dialog_format_root() {
     dialog_answer_any -r \
-        "Select Linux installation partition:" "$LINUX_PARTITION" \
-        "Using this partition for Linux:" ok \
-        "(CHOOSE LINUX FILESYSTEM|FORMAT PARTITION( .*)?)"
-    dialog_answer_any -r \
-        "CHOOSE LINUX FILESYSTEM" ext2 \
-        "FORMAT PARTITION( .*)?" Format \
-        "SELECT INODE DENSITY( .*)?" 4096 \
-        "DOS AND OS/2 PARTITION SETUP"
+        menu "Select Linux installation partition:" "$LINUX_PARTITION" \
+        msgbox "Using this partition for Linux:" ok \
+        menu "(CHOOSE LINUX FILESYSTEM|SELECT FILESYSTEM FOR .*)" ext2 \
+        menu "FORMAT PARTITION( .*)?" Format \
+        menu "SELECT INODE DENSITY( .*)?" 4096 \
+        msgbox "DONE ADDING LINUX PARTITIONS TO /etc/fstab" ok \
+        -t yesno "DOS AND OS/2 PARTITION SETUP" yes \
+        -t yesno "FAT/FAT32(/HPFS)? PARTITIONS DETECTED" yes
 }
 
 # Mount the FAT staging partition so it's visible from the installed system.
 dialog_mount_fat() {
-    dialog_yes "DOS AND OS/2 PARTITION SETUP"
-    dialog_answer "CHOOSE PARTITION" inputbox "$FAT_PARTITION"
-    dialog_answer "SELECT MOUNT POINT" inputbox "$FAT_MOUNT"
-    dialog_ok "CURRENT DOS/HPFS PARTITION STATUS"
-    dialog_answer "CHOOSE PARTITION" inputbox q
-    dialog_yes "CONTINUE?"
+    dialog_answer_any -r \
+        inputbox "CHOOSE PARTITION" "$FAT_PARTITION" \
+        menu "CHOOSE PARTITION" "$FAT_PARTITION" \
+        menu "SELECT PARTITION TO ADD TO /etc/fstab" "$FAT_PARTITION" \
+        inputbox "SELECT MOUNT POINT" "$FAT_MOUNT" \
+        inputbox "PICK MOUNT POINT FOR .*" "$FAT_MOUNT" \
+        msgbox "CURRENT DOS/HPFS PARTITION STATUS" ok \
+        msgbox "DONE ADDING FAT/FAT32(/HPFS)? PARTITIONS" ok \
+        inputbox "CHOOSE PARTITION" q \
+        -t yesno "CONTINUE\?" yes
 }
 
-# Select the IDE CD-ROM drive as the Slackware package source.
+# Choose CD-ROM as the install media; the item number varies by version.
+dialog_select_media() {
+    dialog_menu_text "$1" "CD-ROM"
+}
+
+dialog_select_cdrom_type() {
+    dialog_menu_text -r "$1" "(IDE.*CD drives|ATAPI/IDE CD drives)"
+}
+
+dialog_select_manual_cdrom() {
+    dialog_answer -r "$1" menu manual
+}
+
+# Answer whichever CD-ROM device menu this version raises with SETUP_SOURCE.
+dialog_select_cdrom_device() {
+    dialog_answer -r "$1" menu "$SETUP_SOURCE"
+}
+
+# Decline further source prompts once setup reports the drive it is using.
+dialog_keep_cdrom() {
+    dialog_answer -r "$1" yesno no
+}
+
+# Choose the normal installation method from the CD.
+dialog_select_install_type() {
+    dialog_answer -r "$1" menu slakware
+}
+
+# Select the IDE CD-ROM drive as the Slackware package source. Versions differ
+# in which detection screens appear (3.6 auto-scans and skips straight to the
+# installation type menu), so one dispatch answers whichever subset shows up
+# and the installation type menu terminates it.
 dialog_select_source() {
 	if [[ $SETUP_SOURCE == "/dev/hdc" ]]; then
-		dialog_answer "SOURCE MEDIA SELECTION" menu 5 # CD-ROM
-		dialog_answer "Install from the Slackware CD-ROM" menu "$CDROM_TYPE"
-		dialog_answer "SELECT IDE DEVICE" menu "$SETUP_SOURCE"
-		dialog_answer "Pick your installation method" menu slakware
+		dialog_case -r \
+			menu "SOURCE MEDIA SELECTION" dialog_select_media \
+			menu "Install from the Slackware CD-ROM" dialog_select_cdrom_type \
+			menu "SCAN FOR CD-ROM DRIVE[?]" dialog_select_manual_cdrom \
+			menu "SELECT IDE DEVICE" dialog_select_cdrom_device \
+			menu "MANUAL CD-ROM DEVICE SELECTION" dialog_select_cdrom_device \
+			yesno "USING CD-ROM DRIVE:" dialog_keep_cdrom \
+			-t menu "Pick your installation method" dialog_select_install_type \
+			-t menu "CHOOSE INSTALLATION TYPE" dialog_select_install_type \
+			yesno "CONTINUE\?"
 	elif [[ $SETUP_SOURCE == "$FAT_PARTITION" ]]; then
 		dialog_answer "SOURCE MEDIA SELECTION" menu 4 # Hard drive partitition
 		dialog_answer "INSTALL FROM THE CURRENT FILESYSTEM" inputbox "$FAT_MOUNT/packages"
@@ -128,11 +177,15 @@ dialog_select_source() {
 
 # Select the Slackware package sets to install, using custom tagfiles.
 dialog_select_sets() {
-    dialog_answer "SERIES SELECTION" checklist "$PACKAGE_SETS"
+    dialog_answer_any -r \
+        checklist "(PACKAGE |SOFTWARE )?SERIES SELECTION" "$PACKAGE_SETS" \
+        yesno "CONTINUE[?]"
     dialog_yes "CONTINUE?"
-    dialog_answer "SELECT PROMPTING MODE" menu "$PROMPT_MODE"
-    if [[ $PROMPT_MODE == [Pp][Aa][Tt][Hh] ]]; then
+    if [ -n "$TAGFILE_PATH" ]; then
+        dialog_menu_text "SELECT PROMPTING MODE" "custom path"
         dialog_answer "PROVIDE A CUSTOM PATH TO YOUR TAGFILES" inputbox "$TAGFILE_PATH"
+    else
+        dialog_menu_text "SELECT PROMPTING MODE" "default tagfiles"
     fi
 }
 
@@ -148,6 +201,14 @@ dialog_set_modem_speed() {
     dialog_answer "$1" menu "$MODEM_SPEED"
 }
 
+dialog_skip_modem() {
+    dialog_answer "$1" menu "no modem"
+}
+
+dialog_configure_mouse() {
+    dialog_answer "$1" menu ps2
+}
+
 # Keep the kernel installed from the selected package set.
 dialog_skip_kernel_install() {
     dialog_answer "$1" menu skip
@@ -155,73 +216,120 @@ dialog_skip_kernel_install() {
 
 # Install LILO to the target disk MBR, handling the optional append= screen.
 dialog_install_lilo() {
-    dialog_answer "$1" menu Begin
-    dialog_answer_any \
-        "OPTIONAL append= LINE" "" \
-        "SELECT LILO TARGET LOCATION"
+    local lilo_title="LILO INSTALLATION"
+
+    case "$1" in
+    "INSTALL LILO")
+        dialog_answer "$1" menu expert
+        lilo_title="EXPERT LILO INSTALLATION"
+        dialog_answer "$lilo_title" menu Begin
+        ;;
+    *)
+        lilo_title=$1
+        dialog_answer "$lilo_title" menu Begin
+        ;;
+    esac
+    dialog_answer_any -r \
+        inputbox "OPTIONAL (LILO )?append=.* LINE" "" \
+        menu "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE[?]" "$LILO_FRAMEBUFFER" \
+        menu "SELECT LILO TARGET LOCATION"
     dialog_answer "SELECT LILO TARGET LOCATION" menu MBR
-    dialog_answer "CHOOSE LILO DELAY" "" None
-    dialog_answer "LILO INSTALLATION" menu Linux
-    dialog_answer "SELECT LINUX PARTITION" "" "$LINUX_PARTITION"
-    dialog_answer "SELECT PARTITION NAME" "" "$LINUX_PARTITION_NAME"
-    dialog_answer "LILO INSTALLATION" menu Install
+    dialog_answer_any -r \
+        inputbox "CONFIRM LOCATION TO INSTALL LILO" "$TARGET_DISK" \
+        -t menu "CHOOSE LILO (DELAY|TIMEOUT)" None
+    dialog_answer "$lilo_title" menu Linux
+    dialog_answer "SELECT LINUX PARTITION" inputbox "$LINUX_PARTITION"
+    dialog_answer "SELECT PARTITION NAME" inputbox "$LINUX_PARTITION_NAME"
+    dialog_answer "$lilo_title" menu Install
 }
 
-# Configure TCP/IP with NET_* values; prompt order varies by version.
+# Configure TCP/IP with NET_* values; prompt order varies by version. 9.0
+# confirms with an inputmenu; an empty answer accepts the entered settings.
 dialog_configure_network() {
-    dialog_answer "$1" "" yes
-    dialog_answer_any \
-        "NETWORK CONFIGURATION" "" \
-        "ENTER HOSTNAME" "$NET_HOSTNAME" \
-        "ENTER DOMAINNAME" "$NET_DOMAINNAME" \
-        "LOOPBACK ONLY?" no \
-        "ENTER LOCAL IP ADDRESS" "$NET_IPADDR" \
-        "ENTER NETWORK ADDRESS" "$NET_NETWORK" \
-        "ENTER BROADCAST ADDRESS" "$NET_BROADCAST" \
-        "ENTER GATEWAY ADDRESS" "$NET_GATEWAY" \
-        "ENTER NETMASK" "$NET_NETMASK" \
-        "USE A NAMESERVER?" yes \
-        "SELECT NAMESERVER" "$NET_NAMESERVER" \
-        "NETWORK SETUP COMPLETE"
-    dialog_ok "NETWORK SETUP COMPLETE"
+    dialog_answer "$1" yesno yes
+    dialog_answer_any -r \
+        msgbox "NETWORK CONFIGURATION" "" \
+        inputbox "ENTER HOSTNAME" "$NET_HOSTNAME" \
+        inputbox "ENTER DOMAINNAME" "$NET_DOMAINNAME" \
+        yesno "LOOPBACK ONLY?" no \
+        menu "SETUP IP (ADDRESS )?FOR .*" "static IP" \
+        inputbox "ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)" "$NET_IPADDR" \
+        inputbox "ENTER NETWORK ADDRESS" "$NET_NETWORK" \
+        inputbox "ENTER BROADCAST ADDRESS" "$NET_BROADCAST" \
+        inputbox "ENTER GATEWAY ADDRESS" "$NET_GATEWAY" \
+        inputbox "ENTER NETMASK( .*)?" "$NET_NETMASK" \
+        yesno "USE A NAMESERVER[?]" yes \
+        inputbox "SELECT NAMESERVER" "$NET_NAMESERVER" \
+        menu "PROBE FOR NETWORK CARD[?]" probe \
+        msgbox "CARD DETECTED" ok \
+        -t msgbox "NETWORK SETUP COMPLETE" ok \
+        -t yesno "NETWORK SETUP COMPLETE" yes \
+        -t inputmenu "CONFIRM NETWORK SETUP" ""
 }
 
 # Install a sendmail.cf suited to a networked host with a nameserver.
 dialog_configure_sendmail() {
-    dialog_answer "$1" "" "$SENDMAIL_MODE"
+    dialog_answer "$1" menu "$SENDMAIL_MODE"
+	# this has to be handled here to avoid breaking the configuration flow
+    dialog_xwmconfig
+}
+
+# QEMU's emulated RTC runs on UTC.
+dialog_hwclock_utc() {
+    dialog_answer "$1" menu YES
+}
+
+# Accept the first window manager on the console. 7.0+ runs xwmconfig with the
+# installed dialog binary, which bypasses the serial interposer. Its position
+# varies so peek briefly at both points and stop checking once answered.
+dialog_xwmconfig() {
+    if [ "$XWMCONFIG" = true ]; then
+        if screen_wait -t 1 "SELECT DEFAULT WINDOW MANAGER FOR X"; then
+            kb_press_key spc
+            kb_press_key ret
+            XWMCONFIG=false
+        fi
+    fi
 }
 
 # Configure the installed system timezone.
 dialog_configure_timezone() {
-    dialog_answer "$1" "" "$TIMEZONE"
+    dialog_answer "$1" menu "$TIMEZONE"
+    dialog_xwmconfig
 }
 
 # Answer post-install configuration screens until SETUP COMPLETE appears.
 dialog_configure() {
     dialog_case \
-        "CONFIGURE YOUR SYSTEM?" dialog_yes \
-        "MAKE BOOTDISK" dialog_skip_boot_disk \
-        "MAKE BOOT DISK?" dialog_no \
-        "SKIPPED BOOT DISK CREATION" dialog_ok \
-        "MODEM CONFIGURATION" dialog_no \
-        "MOUSE CONFIGURATION" dialog_no \
-        "CONFIGURE CD-ROM?" dialog_no \
-        "SCREEN FONT CONFIGURATION" dialog_no \
-        "FTAPE CONFIGURATION" dialog_no \
-        "SET YOUR MODEM SPEED" dialog_set_modem_speed \
-        "INSTALL LINUX KERNEL" dialog_skip_kernel_install \
-        "LILO INSTALLATION" dialog_install_lilo \
-        "CONFIGURE NETWORK?" dialog_configure_network \
-        "GPM CONFIGURATION" dialog_no \
-        "SELECTION 1.5 CONFIGURATION" dialog_no \
-        "SENDMAIL CONFIGURATION" dialog_configure_sendmail \
-        "TIMEZONE CONFIGURATION" dialog_configure_timezone \
-        "SETUP COMPLETE"
+        yesno "CONFIGURE YOUR SYSTEM?" dialog_yes \
+        menu "MAKE BOOTDISK" dialog_skip_boot_disk \
+        yesno "MAKE BOOT DISK?" dialog_no \
+        msgbox "SKIPPED BOOT DISK CREATION" dialog_ok \
+        yesno "MODEM CONFIGURATION" dialog_no \
+        menu "MODEM CONFIGURATION" dialog_skip_modem \
+        yesno "MOUSE CONFIGURATION" dialog_no \
+        menu "MOUSE CONFIGURATION" dialog_configure_mouse \
+        yesno "CONFIGURE CD-ROM?" dialog_no \
+        yesno "SCREEN FONT CONFIGURATION" dialog_no \
+        yesno "CONSOLE FONT CONFIGURATION" dialog_no \
+        yesno "FTAPE CONFIGURATION" dialog_no \
+        menu "SET YOUR MODEM SPEED" dialog_set_modem_speed \
+        menu "INSTALL LINUX KERNEL" dialog_skip_kernel_install \
+        menu "INSTALL LILO" dialog_install_lilo \
+        menu "LILO INSTALLATION" dialog_install_lilo \
+        yesno "CONFIGURE NETWORK?" dialog_configure_network \
+        yesno "GPM CONFIGURATION" dialog_no \
+        yesno "ENABLE HOTPLUG SUBSYSTEM AT BOOT?" dialog_no \
+        yesno "SELECTION 1.5 CONFIGURATION" dialog_no \
+        menu "SENDMAIL CONFIGURATION" dialog_configure_sendmail \
+        menu "HARDWARE CLOCK SET TO UTC?" dialog_hwclock_utc \
+        menu "TIMEZONE CONFIGURATION" dialog_configure_timezone \
+        yesno "WARNING: NO ROOT PASSWORD DETECTED" dialog_no \
+        -t msgbox "SETUP COMPLETE" dialog_ok
 }
 
-# Acknowledge that configuration is complete and exit setup.
+# Exit setup after configuration is complete.
 dialog_finish() {
-    dialog_ok "SETUP COMPLETE"
     dialog_setup_step EXIT
 }
 
@@ -231,13 +339,14 @@ dialog_reboot() {
     kb_press_key ctrl-alt-delete
 }
 
-# Run the staged first-boot autoconfiguration script.
+# Run the staged first-boot autoconfiguration script. AUTOCONF_PROMPT
+# overrides the first-boot root prompt; 8.1+ uses root@HOSTNAME:~#.
 dialog_autoconf() {
-    local SHELL_PROMPT="$NET_HOSTNAME:~#"
+    local prompt="${AUTOCONF_PROMPT:-$NET_HOSTNAME:~#}"
 
     screen_wait -l "$NET_HOSTNAME login:"
     kb_send_line root
-    screen_wait -l "$SHELL_PROMPT"
+    screen_wait -l "$prompt"
     kb_send_line "$FAT_MOUNT/autoinst.d/autoconf.sh"
 }
 

@@ -641,6 +641,9 @@ list of stems that take effect.
   `target<TAB>series<TAB>pkg` stream, then a single awk pass writes every
   `tagfile`/`tagfile.new` with each package's final state: default `SKP`,
   overridden by the series' `*.tag` wildcard and then specific-package rules.
+  ISO-derived custom PATH tagfiles are written under each source disk
+  directory (e.g. `fat/tagfiles/a3/tagfile`) because the color `cpkgtool`
+  looks up tagfiles by the current disk directory name.
   Records the series with any selected package in `fat/disksets.txt`, which the
   in-guest installer reads to know which sets to install.
 

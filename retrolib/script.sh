@@ -48,19 +48,36 @@ text_contains_line() {
 }
 
 # Waits until VGA text memory contains expected screen text. By default, TEXT
-# matches anywhere on screen; pass -l to match trimmed full lines.
+# matches anywhere on screen; pass -l to match trimmed full lines. Pass
+# -t SECONDS to return 1 instead of waiting forever when text never appears.
 screen_wait() {
     local expected matcher=text_contains_string screen interval
+    local timeout='' remaining=''
 
-    if [ "${1:-}" = "-l" ]; then
-        matcher=text_contains_line
-        shift
-    fi
-    [ $# -gt 0 ] || die "screen_wait requires [-l] TEXT [TEXT ...]"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        -l)
+            matcher=text_contains_line
+            shift
+            ;;
+        -t)
+            [ $# -ge 2 ] || die "screen_wait -t requires SECONDS"
+            timeout=$2
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+        esac
+    done
+    [ $# -gt 0 ] || die "screen_wait requires [-l] [-t SECONDS] TEXT [TEXT ...]"
 
-    interval=${WAIT_INTERVAL:-0.1}
+    interval=${WAIT_INTERVAL:-0.5}
     for expected in "$@"; do
         printf "⏳ %s" "$expected"
+        if [ -n "$timeout" ]; then
+            remaining=$(awk -v t="$timeout" -v i="$interval" 'BEGIN { printf "%d", t / i }')
+        fi
         while :; do
             if ! qmp_qemu_running; then
                 die "QEMU exited while waiting for screen match: $expected"
@@ -70,6 +87,13 @@ screen_wait() {
                     printf "\r🖥️  %s\033[K\n" "$expected"
                     break
                 fi
+            fi
+            if [ -n "$remaining" ]; then
+                if [ "$remaining" -le 0 ]; then
+                    printf "\r⌛ %s\033[K\n" "$expected"
+                    return 1
+                fi
+                remaining=$((remaining - 1))
             fi
             sleep "$interval"
         done

@@ -68,7 +68,7 @@ At runtime it:
 
 The distro `autoinst.sh` manifest is responsible for setting install-time
 variables and calling wrapper functions such as `disk_init`,
-`debian_install_base`, `slackware_pkgtool_install`, or `sls_sysinstall`.
+`debian_install_base`, `slackware_sysinstall`, or `sls_sysinstall`.
 
 ## `autoconf.sh`
 
@@ -99,11 +99,13 @@ variables and calling wrappers such as `mod_config`, `net_config`,
 available, it sends labeled widget fields to the host and reads the scripted
 answer from the same port.
 
-Real infobox and gauge widgets are displayed through `dialog.bak` when
-available. Infobox widgets are muted on the serial transcript by default; set
-`DIALOG_SERIAL_INFOBOXES=1` to include them. Widgets that require a scripted
-answer display a simple infobox titled `Scripted Install` with centered
-`Please wait...` text.
+The adapter never executes the real dialog binary: installers often redirect
+dialog's stderr into result files, and any screen drawing would pollute them.
+The plain-text transcript is echoed to the console for progress indication,
+using the fd opposite the widget result (stdout normally, stderr under
+`--stdout`) so redirected results stay clean. Infobox widgets are muted on
+the serial transcript by default; set `DIALOG_SERIAL_INFOBOXES=1` to include
+them.
 
 ## `common.sh`
 

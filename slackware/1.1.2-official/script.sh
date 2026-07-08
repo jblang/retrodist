@@ -8,8 +8,8 @@ kb_press_key ret
 
 SETUP_HOSTNAME=darkstar
 SETUP_SOURCE=$FAT_PARTITION
-# 1.1.2 has no Path prompting mode; use the tagfiles staged in the package tree.
-PROMPT_MODE=Normal
+# 1.1.2 has no Path prompting mode; use tagfiles staged in the package tree.
+TAGFILE_PATH=
 
 # 1.1.2's setup chains SOURCE before TARGET.
 dialog_target_source() {

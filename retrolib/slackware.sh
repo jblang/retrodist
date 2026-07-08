@@ -174,6 +174,7 @@ slackware_collect_tagsets() {
 # Writes install tagfiles and disksets.txt from tagset rules.
 slackware_prepare_tagfiles() {
     local pkgroot universe=$TEMPDIR/tagfile-universe d
+    local clean_tagfiles=
     local -a SLACKWARE_TAGSETS=()
 
     if pkgroot=$(slackware_staged_pkg_root); then
@@ -185,6 +186,7 @@ slackware_prepare_tagfiles() {
             log_warn "Could not prepare Slackware tagfiles; no package list in install.iso"
             return
         }
+        clean_tagfiles=1
         slackware_universe_from_iso >"$universe"
     elif [[ -f "$ORIGDIR/disc1.iso" ]]; then
         log_info "Preparing Slackware tagfiles from $ORIGDIR/disc1.iso"
@@ -192,6 +194,7 @@ slackware_prepare_tagfiles() {
             log_warn "Could not prepare Slackware tagfiles; no package list in $ORIGDIR/disc1.iso"
             return
         }
+        clean_tagfiles=1
         slackware_universe_from_iso >"$universe"
     else
         log_debug "No Slackware package source available for tagfile preparation"
@@ -205,6 +208,9 @@ slackware_prepare_tagfiles() {
     # Sort (byte order for determinism) to group each target's lines so the awk
     # writes each in one pass, then create the target dirs.
     LC_ALL=C sort -u "$universe" -o "$universe"
+    if [[ -n "$clean_tagfiles" ]]; then
+        rm -rf fat/tagfiles
+    fi
     cut -f1 "$universe" | sed 's#/[^/]*$##' | sort -u | while IFS= read -r d; do
         mkdir -p "$d"
     done

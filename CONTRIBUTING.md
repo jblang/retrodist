@@ -132,18 +132,24 @@ has reached a shell prompt, then match its output with `serial_wait` and
 answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
 non-default shell prompt text.
 
-Slackware 1.1.2 through 3.1 (`slackware/dialog-setup.sh`) and Red Hat 2.1 and
-3.0.3 (`redhat/perl-install.sh`) replace the guest's `dialog` binary with the
-`autoinst/dialog.sh` adapter. The host-side helpers live in
+Slackware 1.1.2 through 9.0 (`slackware/dialog-setup.sh`) replaces the guest's
+`dialog` binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
 `retrolib/dialog.sh`: use `dialog_answer` or its typed wrappers for expected
 screens, and `dialog_case`/`dialog_answer_any` when screens vary by version.
+`dialog_case` alternatives are `TYPE TITLE HANDLER` triples, and
+`dialog_answer_any` alternatives are `TYPE TITLE ANSWER` triples. Use `any` for
+the type only when the screen has no `TYPE:` line.
+In either helper, prefix a triple with `-t` when answering that screen should
+also end the alternative list.
+For menus whose item keys vary by version, use `dialog_menu_text` to select the
+item whose displayed text matches, or `dialog_menu_text -r` for a regex match.
 
 ## In-Guest Autoinstall
 
 `autoinst.sh` is the install manifest copied into the guest runtime. It should
 set disk, package, and install variables, then call wrappers from
 `autoinst/common.sh`, such as `disk_init`, `debian_install_base`,
-`slackware_pkgtool_install`, or `sls_sysinstall`.
+`slackware_sysinstall`, or `sls_sysinstall`.
 
 `autoconf.sh` is optional first-boot configuration. Configure kernel modules
 with `MOD_ENABLE` plus `mod_config`, and configure networking separately with

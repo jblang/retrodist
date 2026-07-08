@@ -311,10 +311,8 @@ serial_shell_start() {
     launcher="[ -c $(shell_quote_word "$dev") ] || mknod $(shell_quote_word "$dev") c 4 $(shell_quote_word "$minor"); PS1=$(shell_quote_word "$prompt ") sh -i <$(shell_quote_word "$dev") >$(shell_quote_word "$dev") 2>&1"
 
     screen_wait -l "$SHELL_PROMPT"
-    echo "⚙️  $SHELL_PROMPT $launcher"
-    qmp_send_string "$launcher" || return 1
-    qmp_sendkey ret || return 1
-    serial_wait -l "$prompt" >/dev/null
+    kb_send_line "$launcher" || return 1
+    serial_wait -l "$prompt"
 }
 
 # Sends one command to the active serial shell.
@@ -330,13 +328,13 @@ serial_shell_send() {
     prompt=${SERIAL_SHELL_PROMPT:-#}
 
     serial_send "$cmd" || return 1
-    [ "$wait_return" = false ] || serial_wait -l "$prompt" >/dev/null
+    [ "$wait_return" = false ] || serial_wait -l "$prompt"
 }
 
 # Exits the active serial shell and waits for the screen shell prompt.
 serial_shell_exit() {
     serial_send "exit" || return 1
-    screen_wait -l "$SHELL_PROMPT" >/dev/null
+    screen_wait -l "$SHELL_PROMPT"
 }
 
 # Starts a serial shell, sends commands, and optionally exits it.

@@ -69,10 +69,15 @@ script_fdisk_partitions() {
     last_prompt="Last cylinder .*$SCRIPT_FDISK_RANGE"
 
     # Clear possible leftovers; fdisk silently skips already-empty slots.
+    # Newer fdisk (9.0) refuses to prompt for a number on an empty disk.
     serial_prompt "Command (m for help):" "d"
-    serial_prompt "Partition number (1-4):" "1"
-    serial_prompt "Command (m for help):" "d"
-    serial_prompt "Partition number (1-4):" "2"
+    if serial_wait_alternative \
+        "Partition number (1-4):" \
+        "No partition is defined yet" >/dev/null; then
+        serial_send "1"
+        serial_prompt "Command (m for help):" "d"
+        serial_prompt "Partition number (1-4):" "2"
+    fi
 
     # swap partition, sized in MB
     serial_prompt "Command (m for help):" "n"

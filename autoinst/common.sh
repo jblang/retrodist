@@ -9,18 +9,6 @@ slackware_sysinstall() {
     _slackware_sysinstall "$@"
 }
 
-# Load the Slackware 1.1.1 pkgtool installer.
-slackware_pkgtool_install_111() {
-    . "$AUTOINST_D/install/pkgtool.sh"
-    _slackware_pkgtool_install_111 "$@"
-}
-
-# Load the standard Slackware pkgtool installer.
-slackware_pkgtool_install() {
-    . "$AUTOINST_D/install/pkgtool.sh"
-    _slackware_pkgtool_install "$@"
-}
-
 # Load the SLS sysinstall installer.
 sls_sysinstall() {
     . "$AUTOINST_D/install/sysinst.sh"

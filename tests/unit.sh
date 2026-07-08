@@ -239,23 +239,68 @@ printf '%s\n' \
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
 case_echo_title() { dialog_answer "$1" "" "$1"; }
 dialog_case \
-    "FIRST" case_echo_title \
-    "SECOND" case_echo_title \
-    "NEVER ASKED" case_echo_title \
-    "DONE" >/dev/null
+    any "FIRST" case_echo_title \
+    any "SECOND" case_echo_title \
+    any "NEVER ASKED" case_echo_title \
+    any "DONE" >/dev/null
 wait_status=$?
 assert_eq "dialog/case-status" "0" "$wait_status"
 assert_eq "dialog/case-out-of-order" "SECOND
 FIRST" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any directly answers matching TITLE ANSWER pairs.
+# dialog_answer_any directly answers matching TYPE TITLE ANSWER triples.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
-dialog_answer_any "FIRST" "one" "SECOND" "two" "DONE" >/dev/null
+dialog_answer_any any "FIRST" "one" any "SECOND" "two" any "DONE" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-status" "0" "$wait_status"
 assert_eq "dialog/answer-out-of-order" "two
 one" "$(cat "$case_tmp/answers")"
+
+# dialog_answer_any -t answers the marked pair and then returns.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: FIRST' 'RESPONSE: ' \
+    'TITLE: DONE' 'RESPONSE: ' \
+    'TITLE: SECOND' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer_any any "FIRST" "one" -t any "DONE" "done" any "SECOND" "two" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-terminal-status" "0" "$wait_status"
+assert_eq "dialog/answer-terminal" "one
+done" "$(cat "$case_tmp/answers")"
+
+# dialog_answer_any handles repeated type/title alternatives in listed order.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: CHOOSE PARTITION' 'TYPE: inputbox' 'RESPONSE: ' \
+    'TITLE: CHOOSE PARTITION' 'TYPE: inputbox' 'RESPONSE: ' \
+    'TITLE: NEVER' 'TYPE: inputbox' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer_any \
+    inputbox "CHOOSE PARTITION" "/dev/hdb1" \
+    -t inputbox "CHOOSE PARTITION" q \
+    inputbox "NEVER" "unused" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-repeat-terminal-status" "0" "$wait_status"
+assert_eq "dialog/answer-repeat-terminal" "/dev/hdb1
+q" "$(cat "$case_tmp/answers")"
+
+# dialog_answer_any treats msgbox and textbox as interchangeable.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: SWAP SPACE CONFIGURED' 'TYPE: textbox' 'RESPONSE: ' \
+    'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer_any \
+    msgbox "SWAP SPACE CONFIGURED" ok \
+    msgbox "DONE" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-textbox-status" "0" "$wait_status"
+assert_eq "dialog/answer-textbox" "ok" "$(cat "$case_tmp/answers")"
 
 # A repeated title is handled once per occurrence, in the order listed.
 SERIAL_LINE=0
@@ -269,9 +314,41 @@ printf '%s\n' \
 case_answer_one() { dialog_answer "$1" "" "one"; }
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
 case_answer_two() { dialog_answer "$1" "" "two"; }
-dialog_case "REPEAT" case_answer_one "REPEAT" case_answer_two "DONE" >/dev/null
+dialog_case any "REPEAT" case_answer_one any "REPEAT" case_answer_two any "DONE" >/dev/null
 assert_eq "dialog/case-repeat" "one
 two" "$(cat "$case_tmp/answers")"
+
+# dialog_case can distinguish screens that share a title but have different types.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: MODEM CONFIGURATION' 'TYPE: menu' 'RESPONSE: ' \
+    'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_answer_yesno() { dialog_answer "$1" yesno "no"; }
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
+case_answer_menu() { dialog_answer "$1" menu "no modem"; }
+dialog_case \
+    yesno "MODEM CONFIGURATION" case_answer_yesno \
+    menu "MODEM CONFIGURATION" case_answer_menu \
+    msgbox "DONE" >/dev/null
+assert_eq "dialog/case-type" "no modem" "$(cat "$case_tmp/answers")"
+
+# dialog_case -t answers the marked screen and then returns.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: FIRST' 'TYPE: msgbox' 'RESPONSE: ' \
+    'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
+    'TITLE: SECOND' 'TYPE: msgbox' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_case \
+    msgbox "FIRST" case_echo_title \
+    -t msgbox "DONE" case_echo_title \
+    msgbox "SECOND" case_echo_title >/dev/null
+assert_eq "dialog/case-terminal" "FIRST
+DONE" "$(cat "$case_tmp/answers")"
 
 # Typed wrappers wait for TYPE/TEXT lines before answering.
 SERIAL_LINE=0
@@ -282,6 +359,32 @@ printf '%s\n' \
 dialog_menu "Installation Type" "Which do you prefer?" cdrom >/dev/null
 assert_eq "dialog/menu-wrapper" "cdrom" "$(cat "$case_tmp/answers")"
 
+# dialog_menu_text selects the key for the item whose displayed text matches.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: SOURCE MEDIA SELECTION' \
+    'TYPE: menu' \
+    'ITEM: 1 :: Install from a Slackware CD-ROM' \
+    'ITEM: 2 :: Install from a hard drive partition' \
+    'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_menu_text "SOURCE MEDIA SELECTION" "CD-ROM" >/dev/null
+assert_eq "dialog/menu-text" "1" "$(cat "$case_tmp/answers")"
+
+# dialog_menu_text -r matches item text as an extended regex.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Install from the Slackware CD-ROM' \
+    'TYPE: menu' \
+    'ITEM: 1 :: SCSI (/dev/scd0 or /dev/scd1)' \
+    'ITEM: 7 :: Most IDE-interface CD drives' \
+    'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_menu_text -r "Install from the Slackware CD-ROM" "IDE.*CD drives" >/dev/null
+assert_eq "dialog/menu-text-regex" "7" "$(cat "$case_tmp/answers")"
+
 # dialog_answer_any -s matches keys as plain substrings.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
@@ -291,9 +394,9 @@ printf '%s\n' \
     'TITLE: Net Config' 'TEXT: Is this correct?' 'RESPONSE: ' \
     >"$SERIAL_LOG"
 dialog_answer_any -s \
-    "What is the network address?" "10.0.2.0" \
-    "What is the netmask?" "255.255.255.0" \
-    "Is this correct?" >/dev/null
+    any "What is the network address?" "10.0.2.0" \
+    any "What is the netmask?" "255.255.255.0" \
+    any "Is this correct?" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-any-substring-status" "0" "$wait_status"
 assert_eq "dialog/answer-any-substring" "255.255.255.0
@@ -423,16 +526,16 @@ assert_eq "serial/dialog-answer" "picked" "$(cat "$serial_tmp/answers")"
 # Terminator matches must remain available for the caller's next wait.
 : >"$serial_tmp/answers"
 printf '\nTITLE: Confirm\nTYPE: yesno\nTEXT: Is this correct?\nRESPONSE: ' >>"$SERIAL_LOG"
-dialog_answer_any -s "never asked" "unused" "Is this correct?" >/dev/null
+dialog_answer_any -s any "never asked" "unused" any "Is this correct?" >/dev/null
 dialog_answer "Confirm" yesno "y" >/dev/null
 assert_eq "serial/terminator-preserved" "y" "$(cat "$serial_tmp/answers")"
 
 # dialog_case must only peek before its handler re-waits for the title.
 : >"$serial_tmp/answers"
-printf '\nTITLE: Handled\nTYPE: menu\nRESPONSE: \nTITLE: Done\n' >>"$SERIAL_LOG"
+printf '\nTITLE: Handled\nTYPE: menu\nRESPONSE: \nTITLE: Done\nRESPONSE: \n' >>"$SERIAL_LOG"
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
 case_serial_answer() { dialog_answer "$1" menu "handled"; }
-dialog_case "Handled" case_serial_answer "Done" >/dev/null
+dialog_case menu "Handled" case_serial_answer any "Done" >/dev/null
 assert_eq "serial/case-handler" "handled" "$(cat "$serial_tmp/answers")"
 
 # Echoed answers and CRLF output do not confuse serial matching.
@@ -507,7 +610,8 @@ esac
 exec 2>&3 3>&-
 
 # --- dialog adapter serial routing -------------------------------------------
-# The adapter sends screens and reads answers over DIALOG_SERIAL.
+# The adapter sends screens and reads answers over DIALOG_SERIAL, and tees the
+# transcript to the console for progress indication.
 mkfifo "$serial_tmp/port"
 exec 8<>"$serial_tmp/port"
 printf 'ok\n' >&8
@@ -520,7 +624,8 @@ assert_eq "adapter/serial-title" "TITLE: Serial" "$serial_line"
 assert_ok "adapter/console-tee" grep -q "TITLE: Serial" "$serial_tmp/console"
 exec 8<&-
 
-# dialog.bak makes answerable widgets display the fixed wait infobox.
+# dialog.bak must not be used. Setup redirects dialog stderr into result files,
+# so any real-dialog output there can corrupt responses.
 cp "$REPO_ROOT/autoinst/dialog.sh" "$serial_tmp/dialog"
 printf '#!/bin/sh\necho "VIEW $*"\n' >"$serial_tmp/dialog.bak"
 chmod +x "$serial_tmp/dialog" "$serial_tmp/dialog.bak"
@@ -530,18 +635,40 @@ printf 'ok\n' >&8
 DIALOG_SERIAL=$serial_tmp/port2 sh "$serial_tmp/dialog" \
     --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/view" 2>&1
 assert_eq "adapter/view-exit" "0" "$?"
-assert_ok "adapter/view-title" grep -q -- "VIEW --title Scripted Install --infobox" "$serial_tmp/view"
-assert_ok "adapter/view-message" grep -q -- "             Please wait..." "$serial_tmp/view"
-assert_fail "adapter/view-no-plaintext" grep -q "TITLE: Serial" "$serial_tmp/view"
+assert_fail "adapter/view-no-real-dialog" grep -q -- "VIEW " "$serial_tmp/view"
+assert_ok "adapter/view-plaintext" grep -q "TITLE: Serial" "$serial_tmp/view"
 exec 8<&-
 
-# Display-only infobox widgets keep their requested text and dimensions, but
-# stay quiet on the serial transcript by default.
+# Setup redirects dialog stderr to result files such as /tmp/SeTtagpath, so
+# stderr must carry exactly the answer even with a hostile dialog.bak present.
+printf '#!/bin/sh\necho "VIEW $*" >&2\n' >"$serial_tmp/dialog.bak"
+mkfifo "$serial_tmp/port4"
+exec 8<>"$serial_tmp/port4"
+printf '/retro/tagfiles\n' >&8
+DIALOG_SERIAL=$serial_tmp/port4 bash "$serial_tmp/dialog" \
+    --title Path --inputbox "tag path" 10 40 \
+    </dev/null >/dev/null 2>"$serial_tmp/inputbox-result"
+assert_eq "adapter/inputbox-stderr-result" "/retro/tagfiles" "$(cat "$serial_tmp/inputbox-result")"
+exec 8<&-
+
+mkfifo "$serial_tmp/port7"
+exec 8<>"$serial_tmp/port7"
+printf 'PATH\n' >&8
+DIALOG_SERIAL=$serial_tmp/port7 bash "$serial_tmp/dialog" \
+    --title Prompt --menu "mode" 10 40 2 NORMAL normal PATH path \
+    </dev/null >/dev/null 2>"$serial_tmp/menu-path-result"
+assert_eq "adapter/menu-stderr-result" "PATH" "$(cat "$serial_tmp/menu-path-result")"
+exec 8<&-
+
+# Display-only infobox widgets keep their requested text and dimensions on the
+# console, do not call dialog.bak, and stay quiet on the serial transcript by
+# default.
 : >"$serial_tmp/infobox-serial"
 DIALOG_SERIAL=$serial_tmp/infobox-serial sh "$serial_tmp/dialog" \
     --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox" 2>&1
 assert_eq "adapter/infobox-view-exit" "0" "$?"
-assert_ok "adapter/infobox-view-exact" grep -q -- "VIEW --title Info --infobox real progress 7 50" "$serial_tmp/infobox"
+assert_fail "adapter/infobox-no-real-dialog" grep -q -- "VIEW " "$serial_tmp/infobox"
+assert_ok "adapter/infobox-console" grep -q -- "TITLE: Info" "$serial_tmp/infobox"
 assert_eq "adapter/infobox-serial-muted" "" "$(cat "$serial_tmp/infobox-serial")"
 
 : >"$serial_tmp/infobox-serial-unmuted"
@@ -549,6 +676,23 @@ DIALOG_SERIAL_INFOBOXES=1 DIALOG_SERIAL=$serial_tmp/infobox-serial-unmuted sh "$
     --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox-unmuted" 2>&1
 assert_eq "adapter/infobox-unmuted-exit" "0" "$?"
 assert_ok "adapter/infobox-serial-unmuted" grep -q "TITLE: Info" "$serial_tmp/infobox-serial-unmuted"
+
+# Match real dialog status codes for accepted, negative, and escape answers.
+mkfifo "$serial_tmp/port5"
+exec 8<>"$serial_tmp/port5"
+printf 'no\n' >&8
+DIALOG_SERIAL=$serial_tmp/port5 sh "$serial_tmp/dialog" \
+    --yesno "continue?" 6 40 </dev/null >/dev/null 2>&1
+assert_eq "adapter/yesno-no-exit" "1" "$?"
+exec 8<&-
+
+mkfifo "$serial_tmp/port6"
+exec 8<>"$serial_tmp/port6"
+printf 'esc\n' >&8
+DIALOG_SERIAL=$serial_tmp/port6 sh "$serial_tmp/dialog" \
+    --menu "pick" 10 40 2 first one second two </dev/null >/dev/null 2>&1
+assert_eq "adapter/menu-esc-exit" "255" "$?"
+exec 8<&-
 
 # Empty menu response selects the highlighted item, like real dialog.
 # Run under bash because macOS sh handles echo -n differently.
@@ -614,6 +758,7 @@ touch "$slack_tmp/fat/xap1/ghostscript.tgz"
 # Override is listed *before* its wildcard to prove the two-pass design makes
 # specific entries win regardless of in-file order.
 printf 'a bash ADD\na * SKP\nx * ADD\nx xvga16 SKP\nxap * ADD\n' >"$slack_tmp/conf/max.tag"
+printf 'a bash ADD # GNU bash shell\nx xbin OPT # X11 binaries\n' >"$slack_tmp/conf/default.tag"
 
 (cd "$slack_tmp" && CONFDIR="$slack_tmp/conf" TEMPDIR="$slack_tmp" INSTALL_TAGSETS=max slackware_prepare_tagfiles)
 
@@ -625,6 +770,29 @@ assert_eq "tag/x-wildcard-add2"    "ADD" "$(tagstate "$slack_tmp/fat/x1/tagfile"
 assert_eq "tag/x-override-skp"     "SKP" "$(tagstate "$slack_tmp/fat/x1/tagfile" xvga16)"
 # x* rules must not bleed into the xap series (prefix-match isolation).
 assert_eq "tag/series-isolation"   "ADD" "$(tagstate "$slack_tmp/fat/xap1/tagfile" ghostscript)"
+
+# ISO package lists feed PATH-mode custom tagfiles. Old color setup help says
+# the first disk is enough, but cpkgtool actually checks the current disk
+# directory name, so each disk directory needs a tagfile for packages on that
+# disk.
+slack_iso_tmp=$(mktemp -d)
+cat >"$slack_iso_tmp/packages.txt" <<'EOF'
+slakware/a1/bash.tgz
+slakware/a2/lilo.tgz
+slakware/a3/getty.tgz
+slakware/ap1/mc.tgz
+slakware/ap2/ghostscript.tgz
+EOF
+(
+    SLACKWARE_PKGLIST="$slack_iso_tmp/packages.txt"
+    slackware_universe_from_iso
+) >"$slack_iso_tmp/universe"
+assert_ok "tag/iso-first-a-disk" grep -q $'fat/tagfiles/a1/tagfile\ta\tbash' "$slack_iso_tmp/universe"
+assert_ok "tag/iso-later-a-disk-currentdir" grep -q $'fat/tagfiles/a3/tagfile\ta\tgetty' "$slack_iso_tmp/universe"
+assert_ok "tag/iso-first-ap-disk" grep -q $'fat/tagfiles/ap1/tagfile\tap\tmc' "$slack_iso_tmp/universe"
+assert_ok "tag/iso-later-ap-disk-currentdir" grep -q $'fat/tagfiles/ap2/tagfile\tap\tghostscript' "$slack_iso_tmp/universe"
+assert_fail "tag/iso-no-cross-disk-duplication" grep -q $'fat/tagfiles/a3/tagfile\ta\tbash' "$slack_iso_tmp/universe"
+rm -rf "$slack_iso_tmp"
 
 # Direct coverage of generated tagfiles for a single series.
 slack_tmp2=$(mktemp -d)

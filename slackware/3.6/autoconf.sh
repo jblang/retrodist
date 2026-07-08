@@ -1,11 +1,4 @@
-tty_config
-
 MOD_ENABLE="tulip"
 mod_config
-
-NET_HOSTNAME=darkstar
-net_config
-
-mail_config
-
+tty_config
 x11_config
