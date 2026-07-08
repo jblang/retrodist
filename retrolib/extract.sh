@@ -93,6 +93,19 @@ extract_install_is_tar_stream() {
     return 1
 }
 
+# Makes generated qemu.d staging artifacts writable by the current user.
+extract_make_user_writable() {
+    local path
+    for path in "$@"; do
+        [[ -e "$path" || -L "$path" ]] || continue
+        if [[ -d "$path" && ! -L "$path" ]]; then
+            chmod -R u+rwX "$path" 2>/dev/null || true
+        else
+            chmod u+rw "$path" 2>/dev/null || true
+        fi
+    done
+}
+
 # Updates install.iso when the extraction source is an ISO.
 extract_link_install_iso() {
     local source=${1:-}
@@ -179,6 +192,7 @@ extract_install_archive_images() {
         else
             7z e -y "$source" "$@" >/dev/null
         fi
+        extract_make_user_writable "${@##*/}"
     fi
 }
 
@@ -194,6 +208,7 @@ extract_install_archive_fat_files() {
         else
             7z e -y -ofat "$source" "$@" >/dev/null
         fi
+        extract_make_user_writable fat
     fi
 }
 
@@ -216,6 +231,7 @@ extract_install_archive_packages() {
         else
             7z x -y -ofat/packages "$source" >/dev/null
         fi
+        extract_make_user_writable fat/packages
     else
         mkdir -p fat
         package_target=${packages#./}
@@ -228,6 +244,7 @@ extract_install_archive_packages() {
         fi
         mv "fat/$package_target" fat/packages
         rm -rf "fat/$package_root"
+        extract_make_user_writable fat/packages
     fi
 }
 
@@ -242,9 +259,11 @@ extract_install_copy_images() {
         target=${file##*/}
         if [[ "$file" != "$target" || ! -e "$target" ]]; then
             log_info "Copying install image $file"
-            cp -p "$source_file" "$target"
+            cp "$source_file" "$target"
+            extract_make_user_writable "$target"
         else
             log_debug "Install image already staged: $target"
+            extract_make_user_writable "$target"
         fi
     done
 }
@@ -263,8 +282,9 @@ extract_install_copy_fat_files() {
     for file in "$@"; do
         source_file=$(extract_install_source_file "$source" "$file")
         log_info "Copying FAT file $file"
-        cp -p "$source_file" fat/
+        cp "$source_file" fat/
     done
+    extract_make_user_writable fat
 }
 
 # Copies a package directory from a directory source into fat/packages.
@@ -280,7 +300,8 @@ extract_install_copy_packages() {
     log_info "Copying package tree $packages"
     rm -f fat/packages
     mkdir -p fat/packages
-    cp -pR "$source_file"/. fat/packages/
+    cp -R "$source_file"/. fat/packages/
+    extract_make_user_writable fat/packages
 }
 
 # Extracts or copies configured install media into qemu.d.
@@ -345,7 +366,7 @@ extract_install_files() {
 
 # Top-level retro command handler for extracting and staging a distro.
 retro_extract() {
-    local extract_file
+    local extract_file status
     log_debug "Starting extraction for $CONFNAME"
     retro_download
     if [[ ! -f $EXTRACTDIR/.extracted ]]; then
@@ -357,7 +378,11 @@ retro_extract() {
         log_info "Running extract script $extract_file"
         pushd "$EXTRACTDIR" >/dev/null || return
         # shellcheck source=/dev/null
-        source "$extract_file"
+        source "$extract_file" || {
+            status=$?
+            popd >/dev/null || return
+            return "$status"
+        }
         touch "$EXTRACTDIR/.extracted"
         popd >/dev/null || return
         log_info "Extraction step complete for $CONFNAME"
@@ -366,6 +391,7 @@ retro_extract() {
     fi
 
     pushd "$EXTRACTDIR" >/dev/null || return
+    extract_make_user_writable boot.img root.img fat
     redhat_stage_kickstart boot.img || return
     autoinst_prep
     popd >/dev/null || return

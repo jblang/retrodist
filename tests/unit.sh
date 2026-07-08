@@ -714,6 +714,21 @@ printf 'kernel image\n' >"$extract_tmp/bare.i"
 assert_eq "extract/boot-img-links-other-name" "bare.i" "$(readlink "$extract_tmp/boot.img")"
 rm -rf "$extract_tmp"
 
+# Staged install artifacts come from read-only media on some hosts. They must
+# remain writable so later extraction steps, tagfile generation, and QEMU can
+# update/open them.
+extract_tmp=$(mktemp -d)
+mkdir -p "$extract_tmp/fat/packages/a1"
+printf 'package\n' >"$extract_tmp/fat/packages/a1/base.tgz"
+printf 'boot\n' >"$extract_tmp/boot.img"
+chmod 500 "$extract_tmp/fat/packages/a1"
+chmod 400 "$extract_tmp/fat/packages/a1/base.tgz" "$extract_tmp/boot.img"
+extract_make_user_writable "$extract_tmp/fat" "$extract_tmp/boot.img"
+assert_ok "extract/fat-dir-writable" test -w "$extract_tmp/fat/packages/a1"
+assert_ok "extract/fat-file-writable" test -w "$extract_tmp/fat/packages/a1/base.tgz"
+assert_ok "extract/image-file-writable" test -w "$extract_tmp/boot.img"
+rm -rf "$extract_tmp"
+
 # --- Red Hat Kickstart floppy staging ---------------------------------------
 if command -v mcopy >/dev/null 2>&1 && command -v mformat >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1; then
     rh_tmp=$(mktemp -d)

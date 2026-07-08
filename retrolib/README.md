@@ -201,7 +201,8 @@ Key functions:
 
 - `extract_install_files`
   Extracts or copies the configured images and packages, links `boot.img` and
-  `root.img`, and resets `EXTRACT_*` afterwards.
+  `root.img`, makes staged artifacts writable by the current user, and resets
+  `EXTRACT_*` afterwards.
 
 - `debian_extract_fat_image IMAGE DEST FILE…`
   Extracts selected files from a FAT image using 7z and lowercases filenames.
