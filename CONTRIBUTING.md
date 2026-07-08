@@ -132,17 +132,21 @@ has reached a shell prompt, then match its output with `serial_wait` and
 answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
 non-default shell prompt text.
 
-Slackware 1.1.2 through 9.0 (`slackware/dialog-setup.sh`) replaces the guest's
+Slackware 1.1.2 through 9.0 (`slackware/pkgtool.sh`) replaces the guest's
 `dialog` binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
-`retrolib/dialog.sh`: use `dialog_answer` or its typed wrappers for expected
-screens, and `dialog_case`/`dialog_answer_any` when screens vary by version.
-`dialog_case` alternatives are `TYPE TITLE HANDLER` triples, and
-`dialog_answer_any` alternatives are `TYPE TITLE ANSWER` triples. Use `any` for
-the type only when the screen has no `TYPE:` line.
-In either helper, prefix a triple with `-t` when answering that screen should
-also end the alternative list.
-For menus whose item keys vary by version, use `dialog_menu_text` to select the
-item whose displayed text matches, or `dialog_menu_text -r` for a regex match.
+`retrolib/dialog.sh`: `dialog_answer` takes `TYPE TITLE ANSWER` triples. A
+single triple answers one expected screen; multiple triples answer screens
+that vary by version in stream order,
+ended by an unanswered `TYPE TITLE` terminator pair or by a triple prefixed
+with `-x`, which answers that screen and then returns. Prefix a TITLE with
+`-r` to match it as an extended regex, and replace ANSWER with `-f HANDLER` to
+run a handler function that receives the matched title and answers the screen
+itself. Use `any` for the type only when the screen has no `TYPE:` line.
+`-l LABEL` logs entry and exit of the alternative set under that label;
+without it nothing is logged.
+For menus whose item keys vary by version, replace ANSWER with `-d TEXT` to
+send the key of the item whose displayed text contains TEXT (`-d -r` for a
+regex match).
 
 ## In-Guest Autoinstall
 

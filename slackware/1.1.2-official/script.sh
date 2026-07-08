@@ -1,4 +1,4 @@
-script_import ../dialog-setup.sh
+script_import ../pkgtool.sh
 
 screen_wait -l "Please remove the boot kernel disk from your floppy drive,"
 script_change_floppy root.img
@@ -12,16 +12,16 @@ SETUP_SOURCE=$FAT_PARTITION
 TAGFILE_PATH=
 
 # 1.1.2's setup chains SOURCE before TARGET.
-dialog_target_source() {
-    dialog_select_source
-    dialog_format_root
-    dialog_mount_fat
+pkgtool_target_source() {
+    pkgtool_select_source
+    pkgtool_format_root
+    pkgtool_mount_fat
 }
 
 # 1.1.2's liloconfig is a single numbered menu, not the Begin/Linux/Install
 # sequence later versions use.
-dialog_install_lilo() {
-    dialog_answer "$1" menu 2 # Install LILO to Master Boot Record
+pkgtool_install_lilo() {
+    dialog_answer menu "$1" 2 # Install LILO to Master Boot Record
 }
 
-dialog_setup
+pkgtool_setup

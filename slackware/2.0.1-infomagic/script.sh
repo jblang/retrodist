@@ -1,4 +1,4 @@
-script_import ../dialog-setup.sh
+script_import ../pkgtool.sh
 
 screen_wait -l "boot:"
 kb_send_line ""
@@ -9,4 +9,4 @@ screen_wait "VFS: Insert root floppy and press ENTER"
 kb_press_key ret
 
 SETUP_SOURCE=$FAT_PARTITION
-dialog_setup
+pkgtool_setup

@@ -236,28 +236,28 @@ printf '%s\n' \
     'TITLE: FIRST' 'RESPONSE: ' \
     'TITLE: DONE' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_echo_title() { dialog_answer "$1" "" "$1"; }
-dialog_case \
-    any "FIRST" case_echo_title \
-    any "SECOND" case_echo_title \
-    any "NEVER ASKED" case_echo_title \
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_echo_title() { dialog_answer any "$1" "$1"; }
+dialog_answer \
+    any "FIRST" -f case_echo_title \
+    any "SECOND" -f case_echo_title \
+    any "NEVER ASKED" -f case_echo_title \
     any "DONE" >/dev/null
 wait_status=$?
 assert_eq "dialog/case-status" "0" "$wait_status"
 assert_eq "dialog/case-out-of-order" "SECOND
 FIRST" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any directly answers matching TYPE TITLE ANSWER triples.
+# dialog_answer directly answers matching TYPE TITLE ANSWER triples.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
-dialog_answer_any any "FIRST" "one" any "SECOND" "two" any "DONE" >/dev/null
+dialog_answer any "FIRST" "one" any "SECOND" "two" any "DONE" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-status" "0" "$wait_status"
 assert_eq "dialog/answer-out-of-order" "two
 one" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any -t answers the marked pair and then returns.
+# dialog_answer -x answers the marked triple and then returns.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -265,13 +265,13 @@ printf '%s\n' \
     'TITLE: DONE' 'RESPONSE: ' \
     'TITLE: SECOND' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_answer_any any "FIRST" "one" -t any "DONE" "done" any "SECOND" "two" >/dev/null
+dialog_answer any "FIRST" "one" -x any "DONE" "done" any "SECOND" "two" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-terminal-status" "0" "$wait_status"
 assert_eq "dialog/answer-terminal" "one
 done" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any handles repeated type/title alternatives in listed order.
+# dialog_answer handles repeated type/title alternatives in listed order.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -279,23 +279,23 @@ printf '%s\n' \
     'TITLE: CHOOSE PARTITION' 'TYPE: inputbox' 'RESPONSE: ' \
     'TITLE: NEVER' 'TYPE: inputbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_answer_any \
+dialog_answer \
     inputbox "CHOOSE PARTITION" "/dev/hdb1" \
-    -t inputbox "CHOOSE PARTITION" q \
+    -x inputbox "CHOOSE PARTITION" q \
     inputbox "NEVER" "unused" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-repeat-terminal-status" "0" "$wait_status"
 assert_eq "dialog/answer-repeat-terminal" "/dev/hdb1
 q" "$(cat "$case_tmp/answers")"
 
-# dialog_answer_any treats msgbox and textbox as interchangeable.
+# dialog_answer treats msgbox and textbox as interchangeable.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: SWAP SPACE CONFIGURED' 'TYPE: textbox' 'RESPONSE: ' \
     'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_answer_any \
+dialog_answer \
     msgbox "SWAP SPACE CONFIGURED" ok \
     msgbox "DONE" >/dev/null
 wait_status=$?
@@ -310,32 +310,32 @@ printf '%s\n' \
     'TITLE: REPEAT' 'RESPONSE: ' \
     'TITLE: DONE' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_one() { dialog_answer "$1" "" "one"; }
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_two() { dialog_answer "$1" "" "two"; }
-dialog_case any "REPEAT" case_answer_one any "REPEAT" case_answer_two any "DONE" >/dev/null
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_answer_one() { dialog_answer any "$1" "one"; }
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_answer_two() { dialog_answer any "$1" "two"; }
+dialog_answer any "REPEAT" -f case_answer_one any "REPEAT" -f case_answer_two any "DONE" >/dev/null
 assert_eq "dialog/case-repeat" "one
 two" "$(cat "$case_tmp/answers")"
 
-# dialog_case can distinguish screens that share a title but have different types.
+# dialog_answer can distinguish screens that share a title but have different types.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: MODEM CONFIGURATION' 'TYPE: menu' 'RESPONSE: ' \
     'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_yesno() { dialog_answer "$1" yesno "no"; }
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_answer_menu() { dialog_answer "$1" menu "no modem"; }
-dialog_case \
-    yesno "MODEM CONFIGURATION" case_answer_yesno \
-    menu "MODEM CONFIGURATION" case_answer_menu \
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_answer_yesno() { dialog_answer yesno "$1" "no"; }
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_answer_menu() { dialog_answer menu "$1" "no modem"; }
+dialog_answer \
+    yesno "MODEM CONFIGURATION" -f case_answer_yesno \
+    menu "MODEM CONFIGURATION" -f case_answer_menu \
     msgbox "DONE" >/dev/null
 assert_eq "dialog/case-type" "no modem" "$(cat "$case_tmp/answers")"
 
-# dialog_case -t answers the marked screen and then returns.
+# dialog_answer -x runs the marked handler and then returns.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -343,23 +343,37 @@ printf '%s\n' \
     'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     'TITLE: SECOND' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_case \
-    msgbox "FIRST" case_echo_title \
-    -t msgbox "DONE" case_echo_title \
-    msgbox "SECOND" case_echo_title >/dev/null
+dialog_answer \
+    msgbox "FIRST" -f case_echo_title \
+    -x msgbox "DONE" -f case_echo_title \
+    msgbox "SECOND" -f case_echo_title >/dev/null
 assert_eq "dialog/case-terminal" "FIRST
 DONE" "$(cat "$case_tmp/answers")"
 
-# Typed wrappers wait for TYPE/TEXT lines before answering.
+# dialog_answer matches -r keys as extended regexes.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
-    'TITLE: Installation Type' 'TYPE: menu' 'TEXT: Which do you prefer?' 'RESPONSE: ' \
+    'TITLE: FORMAT PARTITION /dev/hda2' 'TYPE: menu' 'RESPONSE: ' \
+    'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_menu "Installation Type" "Which do you prefer?" cdrom >/dev/null
-assert_eq "dialog/menu-wrapper" "cdrom" "$(cat "$case_tmp/answers")"
+dialog_answer \
+    menu -r "FORMAT PARTITION( .*)?" Format \
+    msgbox "DONE" >/dev/null
+wait_status=$?
+assert_eq "dialog/answer-regex-status" "0" "$wait_status"
+assert_eq "dialog/answer-regex-key" "Format" "$(cat "$case_tmp/answers")"
 
-# dialog_menu_text selects the key for the item whose displayed text matches.
+# A single triple answers one screen directly, with -r regex title matching.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Slackware Linux Setup (version 3.4)' 'TYPE: menu' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer menu -r "Slackware Linux Setup \(version .*\)" ADDSWAP >/dev/null
+assert_eq "dialog/answer-single-regex" "ADDSWAP" "$(cat "$case_tmp/answers")"
+
+# dialog_answer -d selects the key for the item whose displayed text matches.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -369,10 +383,10 @@ printf '%s\n' \
     'ITEM: 2 :: Install from a hard drive partition' \
     'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_menu_text "SOURCE MEDIA SELECTION" "CD-ROM" >/dev/null
+dialog_answer menu "SOURCE MEDIA SELECTION" -d "CD-ROM" >/dev/null
 assert_eq "dialog/menu-text" "1" "$(cat "$case_tmp/answers")"
 
-# dialog_menu_text -r matches item text as an extended regex.
+# dialog_answer -d -r matches item text as an extended regex.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -382,25 +396,8 @@ printf '%s\n' \
     'ITEM: 7 :: Most IDE-interface CD drives' \
     'RESPONSE: ' \
     >"$SERIAL_LOG"
-dialog_menu_text -r "Install from the Slackware CD-ROM" "IDE.*CD drives" >/dev/null
+dialog_answer menu "Install from the Slackware CD-ROM" -d -r "IDE.*CD drives" >/dev/null
 assert_eq "dialog/menu-text-regex" "7" "$(cat "$case_tmp/answers")"
-
-# dialog_answer_any -s matches keys as plain substrings.
-SERIAL_LINE=0
-: >"$case_tmp/answers"
-printf '%s\n' \
-    'TITLE: Network Configuration' 'TEXT: What is the netmask?' 'RESPONSE: ' \
-    'TITLE: Network Configuration' 'TEXT: What is the network address?' 'RESPONSE: ' \
-    'TITLE: Net Config' 'TEXT: Is this correct?' 'RESPONSE: ' \
-    >"$SERIAL_LOG"
-dialog_answer_any -s \
-    any "What is the network address?" "10.0.2.0" \
-    any "What is the netmask?" "255.255.255.0" \
-    any "Is this correct?" >/dev/null
-wait_status=$?
-assert_eq "dialog/answer-any-substring-status" "0" "$wait_status"
-assert_eq "dialog/answer-any-substring" "255.255.255.0
-10.0.2.0" "$(cat "$case_tmp/answers")"
 exec 2>&4 4>&-
 rm -rf "$case_tmp"
 
@@ -520,22 +517,22 @@ assert_eq "serial/stream-order-text" "beta" "$(cat "$serial_tmp/matched")"
 # shellcheck disable=SC2329 # Invoked indirectly by dialog helpers.
 serial_send() { printf '%s\n' "$1" >>"$serial_tmp/answers"; }
 printf 'TITLE: Serial Screen\nTYPE: menu\nRESPONSE: ' >>"$SERIAL_LOG"
-dialog_answer "Serial Screen" menu "picked" >/dev/null
+dialog_answer menu "Serial Screen" "picked" >/dev/null
 assert_eq "serial/dialog-answer" "picked" "$(cat "$serial_tmp/answers")"
 
 # Terminator matches must remain available for the caller's next wait.
 : >"$serial_tmp/answers"
 printf '\nTITLE: Confirm\nTYPE: yesno\nTEXT: Is this correct?\nRESPONSE: ' >>"$SERIAL_LOG"
-dialog_answer_any -s any "never asked" "unused" any "Is this correct?" >/dev/null
-dialog_answer "Confirm" yesno "y" >/dev/null
+dialog_answer any "never asked" "unused" yesno "Confirm" >/dev/null
+dialog_answer yesno "Confirm" "y" >/dev/null
 assert_eq "serial/terminator-preserved" "y" "$(cat "$serial_tmp/answers")"
 
-# dialog_case must only peek before its handler re-waits for the title.
+# dialog_answer must only peek before its handler re-waits for the title.
 : >"$serial_tmp/answers"
 printf '\nTITLE: Handled\nTYPE: menu\nRESPONSE: \nTITLE: Done\nRESPONSE: \n' >>"$SERIAL_LOG"
-# shellcheck disable=SC2329 # Invoked indirectly by dialog_case.
-case_serial_answer() { dialog_answer "$1" menu "handled"; }
-dialog_case menu "Handled" case_serial_answer any "Done" >/dev/null
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_serial_answer() { dialog_answer menu "$1" "handled"; }
+dialog_answer menu "Handled" -f case_serial_answer any "Done" >/dev/null
 assert_eq "serial/case-handler" "handled" "$(cat "$serial_tmp/answers")"
 
 # Echoed answers and CRLF output do not confuse serial matching.

@@ -1,4 +1,4 @@
-script_import ../dialog-setup.sh
+script_import ../pkgtool.sh
 
 screen_wait -l "boot:"
 kb_send_line ""
@@ -7,4 +7,4 @@ script_change_floppy root.img
 kb_press_key ret
 
 SETUP_SOURCE=/dev/hdb1
-dialog_setup
+pkgtool_setup
