@@ -75,12 +75,10 @@ pkgtool_setup_step() {
 # Select verbose install mode from the setup main menu when the release exposes
 # it there. Slackware 3.0 otherwise stays in QUICK mode and ignores tagfiles.
 pkgtool_select_install_mode() {
-    if [ -z "$INSTALL_MODE" ]; then
-        pkgtool_setup_step ADDSWAP
-        return
+    if [ -n "$INSTALL_MODE" ]; then
+        pkgtool_setup_step QUICK
+        dialog_answer menu "CHANGE INSTALL MODE" "$INSTALL_MODE"
     fi
-    pkgtool_setup_step QUICK
-    dialog_answer menu "CHANGE INSTALL MODE" "$INSTALL_MODE"
     pkgtool_setup_step ADDSWAP
 }
 
@@ -122,42 +120,25 @@ pkgtool_mount_fat() {
         -x yesno "CONTINUE?" yes
 }
 
-pkgtool_select_manual_cdrom() {
-    dialog_answer menu -r "$1" manual
-}
-
-# Answer whichever CD-ROM device menu this version raises with SETUP_SOURCE.
-pkgtool_select_cdrom_device() {
-    dialog_answer menu -r "$1" "$SETUP_SOURCE"
-}
-
-# Decline further source prompts once setup reports the drive it is using.
-pkgtool_keep_cdrom() {
-    dialog_answer yesno -r "$1" no
-}
-
-# Choose the normal installation method from the CD.
-pkgtool_select_install_type() {
-    dialog_answer menu -r "$1" slakware
-}
-
 # Select the IDE CD-ROM drive as the Slackware package source. Versions differ
 # in which detection screens appear (3.6 auto-scans and skips straight to the
 # installation type menu), so one dispatch answers whichever subset shows up
-# and the installation type menu terminates it.
+# and the CONTINUE confirmation terminates it.
 pkgtool_select_source() {
 	if [[ $SETUP_SOURCE == "/dev/hdc" ]]; then
 		dialog_answer -l "source selection" \
 			menu "SOURCE MEDIA SELECTION" -d "CD-ROM" \
 			menu "Install from the Slackware CD-ROM" -d -r "(IDE.*CD drives|ATAPI/IDE CD drives)" \
-			menu "SCAN FOR CD-ROM DRIVE?" -f pkgtool_select_manual_cdrom \
-			menu "SELECT IDE DEVICE" -f pkgtool_select_cdrom_device \
-			menu "MANUAL CD-ROM DEVICE SELECTION" -f pkgtool_select_cdrom_device \
-			yesno -r "USING CD-ROM DRIVE:.*" -f pkgtool_keep_cdrom \
-			-x menu "Pick your installation method" -f pkgtool_select_install_type \
-			-x menu "CHOOSE INSTALLATION TYPE" -f pkgtool_select_install_type \
-			yesno "CONTINUE?"
-	elif [[ $SETUP_SOURCE == "$FAT_PARTITION" ]]; then
+			menu "SCAN FOR CD-ROM DRIVE?" manual \
+			menu "SELECT IDE DEVICE" "$SETUP_SOURCE" \
+			menu "MANUAL CD-ROM DEVICE SELECTION" "$SETUP_SOURCE" \
+			yesno -r "USING CD-ROM DRIVE:.*" no \
+			menu "Pick your installation method" slakware \
+			menu "CHOOSE INSTALLATION TYPE" slakware \
+			-x yesno "CONTINUE?" yes
+		return
+	fi
+	if [[ $SETUP_SOURCE == "$FAT_PARTITION" ]]; then
 		dialog_answer menu "SOURCE MEDIA SELECTION" 4 # Hard drive partitition
 		dialog_answer inputbox "INSTALL FROM THE CURRENT FILESYSTEM" "$FAT_MOUNT/packages"
 	else
@@ -168,15 +149,15 @@ pkgtool_select_source() {
 
 # Select the Slackware package sets to install, using custom tagfiles.
 pkgtool_select_sets() {
+    local mode="default tagfiles"
+
+    [ -z "$TAGFILE_PATH" ] || mode="custom path"
     dialog_answer \
         checklist -r "(PACKAGE |SOFTWARE )?SERIES SELECTION" "$PACKAGE_SETS" \
-        -x yesno "CONTINUE?" yes
-    if [ -n "$TAGFILE_PATH" ]; then
-        dialog_answer menu "SELECT PROMPTING MODE" -d "custom path"
+        yesno "CONTINUE?" yes \
+        -x menu "SELECT PROMPTING MODE" -d "$mode"
+    [ -z "$TAGFILE_PATH" ] ||
         dialog_answer inputbox "PROVIDE A CUSTOM PATH TO YOUR TAGFILES" "$TAGFILE_PATH"
-    else
-        dialog_answer menu "SELECT PROMPTING MODE" -d "default tagfiles"
-    fi
 }
 
 # The functions below are dialog_answer -f handlers for post-install
@@ -184,31 +165,23 @@ pkgtool_select_sets() {
 
 # Install LILO to the target disk MBR, handling the optional append= screen.
 pkgtool_install_lilo() {
-    local lilo_title="LILO INSTALLATION"
+    local lilo_title=$1
 
-    case "$1" in
-    "INSTALL LILO")
+    if [ "$1" = "INSTALL LILO" ]; then
         dialog_answer menu "$1" expert
         lilo_title="EXPERT LILO INSTALLATION"
-        dialog_answer menu "$lilo_title" Begin
-        ;;
-    *)
-        lilo_title=$1
-        dialog_answer menu "$lilo_title" Begin
-        ;;
-    esac
-    dialog_answer \
+    fi
+    dialog_answer -l "LILO installation" \
+        menu "$lilo_title" Begin \
         inputbox -r "OPTIONAL (LILO )?append=.* LINE" "" \
         menu "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?" "$LILO_FRAMEBUFFER" \
-        menu "SELECT LILO TARGET LOCATION"
-    dialog_answer menu "SELECT LILO TARGET LOCATION" MBR
-    dialog_answer \
+        menu "SELECT LILO TARGET LOCATION" MBR \
         inputbox "CONFIRM LOCATION TO INSTALL LILO" "$TARGET_DISK" \
-        -x menu -r "CHOOSE LILO (DELAY|TIMEOUT)" None
-    dialog_answer menu "$lilo_title" Linux
-    dialog_answer inputbox "SELECT LINUX PARTITION" "$LINUX_PARTITION"
-    dialog_answer inputbox "SELECT PARTITION NAME" "$LINUX_PARTITION_NAME"
-    dialog_answer menu "$lilo_title" Install
+        menu -r "CHOOSE LILO (DELAY|TIMEOUT)" None \
+        menu "$lilo_title" Linux \
+        inputbox "SELECT LINUX PARTITION" "$LINUX_PARTITION" \
+        inputbox "SELECT PARTITION NAME" "$LINUX_PARTITION_NAME" \
+        -x menu "$lilo_title" Install
 }
 
 # Configure TCP/IP with NET_* values; prompt order varies by version. 9.0

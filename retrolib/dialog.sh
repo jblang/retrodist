@@ -160,8 +160,7 @@ dialog_answer_desc() {
     serial_prompt "RESPONSE:" "$item_key"
 }
 
-# Parses the alternative triples and optional trailing terminator pair into
-# dialog_answer's arrays and terminator variables (dynamic scope).
+# Parses the alternative triples into dialog_answer's arrays (dynamic scope).
 dialog_answer_parse() {
     local key type answer mode matcher item_matcher terminate_next
 
@@ -170,17 +169,6 @@ dialog_answer_parse() {
         if [ "$1" = "-x" ]; then
             terminate_next=true
             shift
-        elif [ $# -eq 2 ] || { [ $# -eq 3 ] && [ "$2" = "-r" ]; }; then
-            terminator_type=$1
-            [ -n "$terminator_type" ] || die "$usage"
-            shift
-            if [ "$1" = "-r" ]; then
-                terminator_matcher=serial_contains_regex
-                shift
-            fi
-            terminator=$1
-            shift
-            continue
         fi
         [ $# -ge 3 ] || die "$usage"
         type=$1
@@ -221,15 +209,12 @@ dialog_answer_parse() {
     done
 }
 
-# Rebuilds the pending quads from the terminator and the unanswered
-# alternatives (dynamic scope of dialog_answer).
+# Rebuilds the pending quads from the unanswered alternatives (dynamic scope
+# of dialog_answer).
 dialog_answer_pending() {
     local i
 
     pending=()
-    if [ -n "$terminator" ]; then
-        pending+=("$terminator_matcher" "$terminator_type" "$terminator" 255)
-    fi
     for ((i = 0; i < count; i++)); do
         [ "${answered[$i]}" = false ] || continue
         pending+=("${matchers[$i]}" "${types[$i]}" "${keys[$i]}" "$i")
@@ -242,14 +227,11 @@ dialog_answer_pending() {
 #   -d ANSWER matches on menu item description and sends the matching key
 #   -r before a TITLE or description matches it as an extended regex
 #   -x before a triple answers that screen and then returns
-#   a trailing TYPE [-r] TITLE pair is matched, left unanswered, and exits
 #   -l LABEL logs entry and exit; without it nothing is logged
-# Usage: dialog_answer [-l LABEL] [-x] TYPE [-r] TITLE [-f | -d [-r]] ANSWER \
-#        [...] [TERMINATOR_TYPE [-r] TERMINATOR]
+# Usage: dialog_answer [-l LABEL] [-x] TYPE [-r] TITLE [-f | -d [-r]] ANSWER ...
 dialog_answer() {
-    local usage="dialog_answer requires [-l LABEL] [-x] TYPE [-r] TITLE [-f | -d [-r]] ANSWER ... [TERMINATOR_TYPE [-r] TERMINATOR]"
+    local usage="dialog_answer requires [-l LABEL] [-x] TYPE [-r] TITLE [-f | -d [-r]] ANSWER ..."
     local label=''
-    local terminator='' terminator_type='' terminator_matcher=text_contains_line
     local keys=() types=() answers=() modes=() matchers=() item_matchers=() answered=() terminal=()
     local pending=() count i
 
@@ -263,22 +245,18 @@ dialog_answer() {
     [ "$count" -gt 0 ] || die "$usage"
 
     # A lone triple needs no alternative dispatch; match the screen directly.
-    if [ "$count" -eq 1 ] && [ -z "$terminator" ]; then
+    if [ "$count" -eq 1 ]; then
         dialog_answer_alt 0
         return
     fi
 
-    [ -n "$terminator" ] || [[ " ${terminal[*]} " = *" true "* ]] || die "$usage"
+    [[ " ${terminal[*]} " = *" true "* ]] || die "$usage"
 
     [ -z "$label" ] || log_write "🔀" "Answering $label questions with $count alternatives"
     while :; do
         dialog_answer_pending
         dialog_wait_typed_alternative "${pending[@]}"
         i=$?
-        if [ "$i" -eq 255 ]; then
-            [ -z "$label" ] || log_write "🔀" "Exiting $label questions leaving \"$terminator\" unanswered"
-            return 0
-        fi
         dialog_answer_alt "$i"
         answered[i]=true
         if [ "${terminal[$i]}" = true ]; then

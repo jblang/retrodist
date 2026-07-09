@@ -228,7 +228,7 @@ SERIAL_LOG=$case_tmp/log
 serial_send() { printf '%s\n' "$1" >>"$case_tmp/answers"; }
 exec 4>&2 2>/dev/null
 
-# Screens are answered in stream order; the terminator remains unanswered.
+# Screens are answered in stream order; unmatched alternatives stay unanswered.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
 printf '%s\n' \
@@ -239,10 +239,9 @@ printf '%s\n' \
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
 case_echo_title() { dialog_answer any "$1" "$1"; }
 dialog_answer \
-    any "FIRST" -f case_echo_title \
+    -x any "FIRST" -f case_echo_title \
     any "SECOND" -f case_echo_title \
-    any "NEVER ASKED" -f case_echo_title \
-    any "DONE" >/dev/null
+    any "NEVER ASKED" -f case_echo_title >/dev/null
 wait_status=$?
 assert_eq "dialog/case-status" "0" "$wait_status"
 assert_eq "dialog/case-out-of-order" "SECOND
@@ -251,7 +250,7 @@ FIRST" "$(cat "$case_tmp/answers")"
 # dialog_answer directly answers matching TYPE TITLE ANSWER triples.
 SERIAL_LINE=0
 : >"$case_tmp/answers"
-dialog_answer any "FIRST" "one" any "SECOND" "two" any "DONE" >/dev/null
+dialog_answer -x any "FIRST" "one" any "SECOND" "two" >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-status" "0" "$wait_status"
 assert_eq "dialog/answer-out-of-order" "two
@@ -296,8 +295,8 @@ printf '%s\n' \
     'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
 dialog_answer \
-    msgbox "SWAP SPACE CONFIGURED" ok \
-    msgbox "DONE" >/dev/null
+    -x msgbox "SWAP SPACE CONFIGURED" ok \
+    msgbox "DONE" unused >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-textbox-status" "0" "$wait_status"
 assert_eq "dialog/answer-textbox" "ok" "$(cat "$case_tmp/answers")"
@@ -314,7 +313,7 @@ printf '%s\n' \
 case_answer_one() { dialog_answer any "$1" "one"; }
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
 case_answer_two() { dialog_answer any "$1" "two"; }
-dialog_answer any "REPEAT" -f case_answer_one any "REPEAT" -f case_answer_two any "DONE" >/dev/null
+dialog_answer any "REPEAT" -f case_answer_one -x any "REPEAT" -f case_answer_two >/dev/null
 assert_eq "dialog/case-repeat" "one
 two" "$(cat "$case_tmp/answers")"
 
@@ -331,8 +330,7 @@ case_answer_yesno() { dialog_answer yesno "$1" "no"; }
 case_answer_menu() { dialog_answer menu "$1" "no modem"; }
 dialog_answer \
     yesno "MODEM CONFIGURATION" -f case_answer_yesno \
-    menu "MODEM CONFIGURATION" -f case_answer_menu \
-    msgbox "DONE" >/dev/null
+    -x menu "MODEM CONFIGURATION" -f case_answer_menu >/dev/null
 assert_eq "dialog/case-type" "no modem" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -x runs the marked handler and then returns.
@@ -358,8 +356,8 @@ printf '%s\n' \
     'TITLE: DONE' 'TYPE: msgbox' 'RESPONSE: ' \
     >"$SERIAL_LOG"
 dialog_answer \
-    menu -r "FORMAT PARTITION( .*)?" Format \
-    msgbox "DONE" >/dev/null
+    -x menu -r "FORMAT PARTITION( .*)?" Format \
+    msgbox "DONE" unused >/dev/null
 wait_status=$?
 assert_eq "dialog/answer-regex-status" "0" "$wait_status"
 assert_eq "dialog/answer-regex-key" "Format" "$(cat "$case_tmp/answers")"
@@ -520,19 +518,12 @@ printf 'TITLE: Serial Screen\nTYPE: menu\nRESPONSE: ' >>"$SERIAL_LOG"
 dialog_answer menu "Serial Screen" "picked" >/dev/null
 assert_eq "serial/dialog-answer" "picked" "$(cat "$serial_tmp/answers")"
 
-# Terminator matches must remain available for the caller's next wait.
-: >"$serial_tmp/answers"
-printf '\nTITLE: Confirm\nTYPE: yesno\nTEXT: Is this correct?\nRESPONSE: ' >>"$SERIAL_LOG"
-dialog_answer any "never asked" "unused" yesno "Confirm" >/dev/null
-dialog_answer yesno "Confirm" "y" >/dev/null
-assert_eq "serial/terminator-preserved" "y" "$(cat "$serial_tmp/answers")"
-
 # dialog_answer must only peek before its handler re-waits for the title.
 : >"$serial_tmp/answers"
 printf '\nTITLE: Handled\nTYPE: menu\nRESPONSE: \nTITLE: Done\nRESPONSE: \n' >>"$SERIAL_LOG"
 # shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
 case_serial_answer() { dialog_answer menu "$1" "handled"; }
-dialog_answer menu "Handled" -f case_serial_answer any "Done" >/dev/null
+dialog_answer -x menu "Handled" -f case_serial_answer any "Done" unused >/dev/null
 assert_eq "serial/case-handler" "handled" "$(cat "$serial_tmp/answers")"
 
 # Echoed answers and CRLF output do not confuse serial matching.

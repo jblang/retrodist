@@ -136,9 +136,8 @@ Slackware 1.1.2 through 9.0 (`slackware/pkgtool.sh`) replaces the guest's
 `dialog` binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
 `retrolib/dialog.sh`: `dialog_answer` takes `TYPE TITLE ANSWER` triples. A
 single triple answers one expected screen; multiple triples answer screens
-that vary by version in stream order,
-ended by an unanswered `TYPE TITLE` terminator pair or by a triple prefixed
-with `-x`, which answers that screen and then returns. Prefix a TITLE with
+that vary by version in stream order, ended by a triple prefixed with `-x`,
+which answers that screen and then returns. Prefix a TITLE with
 `-r` to match it as an extended regex, and replace ANSWER with `-f HANDLER` to
 run a handler function that receives the matched title and answers the screen
 itself. Use `any` for the type only when the screen has no `TYPE:` line.
