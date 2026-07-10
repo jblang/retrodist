@@ -117,7 +117,7 @@ serial_send ""
 
 Useful primitives:
 
-- `screen_wait [-l] TEXT [TEXT ...]`
+- `screen_wait [-l | -r] [-t SECONDS] TEXT [TEXT ...]`
 - `serial_shell [--no-wait] COMMAND [COMMAND ...]`
 - `serial_wait [-l] TEXT [TEXT ...]`
 - `serial_send TEXT`
@@ -132,8 +132,8 @@ has reached a shell prompt, then match its output with `serial_wait` and
 answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
 non-default shell prompt text.
 
-Slackware 1.1.2 through 9.0 (`slackware/pkgtool.sh`) replaces the guest's
-`dialog` binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
+Slackware 1.1.2 and up (`slackware/pkgtool.sh`) replace the guest's `dialog`
+binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
 `retrolib/dialog.sh`: `dialog_answer` takes `TYPE TITLE ANSWER` triples. A
 single triple answers one expected screen; multiple triples answer screens
 that vary by version in stream order, ended by a triple prefixed with `-x`,
@@ -143,6 +143,10 @@ run a handler function that receives the matched title and answers the screen
 itself. Use `any` for the type only when the screen has no `TYPE:` line.
 `-l LABEL` logs entry and exit of the alternative set under that label;
 without it nothing is logged.
+Use `-i ITEM` after a title to require a menu item line containing ITEM before
+that alternative matches (`-i -r` for a regex match).
+Use `-n` where an alternative should match without sending a response; it
+takes no answer argument.
 For menus whose item keys vary by version, replace ANSWER with `-d TEXT` to
 send the key of the item whose displayed text contains TEXT (`-d -r` for a
 regex match).

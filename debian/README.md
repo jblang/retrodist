@@ -32,8 +32,34 @@ own instructions. When prompted to change disks, use `qmp change-image`.
 
 ## Version Notes
 
-- `0.91`: Fully scripted, including post-boot package installation and configuration.
-- `1.1`: Uses a QEMU NE2000 ISA NIC.
+- `0.91`: Installs a serial mouse on `/dev/cua2`, configured for X11.
+- `1.1`: Uses a QEMU NE2000 ISA NIC, loaded as the `ne` module.
 - `1.2` and `1.3`: Use the kernel's built-in PCnet driver for the default QEMU PCI NIC.
 
-For implementation details on the shared Debian installer scripts, see [autoinst/install/README.md](../autoinst/install/README.md).
+## Installer Automation
+
+Every release is installed by driving its own `dinstall` from the host. The
+disk is partitioned beforehand, because otherwise `dinstall` shells out to an
+interactive `fdisk` or `cfdisk`.
+
+`1.1` through `1.3` use a dialog-based `dinstall`. The guest's `dialog` binary
+is replaced with the serial adapter, so every installer screen is answered over
+the serial port. The shared driver is [dinstall.sh](dinstall.sh), which walks
+the main menu by matching its `Next` entry, so one menu tree covers all three
+releases and each `script.sh` only sets its own overrides. Debian's own
+first-boot configuration (root password, user account, `dselect`) is then
+scripted on the console, and `autoconf.sh` runs afterward.
+
+`0.91`'s `dinstall` is a prompt-and-response shell script, so
+[0.91/infomagic/script.sh](0.91/infomagic/script.sh) answers it over the serial
+shell instead, replacing `tput` with a no-op first so the prompts arrive as
+plain lines. That `dinstall` installs no boot loader and no packages, so two
+standalone scripts in [../autoinst/deb091](../autoinst/deb091) fill the gaps.
+They take arguments rather than reading the install environment:
+
+- `lilo.sh ROOTDEV ROOTMOUNT`: runs `rdev` on the installed kernel, rewrites
+  `lilo.conf`, and installs LILO. Run from `script.sh` once `dinstall` exits.
+- `pkginst.sh INSTMOUNT`: installs every `.deb` under `$INSTMOUNT/packages` with
+  `zcat | cpio`, runs `fixperms` when metadata is present, then runs the
+  non-interactive `.inst` scripts from `/var/adm/dpkg/inst`. Run from
+  `autoconf.sh`.

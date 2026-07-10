@@ -210,6 +210,24 @@ assert_eq "script/wait-line-sequence-output" \
 ⏳ second line🖥️  second line[K" \
     "$wait_output"
 
+# --- screen regex matcher ----------------------------------------------------
+# The installed-system shell prompt is "\h\$", so it is a bare "#" before the
+# hostname is set and "HOST#" afterwards. Anchors apply per line, and screen
+# lines are padded with trailing spaces.
+shell_prompt='^[^[:space:]]*# *$'
+assert_ok "script/contains-regex-bare-prompt" text_contains_regex "#   " "$shell_prompt"
+assert_ok "script/contains-regex-host-prompt" text_contains_regex "rex#" "$shell_prompt"
+assert_fail "script/contains-regex-prose" text_contains_regex "Press # to continue" "$shell_prompt"
+
+wait_screen="Have fun!
+rex#"
+screen_wait -r "$shell_prompt" >/dev/null
+assert_eq "script/wait-regex-status" "0" "$?"
+
+wait_screen="no prompt here"
+screen_wait -t 0.1 -r "$shell_prompt" >/dev/null
+assert_eq "script/wait-regex-timeout" "1" "$?"
+
 # --- serial regex matcher ----------------------------------------------------
 # Patterns are extended regexes (grep -E), so escaped parens match literally,
 # matching the style used by dialog_answer -r callers.
@@ -332,6 +350,49 @@ dialog_answer \
     yesno "MODEM CONFIGURATION" -f case_answer_yesno \
     -x menu "MODEM CONFIGURATION" -f case_answer_menu >/dev/null
 assert_eq "dialog/case-type" "no modem" "$(cat "$case_tmp/answers")"
+
+# dialog_answer -i dispatches same-title menus by required full item text.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Debian GNU/Linux Installation Main Menu' \
+    'TYPE: menu' \
+    'ITEM: Next :: Configure the Base System' \
+    'ITEM: M :: Configure the Base System' \
+    'ITEM: N :: Configure the Network' \
+    'RESPONSE: ' \
+    >"$SERIAL_LOG"
+# shellcheck disable=SC2329 # Invoked indirectly by dialog_answer.
+case_answer_next() { dialog_answer menu "$1" Next; }
+dialog_answer \
+    menu "Debian GNU/Linux Installation Main Menu" -i "Next :: Configure the Network" -f case_answer_next \
+    -x menu "Debian GNU/Linux Installation Main Menu" -i "Next :: Configure the Base System" -f case_answer_next >/dev/null
+assert_eq "dialog/case-item" "Next" "$(cat "$case_tmp/answers")"
+
+# dialog_answer -i -r matches required full item text as an extended regex.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+printf '%s\n' \
+    'TITLE: Debian GNU/Linux Installation Main Menu' \
+    'TYPE: menu' \
+    'ITEM: Next :: Initialize and Activate a Swap Partition' \
+    'ITEM: C :: Initialize and Activate a Swap Partition' \
+    'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer \
+    -x menu "Debian GNU/Linux Installation Main Menu" -i -r "Next :: Initialize and Activate .*Swap" -f case_answer_next >/dev/null
+assert_eq "dialog/case-item-regex" "Next" "$(cat "$case_tmp/answers")"
+
+# dialog_answer -n matches without sending a response and takes no answer.
+SERIAL_LINE=0
+: >"$case_tmp/answers"
+SERIAL_MATCHED_TEXT=
+printf '%s\n' \
+    'TITLE: WAIT HERE' 'TYPE: menu' 'RESPONSE: ' \
+    >"$SERIAL_LOG"
+dialog_answer -x menu "WAIT HERE" -n >/dev/null
+assert_eq "dialog/no-answer" "" "$(cat "$case_tmp/answers")"
+assert_eq "dialog/no-answer-match" "TYPE: menu" "$SERIAL_MATCHED_TEXT"
 
 # dialog_answer -x runs the marked handler and then returns.
 SERIAL_LINE=0

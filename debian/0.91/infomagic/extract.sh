@@ -9,5 +9,3 @@ EXTRACT_PACKAGES=$DISTDIR/packages
 extract_install_files
 gunzip *.gz
 retro_link_boot_root bootdisk
-mv basedsk1 fat/basedsk1.img
-mv basedsk2 fat/basedsk2.img

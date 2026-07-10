@@ -5,4 +5,6 @@ EXTRACT_ROOT_IMAGE=$DISKDIR/root.bin
 EXTRACT_EXTRA_IMAGES=("$DISKDIR"/base14-*.bin)
 EXTRACT_FAT_FILES=("$DISKDIR/base1_1.tgz")
 extract_install_files
-debian_extract_fat_image boot.img fat/bootflop LINUX INSTALL.SH RDEV.SH SYS_MAP.GZ MODULES.TGZ
+# The boot floppy is only staged for MODULES.TGZ, which supplies serial.o.
+debian_extract_fat_image boot.img fat/bootflop MODULES.TGZ
+debian_extract_fat_serial fat/bootflop/modules.tgz

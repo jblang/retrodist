@@ -420,8 +420,10 @@ Guest serial and parallel sockets:
 
 - `/dev/ttyS0`: `qemu.d/ttyS0.sock`
 - `/dev/ttyS1`: `qemu.d/ttyS1.sock`
-- `/dev/ttyS2`: `qemu.d/ttyS2.sock`
-- `/dev/ttyS3`: `qemu.d/ttyS3.sock`
+- `/dev/ttyS2`: `QEMU_SERIAL_AUX`, unused (`null`) unless a guest claims it,
+  as Debian 0.91 does for its serial mouse (`QEMU_SERIAL_AUX=msmouse`)
+- `/dev/ttyS3`: `qemu.d/ttyS3.in` and `.out`, the scripting pipe used by the
+  serial shell and the dialog adapter during installation
 - `/dev/lp0`: `qemu.d/lp0.sock`
 
 Connect to a serial socket with `minicom -D 'unix#ttyS0.sock'`. Connect to the
@@ -503,8 +505,9 @@ that command.
 
 Timing variables:
 
-- `WAIT_INTERVAL` — polling interval in seconds. Default: `1`. Wait helpers do
-  not time out; use a QEMU-level stop or interrupt if an install stalls.
+- `WAIT_INTERVAL` — polling interval in seconds. Default: `0.1`. Wait helpers
+  only time out when given `-t SECONDS`; otherwise use a QEMU-level stop or
+  interrupt if an install stalls.
 
 Screen, keyboard, and serial APIs are intentionally separate. `screen_*`
 helpers scrape VGA text memory over QMP and never read the serial pipe.
@@ -513,9 +516,11 @@ pipe. Serial helpers live in [`serial.sh`](#serialsh).
 
 Functions:
 
-- `screen_wait [-l] TEXT [TEXT ...]`
+- `screen_wait [-l | -r] [-t SECONDS] TEXT [TEXT ...]`
   Polls VGA text memory until each `TEXT` appears anywhere on screen, in the
-  argument order. Pass `-l` to match trimmed full lines instead.
+  argument order. Pass `-l` to match trimmed full lines instead, or `-r` to
+  match each `TEXT` as an extended regex whose `^` and `$` anchor to a line.
+  Pass `-t SECONDS` to return 1 when the text never appears.
 
 - `kb_press_key KEY [COUNT]`
   Sends one QEMU sendkey token (e.g. `ret`, `spc`, `ctrl-alt-delete`), repeated

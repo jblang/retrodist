@@ -15,24 +15,6 @@ sls_sysinstall() {
     _sls_sysinstall "$@"
 }
 
-# Load the Debian 1.x base installer.
-debian_install_base() {
-    . "$AUTOINST_D/install/debian.sh"
-    _debian_install_base "$@"
-}
-
-# Load the Debian 0.91 base installer.
-debian_091_install_base() {
-    . "$AUTOINST_D/install/deb091.sh"
-    _debian_091_install_base "$@"
-}
-
-# Load the Debian 0.91 package installer.
-debian_091_install_packages() {
-    . "$AUTOINST_D/install/deb091.sh"
-    _debian_091_install_packages "$@"
-}
-
 # Load the module autoloading configurator.
 mod_config() {
     . "$AUTOINST_D/config/modules.sh"

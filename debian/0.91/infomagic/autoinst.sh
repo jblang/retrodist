@@ -1,4 +1,0 @@
-DISK_SWAP_MB=64
-disk_init
-
-debian_091_install_base

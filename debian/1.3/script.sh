@@ -1,10 +1,12 @@
+script_import ../dinstall.sh
+
 screen_wait -l "boot:"
 kb_send_line ""
-screen_wait "Select Color or Monochrome"
-kb_press_key alt-f2
-screen_wait "Please press Enter to activate this console."
-kb_press_key ret
-serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-serial_wait -l "ATTN: Press ENTER to reboot."
-script_set_boot c
-serial_send ""
+
+NET_HOSTNAME=bo
+# 1.3 reads the drivers from the mounted medium and logs out at the end of
+# first boot.
+DRIVER_FLOPPY=
+DINSTALL_RELOGIN=true
+
+dinstall_setup

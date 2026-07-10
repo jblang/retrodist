@@ -52,6 +52,20 @@ debian_extract_fat_image() {
     done
 }
 
+# Stages serial.o from a Debian MODULES.TGZ onto the FAT tree, because the boot
+# kernels ship the serial driver as a module install scripts have to insmod.
+debian_extract_fat_serial() {
+    local modules=$1 tmp status=0
+    tmp=$(mktemp -d) || return 1
+    if tar xzf "$modules" -C "$tmp"; then
+        cp "$tmp"/lib/modules/*/misc/serial.o fat/serial.o || status=1
+    else
+        status=1
+    fi
+    rm -rf "$tmp"
+    return "$status"
+}
+
 # Clears EXTRACT_* control variables after an extraction pass.
 extract_install_files_reset() {
     EXTRACT_SOURCE=

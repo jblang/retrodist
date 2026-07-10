@@ -1,10 +1,6 @@
-debian_091_install_packages
+sh "$AUTOINST_D/deb091/pkginst.sh" "$INSTMOUNT"
 
 tty_config
 
-NET_HOSTNAME=debra
-NET_HOSTNAME_INIT_SET=1
-net_config
-
-X11_MOUSEDEV=/dev/cua1
+X11_MOUSEDEV=/dev/cua2
 x11_config

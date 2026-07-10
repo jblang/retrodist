@@ -29,6 +29,16 @@ text_contains_string() {
     grep -F -- "$text" <<<"$screen" >/dev/null
 }
 
+# Tests whether text contains a line matching the extended regex. Anchors in
+# the pattern match against individual lines, so ^ and $ mean line start/end.
+text_contains_regex() {
+    local screen pattern
+    screen=$1
+    pattern=$2
+
+    grep -E -- "$pattern" <<<"$screen" >/dev/null
+}
+
 # Tests whether text contains a trimmed line equal to expected text.
 text_contains_line() {
     local screen expected line trimmed_expected
@@ -48,8 +58,9 @@ text_contains_line() {
 }
 
 # Waits until VGA text memory contains expected screen text. By default, TEXT
-# matches anywhere on screen; pass -l to match trimmed full lines. Pass
-# -t SECONDS to return 1 instead of waiting forever when text never appears.
+# matches anywhere on screen; pass -l to match trimmed full lines, or -r to
+# match each TEXT as an extended regex. Pass -t SECONDS to return 1 instead of
+# waiting forever when text never appears.
 screen_wait() {
     local expected matcher=text_contains_string screen interval
     local timeout='' remaining=''
@@ -58,6 +69,10 @@ screen_wait() {
         case "$1" in
         -l)
             matcher=text_contains_line
+            shift
+            ;;
+        -r)
+            matcher=text_contains_regex
             shift
             ;;
         -t)
@@ -70,9 +85,9 @@ screen_wait() {
             ;;
         esac
     done
-    [ $# -gt 0 ] || die "screen_wait requires [-l] [-t SECONDS] TEXT [TEXT ...]"
+    [ $# -gt 0 ] || die "screen_wait requires [-l | -r] [-t SECONDS] TEXT [TEXT ...]"
 
-    interval=${WAIT_INTERVAL:-0.5}
+    interval=${WAIT_INTERVAL:-0.1}
     for expected in "$@"; do
         printf "⏳ %s" "$expected"
         if [ -n "$timeout" ]; then
