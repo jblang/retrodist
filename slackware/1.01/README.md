@@ -31,3 +31,11 @@ When the zips in the `a1` directory are extracted, they display an ad for the Ch
 [chitaotao](https://archive.org/details/@chitaotao) uploaded [slackware101](https://archive.org/details/slackware101) to archive.org in December 2021.  This `official+sls` variant contains floppy images for the complete `a1-a13`, `t1-t3`, and `x1-x10` series as well as a hard drive image for an installed system.
 
 The files in the `a` series are identical to those from the official mirror, except that `a10` is missing `smail.tgz`.  However, the files from the `x` and `t` series are actually those from SLS 1.03.
+
+## Installation
+
+Run `retro install slackware/1.01/VARIANT` for an automated installation. The
+host-side serial driver partitions the disk, then runs and answers the original
+Slackware 1.01 [`doinstall`](../../reference/slackware/1.01/text/doinstall) and
+`syssetup` scripts. It installs the fullest set available on the selected
+media: A, A+X, or A+X+TeX.

@@ -11,3 +11,5 @@ done
 EXTRACT_BOOT_IMAGE=$TEMPDIR/a1.img
 EXTRACT_PACKAGES=$TEMPDIR/packages
 extract_install_files
+rm -rf fat/install
+mv fat/packages fat/install

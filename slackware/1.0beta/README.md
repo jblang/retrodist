@@ -28,4 +28,6 @@ XFree86 1.2 doesn't support the Cirrus Logic SVGA card emulated by QEMU, so it c
 
 ## Installation
 
-The autoinstall scripts for 1.01 also work with 1.0beta, and the manual installation procedure is similar too. See the [instructions](../1.01/README.md#installation) for 1.01.
+The serial-driven installation used for 1.01 also works with 1.0beta, and the
+manual installation procedure is similar. See the
+[instructions](../1.01/README.md#installation) for 1.01.

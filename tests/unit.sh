@@ -20,6 +20,8 @@ source "$REPO_ROOT/retrolib/fdisk.sh"
 source "$REPO_ROOT/retrolib/slackware.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/extract.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/slackware/sysinstall.sh"
 
 tests_run=0
 tests_failed=0
@@ -175,6 +177,217 @@ assert_eq "script/fdisk-range-default" "131 1015" "$(script_fdisk_parse_range "F
 assert_eq "script/fdisk-range-bracketed" "1 520" "$(script_fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK ([1]-520): ")"
 assert_fail "script/fdisk-range-answered" script_fdisk_parse_range "First cylinder (1-1015): 1"
 assert_fail "script/fdisk-range-missing" script_fdisk_parse_range "no fdisk prompt here"
+
+# --- Slackware sysinstall driver --------------------------------------------
+sysinstall_tmp=$(mktemp -d)
+mkdir -p "$sysinstall_tmp/fat/install"
+assert_eq "sysinstall/type-base" "1" "$(cd "$sysinstall_tmp" && slackware_sysinstall_type)"
+mkdir -p "$sysinstall_tmp/fat/install/x1"
+assert_eq "sysinstall/type-x" "2" "$(cd "$sysinstall_tmp" && slackware_sysinstall_type)"
+mkdir -p "$sysinstall_tmp/fat/install/t1"
+assert_eq "sysinstall/type-tex" "3" "$(cd "$sysinstall_tmp" && slackware_sysinstall_type)"
+rm -rf "$sysinstall_tmp"
+
+assert_ok "sysinstall/modem-1.01" serial_contains_regex \
+    "Do you have a modem (y/n)? " "$SLACKWARE_SYSINSTALL_MODEM_PROMPT"
+assert_ok "sysinstall/modem-beta" serial_contains_regex \
+    "do you have a modem (y/n)? " "$SLACKWARE_SYSINSTALL_MODEM_PROMPT"
+assert_ok "sysinstall/mouse-1.01" serial_contains_regex \
+    "Do you have a mouse (y/n)? " "$SLACKWARE_SYSINSTALL_MOUSE_PROMPT"
+assert_ok "sysinstall/mouse-beta" serial_contains_regex \
+    "do you have a mouse (y/n)? " "$SLACKWARE_SYSINSTALL_MOUSE_PROMPT"
+assert_ok "sysinstall/package-mode-beta" serial_contains_regex \
+    "Do you want to be prompted before packages are installed? (y/n): " \
+    "$SLACKWARE_SYSINSTALL_PACKAGE_MODE_PROMPT"
+
+# Boot-disk creation swaps in a fresh disposable 1.44 MB image.
+sysinstall_tmp=$(mktemp -d)
+assert_eq "sysinstall/bootdisk" "bootdisk.img:1474560" "$(
+    cd "$sysinstall_tmp" || exit 1
+    # shellcheck disable=SC2329 # Invoked indirectly by the boot-disk helper.
+    script_change_floppy() {
+        printf '%s:%s\n' "$1" "$(wc -c <"$1" | tr -d ' ')"
+    }
+    slackware_sysinstall_bootdisk
+)"
+rm -rf "$sysinstall_tmp"
+
+# Package questions can repeat any number of times, with an optional boot-disk
+# acknowledgement before syssetup's modem question terminates the loop.
+assert_eq "sysinstall/package-loop" "<y>
+<y>
+<bootdisk>
+<>
+<n>" "$(
+    sysinstall_statuses=(0 0 1 2)
+    sysinstall_i=0
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    serial_wait_alternative() {
+        local status=${sysinstall_statuses[$sysinstall_i]}
+        sysinstall_i=$((sysinstall_i + 1))
+        return "$status"
+    }
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    serial_send() { printf '<%s>\n' "$1"; }
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    slackware_sysinstall_bootdisk() { printf '<bootdisk>\n'; }
+    slackware_sysinstall_packages
+)"
+
+# 1.0beta offers a global prompt mode; declining installs all selected packages
+# without individual questions before continuing to boot disk creation.
+assert_eq "sysinstall/package-loop-beta" "<n>
+<bootdisk>
+<>
+<n>" "$(
+    sysinstall_statuses=(3 1 2)
+    sysinstall_i=0
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    serial_wait_alternative() {
+        local status=${sysinstall_statuses[$sysinstall_i]}
+        sysinstall_i=$((sysinstall_i + 1))
+        return "$status"
+    }
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    serial_send() { printf '<%s>\n' "$1"; }
+    # shellcheck disable=SC2329 # Invoked indirectly by the package driver.
+    slackware_sysinstall_bootdisk() { printf '<bootdisk>\n'; }
+    slackware_sysinstall_packages
+)"
+
+# --- Early Slackware configuration helpers ---------------------------------
+config_tmp=$(mktemp -d)
+mkdir -p "$config_tmp/etc/rc.d"
+printf '# original rc.modules\n' >"$config_tmp/etc/rc.d/rc.modules"
+(
+    ETCPATH="$config_tmp/etc"
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    MOD_ENABLE='ne  io=0x300 debug=1
+8390'
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/autoinst/config/modules.sh" >/dev/null
+    _mod_config >/dev/null
+)
+assert_eq "modules/backup" "# original rc.modules" \
+    "$(cat "$config_tmp/etc/rc.d/rc.modules~")"
+assert_eq "modules/slackware-direct" "# original rc.modules
+/sbin/modprobe ne io=0x300 debug=1
+/sbin/modprobe 8390" \
+    "$(cat "$config_tmp/etc/rc.d/rc.modules")"
+rm -rf "$config_tmp"
+
+config_tmp=$(mktemp -d)
+mkdir -p "$config_tmp/etc"
+printf '#s1:12345:respawn:/sbin/agetty 9600 ttyS1\n' >"$config_tmp/etc/inittab"
+printf 'CONSOLE /dev/console\nENV_SUPATH value\n' >"$config_tmp/etc/login.defs"
+printf 'console\n' >"$config_tmp/etc/securetty"
+(
+    ETCPATH="$config_tmp/etc"
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    TTY_DEV=ttyS0
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    TTY_ID=s0
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    TTY_RUNLEVELS=123456
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/autoinst/config/tty.sh" >/dev/null
+    _tty_config >/dev/null
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/autoinst/config/tty.sh" >/dev/null
+    _tty_config >/dev/null
+)
+assert_eq "tty/inittab-backup" \
+    "#s1:12345:respawn:/sbin/agetty 9600 ttyS1" \
+    "$(cat "$config_tmp/etc/inittab.orig")"
+assert_eq "tty/getty-count" "1" \
+    "$(grep -c '^s0:123456:respawn:/sbin/agetty 9600 ttyS0$' "$config_tmp/etc/inittab")"
+assert_eq "tty/login-defs" "#CONSOLE /dev/console
+ENV_SUPATH value" "$(cat "$config_tmp/etc/login.defs")"
+assert_eq "tty/login-defs-backup" "CONSOLE /dev/console
+ENV_SUPATH value" "$(cat "$config_tmp/etc/login.defs.orig")"
+assert_eq "tty/securetty" "console
+ttyS0" "$(cat "$config_tmp/etc/securetty")"
+assert_eq "tty/securetty-backup" "console" \
+    "$(cat "$config_tmp/etc/securetty.orig")"
+rm -rf "$config_tmp"
+
+config_tmp=$(mktemp -d)
+mkdir -p "$config_tmp/etc/rc.d"
+printf '# original rc.inet1\n' >"$config_tmp/etc/rc.d/rc.inet1"
+printf 'oldhost\n' >"$config_tmp/etc/HOSTNAME"
+(
+    ETCPATH="$config_tmp/etc"
+    NET_HOSTNAME=darkstar
+    NET_IPADDR=10.0.2.15
+    NET_NETMASK=255.255.255.0
+    NET_NETWORK=10.0.2.0
+    NET_BROADCAST=10.0.2.255
+    NET_GATEWAY=10.0.2.2
+    NET_NAMESERVER=10.0.2.3
+    NET_DOMAINNAME=retro.net
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    NET_ANCIENT_ROUTE=1
+    # shellcheck disable=SC2034 # Read by the sourced guest helper.
+    NET_ROUTE_PATH=/etc/route
+    NET_GATEWAY_HWADDR=
+    NET_NAMESERVER_HWADDR=
+    NET_IFCONFIG_PATH=
+    NET_ARP_PATH=
+    NET_HOSTNAME_INIT_SET=
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/autoinst/config/net.sh" >/dev/null
+    set +u
+    _net_config >/dev/null
+    set -u
+)
+assert_eq "net/1.01-hostname" "darkstar" "$(cat "$config_tmp/etc/HOSTNAME")"
+assert_eq "net/1.01-backup" "# original rc.inet1" \
+    "$(cat "$config_tmp/etc/rc.d/rc.inet1~")"
+# shellcheck disable=SC2016 # Match the literal variable in generated rc.inet1.
+assert_ok "net/1.01-route" grep -q '^/etc/route -n add \$NETWORK$' \
+    "$config_tmp/etc/rc.d/rc.inet1"
+assert_eq "net/1.01-resolver" "# domain retro.net
+# search retro.net
+nameserver 10.0.2.3" "$(cat "$config_tmp/etc/resolv.conf")"
+rm -rf "$config_tmp"
+
+config_tmp=$(mktemp -d)
+mkdir -p "$config_tmp/etc"
+printf '# stock rc.net\n' >"$config_tmp/etc/rc.net"
+printf '1.2.3.4\tdarkstar\n1.2.3.0\tnetwork\n1.2.3.1\trouter\n127.0.0.1\tlocalhost\n' \
+    >"$config_tmp/etc/hosts"
+# shellcheck disable=SC2034 # Assignments are read by the sourced guest helper.
+(
+    ETCPATH="$config_tmp/etc"
+    NET_HOSTNAME=darkstar
+    NET_IPADDR=10.0.2.15
+    NET_NETMASK=255.255.255.0
+    NET_NETWORK=10.0.2.0
+    NET_BROADCAST=10.0.2.255
+    NET_GATEWAY=10.0.2.2
+    NET_NAMESERVER=10.0.2.3
+    NET_DOMAINNAME=retro.net
+    NET_GATEWAY_HWADDR=
+    NET_NAMESERVER_HWADDR=
+    NET_IFCONFIG_PATH=
+    NET_ROUTE_PATH=
+    NET_ARP_PATH=
+    NET_HOSTNAME_INIT_SET=
+    NET_INIT_SCRIPT_PATH=
+    NET_RC_NET_PATH=
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/autoinst/config/net.sh" >/dev/null
+    set +u
+    _net_config >/dev/null
+    set -u
+)
+assert_eq "net/beta-host" "darkstar" "$(cat "$config_tmp/etc/host")"
+assert_eq "net/beta-domain" "retro.net" "$(cat "$config_tmp/etc/domain")"
+assert_eq "net/beta-hosts" $'10.0.2.15\tdarkstar\n10.0.2.0\tnetwork\n10.0.2.2\trouter\n127.0.0.1\tlocalhost' \
+    "$(cat "$config_tmp/etc/hosts")"
+assert_eq "net/beta-preserves-rc.net" "# stock rc.net" \
+    "$(cat "$config_tmp/etc/rc.net")"
+rm -rf "$config_tmp"
 
 wait_screen="ready"
 # shellcheck disable=SC2329 # Invoked indirectly by screen_wait.
@@ -848,6 +1061,7 @@ slakware/ap1/mc.tgz
 slakware/ap2/ghostscript.tgz
 EOF
 (
+    # shellcheck disable=SC2034 # Read by slackware_universe_from_iso.
     SLACKWARE_PKGLIST="$slack_iso_tmp/packages.txt"
     slackware_universe_from_iso
 ) >"$slack_iso_tmp/universe"

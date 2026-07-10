@@ -3,12 +3,6 @@
 . "$AUTOINST_D/logging.sh"
 . "$AUTOINST_D/diskutil.sh"
 
-# helper functions that load helper scripts
-slackware_sysinstall() {
-    . "$AUTOINST_D/install/sysinst.sh"
-    _slackware_sysinstall "$@"
-}
-
 # Load the SLS sysinstall installer.
 sls_sysinstall() {
     . "$AUTOINST_D/install/sysinst.sh"
@@ -37,10 +31,4 @@ tty_config() {
 x11_config() {
     . "$AUTOINST_D/config/x11.sh"
     _x11_config "$@"
-}
-
-# Load the mail configurator.
-mail_config() {
-    . "$AUTOINST_D/config/mail.sh"
-    _mail_config "$@"
 }

@@ -66,8 +66,7 @@ $X11_MOUSETYPE "$X11_MOUSEDEV"
 
 # Cirrus SVGA mode selection.
 VGA256
-  Chipset   "clgd5426"
-  Option	"noaccel"
+  Chipset   "clgd5422"
   Modes     $X11_MODES
 
 # Video mode database.

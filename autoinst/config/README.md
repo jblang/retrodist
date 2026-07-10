@@ -128,19 +128,3 @@ Behavior:
 - Saves first backups as `.orig`.
 
 Warnings do not stop later `autoconf.sh` helpers.
-
-## `mail.sh`
-
-Wrapper: `mail_config`
-
-Installs a basic sendmail config only when sendmail exists and
-`$ETCPATH/sendmail.cf` is missing.
-
-Candidate files, in order:
-
-1. `/usr/src/sendmail/linux.smtp.cf`
-2. `/usr/src/sendmail/cf/obj/tcpproto.cf`
-3. `/usr/src/sendmail/linux.uucp.cf`
-4. `/usr/src/sendmail/cf/obj/uucpproto.cf`
-
-If no candidate exists, nothing is installed.

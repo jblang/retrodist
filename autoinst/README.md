@@ -68,7 +68,7 @@ At runtime it:
 
 The distro `autoinst.sh` manifest is responsible for setting install-time
 variables and calling wrapper functions such as `disk_init`,
-`debian_install_base`, `slackware_sysinstall`, or `sls_sysinstall`.
+`debian_install_base`, or `sls_sysinstall`.
 
 ## `autoconf.sh`
 
@@ -90,7 +90,7 @@ At runtime it:
 
 The distro `autoconf.sh` manifest is responsible for setting configuration
 variables and calling wrappers such as `mod_config`, `net_config`,
-`mail_config`, and `x11_config`.
+and `x11_config`.
 
 ## `dialog.sh`
 

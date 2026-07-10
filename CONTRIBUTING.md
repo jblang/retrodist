@@ -12,7 +12,7 @@ inside old installer environments, see [autoinst/README.md](autoinst/README.md).
 3. Add `extract.sh` to stage install media into `qemu.d/`.
 4. Add `qemu.sh` to select an era-appropriate QEMU profile and hardware.
 5. Add `script.sh` when the install can be driven through QMP.
-6. Add `autoinst.sh` when supporting unattended install.
+6. Add `autoinst.sh` when installation work runs through the in-guest runtime.
 7. Optionally add `autoconf.sh` for first-boot configuration.
 8. Add a distro README when there are release-specific notes an end user should
    know before booting or installing.
@@ -151,12 +151,15 @@ For menus whose item keys vary by version, replace ANSWER with `-d TEXT` to
 send the key of the item whose displayed text contains TEXT (`-d -r` for a
 regex match).
 
+Slackware 1.01 and 1.0beta use `slackware/sysinstall.sh` to drive their original
+SLS-style `doinstall` scripts over serial after partitioning with the shared
+`script_fdisk_partitions` helper.
+
 ## In-Guest Autoinstall
 
 `autoinst.sh` is the install manifest copied into the guest runtime. It should
 set disk, package, and install variables, then call wrappers from
-`autoinst/common.sh`, such as `disk_init`, `debian_install_base`,
-`slackware_sysinstall`, or `sls_sysinstall`.
+`autoinst/common.sh`, such as `disk_init` or `sls_sysinstall`.
 
 `autoconf.sh` is optional first-boot configuration. Configure kernel modules
 with `MOD_ENABLE` plus `mod_config`, and configure networking separately with
@@ -168,9 +171,9 @@ generated `qemu.d/` copies.
 
 ## Slackware Tagsets
 
-Slackware automated installs choose packages with `*.tag` files. See
-[slackware/README.md](slackware/README.md#package-selection) for tagset syntax
-and user-facing selection examples.
+Slackware 1.1.1 and later automated installs choose packages with `*.tag`
+files. See [slackware/README.md](slackware/README.md#package-selection) for
+tagset syntax and user-facing selection examples.
 
 A variant-level tagset shadows a same-named version-level tagset. Run
 `retro tagfile slackware/<version>/<variant>` to regenerate `default.tag` from
@@ -184,8 +187,8 @@ copies staged for automated installs.
 Edit the source files instead:
 
 - `autoinst/` for shared install and configuration helpers.
-- `debian/VERSION/autoinst.sh` for Debian install manifests.
-- `slackware/VERSION/VARIANT/autoinst.sh` for Slackware install manifests.
+- `slackware/VERSION[/VARIANT]/autoconf.sh` for Slackware first-boot manifests.
+- `debian/VERSION/autoconf.sh` for Debian first-boot manifests.
 - The relevant distro config directory for `script.sh`, `qemu.sh`,
   `extract.sh`, tagsets, and per-release notes.
 
