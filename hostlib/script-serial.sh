@@ -299,7 +299,7 @@ serial_shell_start() {
     prompt=${SERIAL_SHELL_PROMPT:-#}
     dev=${SERIAL_SHELL_DEV:-${SERIAL_DEV:-/dev/ttyS3}}
     minor=${SERIAL_SHELL_MINOR:-67}
-    launcher="[ -c $(shell_quote_word "$dev") ] || mknod $(shell_quote_word "$dev") c 4 $(shell_quote_word "$minor"); PS1=$(shell_quote_word "$prompt ") sh -i <$(shell_quote_word "$dev") >$(shell_quote_word "$dev") 2>&1"
+    launcher="[ -c $(qemu_command_quote_posix_word "$dev") ] || mknod $(qemu_command_quote_posix_word "$dev") c 4 $(qemu_command_quote_posix_word "$minor"); PS1=$(qemu_command_quote_posix_word "$prompt ") sh -i <$(qemu_command_quote_posix_word "$dev") >$(qemu_command_quote_posix_word "$dev") 2>&1"
 
     vga_wait -l "$SHELL_PROMPT"
     kb_send_line "$launcher" || return 1

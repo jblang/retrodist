@@ -1,8 +1,28 @@
 # shellcheck shell=bash
 # Extraction helpers for mounting media images and building the staged install tree.
 
+# Stages the shared guest runtime and distro-specific postinst files on FAT media.
+extract_stage_guestlib() {
+    local guestlib_d=$EXTRACT_D/fat/guestlib.d
+    local postinst_file
+    log_info "Staging guest library"
+    mkdir -p "$EXTRACT_D/fat"
+    rm -rf "$guestlib_d"
+    mkdir -p "$guestlib_d"
+    # shellcheck disable=SC2153 # Set by retro before this library is sourced.
+    cp -R "$GUESTLIB_D"/. "$guestlib_d"
+    mkdir -p "$guestlib_d/distro"
+    if postinst_file=$(qemu_config_find_file postinst.sh); then
+        log_debug "Staging distro postinst manifest $postinst_file"
+        cp "$postinst_file" "$guestlib_d/distro/postinst.sh"
+    else
+        log_debug "No distro postinst manifest configured"
+    fi
+    slackware_prepare_tagfiles
+}
+
 # Updates a canonical image name to point at an extracted image name.
-retro_link_image_name() {
+extract_link_image() {
     local link_name=$1
     local image=${2:-}
     local image_name=${image##*/}
@@ -21,12 +41,12 @@ retro_link_image_name() {
 }
 
 # Updates boot.img and root.img symlinks to extracted image names.
-retro_link_boot_root() {
+extract_link_boot_media() {
     local boot_image=${1:-}
     local root_image=${2:-}
 
-    retro_link_image_name boot.img "$boot_image"
-    retro_link_image_name root.img "$root_image"
+    extract_link_image boot.img "$boot_image"
+    extract_link_image root.img "$root_image"
 }
 
 # Extracts selected FAT image files into a lowercase destination tree.
@@ -156,7 +176,7 @@ redhat_stage_kickstart() {
     *) return 0 ;;
     esac
 
-    kickstart=$(retro_config_file ks.cfg || true)
+    kickstart=$(qemu_config_find_file ks.cfg || true)
     if [[ -z "$kickstart" ]]; then
         return 0
     fi
@@ -374,7 +394,7 @@ extract_install_files() {
         extract_install_copy_packages "$source" "$packages"
     fi
 
-    retro_link_boot_root "${boot_image##*/}" "${root_image##*/}"
+    extract_link_boot_media "${boot_image##*/}" "${root_image##*/}"
     extract_install_files_reset
 }
 
@@ -384,7 +404,7 @@ retro_extract() {
     log_debug "Starting extraction for $CONFNAME"
     retro_download
     if [[ ! -f $EXTRACT_D/.extracted ]]; then
-        extract_file=$(retro_config_file extract.sh || true)
+        extract_file=$(qemu_config_find_file extract.sh || true)
         if [[ -z "$extract_file" ]]; then
             die "No extract.sh configured for $CONFNAME"
         fi
@@ -407,6 +427,6 @@ retro_extract() {
     pushd "$EXTRACT_D" >/dev/null || return
     extract_make_user_writable boot.img root.img fat
     redhat_stage_kickstart boot.img || return
-    guestlib_prep
+    extract_stage_guestlib
     popd >/dev/null || return
 }

@@ -12,20 +12,29 @@ by [guestlib/README.md](../guestlib/README.md).
 
 ## Architecture
 
-The host-side code has four responsibilities:
+The host-side code has five responsibilities:
 
 | Area | Modules | Responsibility |
 |---|---|---|
-| Project commands | `helpers.sh`, `logging.sh`, `download.sh`, `extract.sh`, `qemu.sh` | Config lookup, prerequisites, media staging, QEMU lifecycle, packaging, and reset |
-| Install automation | `script.sh`, `serial.sh`, `dialog.sh`, `fdisk.sh` | Reusable control flow for distro `install.sh` manifests |
-| QMP devices | `qmp.sh`, `kb.sh`, `vga.sh` | QMP transport plus keyboard and VGA-specific behavior |
+| Project commands | `prereq.sh`, `download.sh`, `extract.sh`, `qemu*.sh` | Config lookup, prerequisites, media staging, QEMU lifecycle, packaging, and reset |
+| Shared support | `logging.sh` | Host-side logging |
+| Install automation | `script.sh`, `script-serial.sh`, `script-dialog.sh`, `script-fdisk.sh` | Reusable control flow for distro `install.sh` manifests |
+| QMP devices | `qmp.sh`, `script-kb.sh`, `script-vga.sh` | QMP transport plus keyboard and VGA-specific behavior |
 | Distro support | `slackware.sh` | Slackware tagset generation and staging |
+
+The QEMU implementation is divided by function: `qemu-config.sh` loads
+defaults and distro overrides, `qemu-network.sh` manages host endpoints and
+guest forwarding, `qemu-devices.sh` builds media and character devices,
+`qemu-command.sh` assembles and renders command lines, and `qemu.sh`
+orchestrates preparation, execution, packaging, and reset.
 
 The QMP boundary is deliberate. `qmp.sh` owns the Unix socket, QMP request and
 response JSON, and HMP passthrough. Code outside that module calls
 `qmp_hmp_command`; it does not open the socket or decode QMP responses. Keyboard
-operations belong in `kb.sh`, VGA text-memory operations in `vga.sh`, and
-install-level media changes in `script.sh`.
+operations belong in `script-kb.sh`, VGA text-memory operations in
+`script-vga.sh`, and install-level media changes in `script.sh`. The `script-`
+filename prefix groups install-automation modules; their functions retain the
+device-oriented `dialog_`, `fdisk_`, `kb_`, `serial_`, and `vga_` prefixes.
 
 ## Compatibility
 
@@ -39,7 +48,7 @@ for their owning module (`qemu_`, `qmp_`, `kb_`, `vga_`, `script_`, and so on).
 
 ## Config Resolution
 
-Configs normally live at `distro/version/variant/`. `retro_config_file FILE`
+Configs normally live at `distro/version/variant/`. `qemu_config_find_file FILE`
 looks in the selected config directory first and then its parent, allowing a
 version to share files across variants. The variant-level file wins.
 
@@ -60,7 +69,7 @@ source config, `hostlib/`, or `guestlib/` instead.
 
 `download.sh` implements the download mechanisms described in
 [CONTRIBUTING.md](../CONTRIBUTING.md#downloads). `extract.sh` turns downloaded
-media into the stable `qemu.d/` layout consumed by `qemu.sh`.
+media into the stable `qemu.d/` layout consumed by the `qemu*.sh` modules.
 
 Most distro `extract.sh` files set `EXTRACT_*` variables and call
 `extract_install_files`:
@@ -246,9 +255,10 @@ menu item, `-d TEXT` answers with the key of the item whose description matches,
 `-f FUNCTION` delegates the response, and `-n` waits without responding. See
 `debian/dinstall.sh` and `slackware/pkgtool.sh` for maintained examples.
 
-`fdisk_partitions DEVICE SWAP_MB` is the high-level partitioning helper used by
-the earliest serial-driven installs. It creates swap followed by a root
-partition using the cylinder ranges reported by the guest's `fdisk`.
+`fdisk_swap_root DEVICE SWAP_MB` opens a serial shell and runs `fdisk` itself.
+When an installer has already started `fdisk`, `fdisk_partitions SWAP_MB`
+drives its prompts directly. Both create swap followed by a root partition
+using the cylinder ranges reported by the guest's `fdisk`.
 
 ## QMP Utility
 

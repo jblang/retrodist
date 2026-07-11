@@ -6,7 +6,7 @@
 # replaces that binary and prints each screen as labeled plain text on the
 # serial transcript: TITLE, TYPE, ITEM, RESPONSE, and related metadata.
 #
-# This host-side interface reads that transcript through `hostlib/serial.sh`
+# This host-side interface reads that transcript through `hostlib/script-serial.sh`
 # and sends answers back when the adapter prints `RESPONSE:`. Simple cases use
 # `dialog_expect` for one known screen. Version-dependent flows use
 # `dialog_answer`, which accepts alternatives keyed by widget type, title, and

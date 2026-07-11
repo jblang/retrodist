@@ -4,4 +4,4 @@ EXTRACT_ROOT_IMAGE=$SLACK_D/bootdisk/1_44meg/color144.gz
 EXTRACT_PACKAGES=$SLACK_D
 extract_install_files
 gunzip bareboot.gz color144.gz
-retro_link_boot_root bareboot color144
+extract_link_boot_media bareboot color144

@@ -22,6 +22,8 @@ Clone the repo, then install host tools from the repo root:
 retro prereq
 ```
 
+Running `retro` without a recognized command prints command help.
+
 Boot a distro:
 
 ```bash

@@ -8,7 +8,7 @@
 # renders each widget as labeled plain text so unattended host scripts can read
 # the prompt and send an answer back. The same prompt text is echoed to the
 # console for logs and, when available, to the serial control channel used by
-# `hostlib/dialog.sh`.
+# `hostlib/script-dialog.sh`.
 #
 # Keep prompt output separate from result output. Real dialog writes selected
 # or typed values to stderr by default, unless options such as --stdout,

@@ -6,8 +6,8 @@
 # remaining cylinders. They drive the guest's interactive `fdisk` through the
 # serial console instead of assuming a particular fdisk version or disk size.
 #
-# Call `fdisk_swap_root DEVICE SWAP_MB` when the helper should open and exit a serial
-# shell itself. Installers already in a serial shell call
+# Call `fdisk_swap_root DEVICE SWAP_MB` when the helper should open and exit a
+# serial shell itself. Installers already in a serial shell call
 # `fdisk_partitions SWAP_MB` instead. The latter consumes fdisk prompts,
 # clears possible old partitions, creates both primary partitions, assigns
 # Linux swap (82) and native Linux (83) types, prints the resulting table, and

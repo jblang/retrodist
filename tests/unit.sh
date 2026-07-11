@@ -5,23 +5,25 @@ set -uo pipefail
 REPO_D=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/helpers.sh"
-# shellcheck source=/dev/null
 source "$REPO_D/hostlib/logging.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/qemu.sh"
+source "$REPO_D/hostlib/download.sh"
+for qemu_lib in "$REPO_D"/hostlib/qemu*.sh; do
+    # shellcheck source=/dev/null
+    source "$qemu_lib"
+done
 # shellcheck source=/dev/null
 source "$REPO_D/hostlib/qmp.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/kb.sh"
+source "$REPO_D/hostlib/script-kb.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/vga.sh"
+source "$REPO_D/hostlib/script-vga.sh"
 # shellcheck source=/dev/null
 source "$REPO_D/hostlib/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/serial.sh"
+source "$REPO_D/hostlib/script-serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/fdisk.sh"
+source "$REPO_D/hostlib/script-fdisk.sh"
 # shellcheck source=/dev/null
 source "$REPO_D/hostlib/slackware.sh"
 # shellcheck source=/dev/null
@@ -64,37 +66,37 @@ assert_fail() {
     fi
 }
 
-# --- shell_quote_word -------------------------------------------------------
-assert_eq "quote/plain" "plain" "$(shell_quote_word plain)"
-assert_eq "quote/comma-eq" "if=ide,index=0" "$(shell_quote_word 'if=ide,index=0')"
-assert_eq "quote/space" "'a b'" "$(shell_quote_word 'a b')"
-assert_eq "quote/empty" "''" "$(shell_quote_word '')"
-assert_eq "quote/single-quote" "'a'\\''b'" "$(shell_quote_word "a'b")"
-assert_eq "quote/amp" "'a&b'" "$(shell_quote_word 'a&b')"
+# --- qemu_command_quote_posix_word -----------------------------------------
+assert_eq "quote/plain" "plain" "$(qemu_command_quote_posix_word plain)"
+assert_eq "quote/comma-eq" "if=ide,index=0" "$(qemu_command_quote_posix_word 'if=ide,index=0')"
+assert_eq "quote/space" "'a b'" "$(qemu_command_quote_posix_word 'a b')"
+assert_eq "quote/empty" "''" "$(qemu_command_quote_posix_word '')"
+assert_eq "quote/single-quote" "'a'\\''b'" "$(qemu_command_quote_posix_word "a'b")"
+assert_eq "quote/amp" "'a&b'" "$(qemu_command_quote_posix_word 'a&b')"
 
 # --- QEMU networking --------------------------------------------------------
 for value in 0 false FALSE False no NO No off OFF Off disabled DISABLED n F null NIL; do
     QEMU_NET_ENABLED=$value
-    assert_fail "qemu/net-disabled-$value" qemu_network_enabled
+    assert_fail "qemu/net-disabled-$value" qemu_network_is_enabled
 done
 QEMU_NET_ENABLED=true
-assert_ok "qemu/net-enabled-true" qemu_network_enabled
+assert_ok "qemu/net-enabled-true" qemu_network_is_enabled
 QEMU_NET_ENABLED=1
-assert_ok "qemu/net-enabled-1" qemu_network_enabled
+assert_ok "qemu/net-enabled-1" qemu_network_is_enabled
 unset QEMU_NET_ENABLED
-qemu_base_defaults
+qemu_config_set_defaults
 assert_eq "qemu/net-default" "true" "$QEMU_NET_ENABLED"
 QEMU_NET_FORWARD="2200:22,2323:23 8080:80"
-assert_eq "qemu/net-forward-custom" ",hostfwd=tcp:127.0.0.1:2200-:22,hostfwd=tcp:127.0.0.1:2323-:23,hostfwd=tcp:127.0.0.1:8080-:80" "$(qemu_net_forward_args)"
+assert_eq "qemu/net-forward-custom" ",hostfwd=tcp:127.0.0.1:2200-:22,hostfwd=tcp:127.0.0.1:2323-:23,hostfwd=tcp:127.0.0.1:8080-:80" "$(qemu_network_build_forward_args)"
 QEMU_NET_FORWARD=none
-assert_eq "qemu/net-forward-none" "" "$(qemu_net_forward_args)"
+assert_eq "qemu/net-forward-none" "" "$(qemu_network_build_forward_args)"
 QEMU_NET_FORWARD=invalid
-assert_fail "qemu/net-forward-invalid" qemu_net_forward_args
+assert_fail "qemu/net-forward-invalid" qemu_network_build_forward_args
 QEMU_NET_FORWARD="8080:80 2323:23 2200:22 8443:443"
-assert_eq "qemu/net-forward-display" $'    SSH:     localhost:2200 -> guest :22\n    Telnet:  localhost:2323 -> guest :23\n    TCP:     localhost:8080 -> guest :80\n    TCP:     localhost:8443 -> guest :443' "$(qemu_print_net_forwards)"
+assert_eq "qemu/net-forward-display" $'    SSH:     localhost:2200 -> guest :22\n    Telnet:  localhost:2323 -> guest :23\n    TCP:     localhost:8080 -> guest :80\n    TCP:     localhost:8443 -> guest :443' "$(qemu_network_print_forwards)"
 QEMU_NET_FORWARD=none
-assert_eq "qemu/net-forward-section-none" "" "$(qemu_print_ports | sed -n '/📡 Guest ports:/p')"
-# shellcheck disable=SC2034 # Read by qemu_finish_config in subsequent tests.
+assert_eq "qemu/net-forward-section-none" "" "$(qemu_endpoints_print | sed -n '/📡 Guest ports:/p')"
+# shellcheck disable=SC2034 # Read by qemu_network_finish_config in subsequent tests.
 QEMU_NET_FORWARD=
 
 # --- QMP-backed script command helpers --------------------------------------
@@ -109,30 +111,36 @@ assert_eq "script/change-image-format" "change floppy0 boot.img raw" "$(
     script_change_image boot.img floppy0 raw
 )"
 
-# --- path_is_safe_relative --------------------------------------------------
-assert_ok   "safe/sub"        path_is_safe_relative "a/b.tgz"
-assert_ok   "safe/single"     path_is_safe_relative "file.iso"
-assert_fail "safe/abs"        path_is_safe_relative "/etc/passwd"
-assert_fail "safe/dotdot"     path_is_safe_relative "../x"
-assert_fail "safe/mid-dotdot" path_is_safe_relative "a/../b"
-assert_fail "safe/empty"      path_is_safe_relative ""
-assert_fail "safe/bare-dotdot" path_is_safe_relative ".."
+# --- download_path_is_safe_relative -----------------------------------------
+assert_ok   "safe/sub"        download_path_is_safe_relative "a/b.tgz"
+assert_ok   "safe/single"     download_path_is_safe_relative "file.iso"
+assert_fail "safe/abs"        download_path_is_safe_relative "/etc/passwd"
+assert_fail "safe/dotdot"     download_path_is_safe_relative "../x"
+assert_fail "safe/mid-dotdot" download_path_is_safe_relative "a/../b"
+assert_fail "safe/empty"      download_path_is_safe_relative ""
+assert_fail "safe/bare-dotdot" download_path_is_safe_relative ".."
 
-# --- url_path_depth ---------------------------------------------------------
-assert_eq "depth/one"   "1" "$(url_path_depth 'http://example.com/a')"
-assert_eq "depth/three" "3" "$(url_path_depth 'http://example.com/a/b/c')"
-assert_eq "depth/trailing" "2" "$(url_path_depth 'http://example.com/a/b/')"
-assert_eq "depth/mirror" "2" "$(url_path_depth 'http://mirrors.slackware.com/slackware/slackware-3.6/')"
+# --- download_url_path_depth ------------------------------------------------
+assert_eq "depth/one"   "1" "$(download_url_path_depth 'http://example.com/a')"
+assert_eq "depth/three" "3" "$(download_url_path_depth 'http://example.com/a/b/c')"
+assert_eq "depth/trailing" "2" "$(download_url_path_depth 'http://example.com/a/b/')"
+assert_eq "depth/mirror" "2" "$(download_url_path_depth 'http://mirrors.slackware.com/slackware/slackware-3.6/')"
 
-# --- retro_config_file ------------------------------------------------------
+# --- qemu_config_find_file --------------------------------------------------
 tmp=$(mktemp -d)
 mkdir -p "$tmp/parent/child"
 : >"$tmp/parent/shared.txt"
 : >"$tmp/parent/child/local.txt"
-assert_eq "config/local"  "$tmp/parent/child/local.txt"  "$(retro_config_file "$tmp/parent/child" local.txt)"
-assert_eq "config/parent" "$tmp/parent/shared.txt"        "$(retro_config_file "$tmp/parent/child" shared.txt)"
-assert_fail "config/missing" retro_config_file "$tmp/parent/child" missing.txt
+assert_eq "config/local"  "$tmp/parent/child/local.txt"  "$(qemu_config_find_file "$tmp/parent/child" local.txt)"
+assert_eq "config/parent" "$tmp/parent/shared.txt"        "$(qemu_config_find_file "$tmp/parent/child" shared.txt)"
+assert_fail "config/missing" qemu_config_find_file "$tmp/parent/child" missing.txt
 rm -rf "$tmp"
+
+# --- retro command parsing --------------------------------------------------
+assert_eq "retro/default-help" "Usage: retro [COMMAND] [CONFIG] [OPTIONS]" \
+    "$("$REPO_D/retro" | sed -n '/^Usage:/p')"
+assert_eq "retro/unrecognized-help" "Usage: retro [COMMAND] [CONFIG] [OPTIONS]" \
+    "$("$REPO_D/retro" not-a-command | sed -n '/^Usage:/p')"
 
 # --- script_import ----------------------------------------------------------
 imp_tmp=$(mktemp -d)
@@ -177,15 +185,15 @@ import_missing_status() {
 assert_fail "import/missing-status" import_missing_status
 rm -rf "$imp_tmp"
 
-# --- qemu_render_command_sh / _cmd ------------------------------------------
+# --- qemu_command_render_sh / _cmd ------------------------------------------
 # shellcheck disable=SC2034  # Read by the render functions via the global.
 QEMU_ARGS=(qemu-system-i386 -drive "if=ide,index=0,format=qcow2,file=hda.img" "weird arg" "amp&x" "pct%v" "par(s)")
 assert_eq "render/sh" \
     "qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img 'weird arg' 'amp&x' pct%v 'par(s)'" \
-    "$(qemu_render_command_sh)"
+    "$(qemu_command_render_sh)"
 assert_eq "render/cmd" \
     'qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img "weird arg" "amp&x" pct%%v "par(s)"' \
-    "$(qemu_render_command_cmd)"
+    "$(qemu_command_render_cmd)"
 
 # --- QEMU display scaling ---------------------------------------------------
 qemu_mock_tmp=$(mktemp -d)
@@ -193,22 +201,22 @@ qemu_mock="$qemu_mock_tmp/qemu-system-i386"
 # shellcheck disable=SC2016 # The mock reads QEMU_MOCK_VERSION at execution time.
 printf '#!/usr/bin/env bash\nprintf "QEMU emulator version %%s\\n" "$QEMU_MOCK_VERSION"\n' >"$qemu_mock"
 chmod +x "$qemu_mock"
-# shellcheck disable=SC2034 # Read by qemu_version_major through QEMU_SYSTEM.
+# shellcheck disable=SC2034 # Read by qemu_version_detect_major through QEMU_SYSTEM.
 QEMU_SYSTEM=$qemu_mock
 
 export QEMU_MOCK_VERSION=11.0.0
 QEMU_DISPLAY="-display cocoa"
-qemu_configure_display_scaling
+qemu_display_apply_scaling
 assert_eq "display/cocoa-qemu11" "-display cocoa,zoom-to-fit=on,zoom-interpolation=on" "$QEMU_DISPLAY"
 
 export QEMU_MOCK_VERSION=10.1.0
 QEMU_DISPLAY="-display cocoa"
-qemu_configure_display_scaling
+qemu_display_apply_scaling
 assert_eq "display/cocoa-qemu10" "-display cocoa" "$QEMU_DISPLAY"
 
 export QEMU_MOCK_VERSION=11.0.0
 QEMU_DISPLAY="-display gtk"
-qemu_configure_display_scaling
+qemu_display_apply_scaling
 assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
@@ -518,7 +526,7 @@ assert_fail "serial/contains-regex-miss" text_contains_regex "$regex_screen" "Se
 # --- dialog helpers ----------------------------------------------------------
 # Dialog screens are seeded up front and answered through serial_send.
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/dialog.sh"
+source "$REPO_D/hostlib/script-dialog.sh"
 
 case_tmp=$(mktemp -d)
 SERIAL_LOG=$case_tmp/log
@@ -743,15 +751,15 @@ rm -rf "$case_tmp"
 # --- serial transport --------------------------------------------------------
 # Restore the real serial helpers after dialog tests mocked serial_send.
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/kb.sh"
+source "$REPO_D/hostlib/script-kb.sh"
 # shellcheck source=/dev/null
 source "$REPO_D/hostlib/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/serial.sh"
+source "$REPO_D/hostlib/script-serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/fdisk.sh"
+source "$REPO_D/hostlib/script-fdisk.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/dialog.sh"
+source "$REPO_D/hostlib/script-dialog.sh"
 serial_tmp=$(mktemp -d)
 SERIAL_LOG=$serial_tmp/log
 SERIAL_LINE=0
@@ -1040,11 +1048,11 @@ rm -rf "$serial_tmp"
 # --- extract image links ----------------------------------------------------
 extract_tmp=$(mktemp -d)
 printf 'boot image\n' >"$extract_tmp/boot.img"
-(cd "$extract_tmp" && retro_link_boot_root boot.img)
+(cd "$extract_tmp" && extract_link_boot_media boot.img)
 assert_eq "extract/boot-img-stays-file" "regular file" "$(cd "$extract_tmp" && if [ -f boot.img ] && [ ! -L boot.img ]; then printf 'regular file'; else printf 'other'; fi)"
 
 printf 'kernel image\n' >"$extract_tmp/bare.i"
-(cd "$extract_tmp" && retro_link_boot_root bare.i)
+(cd "$extract_tmp" && extract_link_boot_media bare.i)
 assert_eq "extract/boot-img-links-other-name" "bare.i" "$(readlink "$extract_tmp/boot.img")"
 rm -rf "$extract_tmp"
 

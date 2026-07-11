@@ -12,7 +12,7 @@ TEMP_D=$(mktemp -d)
 RETRO_COMMAND_STARTED=0
 # shellcheck disable=SC2329 # Invoked by the EXIT trap.
 # Remove temporary files and report command status.
-retro_cleanup() {
+retro_exit_cleanup() {
   local status=$?
   if [[ ${RETRO_COMMAND_STARTED:-0} == "1" ]]; then
     if [[ $status -eq 0 ]]; then
@@ -23,15 +23,15 @@ retro_cleanup() {
   fi
   rm -rf "$TEMP_D"
 }
-trap retro_cleanup EXIT
+trap retro_exit_cleanup EXIT
 
 for LIB in "$HOSTLIB_D"/*.sh; do
   # shellcheck source=/dev/null
   source "$LIB"
 done
 
-# Print CLI usage and exit.
-retro_usage() {
+# Print CLI usage.
+retro_print_usage() {
 cat <<EOF
 Usage: $(basename "$0") [COMMAND] [CONFIG] [OPTIONS]
 
@@ -53,16 +53,24 @@ Config:
 Additional options are passed to QEMU verbatim.
 
 EOF
-exit "${1:-1}"
 }
 
-# see if the first parameter is a command; default to help otherwise
+# Print help for the top-level help command.
+retro_help() {
+  retro_print_usage
+}
+
+# Consume a recognized command; otherwise ignore the remaining arguments and
+# show help instead of treating the first argument as a configuration path.
 COMMAND=help
 if [[ $# -ge 1 ]]; then
   case $1 in
     help | boot | install | extract | download | tagfile | reset | package | prereq)
       COMMAND=$1
       shift
+      ;;
+    *)
+      set --
       ;;
   esac
 fi
@@ -93,7 +101,7 @@ esac
 QEMU_D=$DISTRO_D/qemu.d
 EXTRACT_D=$QEMU_D
 TAGFILE_D=$DISTRO_D/tagfile.d
-if retro_config_file cdrom.txt >/dev/null; then
+if qemu_config_find_file cdrom.txt >/dev/null; then
   DOWNLOAD_D=$QEMU_D
 else
   DOWNLOAD_D=$DISTRO_D/download.d
@@ -116,11 +124,12 @@ if [[ $COMMAND != "help" ]]; then
 fi
 RUN_STATUS=0
 case $COMMAND in
-  help) retro_usage 0;;
+  help) retro_help;;
   download) retro_download || RUN_STATUS=$?;;
   extract) retro_extract || RUN_STATUS=$?;;
   tagfile) retro_tagfile || RUN_STATUS=$?;;
-  boot | install) retro_boot "$@" || RUN_STATUS=$?;;
+  boot) retro_boot "$@" || RUN_STATUS=$?;;
+  install) retro_install "$@" || RUN_STATUS=$?;;
   package) retro_package "$@" || RUN_STATUS=$?;;
   prereq) retro_prereq "$@" || RUN_STATUS=$?;;
   reset) retro_reset || RUN_STATUS=$?;;

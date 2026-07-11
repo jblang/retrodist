@@ -8,4 +8,4 @@ EXTRACT_EXTRA_IMAGES=(
 EXTRACT_PACKAGES=$DIST_D/packages
 extract_install_files
 gunzip *.gz
-retro_link_boot_root bootdisk
+extract_link_boot_media bootdisk

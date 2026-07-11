@@ -6,4 +6,4 @@ extract_install_files
 gunzip -f bare.gz color144.gz
 extract_truncate_floppy_image bare
 extract_truncate_floppy_image color144
-retro_link_boot_root bare color144
+extract_link_boot_media bare color144

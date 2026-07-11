@@ -1,6 +1,37 @@
 # shellcheck shell=bash
 # Download helpers for mirrors, per-distro manifests, and recursive asset fetches.
 
+# Tests whether a path is safe, relative, and unable to escape its destination.
+download_path_is_safe_relative() {
+    local path=$1 component
+    case $path in
+    '' | /*) return 1 ;;
+    esac
+    while :; do
+        component=${path%%/*}
+        if [[ $component == ".." ]]; then
+            return 1
+        fi
+        [[ $path == */* ]] || break
+        path=${path#*/}
+    done
+    return 0
+}
+
+# Counts path components in a URL for wget cut-dirs.
+download_url_path_depth() {
+    local url_path=${1#*://}
+    url_path=${url_path#*/}
+    url_path=${url_path%/}
+    if [[ -z "$url_path" ]]; then
+        echo 0
+    else
+        local parts
+        IFS=/ read -ra parts <<<"$url_path"
+        echo "${#parts[@]}"
+    fi
+}
+
 # Downloads files listed as filename/url pairs in a manifest.
 download_list() {
     local file url dest
@@ -8,9 +39,12 @@ download_list() {
         die "Usage: download_list MANIFEST DESTDIR"
     fi
     log_debug "Reading download manifest $1"
-    cat_newline "$1" | while IFS=' ' read -r file url; do
+    {
+        cat "$1"
+        echo
+    } | while IFS=' ' read -r file url; do
         if [[ -n "$file" && -n "$url" ]]; then
-            if ! path_is_safe_relative "$file"; then
+            if ! download_path_is_safe_relative "$file"; then
                 log_error "Refusing unsafe download path: $file"
                 continue
             fi
@@ -61,7 +95,7 @@ download_directories() {
     shift 2
     log_info "Downloading selected directories from $url_base"
     mkdir -p "$dest_base"
-    cut_dirs=$(url_path_depth "$url_base")
+    cut_dirs=$(download_url_path_depth "$url_base")
     for dir in "$@"; do
         if [[ ! -d "$dest_base/$dir" ]]; then
             log_info "Downloading directory $dir"
@@ -152,7 +186,7 @@ download_debian() {
 # Resolves a distro's cdrom.txt reference to a cdrom config directory.
 cdrom_config_dir() {
     local cdrom cdrom_file
-    cdrom_file=$(retro_config_file "$1" cdrom.txt) || return 1
+    cdrom_file=$(qemu_config_find_file "$1" cdrom.txt) || return 1
     if [[ ! -f "$cdrom_file" ]]; then
         return 1
     fi
@@ -165,11 +199,11 @@ cdrom_config_dir() {
 download_config_assets() {
     local ver rel config_file
     log_debug "Checking download sources for $1"
-    if config_file=$(retro_config_file "$1" download.txt); then
+    if config_file=$(qemu_config_find_file "$1" download.txt); then
         log_debug "Using download manifest $config_file"
         download_list "$config_file" "$2"
     fi
-    if config_file=$(retro_config_file "$1" slackmirror.txt); then
+    if config_file=$(qemu_config_find_file "$1" slackmirror.txt); then
         ver=$(<"$config_file")
         log_debug "Using Slackware mirror config $config_file"
         (
@@ -177,7 +211,7 @@ download_config_assets() {
             download_slackware "$ver"
         )
     fi
-    if config_file=$(retro_config_file "$1" debmirror.txt); then
+    if config_file=$(qemu_config_find_file "$1" debmirror.txt); then
         rel=$(<"$config_file")
         log_debug "Using Debian mirror config $config_file"
         (
@@ -185,7 +219,7 @@ download_config_assets() {
             download_debian "$rel"
         )
     fi
-    if config_file=$(retro_config_file "$1" download.sh); then
+    if config_file=$(qemu_config_find_file "$1" download.sh); then
         log_info "Running custom download script $config_file"
         pushd "$2" >/dev/null || return
         # shellcheck source=/dev/null
@@ -222,7 +256,7 @@ download_all() {
     local cdrom_file
     log_debug "Preparing download directory $2"
     mkdir -p "$2"
-    if cdrom_file=$(retro_config_file "$1" cdrom.txt); then
+    if cdrom_file=$(qemu_config_find_file "$1" cdrom.txt); then
         log_debug "Config references CD-ROM assets via $cdrom_file"
         download_cdrom_assets "$1"
         link_cdrom_isos "$1" "$2"
@@ -235,7 +269,7 @@ retro_download() {
     local src
     log_debug "Starting downloads for $CONFNAME"
     for src in download.txt slackmirror.txt debmirror.txt download.sh cdrom.txt; do
-        if retro_config_file "$src" >/dev/null 2>&1; then
+        if qemu_config_find_file "$src" >/dev/null 2>&1; then
             log_debug "Found download source $src"
             download_all "$DISTRO_D" "$DOWNLOAD_D"
             log_debug "Download step complete for $CONFNAME"

@@ -8,10 +8,10 @@ HOSTLIB_D=$RETRO_D/hostlib
 source "$HOSTLIB_D/logging.sh"
 # shellcheck source=hostlib/qmp.sh
 source "$HOSTLIB_D/qmp.sh"
-# shellcheck source=hostlib/kb.sh
-source "$HOSTLIB_D/kb.sh"
-# shellcheck source=hostlib/vga.sh
-source "$HOSTLIB_D/vga.sh"
+# shellcheck source=hostlib/script-kb.sh
+source "$HOSTLIB_D/script-kb.sh"
+# shellcheck source=hostlib/script-vga.sh
+source "$HOSTLIB_D/script-vga.sh"
 # shellcheck source=hostlib/script.sh
 source "$HOSTLIB_D/script.sh"
 

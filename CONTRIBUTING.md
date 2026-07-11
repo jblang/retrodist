@@ -31,7 +31,6 @@ Common files:
 
 | File | Purpose |
 |---|---|
-| `config.sh` | Distro-wide settings loaded before QEMU config |
 | `download.txt` | `filename url` pairs for `wget` |
 | `slackmirror.txt` | Slackware version for official mirror download |
 | `debmirror.txt` | Debian release name for archive.debian.org download |
@@ -139,7 +138,8 @@ or `LOGIN_PROMPT` when a guest uses non-default prompt text.
 
 Slackware 1.1.2 and up (`slackware/pkgtool.sh`) replace the guest's `dialog`
 binary with the `guestlib/dialog.sh` adapter. The host-side helpers live in
-`hostlib/dialog.sh`; `dialog_answer TYPE TITLE ANSWER` is the normal interface.
+`hostlib/script-dialog.sh`; `dialog_answer TYPE TITLE ANSWER` is the normal
+interface.
 It also supports alternatives for installer screens that vary by release.
 Keep shared screen sequences in an installer-family driver and leave only
 release-specific values and ordering in each `install.sh`. The
