@@ -231,23 +231,16 @@ EOF
     fi
 }
 
-# Stages the shared and distro-specific autoinstall files on the FAT media.
+# Stages the shared and distro-specific autoconf files on the FAT media.
 autoinst_prep() {
     local autoinst_d=$EXTRACTDIR/fat/autoinst.d
-    local autoinst_file autoconf_file
+    local autoconf_file
     log_info "Staging autoinstall runtime"
     mkdir -p "$EXTRACTDIR/fat"
-    cp "$AUTOBASE/autoinst.sh" "$EXTRACTDIR/fat/autoinst"
     rm -rf "$autoinst_d"
     mkdir -p "$autoinst_d"
     cp -R "$AUTOBASE"/. "$autoinst_d"
     mkdir -p "$autoinst_d/distro"
-    if autoinst_file=$(retro_config_file autoinst.sh); then
-        log_debug "Staging distro autoinst manifest $autoinst_file"
-        cp "$autoinst_file" "$autoinst_d/distro/autoinst.sh"
-    else
-        log_debug "No distro autoinst manifest configured"
-    fi
     if autoconf_file=$(retro_config_file autoconf.sh); then
         log_debug "Staging distro autoconf manifest $autoconf_file"
         cp "$autoconf_file" "$autoinst_d/distro/autoconf.sh"

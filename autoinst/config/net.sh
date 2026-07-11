@@ -86,8 +86,8 @@ net_build_init_script() {
     echo "$NET_ROUTE_PATH add default gw \$GATEWAY metric 1"
 }
 
-# Rewrite an SLS /etc/hosts file with host, network, and router entries.
-net_build_sls_hosts() {
+# Rewrite an rc.net-style /etc/hosts file with host, network, and router entries.
+net_build_rcnet_hosts() {
     # Note: tab must separate IP and hostnames below, not spaces
     sed "s/.*$NET_HOSTNAME$/$NET_IPADDR	$NET_HOSTNAME/" "$NET_HOSTS_PATH~" |
         sed "s/.*network$/$NET_NETWORK	network/" |
@@ -173,7 +173,7 @@ net_detect_init_path() {
         log_info "Detected network style: SysV init.d"
     elif [ -f "$ETCPATH/rc.net" ]; then
         NET_RC_NET_PATH="$ETCPATH/rc.net"
-        log_info "Detected network style: SLS rc.net"
+        log_info "Detected network style: rc.net"
     else
         log_warn "No supported network init layout found."
         return 1
@@ -229,23 +229,23 @@ net_config_standard() {
     fi
 }
 
-# Configure SLS networking through its non-standard /etc/hosts flow.
+# Configure rc.net-style networking through its non-standard /etc/hosts flow.
 net_config_rc_net() {
-    # SLS's non-standard network configuration via /etc/hosts only
+    # rc.net-style non-standard network configuration via /etc/hosts only
     log_info "Configuring networking via hosts..."
 
     net_backup_suffix "$NET_HOSTS_PATH"
     log_info "Creating file: $NET_HOSTS_PATH"
-    net_build_sls_hosts >"$NET_HOSTS_PATH"
+    net_build_rcnet_hosts >"$NET_HOSTS_PATH"
 
-    # SLS uses /etc/host (singular) for hostname
+    # rc.net style uses /etc/host (singular) for hostname
     NET_HOST_PATH="$ETCPATH/host"
     net_backup_suffix "$NET_HOST_PATH"
     log_info "Creating file: $NET_HOST_PATH"
     echo "$NET_HOSTNAME" >"$NET_HOST_PATH"
     chmod 644 "$NET_HOST_PATH"
 
-    # SLS uses /etc/domain for domain name
+    # rc.net style uses /etc/domain for domain name
     if [ -n "$NET_DOMAINNAME" ] && [ "$NET_DOMAINNAME" != "none" ]; then
         NET_DOMAIN_PATH="$ETCPATH/domain"
         net_backup_suffix "$NET_DOMAIN_PATH"
@@ -272,7 +272,7 @@ _net_config() {
             log_info "Using standard network configuration flow"
             net_config_standard
         elif [ -n "$NET_RC_NET_PATH" ]; then
-            log_info "Using SLS hosts-based network configuration flow"
+            log_info "Using rc.net hosts-based network configuration flow"
             net_config_rc_net
         fi
     else

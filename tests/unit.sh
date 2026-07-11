@@ -11,6 +11,8 @@ source "$REPO_ROOT/retrolib/logging.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/qemu.sh"
 # shellcheck source=/dev/null
+source "$REPO_ROOT/retrolib/qmp.sh"
+# shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/script.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/retrolib/serial.sh"
@@ -65,6 +67,18 @@ assert_eq "quote/space" "'a b'" "$(shell_quote_word 'a b')"
 assert_eq "quote/empty" "''" "$(shell_quote_word '')"
 assert_eq "quote/single-quote" "'a'\\''b'" "$(shell_quote_word "a'b")"
 assert_eq "quote/amp" "'a&b'" "$(shell_quote_word 'a&b')"
+
+# --- QMP command helpers ----------------------------------------------------
+assert_eq "qmp/change-image-default" "change floppy0 boot.img raw" "$(
+    # shellcheck disable=SC2329 # Invoked indirectly by qmp_change_image.
+    qmp_hmp_command() { printf '%s\n' "$1"; }
+    qmp_change_image boot.img
+)"
+assert_eq "qmp/change-image-format" "change floppy0 boot.img raw" "$(
+    # shellcheck disable=SC2329 # Invoked indirectly by qmp_change_image.
+    qmp_hmp_command() { printf '%s\n' "$1"; }
+    qmp_change_image boot.img floppy0 raw
+)"
 
 # --- path_is_safe_relative --------------------------------------------------
 assert_ok   "safe/sub"        path_is_safe_relative "a/b.tgz"

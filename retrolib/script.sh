@@ -1,10 +1,6 @@
 # shellcheck shell=bash
 # Reusable QMP-driven install script building blocks.
 
-# Mounts the staged FAT partition and starts the in-guest installer.
-# shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
-SCRIPT_AUTOINST_COMMAND="mkdir /retro && mount -t msdos /dev/hdb1 /retro && sh /retro/autoinst"
-
 # Finds the staged FAT partition and runs first-boot autoconf.
 # shellcheck disable=SC2034 # Used by distro install scripts sourced at runtime.
 SCRIPT_AUTOCONF_COMMAND='if [ ! -d /retro/autoinst.d ]; then mkdir -p /retro && mount -t msdos /dev/hdb1 /retro; fi; /retro/autoinst.d/autoconf.sh'

@@ -12,9 +12,8 @@ inside old installer environments, see [autoinst/README.md](autoinst/README.md).
 3. Add `extract.sh` to stage install media into `qemu.d/`.
 4. Add `qemu.sh` to select an era-appropriate QEMU profile and hardware.
 5. Add `script.sh` when the install can be driven through QMP.
-6. Add `autoinst.sh` when installation work runs through the in-guest runtime.
-7. Optionally add `autoconf.sh` for first-boot configuration.
-8. Add a distro README when there are release-specific notes an end user should
+6. Optionally add `autoconf.sh` for first-boot configuration.
+7. Add a distro README when there are release-specific notes an end user should
    know before booting or installing.
 
 `slackware/3.0/walnut/` is a compact working example.
@@ -38,7 +37,6 @@ Common files:
 | `extract.sh` | Stages install images, packages, and FAT files |
 | `qemu.sh` | Sets QEMU profile, RAM, disk, network, and extra args |
 | `script.sh` | Host-side scripted install sequence |
-| `autoinst.sh` | In-guest install manifest |
 | `autoconf.sh` | Optional in-guest first-boot configuration manifest |
 | `*.tag` | Slackware package-selection tagset |
 
@@ -109,10 +107,8 @@ screen_wait -l "boot:"
 kb_send_line ""
 screen_wait -l "login:"
 kb_send_line root
-serial_shell --no-wait "$SCRIPT_AUTOINST_COMMAND"
-serial_wait -l "ATTN: Press ENTER to reboot."
-script_set_boot c
-serial_send ""
+screen_wait -l "$SHELL_PROMPT"
+kb_send_line "$SCRIPT_AUTOCONF_COMMAND"
 ```
 
 Useful primitives:
@@ -126,11 +122,12 @@ Useful primitives:
 - `script_change_floppy IMAGE`
 - `script_set_boot DISK`
 
-`SCRIPT_AUTOINST_COMMAND` mounts the staged FAT media at `/retro` and runs
-`/retro/autoinst`. Send it with `serial_shell --no-wait` once the installer
-has reached a shell prompt, then match its output with `serial_wait` and
-answer with `serial_send`. Override `SHELL_PROMPT` when a guest uses
-non-default shell prompt text.
+`SCRIPT_AUTOCONF_COMMAND` mounts the staged FAT media at `/retro` if needed
+and runs `/retro/autoinst.d/autoconf.sh`. Send it once the guest has booted
+into the installed system and reached a shell prompt. `script_run_autoconf`
+wraps this pattern: it waits for `$LOGIN_PROMPT`, logs in, waits for
+`$SHELL_PROMPT`, and sends `$SCRIPT_AUTOCONF_COMMAND`. Override `SHELL_PROMPT`
+or `LOGIN_PROMPT` when a guest uses non-default prompt text.
 
 Slackware 1.1.2 and up (`slackware/pkgtool.sh`) replace the guest's `dialog`
 binary with the `autoinst/dialog.sh` adapter. The host-side helpers live in
@@ -155,15 +152,12 @@ Slackware 1.01 and 1.0beta use `slackware/sysinstall.sh` to drive their original
 SLS-style `doinstall` scripts over serial after partitioning with the shared
 `script_fdisk_partitions` helper.
 
-## In-Guest Autoinstall
+## In-Guest Autoconfiguration
 
-`autoinst.sh` is the install manifest copied into the guest runtime. It should
-set disk, package, and install variables, then call wrappers from
-`autoinst/common.sh`, such as `disk_init` or `sls_sysinstall`.
-
-`autoconf.sh` is optional first-boot configuration. Configure kernel modules
-with `MOD_ENABLE` plus `mod_config`, and configure networking separately with
-`net_config`.
+`autoconf.sh` is optional first-boot configuration, copied into the guest
+runtime and staged as `autoinst.d/distro/autoconf.sh`. Configure kernel
+modules with `MOD_ENABLE` plus `mod_config`, and configure networking
+separately with `net_config`.
 
 See [autoinst/README.md](autoinst/README.md) for runner behavior, wrapper
 functions, portability constraints, and the warning about reference files versus
@@ -182,11 +176,11 @@ the install media.
 ## Generated Files
 
 Do not edit files under `qemu.d/fat/autoinst.d/` directly. They are generated
-copies staged for automated installs.
+copies staged for first-boot configuration.
 
 Edit the source files instead:
 
-- `autoinst/` for shared install and configuration helpers.
+- `autoinst/` for shared first-boot configuration helpers.
 - `slackware/VERSION[/VARIANT]/autoconf.sh` for Slackware first-boot manifests.
 - `debian/VERSION/autoconf.sh` for Debian first-boot manifests.
 - The relevant distro config directory for `script.sh`, `qemu.sh`,

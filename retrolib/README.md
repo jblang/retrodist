@@ -46,10 +46,9 @@ Shared utilities used across all other modules.
   Supports `--dry-run`.
 
 - `autoinst_prep`
-  Stages the `autoinst/` tree onto `qemu.d/fat/` for the current config. Copies
-  `autoinst.sh` as `fat/autoinst`, copies the whole tree to `fat/autoinst.d/`,
-  then copies the distro's `autoinst.sh` and `autoconf.sh` manifests to
-  `fat/autoinst.d/distro/`. See [autoinst/README.md](../autoinst/README.md).
+  Stages the `autoinst/` tree onto `qemu.d/fat/autoinst.d/`, then copies the
+  distro's `autoconf.sh` manifest to `fat/autoinst.d/distro/`. See
+  [autoinst/README.md](../autoinst/README.md).
 
 ### `logging.sh`
 
@@ -113,7 +112,6 @@ for the usual flow when adding a distro.
 | `extract.sh` | Set `EXTRACT_*` vars and call `extract_install_files` |
 | `ks.cfg` | Red Hat Kickstart file copied to the staged boot floppy image |
 | `script.sh` | Host-side install automation; sourced after QEMU starts |
-| `autoinst.sh` | In-guest install manifest; copied to `fat/autoinst.d/distro/` |
 | `autoconf.sh` | In-guest first-boot manifest; copied to `fat/autoinst.d/distro/` |
 | `download.txt` | `filename url` pairs for wget |
 | `slackmirror.txt` | Slackware version for official mirror download |
@@ -133,8 +131,7 @@ for each distro config. Contains:
 - `install.iso` → symlink to the install ISO
 - `fda.img`, `hdc.iso`, etc. — optional additional media
 - `fat/` — when present, exposed to the guest as a writable FAT disk at `/dev/hdb1`
-- `fat/autoinst` — in-guest install runner, staged for automated installs
-- `fat/autoinst.d/` — shared runtime and distro manifests, staged for automated installs (see [autoinst/README.md](../autoinst/README.md))
+- `fat/autoinst.d/` — shared runtime and distro manifests, staged for first-boot configuration (see [autoinst/README.md](../autoinst/README.md))
 - `qmp.sock` — QMP Unix socket (live while QEMU is running)
 - `ttyS0.sock`…`ttyS3.sock`, `lp0.sock` — serial and parallel port sockets
 
@@ -213,9 +210,9 @@ Key functions:
 - `retro_extract`
   Top-level handler for `retro extract CONFIG`. Runs `retro_download`, sources
   the distro's `extract.sh`, copies a configured Red Hat `ks.cfg` into
-  `boot.img`, stages the autoinstall runtime and any configured distro
-  autoinstall manifests, and writes `qemu.d/.extracted`. Later runs reuse the
-  extracted files.
+  `boot.img`, stages the shared runtime and any configured distro autoconf
+  manifest, and writes `qemu.d/.extracted`. Later runs reuse the extracted
+  files.
 
 ## QEMU Runtime
 
@@ -480,7 +477,7 @@ Key functions:
 - `qmp_hmp_command COMMAND` — sends an HMP command through QMP.
 - `qmp_sendkey KEY` — sends a QEMU sendkey token.
 - `qmp_send_string TEXT` — types a string into the guest character by character.
-- `qmp_change_image IMAGE [DEVICE]` — changes floppy media at runtime.
+- `qmp_change_image IMAGE [DEVICE [FORMAT]]` — changes floppy media at runtime.
 - `qmp_eject_disk [DEVICE]` — ejects media from a block device.
 - `qmp_boot_disk DEVICE` — sets the next boot device order.
 - `qmp_vga_dump_text` — dumps and decodes VGA text memory as a plain-text screen.
@@ -493,10 +490,6 @@ manifests. A script waits for the screen to reach a known state, then sends a
 key, a line of text, or swaps media. A per-distro `script.sh` is written by
 composing these primitives directly. Prefer [`serial_shell`](#serialsh) for
 shell commands whose output does not need to stay on the VGA screen.
-
-`SCRIPT_AUTOINST_COMMAND` holds the shell one-liner that mounts the staged FAT
-media at `/retro` and runs `autoinst`; send it with
-`serial_shell --no-wait` once a shell prompt appears.
 
 `SCRIPT_AUTOCONF_COMMAND` holds the first-boot shell one-liner that mounts the
 staged FAT media at `/retro` if needed, then runs `autoinst.d/autoconf.sh`.

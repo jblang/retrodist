@@ -1,7 +1,7 @@
 # Retro Distro Playground
 
 Retro Distro Playground downloads, stages, installs, and boots early Linux
-distributions in [QEMU](https://www.qemu.org/). It includes recipes for SLS,
+distributions in [QEMU](https://www.qemu.org/). It includes recipes for
 Slackware, Debian, Red Hat, and historical CD-ROM collections, with many
 distros supporting fully scripted unattended installs.
 
@@ -45,7 +45,6 @@ README with release-specific notes.
 - [Slackware](slackware/README.md)
 - [Debian](debian/README.md)
 - [Red Hat](redhat/README.md)
-- [SLS](sls/README.md)
 - [CD-ROM collections](cdrom)
 
 The `cdrom/` directory contains configs for downloading and extracting complete

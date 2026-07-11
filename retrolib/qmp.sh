@@ -205,15 +205,16 @@ qmp_eject_disk() {
 
 # Changes the configured floppy device to the given image.
 qmp_change_image() {
-    local image device
+    local image device format
     image=${1:-}
     device=${2:-floppy0}
+    format=${3:-raw}
 
     if [ -z "$image" ]; then
         log_error "Missing image for QMP change command"
         return 1
     fi
-    qmp_hmp_command "change $device $image"
+	qmp_hmp_command "change $device $image $format"
 }
 
 # Sets the QEMU boot device order.

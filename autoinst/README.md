@@ -1,12 +1,11 @@
 # Autoinstall Scripts
 
-This directory contains the shared runtime copied onto staged installer media
-for automated distro installation and first-boot configuration.
+This directory contains the helper scripts copied onto staged installer media
+for installation and first-boot configuration.
 
 `retrolib/extract.sh` stages this tree during `retro extract` with
-`autoinst_prep`: it copies the main install runner to `qemu.d/fat/autoinst`,
-copies this directory to `qemu.d/fat/autoinst.d`, and copies any configured
-distro manifests to `qemu.d/fat/autoinst.d/distro/`.
+`autoinst_prep`: it copies this directory to `qemu.d/fat/autoinst.d`, and
+copies the distro's `autoconf.sh` manifest to `qemu.d/fat/autoinst.d/distro/`.
 
 For the host-side staging process and config file lookup rules, see
 [retrolib/README.md](../retrolib/README.md). For adding a new distro manifest,
@@ -46,30 +45,6 @@ Edit the source files instead:
 - Some installers mount the staged disk as plain `msdos`, so helper filenames
   and directory layout need to remain DOS-friendly.
 
-## `autoinst.sh`
-
-`autoinst.sh` is the install-time runner. It is copied to the staged installer
-FAT directory as `autoinst`.
-
-At runtime it:
-
-1. Extends `PATH` with common installer binary locations.
-2. Derives `INSTMOUNT` from the runner's own path so the staged media can be
-   mounted anywhere.
-3. Selects `ROOTMOUNT` from known historical installer layouts:
-   `/target`, `/var/adm/mount` with `/mnt`, or `/root`.
-4. Verifies that `autoinst.d` exists under the staged media.
-5. Sources `autoinst.d/common.sh`.
-6. Initializes logging with `AUTOINST_DEBUG=0` unless overridden and
-   `AUTOINST_LOG=${TMPDIR:-/tmp}/autoinst.log` unless overridden.
-7. Sources `autoinst.d/distro/autoinst.sh`.
-8. Copies the install log to `$ROOTMOUNT/autoinst.log`.
-9. Prompts for ENTER, syncs, and reboots.
-
-The distro `autoinst.sh` manifest is responsible for setting install-time
-variables and calling wrapper functions such as `disk_init`,
-`debian_install_base`, or `sls_sysinstall`.
-
 ## `autoconf.sh`
 
 `autoconf.sh` is the first-boot configuration runner. Distro install paths that
@@ -81,7 +56,9 @@ At runtime it:
 1. Extends `PATH` with common installed-system binary locations.
 2. Mounts the staged install disk from `/dev/hdb1` at `/retro`.
 3. Verifies that `/retro/autoinst.d` exists.
-4. Sources `/retro/autoinst.d/common.sh`.
+4. Sources `logging.sh` and defines public wrapper functions (`mod_config`,
+   `net_config`, `tty_config`, `x11_config`) that load their implementation
+   scripts on demand.
 5. Initializes logging with `AUTOINST_DEBUG=0` unless overridden and
    `AUTOINST_LOG=/autoinst.log` unless overridden.
 6. Sources `/retro/autoinst.d/distro/autoconf.sh`.
@@ -94,9 +71,9 @@ and `x11_config`.
 
 ## `dialog.sh`
 
-`dialog.sh` adapts dialog-based installers, including Slackware's color
-`setup` and Red Hat's Perl installer, for host-side scripting. When serial is
-available, it sends labeled widget fields to the host and reads the scripted
+`dialog.sh` adapts dialog-based installers, including Slackware's color `setup`
+and early Debian and Red Hat installers, for host-side scripting. When serial
+is available, it sends labeled widget fields to the host and reads the scripted
 answer from the same port.
 
 The adapter never executes the real dialog binary: installers often redirect
@@ -106,16 +83,6 @@ using the fd opposite the widget result (stdout normally, stderr under
 `--stdout`) so redirected results stay clean. Infobox widgets are muted on
 the serial transcript by default; set `DIALOG_SERIAL_INFOBOXES=1` to include
 them.
-
-## `common.sh`
-
-`common.sh` is sourced by both main runners. It sources `logging.sh` and
-`diskutil.sh`, then defines public wrapper functions that load the
-implementation scripts on demand.
-
-Install wrappers are documented in [install/README.md](install/README.md).
-First-boot configuration wrappers are documented in
-[config/README.md](config/README.md).
 
 ## `logging.sh`
 
@@ -148,79 +115,18 @@ Logging helpers:
   Logs an `ERROR:` message and exits 1. Use for critical steps whose failure
   would leave a broken or partial guest.
 
-## `diskutil.sh`
-
-`diskutil.sh` contains shared disk preparation helpers and is loaded by
-`common.sh`.
-
-- `disk_init`
-  Detects or creates the default swap/root partition layout, formats swap,
-  formats and mounts the root filesystem, and creates `fstab.tmp`. Pass
-  `swapstart swapend rootstart rootend` only when a manifest needs explicit
-  geometry.
-
-- `make_boot_floppy`
-  Writes the installed kernel to a boot floppy and sets its root device.
-
-Common disk variables:
-
-- `DISKDEV`
-  Target disk. Defaults to `/dev/hda`.
-
-- `SWAPPART`
-  Swap partition number. Defaults to `1`.
-
-- `ROOTPART`
-  Root partition number. Defaults to `2`.
-
-- `SWAPDEV`
-  Swap device. Defaults to `$DISKDEV$SWAPPART`.
-
-- `ROOTDEV`
-  Root device. Defaults to `$DISKDEV$ROOTPART`.
-
-- `ROOTFS`
-  Root filesystem type. Defaults to `ext2`; `ext` is also supported.
-
-- `FDISK_REBOOT`
-  When set, `disk_init` exits after writing a new partition table so the VM can
-  be rebooted before formatting.
-
-- `DISK_SWAP_MB`
-  Swap size used when autodetecting partition geometry. Defaults to `128`.
-  Common QEMU CHS layouts are supported without relying on shell arithmetic.
-
-- `FDISK_SWAP_CYLINDERS`
-  Swap cylinder count used when autodetecting partition geometry. Overrides
-  `DISK_SWAP_MB`.
-
-- `BOOTFLOPPYDEV`
-  Boot floppy device for `make_boot_floppy`. Defaults to `/dev/fd0`.
-
-- `BOOTKERNEL`
-  Kernel image for `make_boot_floppy`. Defaults to `$ROOTMOUNT/Image`.
-
-## `install/`
-
-`install/` contains distro-specific install helpers loaded through `common.sh`.
-See [install/README.md](install/README.md) for details.
-
 ## `config/`
 
-`config/` contains first-boot configuration helpers loaded through `common.sh`.
+`config/` contains first-boot configuration helpers loaded through wrapper
+functions defined in `autoconf.sh`.
 See [config/README.md](config/README.md) for details.
 
 ## Distro Manifests
 
-Each supported distro directory can provide:
+Each supported distro directory can provide an `autoconf.sh` first-boot
+configuration manifest, copied to `autoinst.d/distro/autoconf.sh`.
 
-- `autoinst.sh`
-  Install-time manifest copied to `autoinst.d/distro/autoinst.sh`.
-
-- `autoconf.sh`
-  First-boot configuration manifest copied to
-  `autoinst.d/distro/autoconf.sh`.
-
-The manifests should set only the variables needed by that distro and call the
-public wrappers from `common.sh`. Helper implementation code should stay in this
-directory as function-only scripts so it can be sourced safely by the runners.
+The manifest should set only the variables needed by that distro and call the
+public wrappers from `autoconf.sh`. Helper implementation code should stay in
+this directory as function-only scripts so it can be sourced safely by the
+runner.

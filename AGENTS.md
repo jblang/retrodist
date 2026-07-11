@@ -43,7 +43,7 @@ Extra arguments after `CONFIG` are passed to QEMU.
 ## Hard Rules
 
 - Do not edit staged autoinstall copies under `qemu.d/fat/autoinst.d/`.
-- Edit source files instead: `autoinst/`, distro `autoinst.sh` manifests, and
+- Edit source files instead: `autoinst/`, distro `autoconf.sh` manifests, and
   the relevant config directory.
 - Treat `qemu.d/`, `download.d/`, and `tagfile.d/` as generated state unless
   the task explicitly targets generated artifacts.

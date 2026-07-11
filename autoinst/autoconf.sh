@@ -23,7 +23,32 @@ if [ ! -d "$AUTOINST_D" ]; then
 fi
 
 # define common helper functions
-. "$AUTOINST_D/common.sh"
+. "$AUTOINST_D/logging.sh"
+
+# Load the module autoloading configurator.
+mod_config() {
+    . "$AUTOINST_D/config/modules.sh"
+    _mod_config "$@"
+}
+
+# Load the network configurator.
+net_config() {
+    . "$AUTOINST_D/config/net.sh"
+    _net_config "$@"
+}
+
+# Load the serial console configurator.
+tty_config() {
+    . "$AUTOINST_D/config/tty.sh"
+    _tty_config "$@"
+}
+
+# Load the X11 configurator.
+x11_config() {
+    . "$AUTOINST_D/config/x11.sh"
+    _x11_config "$@"
+}
+
 AUTOINST_DEBUG=${AUTOINST_DEBUG:-0}
 AUTOINST_LOG=${AUTOINST_LOG:-/autoinst.log}
 log_div

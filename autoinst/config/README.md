@@ -1,7 +1,7 @@
 # Autoinstall Configuration Helpers
 
 These scripts run from `autoconf.sh` during first boot. They are copied to
-`autoinst.d/config/` and loaded through wrappers in `autoinst.d/common.sh`.
+`autoinst.d/config/` and loaded through wrappers defined in `autoinst.d/autoconf.sh`.
 
 See [../README.md](../README.md) for portability rules. These files run on old
 installed systems, not modern shells.
@@ -34,7 +34,7 @@ Behavior:
 
 Wrapper: `net_config`
 
-Writes basic network config for Debian, Slackware, and SLS layouts. Kernel
+Writes basic network config for Debian, Slackware, and rc.net layouts. Kernel
 module loading is separate; use `MOD_ENABLE` and `mod_config`.
 
 Defaults target QEMU user networking:
