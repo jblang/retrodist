@@ -1,1 +1,1 @@
-extract_link_install_iso "$ORIGDIR/disc1.iso"
+extract_link_install_iso "$DOWNLOAD_D/disc1.iso"

@@ -1,6 +1,11 @@
 # Debian
 
-[Debian](https://www.debian.org/) was established in August 1993 by Ian Murdock, who published a [manifesto](https://www.debian.org/doc/manuals/project-history/manifesto.en.html) outlining the project's goals. Like Slackware, it was created out of frustration with the bugs in SLS.  More historical information is on [Wikipedia](https://en.wikipedia.org/wiki/Debian). 
+[Debian](https://www.debian.org/) was established in August 1993 by Ian Murdock,
+who published a
+[manifesto](https://www.debian.org/doc/manuals/project-history/manifesto.en.html)
+outlining the project's goals. Like Slackware, it was created out of frustration
+with the bugs in SLS. More historical information is available on
+[Wikipedia](https://en.wikipedia.org/wiki/Debian).
 
 ## Release History
 
@@ -15,7 +20,7 @@ This table summarizes the early Debian releases represented in this repo.
 
 ## Installation
 
-Run a scripted install when the selected variant includes `script.sh`:
+Run a scripted install when the selected variant includes `install.sh`:
 
 ```sh
 retro install debian/VERSION/VARIANT
@@ -46,20 +51,20 @@ interactive `fdisk` or `cfdisk`.
 is replaced with the serial adapter, so every installer screen is answered over
 the serial port. The shared driver is [dinstall.sh](dinstall.sh), which walks
 the main menu by matching its `Next` entry, so one menu tree covers all three
-releases and each `script.sh` only sets its own overrides. Debian's own
-first-boot configuration (root password, user account, `dselect`) is then
-scripted on the console, and `autoconf.sh` runs afterward.
+releases and each `install.sh` only sets its own overrides. The host then
+scripts Debian's installed-system setup (root password, user account, and
+`dselect`) before running `postinst.sh`.
 
 `0.91`'s `dinstall` is a prompt-and-response shell script, so
-[0.91/infomagic/script.sh](0.91/infomagic/script.sh) answers it over the serial
+[0.91/infomagic/install.sh](0.91/infomagic/install.sh) answers it over the serial
 shell instead, replacing `tput` with a no-op first so the prompts arrive as
 plain lines. That `dinstall` installs no boot loader and no packages, so two
-standalone scripts in [../autoinst/deb091](../autoinst/deb091) fill the gaps.
+standalone scripts in [../guestlib/deb091](../guestlib/deb091) fill the gaps.
 They take arguments rather than reading the install environment:
 
 - `lilo.sh ROOTDEV ROOTMOUNT`: runs `rdev` on the installed kernel, rewrites
-  `lilo.conf`, and installs LILO. Run from `script.sh` once `dinstall` exits.
-- `pkginst.sh INSTMOUNT`: installs every `.deb` under `$INSTMOUNT/packages` with
+  `lilo.conf`, and installs LILO. Run from `install.sh` once `dinstall` exits.
+- `pkginst.sh INSTALL_D`: installs every `.deb` under `$INSTALL_D/packages` with
   `zcat | cpio`, runs `fixperms` when metadata is present, then runs the
   non-interactive `.inst` scripts from `/var/adm/dpkg/inst`. Run from
-  `autoconf.sh`.
+  `postinst.sh`.

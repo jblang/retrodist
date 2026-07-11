@@ -77,11 +77,11 @@ Generated state lives in `jump.d/` by default:
 
 `jump.d/` is gitignored. Do not publish it; it contains a private SSH key.
 
-Use `JUMPHOME` to put this state somewhere else:
+Use `JUMP_D` to put this state somewhere else:
 
 ```bash
-JUMPHOME=/path/to/retrodist-jump jump run
-JUMPHOME=/path/to/retrodist-jump jump ssh
+JUMP_D=/path/to/retrodist-jump jump run
+JUMP_D=/path/to/retrodist-jump jump ssh
 ```
 
 ## Configuration

@@ -1,2 +1,0 @@
-AUTOCONF_REBOOT=false
-x11_config

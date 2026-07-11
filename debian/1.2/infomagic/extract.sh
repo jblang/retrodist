@@ -1,9 +1,9 @@
 EXTRACT_SOURCE=disc3.iso
-DISKDIR=rex-updates/disks-i386/1997-01-18
-EXTRACT_BOOT_IMAGE=$DISKDIR/rsc1440.bin
-EXTRACT_ROOT_IMAGE=$DISKDIR/root.bin
-EXTRACT_EXTRA_IMAGES=("$DISKDIR/drv1440.bin" "$DISKDIR"/base14-*.bin)
-EXTRACT_FAT_FILES=("$DISKDIR/base1_2.tgz")
+DISK_D=rex-updates/disks-i386/1997-01-18
+EXTRACT_BOOT_IMAGE=$DISK_D/rsc1440.bin
+EXTRACT_ROOT_IMAGE=$DISK_D/root.bin
+EXTRACT_EXTRA_IMAGES=("$DISK_D/drv1440.bin" "$DISK_D"/base14-*.bin)
+EXTRACT_FAT_FILES=("$DISK_D/base1_2.tgz")
 extract_install_files
 # The driver floppy is only staged for MODULES.TGZ, which supplies serial.o.
 debian_extract_fat_image drv1440.bin fat/drivers MODULES.TGZ

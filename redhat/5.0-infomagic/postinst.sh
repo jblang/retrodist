@@ -1,0 +1,2 @@
+X11_CHIPSET=clgd5446
+x11_config

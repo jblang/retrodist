@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# Test CLI for QMP helpers.
+# CLI for QMP-backed VM inspection and device control.
 set -euo pipefail
 
-SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-# shellcheck source=retrolib/logging.sh
-source "$SCRIPTDIR/retrolib/logging.sh"
-# shellcheck source=retrolib/qmp.sh
-source "$SCRIPTDIR/retrolib/qmp.sh"
+RETRO_D=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+HOSTLIB_D=$RETRO_D/hostlib
+# shellcheck source=hostlib/logging.sh
+source "$HOSTLIB_D/logging.sh"
+# shellcheck source=hostlib/qmp.sh
+source "$HOSTLIB_D/qmp.sh"
+# shellcheck source=hostlib/kb.sh
+source "$HOSTLIB_D/kb.sh"
+# shellcheck source=hostlib/vga.sh
+source "$HOSTLIB_D/vga.sh"
+# shellcheck source=hostlib/script.sh
+source "$HOSTLIB_D/script.sh"
 
 # Print CLI usage.
 usage() {
@@ -83,6 +90,7 @@ qmp_parse_options() {
 }
 
 qmp_set_defaults
+vga_set_defaults
 QMP_DUMP_LINE_NUMBERS=${QMP_DUMP_LINE_NUMBERS:-0}
 QMP_SEND_NEWLINE=${QMP_SEND_NEWLINE:-0}
 QMP_DISK=${QMP_DISK:-floppy0}
@@ -131,7 +139,6 @@ set -- "${QMP_REMAINING_ARGS[@]}"
 set -u
 
 qmp_check_prereqs
-qmp_vga_validate_config
 
 case "$command_name" in
   dump-screen)
@@ -139,10 +146,12 @@ case "$command_name" in
       echo "$command_name does not take positional arguments" >&2
       exit 1
     fi
+    vga_check_prereqs
+    vga_validate_config
     if [ "$QMP_DUMP_LINE_NUMBERS" = "1" ]; then
-      qmp_vga_dump_text | qmp_number_lines
+      vga_dump_text | qmp_number_lines
     else
-      qmp_vga_dump_text
+      vga_dump_text
     fi
     ;;
   send-key)
@@ -150,23 +159,23 @@ case "$command_name" in
       echo "Usage: $(basename "$0") send-key [OPTIONS] KEY" >&2
       exit 1
     fi
-    qmp_sendkey "$1"
+    kb_send_raw "$1"
     ;;
   send-stdin)
     if [ $# -ne 0 ]; then
       echo "Usage: INPUT | $(basename "$0") send-stdin [OPTIONS]" >&2
       exit 1
     fi
-    qmp_send_stdin
+    kb_send_stdin
     ;;
   send-text)
     if [ $# -ne 1 ]; then
       echo "Usage: $(basename "$0") send-text [OPTIONS] TEXT" >&2
       exit 1
     fi
-    qmp_send_string "$1"
+    kb_send_string "$1"
     if [ "$QMP_SEND_NEWLINE" = "1" ]; then
-      qmp_send_return
+      kb_send_return
     fi
     ;;
   change-image)
@@ -174,7 +183,7 @@ case "$command_name" in
       echo "Usage: $(basename "$0") change-image [OPTIONS] IMAGE" >&2
       exit 1
     fi
-    qmp_change_image "$1" "$QMP_DISK"
+    script_change_image "$1" "$QMP_DISK"
     ;;
   eject-disk)
     if [ $# -gt 1 ]; then
@@ -184,6 +193,6 @@ case "$command_name" in
     if [ $# -eq 1 ]; then
       QMP_DISK=$1
     fi
-    qmp_eject_disk "$QMP_DISK"
+    script_eject_disk "$QMP_DISK"
     ;;
 esac

@@ -55,10 +55,10 @@ NET_MODULE=
 NET_MODULE_ARGS=
 
 # Set true on releases whose first boot logs out instead of leaving a root
-# shell, so autoconf logs back in.
+# shell, so postinst logs back in.
 DINSTALL_RELOGIN=false
 
-# Prompts autoconf waits for; empty takes the defaults in dinstall_autoconf.
+# Prompts postinst waits for; empty takes the defaults in dinstall_postinst.
 DINSTALL_LOGIN_PROMPT=
 DINSTALL_PASSWORD_PROMPT=
 DINSTALL_SHELL_PROMPT=
@@ -67,21 +67,21 @@ DINSTALL_SHELL_PROMPT=
 # up front because dinstall partitions with cfdisk, which cannot be driven.
 # Back on VT1, enter answers the color/monochrome menu still on the real dialog.
 dinstall_start() {
-    screen_wait -l "Select Color or Monochrome"
+    vga_wait -l "Select Color or Monochrome"
     kb_press_key alt-f2
-    screen_wait -l "Please press Enter to activate this console."
+    vga_wait -l "Please press Enter to activate this console."
     kb_press_key ret
-    screen_wait -l "${SHELL_PROMPT:-#}"
+    vga_wait -l "${SHELL_PROMPT:-#}"
     # The boot kernel ships the serial driver as a module, so mount the FAT
     # partition and insmod the staged serial.o before the serial shell.
     kb_send_line "mkdir -p $FAT_MOUNT; mount -t msdos $FAT_PARTITION $FAT_MOUNT"
     kb_send_line "[ ! -f $FAT_MOUNT/serial.o ] || insmod $FAT_MOUNT/serial.o"
     serial_shell_start || return 1
     serial_shell_send "mv $DIALOG_BIN $DIALOG_BIN.real" || return 1
-    serial_shell_send "cp $FAT_MOUNT/autoinst.d/dialog.sh $DIALOG_BIN" || return 1
+    serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh $DIALOG_BIN" || return 1
     serial_shell_send "chmod 755 $DIALOG_BIN" || return 1
     serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
-    script_fdisk_partitions "$SWAP_MB" || return 1
+    fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1
     kb_press_key alt-f1
@@ -171,7 +171,7 @@ dinstall_module() {
         menu -r "Select ($category )? ?modules" "$module" \
         menu -r "Module $module [-+]" Install \
         -x inputbox "Enter Command-Line Arguments" "$args"
-    screen_wait -l "Please press ENTER when you are ready to continue."
+    vga_wait -l "Please press ENTER when you are ready to continue."
     kb_press_key ret
     dialog_answer -x menu -r "Select ($category )? ?modules" Exit
 }
@@ -200,9 +200,9 @@ dinstall_base_config() {
     if [ "$DINSTALL_CONFIG_KEYBOARD" = true ]; then
         dinstall_config_keyboard
     fi
-    screen_wait -l "Which?"
+    vga_wait -l "Which?"
     kb_send_line "$TIMEZONE"
-    screen_wait -r 'Is your system clock set to GMT( \(y/n\) \[y\])?[?]'
+    vga_wait -r 'Is your system clock set to GMT( \(y/n\) \[y\])?[?]'
     kb_send_line y
 }
 
@@ -265,19 +265,19 @@ dinstall_dispatch() {
 dinstall_1stboot() {
     # Answered prompts stay on screen, so anchor each passwd run on its
     # unique header and queue both lines; getpass reads them in order.
-    screen_wait -l "Changing password for root"
+    vga_wait -l "Changing password for root"
     kb_send_line "$ROOT_PASSWORD"
     kb_send_line "$ROOT_PASSWORD"
 
-    screen_wait -l "Enter a username for your account:"
+    vga_wait -l "Enter a username for your account:"
     kb_send_line "$USER_NAME"
-    screen_wait -l "Changing password for $USER_NAME"
+    vga_wait -l "Changing password for $USER_NAME"
     kb_send_line "$USER_PASSWORD"
     kb_send_line "$USER_PASSWORD"
 
     # adduser runs chfn, whose per-field prompts differ by release, so take the
     # empty default of each until the shared confirmation appears.
-    until screen_wait -t 0.1 -r "^Is (the|this finger) information correct\?? \[y/n\]\??"; do
+    until vga_wait -t 0.1 -r "^Is (the|this finger) information correct\?? \[y/n\]\??"; do
         kb_press_key ret
     done
     kb_send_line y
@@ -285,15 +285,15 @@ dinstall_1stboot() {
     # Only some releases offer shadow passwords before dselect, so poll for
     # both, and answer the offer once: taking it leaves the prompt on screen.
     local shadow_offered=false
-    until screen_wait -t 1 -l "Press <ENTER> to continue:"; do
+    until vga_wait -t 1 -l "Press <ENTER> to continue:"; do
         if [ "$shadow_offered" = false ] &&
-            screen_wait -t 0.1 -l "Shall I install shadow passwords? [Y/n]"; then
+            vga_wait -t 0.1 -l "Shall I install shadow passwords? [Y/n]"; then
             kb_send_line y
             shadow_offered=true
         fi
     done
     kb_press_key ret
-    screen_wait -l \
+    vga_wait -l \
         "Debian Linux \`dselect' package handling frontend." \
         "6. [Q]uit        Quit dselect." \
         "Press ENTER to confirm selection.   ^L to redraw screen."
@@ -301,31 +301,31 @@ dinstall_1stboot() {
     kb_press_key ret
 }
 
-# Run the staged autoconfiguration script once root.sh hands back a shell. The
+# Run the staged post-installation configuration script once root.sh hands back a shell. The
 # prompt is matched as a regex because PS1 is "\h\$", which renders as a bare
 # "#" until the hostname is set and as "HOST#" afterward.
-dinstall_autoconf() {
+dinstall_postinst() {
     local login_prompt password_prompt shell_prompt
     login_prompt=${DINSTALL_LOGIN_PROMPT:-"$NET_HOSTNAME login:"}
     password_prompt=${DINSTALL_PASSWORD_PROMPT:-"Password:"}
     shell_prompt=${DINSTALL_SHELL_PROMPT:-'^[^[:space:]]*# *$'}
 
-    screen_wait -l "Have fun!"
+    vga_wait -l "Have fun!"
     if [ "$DINSTALL_RELOGIN" = true ]; then
-        screen_wait -l "$login_prompt"
+        vga_wait -l "$login_prompt"
         kb_send_line root
-        screen_wait -l "$password_prompt"
+        vga_wait -l "$password_prompt"
         kb_send_line "$ROOT_PASSWORD"
     fi
-    screen_wait -r "$shell_prompt"
-    kb_send_line "$SCRIPT_AUTOCONF_COMMAND"
+    vga_wait -r "$shell_prompt"
+    kb_send_line "$INSTALL_POSTINST_COMMAND"
 }
 
-# Drive the full dinstall sequence, first boot, and autoconf.
+# Drive the full dinstall sequence, first boot, and postinst.
 dinstall_setup() {
     dinstall_start
     dinstall_dispatch
     dinstall_reboot
     dinstall_1stboot
-    dinstall_autoconf
+    dinstall_postinst
 }

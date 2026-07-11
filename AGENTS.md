@@ -11,8 +11,8 @@ distributions in QEMU, with scripted unattended installs where supported.
 
 - User-facing overview and commands: [README.md](README.md)
 - Adding or maintaining distro configs: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Host-side library details: [retrolib/README.md](retrolib/README.md)
-- In-guest autoinstall runtime: [autoinst/README.md](autoinst/README.md)
+- Host-side library details: [hostlib/README.md](hostlib/README.md)
+- In-guest installation runtime: [guestlib/README.md](guestlib/README.md)
 - Jump box details: [JUMP.md](JUMP.md)
 
 Use `slackware/3.0/walnut/` as a compact working config example.
@@ -42,8 +42,8 @@ Extra arguments after `CONFIG` are passed to QEMU.
 
 ## Hard Rules
 
-- Do not edit staged autoinstall copies under `qemu.d/fat/autoinst.d/`.
-- Edit source files instead: `autoinst/`, distro `autoconf.sh` manifests, and
+- Do not edit staged guest-library copies under `qemu.d/fat/guestlib.d/`.
+- Edit source files instead: `guestlib/`, distro `postinst.sh` manifests, and
   the relevant config directory.
 - Treat `qemu.d/`, `download.d/`, and `tagfile.d/` as generated state unless
   the task explicitly targets generated artifacts.
@@ -62,17 +62,17 @@ them only when the task calls for VM-level verification.
 
 After code or config changes, review related documentation for needed updates.
 Check the nearest README plus any linked reference doc, such as
-[CONTRIBUTING.md](CONTRIBUTING.md), [retrolib/README.md](retrolib/README.md),
-or [autoinst/README.md](autoinst/README.md).
+[CONTRIBUTING.md](CONTRIBUTING.md), [hostlib/README.md](hostlib/README.md),
+or [guestlib/README.md](guestlib/README.md).
 
 ## Compatibility Verification
 
-After editing `retrolib/`, verify the change against the Compatibility Notes in
-[retrolib/README.md](retrolib/README.md). Check especially for Bash 4+ syntax
+After editing `hostlib/`, verify the change against the Compatibility Notes in
+[hostlib/README.md](hostlib/README.md). Check especially for Bash 4+ syntax
 and GNU-only command flags.
 
-After editing `autoinst/`, verify the change against the portability constraints
-in [autoinst/README.md](autoinst/README.md). These scripts run in very old
+After editing `guestlib/`, verify the change against the portability constraints
+in [guestlib/README.md](guestlib/README.md). These scripts run in very old
 installer environments. Check especially for:
 
 - `if ! command; then`

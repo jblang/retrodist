@@ -14,25 +14,25 @@ files for each version, taken from the source CD-ROM or official mirror.
 | [1.01](./1.01/ANNOUNCE.txt) | 1993-08-04 | 0.99pl12 | 4.4.1 | gcc 2.4.5 | 1.3 |
 | [1.1.1](./1.1.1-infomagic/README.txt) | 1993-12-12 | 0.99pl14 | 4.4.4 | gcc 2.4.5 | 2.0 |
 | [1.1.2](./1.1.2-official/README.txt) | 1994-02-05 | 0.99.15 | 4.5.19 | gcc 2.5.8 | 2.0 |
-| [2.0.0](./2.0.0/README.txt) | 1994-07-01 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
-| [2.0.1](./2.0.1/README.txt) | 1994-09-18 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
-| [2.1](./2.1/README.txt) | 1994-10-31 | 1.1.59 | 4.5.26 | gcc 2.5.8 | 3.1 |
-| [2.2](./2.2/README.txt) | 1995-03-21 | 1.2.1 | 4.6.27 | gcc 2.6.3 | 3.1.1 |
+| [2.0.0](./2.0.0-infomagic/README.txt) | 1994-07-01 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
+| [2.0.1](./2.0.1-infomagic/README.txt) | 1994-09-18 | 1.0.9<br>1.1.18 | 4.5.26 | gcc 2.5.8 | 2.1.1 |
+| [2.1](./2.1-infomagic/README.txt) | 1994-10-31 | 1.1.59 | 4.5.26 | gcc 2.5.8 | 3.1 |
+| [2.2](./2.2-infomagic/README.txt) | 1995-03-21 | 1.2.1 | 4.6.27 | gcc 2.6.3 | 3.1.1 |
 | [2.3](./2.3/README.txt) | 1995-05-10 | 1.2.8 | 4.6.27 | gcc 2.6.3 | 3.1.1 |
 | [3.0](./3.0/README.txt) | 1995-08-24 | 1.2.13<br>1.3.18 | 5.0.9 | gcc 2.7.0 | 3.1.2 |
 | [3.1](./3.1/README.txt) | 1996-07-03 | 2.0.0 | 5.3.12 | gcc 2.7.2 | 3.1.2 |
-| [3.2](./3.2/README.txt) | 1997-02-17 | 2.0.29 | 5.4.23 | gcc 2.7.2.1 | 3.2 |
-| [3.3](./3.3/README.txt) | 1997-07-11 | 2.0.30 | 5.4.33 | gcc 2.7.2.2 | 3.3 |
-| [3.4](./3.4/README.txt) | 1997-10-14 | 2.0.30 | 5.4.33 | gcc 2.7.2.3 | 3.3.1 |
+| [3.2](./3.2-infomagic/README.txt) | 1997-02-17 | 2.0.29 | 5.4.23 | gcc 2.7.2.1 | 3.2 |
+| [3.3](./3.3-infomagic/README.txt) | 1997-07-11 | 2.0.30 | 5.4.33 | gcc 2.7.2.2 | 3.3 |
+| [3.4](./3.4-infomagic/README.txt) | 1997-10-14 | 2.0.30 | 5.4.33 | gcc 2.7.2.3 | 3.3.1 |
 | [3.5](./3.5/README.txt) | 1998-06-09 | 2.0.34 | 5.4.44 | egcs 1.0.3 | 3.3.2-patch2 |
 | [3.6](./3.6/README.txt) | 1998-10-28 | 2.0.35 | 5.4.46 | egcs 1.0.3<br>gcc 2.7.2.3 | 3.3.2 + patch 3 |
-| [3.9](./3.9/README.txt) | 1999-05-10 | 2.0.37pre10 | 5.4.46 | egcs 1.1.2<br>gcc 2.7.2.3 | 3.3.3.1 |
-| [4.0](./4.0/README.txt) | 1999-05-17 | 2.2.6 | 5.4.46 | egcs 1.1.2<br>gcc 2.7.2.3 | 3.3.3.1 |
+| [3.9](./3.9-kimmel/README.txt) | 1999-05-10 | 2.0.37pre10 | 5.4.46 | egcs 1.1.2<br>gcc 2.7.2.3 | 3.3.3.1 |
+| [4.0](./4.0-walnut/README.txt) | 1999-05-17 | 2.2.6 | 5.4.46 | egcs 1.1.2<br>gcc 2.7.2.3 | 3.3.3.1 |
 | [7.0](./7.0/README.txt) | 1999-10-25 | 2.2.13 | glibc 2.1.2 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95 | 3.3.5 |
-| [7.1](./7.1/README.txt) | 2000-06-22 | 2.2.16 | glibc 2.1.3 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95.2 | 3.3.6 |
-| [8.0](./8.0/README.txt) | 2001-06-28 | 2.2.19 | glibc 2.2.3 | gcc 2.95.3<br>egcs 1.1.2 | 4.1.0 |
-| [8.1](./8.1/README.txt) | 2002-06-18 | 2.4.18 | glibc 2.2.5 | gcc 2.95.3<br>gcc 3.1 | 4.2.0 |
-| [9.0](./9.0/README.txt) | 2003-03-18 | 2.4.20 | glibc 2.3.1 | gcc 3.2.2 | 4.3.0 |
+| [7.1](./7.1-walnut/README.txt) | 2000-06-22 | 2.2.16 | glibc 2.1.3 | egcs 1.1.2<br>gcc 2.7.2.3<br>gcc 2.95.2 | 3.3.6 |
+| [8.0](./8.0-kimmel/README.txt) | 2001-06-28 | 2.2.19 | glibc 2.2.3 | gcc 2.95.3<br>egcs 1.1.2 | 4.1.0 |
+| [8.1](./8.1-kimmel/README.txt) | 2002-06-18 | 2.4.18 | glibc 2.2.5 | gcc 2.95.3<br>gcc 3.1 | 4.2.0 |
+| [9.0](./9.0-kimmel/README.txt) | 2003-03-18 | 2.4.20 | glibc 2.3.1 | gcc 3.2.2 | 4.3.0 |
 
 ## Historical Background
 
@@ -46,7 +46,7 @@ files for each version, taken from the source CD-ROM or official mirror.
 
 ## Installation
 
-Run a scripted install when the selected variant includes `script.sh`:
+Run a scripted install when the selected variant includes `install.sh`:
 
 ```sh
 retro install slackware/VERSION/VARIANT
@@ -79,4 +79,6 @@ INSTALL_TAGSETS=base retro install slackware/3.0/walnut
 ```
 
 To customize package selection, edit or add a `*.tag` file. Each line is
-`series package state`, where state is `ADD` or `SKP`.
+`series package state`, where state is `ADD`, `REC`, `OPT`, or `SKP`. Use `*`
+as the package to set the series default; a package-specific rule overrides it.
+A variant-level tagset shadows one with the same name at the version level.

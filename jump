@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Starts a Debian jump box for retro guest file transfer and network tests.
 set -euo pipefail
-SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-JUMPHOME=${JUMPHOME:-$SCRIPTDIR/jump.d}
+RETRO_D=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+JUMP_D=${JUMP_D:-$RETRO_D/jump.d}
 HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
 DEBIAN_CODENAME=trixie
@@ -13,9 +13,9 @@ JUMP_NET_MAC_INTERNET=52:54:00:12:34:56
 JUMP_NET_MAC_RETRONET=52:54:00:12:34:57
 
 # temp directory automatically cleaned up on exit
-TEMPDIR=$(mktemp -d)
-SEEDIMG=$TEMPDIR/seed.iso
-trap 'rm -rf "$TEMPDIR"' EXIT
+TEMP_D=$(mktemp -d)
+SEEDIMG=$TEMP_D/seed.iso
+trap 'rm -rf "$TEMP_D"' EXIT
 
 # Select Debian and QEMU settings for the host platform.
 jump_configure_platform() {
@@ -53,7 +53,7 @@ jump_configure_platform() {
   QEMU_NET_DEVICE_RETRONET="${QEMU_NET_DEVICE_RETRONET:-e1000}"
   CLOUDIMG=debian-$DEBIAN_RELEASE-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
   CLOUDIMG_URL="https://cloud.debian.org/images/cloud/$DEBIAN_CODENAME/latest/$CLOUDIMG"
-  JUMPIMG=$JUMPHOME/retrojump-$DEBIAN_CODENAME-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
+  JUMPIMG=$JUMP_D/retrojump-$DEBIAN_CODENAME-$JUMP_IMAGE_FLAVOR-$DEBIAN_ARCH.qcow2
 }
 
 # Verify the host has the tools needed for the selected platform.
@@ -128,11 +128,11 @@ jump_seed_drive_args() {
 
 # Build the cloud-init seed ISO for first boot.
 jump_make_seed_image() {
-  local seed_dir=$TEMPDIR/seed
+  local seed_dir=$TEMP_D/seed
   mkdir -p "$seed_dir"
-  cp "$TEMPDIR/userdata" "$seed_dir/user-data"
-  cp "$TEMPDIR/metadata" "$seed_dir/meta-data"
-  cp "$TEMPDIR/networkconfig" "$seed_dir/network-config"
+  cp "$TEMP_D/userdata" "$seed_dir/user-data"
+  cp "$TEMP_D/metadata" "$seed_dir/meta-data"
+  cp "$TEMP_D/networkconfig" "$seed_dir/network-config"
 
   if command -v xorriso >/dev/null 2>&1; then
     xorriso -as mkisofs \
@@ -174,24 +174,24 @@ EOF
 # Download and initialize the jump box working disk and seed image.
 jump_init() {
   local pubkey
-  mkdir -p "$JUMPHOME"
-  wget --timestamping --directory-prefix="$JUMPHOME" "$CLOUDIMG_URL"
-  cp "$JUMPHOME/$CLOUDIMG" "$JUMPIMG"
+  mkdir -p "$JUMP_D"
+  wget --timestamping --directory-prefix="$JUMP_D" "$CLOUDIMG_URL"
+  cp "$JUMP_D/$CLOUDIMG" "$JUMPIMG"
   qemu-img resize "$JUMPIMG" 20G
 
   # remove any old keys
   ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:$JUMP_SSH_PORT"
-  if [[ ! -f "$JUMPHOME/id_rsa" ]]; then
-    ssh-keygen -q -C retro@retrojump -f "$JUMPHOME/id_rsa" -N ""
+  if [[ ! -f "$JUMP_D/id_rsa" ]]; then
+    ssh-keygen -q -C retro@retrojump -f "$JUMP_D/id_rsa" -N ""
   fi
-  pubkey=$(<"$JUMPHOME/id_rsa.pub")
+  pubkey=$(<"$JUMP_D/id_rsa.pub")
 
-cat > "$TEMPDIR/metadata" <<EOF
+cat > "$TEMP_D/metadata" <<EOF
 instance-id: retrojump-1
 local-hostname: retrojump
 EOF
 
-cat > "$TEMPDIR/userdata" <<EOF
+cat > "$TEMP_D/userdata" <<EOF
 #cloud-config
 user: retro
 password: retro
@@ -221,7 +221,7 @@ write_files:
       ssl_enable=NO
 EOF
 
-cat > "$TEMPDIR/networkconfig" <<EOF
+cat > "$TEMP_D/networkconfig" <<EOF
 network:
   version: 2
   ethernets:
@@ -275,12 +275,12 @@ jump_run() {
 
 # SSH into the jump box.
 jump_ssh() {
-  ssh -i "$JUMPHOME/id_rsa" -p "$JUMP_SSH_PORT" retro@localhost "$@"
+  ssh -i "$JUMP_D/id_rsa" -p "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
 # Open an SFTP session to the jump box.
 jump_sftp() {
-  sftp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" retro@localhost "$@"
+  sftp -i "$JUMP_D/id_rsa" -P "$JUMP_SSH_PORT" retro@localhost "$@"
 }
 
 # Copy files to or from the jump box.
@@ -296,7 +296,7 @@ jump_scp() {
     fi
   done
 
-  scp -i "$JUMPHOME/id_rsa" -P "$JUMP_SSH_PORT" "${params[@]}"
+  scp -i "$JUMP_D/id_rsa" -P "$JUMP_SSH_PORT" "${params[@]}"
 }
 
 # Print CLI usage and exit.

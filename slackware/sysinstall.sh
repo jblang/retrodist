@@ -67,14 +67,14 @@ slackware_sysinstall() {
 
     install_type=$(slackware_sysinstall_type) || return 1
 
-    screen_wait -l "darkstar login:"
+    vga_wait -l "darkstar login:"
     kb_send_line "root"
     # shellcheck disable=SC2034 # Read by serial_shell_start.
     SHELL_PROMPT="darkstar:/#"
     serial_shell_start || return 1
 
     serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
-    script_fdisk_partitions "$SWAP_MB" || return 1
+    fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
 
     serial_shell_send "mkswap $SWAP_PARTITION $SWAP_BLOCKS" || return 1
@@ -110,8 +110,8 @@ slackware_sysinstall() {
     script_set_boot c
 	kb_press_key ctrl-alt-delete
 
-    screen_wait -l "darkstar login:"
+    vga_wait -l "darkstar login:"
     kb_send_line "root"
-    screen_wait -l "darkstar:/#"
-    kb_send_line "$SCRIPT_AUTOCONF_COMMAND"
+    vga_wait -l "darkstar:/#"
+    kb_send_line "$INSTALL_POSTINST_COMMAND"
 }

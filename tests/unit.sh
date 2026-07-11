@@ -2,28 +2,32 @@
 # Unit tests for the pure shell helpers used by retro.
 set -uo pipefail
 
-REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+REPO_D=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/helpers.sh"
+source "$REPO_D/hostlib/helpers.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/logging.sh"
+source "$REPO_D/hostlib/logging.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/qemu.sh"
+source "$REPO_D/hostlib/qemu.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/qmp.sh"
+source "$REPO_D/hostlib/qmp.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/script.sh"
+source "$REPO_D/hostlib/kb.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/serial.sh"
+source "$REPO_D/hostlib/vga.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/fdisk.sh"
+source "$REPO_D/hostlib/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/slackware.sh"
+source "$REPO_D/hostlib/serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/extract.sh"
+source "$REPO_D/hostlib/fdisk.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/slackware/sysinstall.sh"
+source "$REPO_D/hostlib/slackware.sh"
+# shellcheck source=/dev/null
+source "$REPO_D/hostlib/extract.sh"
+# shellcheck source=/dev/null
+source "$REPO_D/slackware/sysinstall.sh"
 
 tests_run=0
 tests_failed=0
@@ -68,16 +72,16 @@ assert_eq "quote/empty" "''" "$(shell_quote_word '')"
 assert_eq "quote/single-quote" "'a'\\''b'" "$(shell_quote_word "a'b")"
 assert_eq "quote/amp" "'a&b'" "$(shell_quote_word 'a&b')"
 
-# --- QMP command helpers ----------------------------------------------------
-assert_eq "qmp/change-image-default" "change floppy0 boot.img raw" "$(
-    # shellcheck disable=SC2329 # Invoked indirectly by qmp_change_image.
+# --- QMP-backed script command helpers --------------------------------------
+assert_eq "script/change-image-default" "change floppy0 boot.img raw" "$(
+    # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
     qmp_hmp_command() { printf '%s\n' "$1"; }
-    qmp_change_image boot.img
+    script_change_image boot.img
 )"
-assert_eq "qmp/change-image-format" "change floppy0 boot.img raw" "$(
-    # shellcheck disable=SC2329 # Invoked indirectly by qmp_change_image.
+assert_eq "script/change-image-format" "change floppy0 boot.img raw" "$(
+    # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
     qmp_hmp_command() { printf '%s\n' "$1"; }
-    qmp_change_image boot.img floppy0 raw
+    script_change_image boot.img floppy0 raw
 )"
 
 # --- path_is_safe_relative --------------------------------------------------
@@ -113,14 +117,14 @@ printf 'broken() {\n}\n' >"$imp_tmp/distro/broken.sh"
 
 # A good helper is sourced relative to the install script's directory.
 assert_eq "import/good-helper" "yes" "$(
-    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/install.sh"
     script_import ../helper.sh
     imported_ok
 )"
 
 # A syntax error aborts the install subshell before any later commands run.
 assert_eq "import/broken-aborts" "" "$(
-    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+    QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/install.sh"
     script_import ../broken.sh 2>/dev/null
     echo "not reached"
 )"
@@ -130,7 +134,7 @@ assert_eq "import/broken-aborts" "" "$(
 import_broken_status() {
     (
         # shellcheck disable=SC2030,SC2034 # Read by script_import.
-        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/install.sh"
         script_import ../broken.sh 2>/dev/null
     )
 }
@@ -141,7 +145,7 @@ assert_fail "import/broken-status" import_broken_status
 import_missing_status() {
     (
         # shellcheck disable=SC2030,SC2034 # Read by script_import.
-        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/script.sh"
+        QEMU_INSTALL_SCRIPT="$imp_tmp/distro/1.0/install.sh"
         script_import ../missing.sh 2>/dev/null
     )
 }
@@ -184,13 +188,13 @@ assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
 
-# --- install script fdisk prompt helpers ------------------------------------
-assert_eq "script/fdisk-range-first" "1 1015" "$(script_fdisk_parse_range "First cylinder (1-1015):   ")"
-assert_eq "script/fdisk-range-last" "131 1015" "$(script_fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK (131-1015): ")"
-assert_eq "script/fdisk-range-default" "131 1015" "$(script_fdisk_parse_range "First cylinder (131-1015, default 131): ")"
-assert_eq "script/fdisk-range-bracketed" "1 520" "$(script_fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK ([1]-520): ")"
-assert_fail "script/fdisk-range-answered" script_fdisk_parse_range "First cylinder (1-1015): 1"
-assert_fail "script/fdisk-range-missing" script_fdisk_parse_range "no fdisk prompt here"
+# --- fdisk prompt helpers ---------------------------------------------------
+assert_eq "fdisk/range-first" "1 1015" "$(fdisk_parse_range "First cylinder (1-1015):   ")"
+assert_eq "fdisk/range-last" "131 1015" "$(fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK (131-1015): ")"
+assert_eq "fdisk/range-default" "131 1015" "$(fdisk_parse_range "First cylinder (131-1015, default 131): ")"
+assert_eq "fdisk/range-bracketed" "1 520" "$(fdisk_parse_range "Last cylinder or +size or +sizeM or +sizeK ([1]-520): ")"
+assert_fail "fdisk/range-answered" fdisk_parse_range "First cylinder (1-1015): 1"
+assert_fail "fdisk/range-missing" fdisk_parse_range "no fdisk prompt here"
 
 # --- Slackware sysinstall driver --------------------------------------------
 sysinstall_tmp=$(mktemp -d)
@@ -202,15 +206,15 @@ mkdir -p "$sysinstall_tmp/fat/install/t1"
 assert_eq "sysinstall/type-tex" "3" "$(cd "$sysinstall_tmp" && slackware_sysinstall_type)"
 rm -rf "$sysinstall_tmp"
 
-assert_ok "sysinstall/modem-1.01" serial_contains_regex \
+assert_ok "sysinstall/modem-1.01" text_contains_regex \
     "Do you have a modem (y/n)? " "$SLACKWARE_SYSINSTALL_MODEM_PROMPT"
-assert_ok "sysinstall/modem-beta" serial_contains_regex \
+assert_ok "sysinstall/modem-beta" text_contains_regex \
     "do you have a modem (y/n)? " "$SLACKWARE_SYSINSTALL_MODEM_PROMPT"
-assert_ok "sysinstall/mouse-1.01" serial_contains_regex \
+assert_ok "sysinstall/mouse-1.01" text_contains_regex \
     "Do you have a mouse (y/n)? " "$SLACKWARE_SYSINSTALL_MOUSE_PROMPT"
-assert_ok "sysinstall/mouse-beta" serial_contains_regex \
+assert_ok "sysinstall/mouse-beta" text_contains_regex \
     "do you have a mouse (y/n)? " "$SLACKWARE_SYSINSTALL_MOUSE_PROMPT"
-assert_ok "sysinstall/package-mode-beta" serial_contains_regex \
+assert_ok "sysinstall/package-mode-beta" text_contains_regex \
     "Do you want to be prompted before packages are installed? (y/n): " \
     "$SLACKWARE_SYSINSTALL_PACKAGE_MODE_PROMPT"
 
@@ -269,17 +273,41 @@ assert_eq "sysinstall/package-loop-beta" "<n>
     slackware_sysinstall_packages
 )"
 
+# --- Guest logging and configuration helpers -------------------------------
+guest_log_tmp=$(mktemp)
+(
+    # shellcheck disable=SC2034 # Read by the sourced guest logger.
+    POSTINST_LOG=$guest_log_tmp
+    # shellcheck disable=SC2034 # Read by the sourced guest logger.
+    POSTINST_DEBUG=0
+    # shellcheck source=/dev/null
+    source "$REPO_D/guestlib/logging.sh"
+    log INFO "plain message" >/dev/null 2>&1
+    log WARN "warning message" >/dev/null 2>&1
+    log DEBUG "hidden message" >/dev/null 2>&1
+    # shellcheck disable=SC2034 # Read by the sourced guest logger.
+    POSTINST_DEBUG=1
+    log DEBUG "visible message" >/dev/null 2>&1
+)
+assert_eq "guest-log/levels" $'plain message\nWARN: warning message\nDEBUG: visible message' \
+    "$(cat "$guest_log_tmp")"
+rm -f "$guest_log_tmp"
+
+# The helpers are sourced directly below, without the guest runner.
+# shellcheck disable=SC2329 # Invoked indirectly by sourced guest helpers.
+log() { :; }
+
 # --- Early Slackware configuration helpers ---------------------------------
 config_tmp=$(mktemp -d)
 mkdir -p "$config_tmp/etc/rc.d"
 printf '# original rc.modules\n' >"$config_tmp/etc/rc.d/rc.modules"
 (
-    ETCPATH="$config_tmp/etc"
+    ETC_D="$config_tmp/etc"
     # shellcheck disable=SC2034 # Read by the sourced guest helper.
     MOD_ENABLE='ne  io=0x300 debug=1
 8390'
     # shellcheck source=/dev/null
-    source "$REPO_ROOT/autoinst/config/modules.sh" >/dev/null
+    source "$REPO_D/guestlib/config/modules.sh" >/dev/null
     _mod_config >/dev/null
 )
 assert_eq "modules/backup" "# original rc.modules" \
@@ -296,7 +324,7 @@ printf '#s1:12345:respawn:/sbin/agetty 9600 ttyS1\n' >"$config_tmp/etc/inittab"
 printf 'CONSOLE /dev/console\nENV_SUPATH value\n' >"$config_tmp/etc/login.defs"
 printf 'console\n' >"$config_tmp/etc/securetty"
 (
-    ETCPATH="$config_tmp/etc"
+    ETC_D="$config_tmp/etc"
     # shellcheck disable=SC2034 # Read by the sourced guest helper.
     TTY_DEV=ttyS0
     # shellcheck disable=SC2034 # Read by the sourced guest helper.
@@ -304,10 +332,10 @@ printf 'console\n' >"$config_tmp/etc/securetty"
     # shellcheck disable=SC2034 # Read by the sourced guest helper.
     TTY_RUNLEVELS=123456
     # shellcheck source=/dev/null
-    source "$REPO_ROOT/autoinst/config/tty.sh" >/dev/null
+    source "$REPO_D/guestlib/config/tty.sh" >/dev/null
     _tty_config >/dev/null
     # shellcheck source=/dev/null
-    source "$REPO_ROOT/autoinst/config/tty.sh" >/dev/null
+    source "$REPO_D/guestlib/config/tty.sh" >/dev/null
     _tty_config >/dev/null
 )
 assert_eq "tty/inittab-backup" \
@@ -330,7 +358,7 @@ mkdir -p "$config_tmp/etc/rc.d"
 printf '# original rc.inet1\n' >"$config_tmp/etc/rc.d/rc.inet1"
 printf 'oldhost\n' >"$config_tmp/etc/HOSTNAME"
 (
-    ETCPATH="$config_tmp/etc"
+    ETC_D="$config_tmp/etc"
     NET_HOSTNAME=darkstar
     NET_IPADDR=10.0.2.15
     NET_NETMASK=255.255.255.0
@@ -349,7 +377,7 @@ printf 'oldhost\n' >"$config_tmp/etc/HOSTNAME"
     NET_ARP_PATH=
     NET_HOSTNAME_INIT_SET=
     # shellcheck source=/dev/null
-    source "$REPO_ROOT/autoinst/config/net.sh" >/dev/null
+    source "$REPO_D/guestlib/config/net.sh" >/dev/null
     set +u
     _net_config >/dev/null
     set -u
@@ -372,7 +400,7 @@ printf '1.2.3.4\tdarkstar\n1.2.3.0\tnetwork\n1.2.3.1\trouter\n127.0.0.1\tlocalho
     >"$config_tmp/etc/hosts"
 # shellcheck disable=SC2034 # Assignments are read by the sourced guest helper.
 (
-    ETCPATH="$config_tmp/etc"
+    ETC_D="$config_tmp/etc"
     NET_HOSTNAME=darkstar
     NET_IPADDR=10.0.2.15
     NET_NETMASK=255.255.255.0
@@ -390,7 +418,7 @@ printf '1.2.3.4\tdarkstar\n1.2.3.0\tnetwork\n1.2.3.1\trouter\n127.0.0.1\tlocalho
     NET_INIT_SCRIPT_PATH=
     NET_RC_NET_PATH=
     # shellcheck source=/dev/null
-    source "$REPO_ROOT/autoinst/config/net.sh" >/dev/null
+    source "$REPO_D/guestlib/config/net.sh" >/dev/null
     set +u
     _net_config >/dev/null
     set -u
@@ -404,15 +432,15 @@ assert_eq "net/beta-preserves-rc.net" "# stock rc.net" \
 rm -rf "$config_tmp"
 
 wait_screen="ready"
-# shellcheck disable=SC2329 # Invoked indirectly by screen_wait.
+# shellcheck disable=SC2329 # Invoked indirectly by vga_wait.
 qmp_qemu_running() { return 0; }
-# shellcheck disable=SC2329 # Invoked indirectly by screen_wait.
-qmp_vga_dump_text() { printf '%s\n' "$wait_screen"; }
+# shellcheck disable=SC2329 # Invoked indirectly by vga_wait.
+vga_dump_text() { printf '%s\n' "$wait_screen"; }
 # shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
-qmp_send_string() { return 0; }
+kb_send_string() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
-qmp_sendkey() { return 0; }
-wait_output=$(screen_wait "ready")
+kb_send_raw() { return 0; }
+wait_output=$(vga_wait "ready")
 wait_status=$?
 assert_eq "script/wait-string-status" "0" "$wait_status"
 tests_run=$((tests_run + 1))
@@ -427,7 +455,7 @@ esac
 wait_screen="first line
 second line"
 wait_output_tmp=$(mktemp)
-screen_wait -l "first line" "second line" >"$wait_output_tmp"
+vga_wait -l "first line" "second line" >"$wait_output_tmp"
 wait_status=$?
 wait_output=$(cat "$wait_output_tmp")
 rm -f "$wait_output_tmp"
@@ -448,24 +476,24 @@ assert_fail "script/contains-regex-prose" text_contains_regex "Press # to contin
 
 wait_screen="Have fun!
 rex#"
-screen_wait -r "$shell_prompt" >/dev/null
+vga_wait -r "$shell_prompt" >/dev/null
 assert_eq "script/wait-regex-status" "0" "$?"
 
 wait_screen="no prompt here"
-screen_wait -t 0.1 -r "$shell_prompt" >/dev/null
+vga_wait -t 0.1 -r "$shell_prompt" >/dev/null
 assert_eq "script/wait-regex-timeout" "1" "$?"
 
 # --- serial regex matcher ----------------------------------------------------
 # Patterns are extended regexes (grep -E), so escaped parens match literally,
 # matching the style used by dialog_answer -r callers.
 regex_screen="Slackware Linux Setup (version 3.4)"
-assert_ok "serial/contains-regex" serial_contains_regex "$regex_screen" "Setup \(version .*\)"
-assert_fail "serial/contains-regex-miss" serial_contains_regex "$regex_screen" "Setup \(build .*\)"
+assert_ok "serial/contains-regex" text_contains_regex "$regex_screen" "Setup \(version .*\)"
+assert_fail "serial/contains-regex-miss" text_contains_regex "$regex_screen" "Setup \(build .*\)"
 
 # --- dialog helpers ----------------------------------------------------------
 # Dialog screens are seeded up front and answered through serial_send.
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/dialog.sh"
+source "$REPO_D/hostlib/dialog.sh"
 
 case_tmp=$(mktemp -d)
 SERIAL_LOG=$case_tmp/log
@@ -690,13 +718,15 @@ rm -rf "$case_tmp"
 # --- serial transport --------------------------------------------------------
 # Restore the real serial helpers after dialog tests mocked serial_send.
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/script.sh"
+source "$REPO_D/hostlib/kb.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/serial.sh"
+source "$REPO_D/hostlib/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/fdisk.sh"
+source "$REPO_D/hostlib/serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_ROOT/retrolib/dialog.sh"
+source "$REPO_D/hostlib/fdisk.sh"
+# shellcheck source=/dev/null
+source "$REPO_D/hostlib/dialog.sh"
 serial_tmp=$(mktemp -d)
 SERIAL_LOG=$serial_tmp/log
 SERIAL_LINE=0
@@ -728,10 +758,10 @@ SERIAL_SHELL_DEV=/dev/ttyS2
 wait_screen="#"
 qmp_strings=
 # shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
-qmp_send_string() { qmp_strings="${qmp_strings}${qmp_strings:+
+kb_send_string() { qmp_strings="${qmp_strings}${qmp_strings:+
 }$1"; }
 # shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
-qmp_sendkey() { return 0; }
+kb_send_raw() { return 0; }
 printf '%s\n' \
     'SERIAL# ' \
     'one' \
@@ -819,10 +849,10 @@ printf 'picked\r\nTITLE: After Echo\r\n' >>"$SERIAL_LOG"
 serial_wait_one text_contains_line "TITLE: After Echo" >/dev/null
 assert_eq "serial/echo-crlf-consumed" "TITLE: After Echo" "$SERIAL_MATCHED_TEXT"
 
-# script_fdisk drives every fdisk prompt over the serial pipe; the shell
+# fdisk_swap_root drives every fdisk prompt over the serial pipe; the shell
 # prompt waits around it stay on the screen.
 SERIAL_LOG=$serial_tmp/fdisk
-# shellcheck disable=SC2034 # Read by script_fdisk through serial helpers.
+# shellcheck disable=SC2034 # Read by fdisk_swap_root through serial helpers.
 SERIAL_LINE=0
 : >"$serial_tmp/answers"
 wait_screen="#"
@@ -850,7 +880,7 @@ printf '%s\n' \
     'Command (m for help): ' \
     '# ' \
     >"$SERIAL_LOG"
-script_fdisk /dev/hda 64 >"$serial_tmp/fdisk-out" 2>"$serial_tmp/fdisk-err"
+fdisk_swap_root /dev/hda 64 >"$serial_tmp/fdisk-out" 2>"$serial_tmp/fdisk-err"
 assert_eq "fdisk/serial-status" "0" "$?"
 assert_eq "fdisk/serial-answers" "fdisk /dev/hda
 d
@@ -891,7 +921,7 @@ exec 2>&3 3>&-
 mkfifo "$serial_tmp/port"
 exec 8<>"$serial_tmp/port"
 printf 'ok\n' >&8
-DIALOG_SERIAL=$serial_tmp/port sh "$REPO_ROOT/autoinst/dialog.sh" \
+DIALOG_SERIAL=$serial_tmp/port sh "$REPO_D/guestlib/dialog.sh" \
     --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/console" 2>&1
 assert_eq "adapter/serial-exit" "0" "$?"
 IFS= read -r serial_line <&8 # divider
@@ -902,7 +932,7 @@ exec 8<&-
 
 # dialog.bak must not be used. Setup redirects dialog stderr into result files,
 # so any real-dialog output there can corrupt responses.
-cp "$REPO_ROOT/autoinst/dialog.sh" "$serial_tmp/dialog"
+cp "$REPO_D/guestlib/dialog.sh" "$serial_tmp/dialog"
 printf '#!/bin/sh\necho "VIEW $*"\n' >"$serial_tmp/dialog.bak"
 chmod +x "$serial_tmp/dialog" "$serial_tmp/dialog.bak"
 mkfifo "$serial_tmp/port2"
@@ -975,7 +1005,7 @@ exec 8<&-
 mkfifo "$serial_tmp/port3"
 exec 8<>"$serial_tmp/port3"
 printf '\n' >&8
-DIALOG_SERIAL=$serial_tmp/port3 bash "$REPO_ROOT/autoinst/dialog.sh" \
+DIALOG_SERIAL=$serial_tmp/port3 bash "$REPO_D/guestlib/dialog.sh" \
     --menu "pick" 10 40 2 first one second two \
     </dev/null >/dev/null 2>"$serial_tmp/menu-result"
 assert_eq "adapter/menu-empty-default" "first" "$(cat "$serial_tmp/menu-result")"
@@ -1016,7 +1046,7 @@ if command -v mcopy >/dev/null 2>&1 && command -v mformat >/dev/null 2>&1 && com
     truncate -s 1440k "$rh_tmp/qemu.d/boot.img"
     mformat -i "$rh_tmp/qemu.d/boot.img" ::
     (
-        CONFDIR="$rh_tmp/redhat/5.0-infomagic"
+        DISTRO_D="$rh_tmp/redhat/5.0-infomagic"
         CONFNAME=redhat/5.0-infomagic
         redhat_stage_kickstart "$rh_tmp/qemu.d/boot.img"
     )
@@ -1028,7 +1058,7 @@ if command -v mcopy >/dev/null 2>&1 && command -v mformat >/dev/null 2>&1 && com
     printf '# comment\n\ncreated\n' >"$rh_tmp/redhat/5.2-infomagic/ks.cfg"
     (
         # shellcheck disable=SC2034 # Read indirectly by redhat_stage_kickstart.
-        CONFDIR="$rh_tmp/redhat/5.2-infomagic"
+        DISTRO_D="$rh_tmp/redhat/5.2-infomagic"
         # shellcheck disable=SC2034 # Read indirectly by redhat_stage_kickstart.
         CONFNAME=redhat/5.2-infomagic
         redhat_stage_kickstart "$rh_tmp/qemu.d/boot.img"
@@ -1051,7 +1081,7 @@ touch "$slack_tmp/fat/xap1/ghostscript.tgz"
 printf 'a bash ADD\na * SKP\nx * ADD\nx xvga16 SKP\nxap * ADD\n' >"$slack_tmp/conf/max.tag"
 printf 'a bash ADD # GNU bash shell\nx xbin OPT # X11 binaries\n' >"$slack_tmp/conf/default.tag"
 
-(cd "$slack_tmp" && CONFDIR="$slack_tmp/conf" TEMPDIR="$slack_tmp" INSTALL_TAGSETS=max slackware_prepare_tagfiles)
+(cd "$slack_tmp" && DISTRO_D="$slack_tmp/conf" TEMP_D="$slack_tmp" INSTALL_TAGSETS=max slackware_prepare_tagfiles)
 
 assert_eq "tag/wildcard-skp"       "SKP" "$(tagstate "$slack_tmp/fat/a1/tagfile" sed)"
 assert_eq "tag/wildcard-skp2"      "SKP" "$(tagstate "$slack_tmp/fat/a1/tagfile" scsi)"
@@ -1091,7 +1121,7 @@ slack_tmp2=$(mktemp -d)
 mkdir -p "$slack_tmp2/fat/n1"
 touch "$slack_tmp2/fat/n1/tcpip.tgz" "$slack_tmp2/fat/n1/bind.tgz"
 touch "$slack_tmp2/none.tag"
-(cd "$slack_tmp2" && CONFDIR="$slack_tmp2" TEMPDIR="$slack_tmp2" INSTALL_TAGSETS=none slackware_prepare_tagfiles)
+(cd "$slack_tmp2" && DISTRO_D="$slack_tmp2" TEMP_D="$slack_tmp2" INSTALL_TAGSETS=none slackware_prepare_tagfiles)
 assert_eq "series/default-skp"        "SKP" "$(tagstate "$slack_tmp2/fat/n1/tagfile" tcpip)"
 assert_eq "series/default-skp2"       "SKP" "$(tagstate "$slack_tmp2/fat/n1/tagfile" bind)"
 rm -rf "$slack_tmp" "$slack_tmp2"

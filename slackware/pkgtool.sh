@@ -47,7 +47,7 @@ XWMCONFIG=false
 
 # Log in to the installer environment as root.
 pkgtool_login_as_root() {
-    screen_wait -l "$SETUP_HOSTNAME login:"
+    vga_wait -l "$SETUP_HOSTNAME login:"
     kb_send_line root
 }
 
@@ -59,9 +59,9 @@ pkgtool_start_setup() {
     # Delete rather than rename: keeping the 64KB dialog binary on the nearly
     # full install ramdisk starves setup's /tmp result files (ENOSPC).
     serial_shell_send "rm /bin/dialog" || return 1
-    serial_shell_send "cp $FAT_MOUNT/autoinst.d/dialog.sh /bin/dialog" || return 1
+    serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh /bin/dialog" || return 1
     serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
-    script_fdisk_partitions "$SWAP_MB" || return 1
+    fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1
     kb_send_line "setup" || return 1
@@ -220,7 +220,7 @@ pkgtool_configure_sendmail() {
 # varies so peek briefly at both points and stop checking once answered.
 pkgtool_xwmconfig() {
     if [ "$XWMCONFIG" = true ]; then
-        if screen_wait -t 1 "SELECT DEFAULT WINDOW MANAGER FOR X"; then
+        if vga_wait -t 1 "SELECT DEFAULT WINDOW MANAGER FOR X"; then
             kb_press_key spc
             kb_press_key ret
             XWMCONFIG=false
@@ -275,15 +275,15 @@ pkgtool_reboot() {
     kb_press_key ctrl-alt-delete
 }
 
-# Run the staged first-boot autoconfiguration script. AUTOCONF_PROMPT
+# Run the staged post-installation configuration script. POSTINST_PROMPT
 # overrides the first-boot root prompt; 8.1+ uses root@HOSTNAME:~#.
-pkgtool_autoconf() {
-    local prompt="${AUTOCONF_PROMPT:-$NET_HOSTNAME:~#}"
+pkgtool_postinst() {
+    local prompt="${POSTINST_PROMPT:-$NET_HOSTNAME:~#}"
 
-    screen_wait -l "$NET_HOSTNAME login:"
+    vga_wait -l "$NET_HOSTNAME login:"
     kb_send_line root
-    screen_wait -l "$prompt"
-    kb_send_line "$FAT_MOUNT/autoinst.d/autoconf.sh"
+    vga_wait -l "$prompt"
+    kb_send_line "$FAT_MOUNT/guestlib.d/postinst.sh"
 }
 
 # Set up target partitions and pick the source in this version's order.
@@ -305,5 +305,5 @@ pkgtool_setup() {
     pkgtool_configure
     pkgtool_finish
     pkgtool_reboot
-    pkgtool_autoconf
+    pkgtool_postinst
 }

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 # Downloads, extracts, and runs retro distros
-# Entry point: source the retrolib modules, parse CLI args, print config,
+# Entry point: source the hostlib modules, parse CLI args, print config,
 # and dispatch to the selected top-level retro command.
-SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-AUTOBASE=$SCRIPTDIR/autoinst
+RETRO_D=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+HOSTLIB_D=$RETRO_D/hostlib
+GUESTLIB_D=$RETRO_D/guestlib
 
 # temp directory automatically cleaned up on exit
-TEMPDIR=$(mktemp -d)
+TEMP_D=$(mktemp -d)
 RETRO_COMMAND_STARTED=0
 # shellcheck disable=SC2329 # Invoked by the EXIT trap.
 # Remove temporary files and report command status.
@@ -20,11 +21,11 @@ retro_cleanup() {
       log_error "retro $COMMAND failed for $CONFNAME (status $status)"
     fi
   fi
-  rm -rf "$TEMPDIR"
+  rm -rf "$TEMP_D"
 }
 trap retro_cleanup EXIT
 
-for LIB in "$SCRIPTDIR"/retrolib/*.sh; do
+for LIB in "$HOSTLIB_D"/*.sh; do
   # shellcheck source=/dev/null
   source "$LIB"
 done
@@ -71,42 +72,39 @@ fi
 # the command are left for QEMU) regardless of how many further args remain.
 if [[ $# -ge 1 && $1 != -* ]]; then
   if [[ -d "$1" ]]; then
-    CONFDIR=$(cd "$1" && pwd)
+    DISTRO_D=$(cd "$1" && pwd)
     shift
-  elif [[ -d "$SCRIPTDIR/$1" ]]; then
-    CONFDIR=$(cd "$SCRIPTDIR/$1" && pwd)
+  elif [[ -d "$RETRO_D/$1" ]]; then
+    DISTRO_D=$(cd "$RETRO_D/$1" && pwd)
     shift
   else
     die "Configuration $1 doesn't exist"
   fi
 else
-  CONFDIR=$PWD
+  DISTRO_D=$PWD
 fi
-CONFNAME=$CONFDIR
+CONFNAME=$DISTRO_D
 case "$CONFNAME" in
-  "$SCRIPTDIR"/*)
-    CONFNAME=${CONFNAME#"$SCRIPTDIR"/}
+  "$RETRO_D"/*)
+    CONFNAME=${CONFNAME#"$RETRO_D"/}
     ;;
 esac
 
-QEMUDIR=$CONFDIR/qemu.d
-EXTRACTDIR=$QEMUDIR
-TAGFILEDIR=$CONFDIR/tagfile.d
+QEMU_D=$DISTRO_D/qemu.d
+EXTRACT_D=$QEMU_D
+TAGFILE_D=$DISTRO_D/tagfile.d
 if retro_config_file cdrom.txt >/dev/null; then
-  ORIGDIR=$QEMUDIR
+  DOWNLOAD_D=$QEMU_D
 else
-  ORIGDIR=$CONFDIR/download.d
+  DOWNLOAD_D=$DISTRO_D/download.d
 fi
-SLACKBASE=$ORIGDIR
-DEBIANBASE=$ORIGDIR
-
 # output configuration details
 cat <<EOF
 🐧 Retro Distro Playground by J.B. Langston
 
 Command:    $COMMAND
-Config:     $CONFDIR
-QEMU:       $QEMUDIR
+Config:     $DISTRO_D
+QEMU:       $QEMU_D
 
 EOF
 
@@ -114,7 +112,7 @@ EOF
 if [[ $COMMAND != "help" ]]; then
   RETRO_COMMAND_STARTED=1
   log_info "Starting retro $COMMAND for $CONFNAME"
-  log_debug "Temporary directory: $TEMPDIR"
+  log_debug "Temporary directory: $TEMP_D"
 fi
 RUN_STATUS=0
 case $COMMAND in

@@ -37,6 +37,15 @@ retro install slackware/3.0/walnut
 `boot` and `install` automatically download and extract the needed media before
 starting QEMU. Extra arguments after the config path are passed to QEMU.
 
+The repository is organized around three layers:
+
+- distro configs describe source media, staged files, emulated hardware, and
+  optional install and post-install steps;
+- `hostlib/` implements downloads, extraction, QEMU lifecycle, and host-driven
+  installer automation;
+- `guestlib/` is portable code staged into guests for installer adapters and
+  final system configuration.
+
 ## What You Can Run
 
 Distro configs are organized as `distro/version/variant`. Each config may have a
@@ -68,6 +77,11 @@ retro prereq            # install host prerequisites
 Generated VM state lives under each config's `qemu.d/` directory. Downloaded
 source media usually lives under `download.d/`; CD-ROM based configs link ISO
 files into `qemu.d/`.
+
+The `qmp` utility controls a running VM through its QMP socket. It can inspect
+VGA text, send keyboard input, and change removable media; run `qmp help` for
+the complete interface. For networking between retro guests and a modern Linux
+system, see the [jump box](JUMP.md).
 
 Older distros usually do not support power management. Shut guests down from
 inside the VM when possible, for example with `shutdown -h now`, then close the
@@ -131,8 +145,11 @@ before boot, and shut the guest down cleanly before reading files back.
 ## More Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): adding new distro configs and scripted installs.
-- [retrolib/README.md](retrolib/README.md): host-side commands, QEMU profiles, networking, staging, and QMP helpers.
-- [autoinst/README.md](autoinst/README.md): in-guest install and first-boot runtime.
+- [hostlib/README.md](hostlib/README.md): host architecture, QEMU configuration,
+  media staging, and install automation APIs.
+- [guestlib/README.md](guestlib/README.md): portable installer adapters and
+  post-installation runtime.
+- [JUMP.md](JUMP.md): modern Linux jump box and isolated guest network.
 
 ## Credits
 
@@ -166,7 +183,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### Reference Scripts
+### License Exceptions
 
 The scripts in the reference directory are a notable exception and retain their
 original license. License headers have been kept intact if present. Debian 1.1+
