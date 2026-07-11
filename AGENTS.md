@@ -13,7 +13,6 @@ distributions in QEMU, with scripted unattended installs where supported.
 - Adding or maintaining distro configs: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Host-side library details: [hostlib/README.md](hostlib/README.md)
 - In-guest installation runtime: [guestlib/README.md](guestlib/README.md)
-- Jump box details: [JUMP.md](JUMP.md)
 
 Use `slackware/3.0/walnut/` as a compact working config example.
 
@@ -27,9 +26,6 @@ retro download CONFIG   # download source media
 retro reset CONFIG      # remove generated qemu.d/ state
 retro package CONFIG    # build a portable qemu.d/ tar
 retro prereq            # install host dependencies
-
-jump run                # start the Debian jump box
-jump ssh|sftp|scp       # connect to the jump box
 
 qmp dump-screen
 qmp send-text -n 'text'

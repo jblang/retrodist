@@ -123,7 +123,7 @@ The commonly useful overrides are:
 | `QEMU_MACHINE`, `QEMU_RAM`, `QEMU_SMP` | Machine, memory, and CPU overrides. |
 | `QEMU_HD_SIZE`, `QEMU_HD_FORMAT` | New primary disk size and format. |
 | `QEMU_HD_CREATE_OPTIONS`, `QEMU_HDA_OPTIONS` | Extra primary-disk creation and attachment options. |
-| `QEMU_NET_TYPE` | `user`, `jump`, or `none`; default `user`. |
+| `QEMU_NET_ENABLED` | Enable guest networking; default `true`. False values such as `0`, `false`, `no`, and `off` disable it, case-insensitively. |
 | `QEMU_NET_DEVICE` | Guest NIC model. |
 | `QEMU_DISPLAY`, `QEMU_ACCEL`, `QEMU_EXTRA` | Display, acceleration, and additional QEMU arguments. |
 | `QEMU_FDTYPE_A`, `QEMU_FDTYPE_B` | Floppy geometry globals; default `144`. |
@@ -156,11 +156,12 @@ The default display is GTK on Linux and Cocoa on macOS. Set `QEMU_DISPLAY` to a
 complete display argument when another backend is required. QEMU 11 Cocoa
 displays receive the supported zoom-to-fit options automatically.
 
-`QEMU_NET_TYPE=user` provides outbound SLIRP networking and loopback-only host
-forwards to guest SSH, Telnet, and HTTP. The default host port ranges begin at
-2200, 2300, and 8000. `jump` connects the guest to the socket network described
-in [JUMP.md](../JUMP.md); `none` omits the NIC. `QEMU_INTERNET` and
-`QEMU_RETRONET` are advanced raw network overrides.
+Guest networking provides outbound SLIRP networking and loopback-only forwards
+to guest SSH and Telnet. The default host port ranges begin at 2200 and 2300.
+`QEMU_NET_FORWARD` replaces those defaults with whitespace- or comma-separated
+`host:guest` port pairs; use `none` to disable all forwards. Set
+`QEMU_NET_ENABLED` to a false value to omit the NIC. `QEMU_NETWORK` is an
+advanced raw network override.
 
 QEMU also exposes a loopback monitor (starting at port 5555), a QMP socket at
 `qemu.d/qmp.sock`, serial sockets for `ttyS0` and `ttyS1`, a dedicated install

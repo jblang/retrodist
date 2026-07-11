@@ -1,5 +1,4 @@
 .DS_Store
-jump.d
 **/download.d
 **/extract.d
 **/qemu.d

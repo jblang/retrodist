@@ -80,8 +80,7 @@ files into `qemu.d/`.
 
 The `qmp` utility controls a running VM through its QMP socket. It can inspect
 VGA text, send keyboard input, and change removable media; run `qmp help` for
-the complete interface. For networking between retro guests and a modern Linux
-system, see the [jump box](JUMP.md).
+the complete interface.
 
 Older distros usually do not support power management. Shut guests down from
 inside the VM when possible, for example with `shutdown -h now`, then close the
@@ -97,9 +96,12 @@ host port forwards for common guest services:
 
 - SSH: host port range starting at `2200`
 - Telnet: host port range starting at `2300`
-- HTTP: host port range starting at `8000`
 
 The exact ports are printed when QEMU starts.
+
+Set `QEMU_NET_FORWARD` to whitespace- or comma-separated `host:guest` port
+pairs to replace these defaults, for example `QEMU_NET_FORWARD="8080:80
+2200:22"`. Set it to `none` to disable all guest port forwards.
 
 **Disclaimer!** Old distros are very insecure, so be careful. QEMU user mode
 networking puts the guest interface behind a firewall that blocks incoming
@@ -107,7 +109,7 @@ traffic so the risk is mitigated. Just be informed about the risks and avoid
 forwarding guest ports to any public interfaces or using guest VMs to send
 or store any sensitive information.
 
-Set `QEMU_NET_TYPE=none` to boot a VM with no network interface.
+Set `QEMU_NET_ENABLED=false` to boot a VM with no network interface.
 
 ## File Transfer
 
@@ -149,7 +151,6 @@ before boot, and shut the guest down cleanly before reading files back.
   media staging, and install automation APIs.
 - [guestlib/README.md](guestlib/README.md): portable installer adapters and
   post-installation runtime.
-- [JUMP.md](JUMP.md): modern Linux jump box and isolated guest network.
 
 ## Credits
 

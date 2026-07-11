@@ -72,6 +72,31 @@ assert_eq "quote/empty" "''" "$(shell_quote_word '')"
 assert_eq "quote/single-quote" "'a'\\''b'" "$(shell_quote_word "a'b")"
 assert_eq "quote/amp" "'a&b'" "$(shell_quote_word 'a&b')"
 
+# --- QEMU networking --------------------------------------------------------
+for value in 0 false FALSE False no NO No off OFF Off disabled DISABLED n F null NIL; do
+    QEMU_NET_ENABLED=$value
+    assert_fail "qemu/net-disabled-$value" qemu_network_enabled
+done
+QEMU_NET_ENABLED=true
+assert_ok "qemu/net-enabled-true" qemu_network_enabled
+QEMU_NET_ENABLED=1
+assert_ok "qemu/net-enabled-1" qemu_network_enabled
+unset QEMU_NET_ENABLED
+qemu_base_defaults
+assert_eq "qemu/net-default" "true" "$QEMU_NET_ENABLED"
+QEMU_NET_FORWARD="2200:22,2323:23 8080:80"
+assert_eq "qemu/net-forward-custom" ",hostfwd=tcp:127.0.0.1:2200-:22,hostfwd=tcp:127.0.0.1:2323-:23,hostfwd=tcp:127.0.0.1:8080-:80" "$(qemu_net_forward_args)"
+QEMU_NET_FORWARD=none
+assert_eq "qemu/net-forward-none" "" "$(qemu_net_forward_args)"
+QEMU_NET_FORWARD=invalid
+assert_fail "qemu/net-forward-invalid" qemu_net_forward_args
+QEMU_NET_FORWARD="8080:80 2323:23 2200:22 8443:443"
+assert_eq "qemu/net-forward-display" $'    SSH:     localhost:2200 -> guest :22\n    Telnet:  localhost:2323 -> guest :23\n    TCP:     localhost:8080 -> guest :80\n    TCP:     localhost:8443 -> guest :443' "$(qemu_print_net_forwards)"
+QEMU_NET_FORWARD=none
+assert_eq "qemu/net-forward-section-none" "" "$(qemu_print_ports | sed -n '/📡 Guest ports:/p')"
+# shellcheck disable=SC2034 # Read by qemu_finish_config in subsequent tests.
+QEMU_NET_FORWARD=
+
 # --- QMP-backed script command helpers --------------------------------------
 assert_eq "script/change-image-default" "change floppy0 boot.img raw" "$(
     # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.

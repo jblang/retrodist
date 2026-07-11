@@ -158,9 +158,9 @@ qemu_base_defaults() {
     QEMU_BOOT_ORDER="${QEMU_BOOT_ORDER:-}"
 
     # Network options
-    QEMU_NET_TYPE="${QEMU_NET_TYPE:-user}"
-    QEMU_RETRONET="${QEMU_RETRONET:-}"
-    QEMU_INTERNET="${QEMU_INTERNET:-}"
+    QEMU_NET_ENABLED="${QEMU_NET_ENABLED:-true}"
+    QEMU_NETWORK="${QEMU_NETWORK:-}"
+    QEMU_NET_FORWARD="${QEMU_NET_FORWARD:-}"
 
     # Serial/parallel ports (chardev)
     QEMU_SERIAL_SOCKET_COUNT="${QEMU_SERIAL_SOCKET_COUNT:-2}"
@@ -182,8 +182,6 @@ qemu_base_defaults() {
     QEMU_SSH_PORT="${QEMU_SSH_PORT:-}"
     QEMU_TELNET_BASE="${QEMU_TELNET_BASE:-2300}"
     QEMU_TELNET_PORT="${QEMU_TELNET_PORT:-}"
-    QEMU_HTTP_BASE="${QEMU_HTTP_BASE:-8000}"
-    QEMU_HTTP_PORT="${QEMU_HTTP_PORT:-}"
 
     # Install scripting
     QEMU_INSTALL_SCRIPT="${QEMU_INSTALL_SCRIPT:-}"
@@ -279,17 +277,91 @@ qemu_assign_port() {
 # Assigns all monitor and guest forwarding ports.
 qemu_assign_ports() {
     log_debug "Assigning host ports"
-    if [[ "$QEMU_NET_TYPE" == "user" ]]; then
+    if qemu_network_enabled && [[ -z "${QEMU_NET_FORWARD:-}" ]]; then
         QEMU_SSH_PORT=$(qemu_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
         QEMU_TELNET_PORT=$(qemu_assign_port telnet "$QEMU_TELNET_BASE" "$QEMU_TELNET_PORT") || return 1
-        QEMU_HTTP_PORT=$(qemu_assign_port http "$QEMU_HTTP_BASE" "$QEMU_HTTP_PORT") || return 1
     fi
     QEMU_MONITOR_PORT=$(qemu_assign_port monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
 }
 
+# Emits QEMU user-network forwarding options for QEMU_NET_FORWARD.
+qemu_net_forward_args() {
+    local forward forwards host_port guest_port extra result
+
+    forwards=${QEMU_NET_FORWARD//,/ }
+    case "$(printf '%s' "$forwards" | tr '[:upper:]' '[:lower:]')" in
+    none | off | false | no | 0)
+        return 0
+        ;;
+    esac
+
+    result=
+    for forward in $forwards; do
+        IFS=: read -r host_port guest_port extra <<<"$forward"
+        if [[ -z "$host_port" || -z "$guest_port" || -n "$extra" || ! "$host_port" =~ ^[0-9]+$ || ! "$guest_port" =~ ^[0-9]+$ ]]; then
+            log_error "Invalid QEMU_NET_FORWARD pair '$forward'; use host:guest port pairs."
+            return 1
+        fi
+        result+=",hostfwd=tcp:127.0.0.1:$host_port-:$guest_port"
+    done
+    printf '%s\n' "$result"
+}
+
+# Prints configured guest port forwards, prioritizing familiar services.
+qemu_print_net_forwards() {
+    local forward forwards host_port guest_port extra
+    local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
+
+    forwards=${QEMU_NET_FORWARD//,/ }
+    case "$(printf '%s' "$forwards" | tr '[:upper:]' '[:lower:]')" in
+    none | off | false | no | 0)
+        return 0
+        ;;
+    esac
+
+    for forward in $forwards; do
+        IFS=: read -r host_port guest_port extra <<<"$forward"
+        case $guest_port in
+        22)
+            echo "${indent}SSH:     localhost:$host_port -> guest :$guest_port"
+            ;;
+        esac
+    done
+    for forward in $forwards; do
+        IFS=: read -r host_port guest_port extra <<<"$forward"
+        case $guest_port in
+        23)
+            echo "${indent}Telnet:  localhost:$host_port -> guest :$guest_port"
+            ;;
+        esac
+    done
+    for forward in $forwards; do
+        IFS=: read -r host_port guest_port extra <<<"$forward"
+        case $guest_port in
+        22 | 23)
+            ;;
+        *)
+            echo "${indent}TCP:     localhost:$host_port -> guest :$guest_port"
+            ;;
+        esac
+    done
+}
+
+# Returns success unless QEMU_NET_ENABLED is a recognized false value.
+qemu_network_enabled() {
+    case "$(printf '%s' "$QEMU_NET_ENABLED" | tr '[:upper:]' '[:lower:]')" in
+    0 | false | no | off | disable | disabled | none | n | f | null | nil)
+        return 1
+        ;;
+    *)
+        return 0
+        ;;
+    esac
+}
+
 # Finalizes display, install script, and network configuration.
 qemu_finish_config() {
-    local qemu_internet_netdev
+    local default_forwards qemu_internet_netdev
     local install_script
 
     QEMU_DISPLAY="${QEMU_DISPLAY:-$(qemu_default_display)}"
@@ -308,46 +380,27 @@ qemu_finish_config() {
             log_warn "Install command has no host-side install.sh configured"
         fi
     fi
-    # Validate QEMU_NET_TYPE
-    case "$QEMU_NET_TYPE" in
-    user | jump | none)
-        ;;
-    *)
-        die "Invalid QEMU_NET_TYPE '$QEMU_NET_TYPE'. Valid values: user, jump, none"
-        ;;
-    esac
-
-    # Configure network based on QEMU_NET_TYPE (unless explicitly overridden)
-    if [[ -z "${QEMU_INTERNET:-}" && -z "${QEMU_RETRONET:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
-        log_debug "Configuring $QEMU_NET_TYPE networking"
-        case "$QEMU_NET_TYPE" in
-        user)
-            # User networking with port forwards (default behavior)
-            qemu_internet_netdev="user,id=internet"
+    if ! qemu_network_enabled; then
+        QEMU_NETWORK=
+        log_debug "Networking disabled by QEMU_NET_ENABLED=$QEMU_NET_ENABLED"
+    elif [[ -z "${QEMU_NETWORK:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
+        log_debug "Configuring user networking"
+        qemu_internet_netdev="user,id=internet"
+        if [[ -z "${QEMU_NET_FORWARD:-}" ]]; then
+            default_forwards=
             if [[ -n "${QEMU_SSH_PORT:-}" && "$QEMU_SSH_PORT" != "none" ]]; then
-                qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_SSH_PORT-:22"
+                default_forwards="$QEMU_SSH_PORT:22"
             fi
             if [[ -n "${QEMU_TELNET_PORT:-}" && "$QEMU_TELNET_PORT" != "none" ]]; then
-                qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_TELNET_PORT-:23"
+                default_forwards="${default_forwards:+$default_forwards }$QEMU_TELNET_PORT:23"
             fi
-            if [[ -n "${QEMU_HTTP_PORT:-}" && "$QEMU_HTTP_PORT" != "none" ]]; then
-                qemu_internet_netdev+=",hostfwd=tcp:127.0.0.1:$QEMU_HTTP_PORT-:80"
-            fi
-            QEMU_INTERNET="
+            QEMU_NET_FORWARD=$default_forwards
+        fi
+        qemu_internet_netdev+=$(qemu_net_forward_args) || return 1
+        QEMU_NETWORK="
           -netdev $qemu_internet_netdev
           -device $QEMU_NET_DEVICE,netdev=internet"
-            ;;
-        jump)
-            # Socket connection to jumpbox
-            QEMU_RETRONET="
-          -netdev socket,id=jumpnet,connect=:1234
-          -device $QEMU_NET_DEVICE,netdev=jumpnet"
-            ;;
-        none)
-            # No networking
-            ;;
-        esac
-    elif [[ -n "${QEMU_INTERNET:-}" || -n "${QEMU_RETRONET:-}" ]]; then
+    elif [[ -n "${QEMU_NETWORK:-}" ]]; then
         log_debug "Using explicit QEMU network configuration"
     else
         log_warn "No QEMU network device configured"
@@ -641,8 +694,7 @@ qemu_build_args() {
     QEMU_ARGS+=("${QEMU_PARALLELS[@]}")
     qemu_append_args_string "${QEMU_DISPLAY:-}"
     qemu_append_args_string "${QEMU_ACCEL:-}"
-    qemu_append_args_string "${QEMU_INTERNET:-}"
-    qemu_append_args_string "${QEMU_RETRONET:-}"
+    qemu_append_args_string "${QEMU_NETWORK:-}"
     QEMU_ARGS+=("${QEMU_GLOBALS[@]}")
     QEMU_ARGS+=("${QEMU_DRIVES[@]}")
     qemu_append_args_string "${QEMU_BOOT_ORDER:-}"
@@ -656,6 +708,7 @@ qemu_build_args() {
 
 # Prints assigned QEMU and guest TCP ports.
 qemu_print_ports() {
+    local guest_ports
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 
     echo "⚙️  QEMU endpoints:"
@@ -665,16 +718,11 @@ qemu_print_ports() {
     if [[ -n "${QEMU_QMP_SOCKET:-}" && "$QEMU_QMP_SOCKET" != "none" ]]; then
         echo "${indent}QMP:     $QEMU_QMP_SOCKET"
     fi
-    echo
-    echo "📡 Guest ports:"
-    if [[ -n "${QEMU_SSH_PORT:-}" && "$QEMU_SSH_PORT" != "none" ]]; then
-        echo "${indent}SSH:     localhost:$QEMU_SSH_PORT -> guest :22"
-    fi
-    if [[ -n "${QEMU_TELNET_PORT:-}" && "$QEMU_TELNET_PORT" != "none" ]]; then
-        echo "${indent}Telnet:  localhost:$QEMU_TELNET_PORT -> guest :23"
-    fi
-    if [[ -n "${QEMU_HTTP_PORT:-}" && "$QEMU_HTTP_PORT" != "none" ]]; then
-        echo "${indent}HTTP:    localhost:$QEMU_HTTP_PORT -> guest :80"
+    guest_ports=$(qemu_print_net_forwards)
+    if [[ -n "$guest_ports" ]]; then
+        echo
+        echo "📡 Guest ports:"
+        printf '%s\n' "$guest_ports"
     fi
 }
 

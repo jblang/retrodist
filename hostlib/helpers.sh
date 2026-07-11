@@ -184,22 +184,22 @@ EOF
                 exit 1
             fi
             log_debug "Selected MSYS2 pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof openssh jq mtools
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof jq mtools
             return
         fi
         ;;
     Linux)
         if command -v apt-get >/dev/null 2>&1; then
             log_debug "Selected apt-get prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof openssh-client jq mtools
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof jq mtools
             return
         elif command -v dnf >/dev/null 2>&1; then
             log_debug "Selected dnf prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof openssh-clients jq mtools
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof jq mtools
             return
         elif command -v pacman >/dev/null 2>&1; then
             log_debug "Selected pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof openssh jq mtools
+            RETRO_PREREQ_DRY_RUN=$dry_run retro_install_prereq_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof jq mtools
             return
         fi
         ;;
@@ -225,7 +225,6 @@ Install the prerequisites manually:
   xorriso
   lsof
   jq
-  ssh, sftp, scp, and ssh-keygen
 EOF
         exit 1
     fi
