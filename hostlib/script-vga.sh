@@ -118,7 +118,7 @@ vga_wait() {
     done
     [ $# -gt 0 ] || die "vga_wait requires [-l | -r] [-t SECONDS] TEXT [TEXT ...]"
 
-    interval=${WAIT_INTERVAL:-0.1}
+    interval=${VGA_WAIT_INTERVAL:-${WAIT_INTERVAL:-0.25}}
     for expected in "$@"; do
         printf "⏳ %s" "$expected"
         if [ -n "$timeout" ]; then

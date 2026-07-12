@@ -48,7 +48,7 @@ XWMCONFIG=false
 # Log in to the installer environment as root.
 pkgtool_login_as_root() {
     vga_wait -l "$SETUP_HOSTNAME login:"
-    kb_send_line root
+    kb_type -n root
 }
 
 # Perform pre-setup steps and then start the setup script
@@ -64,7 +64,7 @@ pkgtool_start_setup() {
     fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1
-    kb_send_line "setup" || return 1
+    kb_type -n "setup" || return 1
 }
 
 # Choose a step from the Slackware Linux Setup main menu.
@@ -221,8 +221,8 @@ pkgtool_configure_sendmail() {
 pkgtool_xwmconfig() {
     if [ "$XWMCONFIG" = true ]; then
         if vga_wait -t 1 "SELECT DEFAULT WINDOW MANAGER FOR X"; then
-            kb_press_key spc
-            kb_press_key ret
+            kb_press spc
+            kb_press ret
             XWMCONFIG=false
         fi
     fi
@@ -272,7 +272,7 @@ pkgtool_finish() {
 # Reboot from the installed hard disk.
 pkgtool_reboot() {
     script_set_boot c
-    kb_press_key ctrl-alt-delete
+    kb_press ctrl-alt-delete
 }
 
 # Run the staged post-installation configuration script. POSTINST_PROMPT
@@ -281,9 +281,9 @@ pkgtool_postinst() {
     local prompt="${POSTINST_PROMPT:-$NET_HOSTNAME:~#}"
 
     vga_wait -l "$NET_HOSTNAME login:"
-    kb_send_line root
+    kb_type -n root
     vga_wait -l "$prompt"
-    kb_send_line "$FAT_MOUNT/guestlib.d/postinst.sh"
+    kb_type -n "$FAT_MOUNT/guestlib.d/postinst.sh"
 }
 
 # Set up target partitions and pick the source in this version's order.

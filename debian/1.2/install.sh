@@ -1,7 +1,7 @@
 script_import ../dinstall.sh
 
 vga_wait -l "boot:"
-kb_send_line ""
+kb_type -n ""
 
 NET_HOSTNAME=rex
 

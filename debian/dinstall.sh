@@ -68,14 +68,14 @@ DINSTALL_SHELL_PROMPT=
 # Back on VT1, enter answers the color/monochrome menu still on the real dialog.
 dinstall_start() {
     vga_wait -l "Select Color or Monochrome"
-    kb_press_key alt-f2
+    kb_press alt-f2
     vga_wait -l "Please press Enter to activate this console."
-    kb_press_key ret
+    kb_press ret
     vga_wait -l "${SHELL_PROMPT:-#}"
     # The boot kernel ships the serial driver as a module, so mount the FAT
     # partition and insmod the staged serial.o before the serial shell.
-    kb_send_line "mkdir -p $FAT_MOUNT; mount -t msdos $FAT_PARTITION $FAT_MOUNT"
-    kb_send_line "[ ! -f $FAT_MOUNT/serial.o ] || insmod $FAT_MOUNT/serial.o"
+    kb_type -n "mkdir -p $FAT_MOUNT; mount -t msdos $FAT_PARTITION $FAT_MOUNT"
+    kb_type -n "[ ! -f $FAT_MOUNT/serial.o ] || insmod $FAT_MOUNT/serial.o"
     serial_shell_start || return 1
     serial_shell_send "mv $DIALOG_BIN $DIALOG_BIN.bak" || return 1
     serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh $DIALOG_BIN" || return 1
@@ -84,8 +84,8 @@ dinstall_start() {
     fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1
-    kb_press_key alt-f1
-    kb_press_key ret
+    kb_press alt-f1
+    kb_press ret
 }
 
 # Choose a main menu step by its displayed item text, tolerating the release
@@ -172,7 +172,7 @@ dinstall_module() {
         menu -r "Module $module [-+]" Install \
         -x inputbox "Enter Command-Line Arguments" "$args"
     vga_wait -l "Please press ENTER when you are ready to continue."
-    kb_press_key ret
+    kb_press ret
     dialog_answer -x menu -r "Select ($category )? ?modules" Exit
 }
 
@@ -201,9 +201,9 @@ dinstall_base_config() {
         dinstall_config_keyboard
     fi
     vga_wait -l "Which?"
-    kb_send_line "$TIMEZONE"
+    kb_type -n "$TIMEZONE"
     vga_wait -r 'Is your system clock set to GMT( \(y/n\) \[y\])?[?]'
-    kb_send_line y
+    kb_type -n y
 }
 
 # Configure TCP/IP with the NET_* values.
@@ -266,21 +266,21 @@ dinstall_1stboot() {
     # Answered prompts stay on screen, so anchor each passwd run on its
     # unique header and queue both lines; getpass reads them in order.
     vga_wait -l "Changing password for root"
-    kb_send_line "$ROOT_PASSWORD"
-    kb_send_line "$ROOT_PASSWORD"
+    kb_type -n "$ROOT_PASSWORD"
+    kb_type -n "$ROOT_PASSWORD"
 
     vga_wait -l "Enter a username for your account:"
-    kb_send_line "$USER_NAME"
+    kb_type -n "$USER_NAME"
     vga_wait -l "Changing password for $USER_NAME"
-    kb_send_line "$USER_PASSWORD"
-    kb_send_line "$USER_PASSWORD"
+    kb_type -n "$USER_PASSWORD"
+    kb_type -n "$USER_PASSWORD"
 
     # adduser runs chfn, whose per-field prompts differ by release, so take the
     # empty default of each until the shared confirmation appears.
     until vga_wait -t 0.1 -r "^Is (the|this finger) information correct\?? \[y/n\]\??"; do
-        kb_press_key ret
+        kb_press ret
     done
-    kb_send_line y
+    kb_type -n y
 
     # Only some releases offer shadow passwords before dselect, so poll for
     # both, and answer the offer once: taking it leaves the prompt on screen.
@@ -288,17 +288,17 @@ dinstall_1stboot() {
     until vga_wait -t 1 -l "Press <ENTER> to continue:"; do
         if [ "$shadow_offered" = false ] &&
             vga_wait -t 0.1 -l "Shall I install shadow passwords? [Y/n]"; then
-            kb_send_line y
+            kb_type -n y
             shadow_offered=true
         fi
     done
-    kb_press_key ret
+    kb_press ret
     vga_wait -l \
         "Debian Linux \`dselect' package handling frontend." \
         "6. [Q]uit        Quit dselect." \
         "Press ENTER to confirm selection.   ^L to redraw screen."
-    kb_press_key q
-    kb_press_key ret
+    kb_press q
+    kb_press ret
 }
 
 # Run the staged post-installation configuration script once root.sh hands back a shell. The
@@ -313,12 +313,12 @@ dinstall_postinst() {
     vga_wait -l "Have fun!"
     if [ "$DINSTALL_RELOGIN" = true ]; then
         vga_wait -l "$login_prompt"
-        kb_send_line root
+        kb_type -n root
         vga_wait -l "$password_prompt"
-        kb_send_line "$ROOT_PASSWORD"
+        kb_type -n "$ROOT_PASSWORD"
     fi
     vga_wait -r "$shell_prompt"
-    kb_send_line "$INSTALL_POSTINST_COMMAND"
+    kb_type -n "$INSTALL_POSTINST_COMMAND"
 }
 
 # Drive the full dinstall sequence, first boot, and postinst.

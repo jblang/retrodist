@@ -63,7 +63,7 @@ NET_NAMESERVER=10.0.2.3
 TIMEZONE=US/Central
 
 vga_wait -l "darkstar login:"
-kb_send_line "root"
+kb_type -n "root"
 
 serial_shell_start || return 1
 fdisk_start /dev/hda || return 1
@@ -162,9 +162,9 @@ serial_prompt \
 
 serial_wait -l "You may now reboot your computer by pressing control+alt+delete."
 script_set_boot c
-kb_press_key ctrl-alt-delete
+kb_press ctrl-alt-delete
 
 vga_wait -l "$NET_HOSTNAME login:"
-kb_send_line "root"
+kb_type -n "root"
 vga_wait -l "$NET_HOSTNAME:~#"
-kb_send_line /retro/guestlib.d/postinst.sh
+kb_type -n /retro/guestlib.d/postinst.sh

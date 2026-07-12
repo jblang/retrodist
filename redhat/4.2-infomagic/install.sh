@@ -13,20 +13,20 @@ partition_4x
 vga_wait "Components to Install"
 # Manual selection:
 # [ ] C Development
-kb_press_key spc
+kb_press spc
 # [X] C Development
 # [ ] Development Libraries
-kb_press_key down 2
+kb_repeat down 2
 # [ ] C++ Development
-kb_press_key spc
+kb_press spc
 # [X] C++ Development
-kb_press_key down
+kb_press down
 # [ ] Printer Support
-kb_press_key spc
+kb_press spc
 # [X] Printer Support
-kb_press_key down
+kb_press down
 # [ ] Print Server
-kb_press_key spc
+kb_press spc
 # [X] Print Server
 # [ ] News Server
 # [ ] NFS Server
@@ -36,25 +36,25 @@ kb_press_key spc
 # [ ] Web Server
 # [ ] Network Management Workstation
 # [ ] Dialup Workstation
-kb_press_key down 9
+kb_repeat down 9
 # [ ] Game Machine
-kb_press_key spc
+kb_press spc
 # [X] Game Machine
-kb_press_key down
+kb_press down
 # [ ] Multimedia Machine
-kb_press_key spc
+kb_press spc
 # [X] Multimedia Machine
-kb_press_key down
+kb_press down
 # [ ] X Window System
-kb_press_key spc
+kb_press spc
 # [X] X Window System
-kb_press_key down
+kb_press down
 # [ ] X Development
-kb_press_key spc
+kb_press spc
 # [X] X Development
-kb_press_key down
+kb_press down
 # [ ] X multimedia support
-kb_press_key spc
+kb_press spc
 # [X] X multimedia support
 # [ ] Java Development
 # [ ] TeX Document Formatting
@@ -62,12 +62,12 @@ kb_press_key spc
 # [ ] Emacs with X windows
 # [ ] DOS/Windows Connectivity
 # [ ] LAN Manager Connectivity
-kb_press_key down 7
+kb_repeat down 7
 # [ ] Extra Documentation
-kb_press_key spc
+kb_press spc
 # [X] Extra Documentation
 # [ ] Everything
-kb_press_key f12 # next screen
+kb_press f12 # next screen
 
 finish_components_selection
 configure_x11_4x

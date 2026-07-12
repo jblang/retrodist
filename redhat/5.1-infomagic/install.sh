@@ -15,30 +15,30 @@ BOOTDISK_PROMPT=true
 start_install
 
 vga_wait "Disk Setup"
-kb_press_key tab # choose fdisk
-kb_press_key ret # choose initialize
+kb_press tab # choose fdisk
+kb_press ret # choose initialize
 vga_wait "Partition Disks"
 partition_disk_helper
 vga_wait "Partition Disks"
-kb_press_key ret
+kb_press ret
 vga_wait "Current Disk Partitions"
-kb_press_key down
-kb_press_key ret
-kb_send_line "/"
-kb_press_key f12
+kb_press down
+kb_press ret
+kb_type -n "/"
+kb_press f12
 vga_wait "Active Swap Space" # [sic]
-kb_press_key f12 # selects OK
+kb_press f12 # selects OK
 vga_wait "Partitions To Format"
-kb_press_key spc # selects hda2
-kb_press_key f12 # next screen
+kb_press spc # selects hda2
+kb_press f12 # next screen
 
 select_components_default
 finish_components_selection
 
 vga_wait "Probing found a PS/2 mouse"
-kb_press_key f12 # next screen
+kb_press f12 # next screen
 vga_wait "Configure Mouse"
-kb_press_key f12 # next screen
+kb_press f12 # next screen
 configure_x11_5x_common
 
 configure_network

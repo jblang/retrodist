@@ -1,17 +1,7 @@
 # shellcheck shell=bash
 # QMP-backed keyboard helpers.
 
-# Sends a raw QEMU sendkey key code.
-kb_send_raw() {
-    if [ -z "${1:-}" ]; then
-        log_error "Missing key code for QMP sendkey command"
-        return 1
-    fi
-    log_debug "Sending QEMU key sequence $1"
-    qmp_hmp_command "sendkey $1"
-}
-
-# Converts one character to a QEMU sendkey code.
+# Converts one character to a QEMU key code.
 kb_char_to_code() {
     local LC_ALL=C	# Force C collation so [a-z]/[A-Z] match by byte.
 
@@ -58,70 +48,98 @@ kb_char_to_code() {
     return 0
 }
 
-# Types a string into the guest using QEMU sendkey.
-kb_send_string() {
-    local text i char key
-    text=${1:-}
+# Types a string into the guest, optionally followed by Return.
+kb_type() {
+    local send_return=false text i char key
+    local codes=()
+
+    if [ "${1:-}" = -n ]; then
+        send_return=true
+        shift
+    fi
+    [ $# -eq 1 ] || {
+        log_error "kb_type requires [-n] TEXT"
+        return 1
+    }
+    text=$1
+
+    if [ "$send_return" = true ]; then
+        echo "⌨️  $text ↩️"
+    fi
 
     for ((i = 0; i < ${#text}; i++)); do
         char=${text:i:1}
         key=$(kb_char_to_code "$char") || {
-            log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
+            log_error "$(printf 'Unsupported character for QMP keyboard input: %q' "$char")"
             return 1
         }
-		log_debug "Sending '$key'"
-        kb_send_raw "$key"
+        log_debug "Queueing '$key'"
+        codes+=("$key")
     done
+    if [ "$send_return" = true ]; then
+        codes+=(ret)
+    fi
+    [ "${#codes[@]}" -eq 0 ] || kb_press "${codes[@]}" >/dev/null
 }
 
-# Reads stdin and types it into the guest.
+# Reads stdin and types it one line at a time.
 kb_send_stdin() {
-    local char key
+    local line read_status
 
-    # Read one byte at a time so trailing newlines are preserved.
-    while IFS= read -r -n 1 char; do
-        if [ -z "$char" ]; then
-            char=$'\n'
+    while :; do
+        IFS= read -r line
+        read_status=$?
+        [ "$read_status" -eq 0 ] || [ -n "$line" ] || break
+        if [ "$read_status" -eq 0 ]; then
+            kb_type -n "$line" >/dev/null || return 1
+        else
+            kb_type "$line" >/dev/null || return 1
+            break
         fi
-        key=$(kb_char_to_code "$char") || {
-            log_error "$(printf 'Unsupported character for QMP sendkey: %q' "$char")"
-            return 1
-        }
-        kb_send_raw "$key" || return 1
     done
 }
 
-# Sends Return to the guest.
-kb_send_return() {
-    kb_send_raw ret
+# Presses one or more key sequences in order.
+kb_press() {
+    [ $# -gt 0 ] || {
+        log_error "kb_press requires KEY [KEY ...]"
+        return 1
+    }
+
+    echo "👇 $*"
+    while [ $# -gt 0 ]; do
+        qmp_hmp_command "sendkey $1" || return 1
+        shift
+    done
 }
 
-# Sends one QEMU sendkey token to the guest one or more times.
-kb_press_key() {
-    local key count times
+# Presses one QEMU key sequence one or more times.
+kb_repeat() {
+    local key count i
+    local codes=()
+
+    [ $# -ge 1 ] && [ $# -le 2 ] || {
+        log_error "kb_repeat requires KEY [COUNT]"
+        return 1
+    }
     key=$1
     count=${2:-1}
 
     case "$count" in
     *[!0-9]*)
-        log_error "kb_press_key count must be a non-negative integer: $count"
+        log_error "kb_repeat count must be a non-negative integer: $count"
         return 1
         ;;
     esac
 
-	times=$([[ $count -gt 1 ]] && echo "($count times)")
+    if [ "$count" -gt 1 ]; then
+        echo "👇 $key ($count times)"
+    else
+        echo "👇 $key"
+    fi
 
-    echo "👇 $key $times"
-
-    while [ "$count" -gt 0 ]; do
-        kb_send_raw "$key" || return 1
-        count=$((count - 1))
+    for ((i = 0; i < count; i++)); do
+        codes+=("$key")
     done
-}
-
-# Sends a string followed by return with QMP keyboard input.
-kb_send_line() {
-	echo "⌨️  $1 ↩️"
-	kb_send_string "$1" || return 1
-	kb_send_return || return 1
+    [ "${#codes[@]}" -eq 0 ] || kb_press "${codes[@]}" >/dev/null
 }

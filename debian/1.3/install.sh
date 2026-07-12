@@ -1,7 +1,7 @@
 script_import ../dinstall.sh
 
 vga_wait -l "boot:"
-kb_send_line ""
+kb_type -n ""
 
 NET_HOSTNAME=bo
 # 1.3 reads the drivers from the mounted medium and logs out at the end of

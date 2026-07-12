@@ -200,10 +200,10 @@ Use VGA waits to establish state before sending input:
 
 ```bash
 vga_wait -l "boot:"
-kb_send_line "ramdisk root=/dev/fd0"
+kb_type -n "ramdisk root=/dev/fd0"
 vga_wait -r '^Insert.*root disk'
 script_change_floppy root.img
-kb_press_key ret
+kb_press ret
 ```
 
 Public helpers:
@@ -212,12 +212,18 @@ Public helpers:
   order. `-l` matches a trimmed full line; `-r` uses an extended regex.
 - `vga_dump_text` returns the decoded 80x25 VGA text screen. Override
   `VGA_ADDR`, `VGA_COLS`, `VGA_ROWS`, or `VGA_MEM_BYTES` for unusual hardware.
-- `kb_press_key KEY [COUNT]` sends a QEMU key token such as `ret`, `spc`, or
-  `ctrl-alt-delete`.
-- `kb_send_line TEXT` types text followed by Return. `kb_send_string TEXT` and
-  `kb_send_raw CODE` provide lower-level input when needed.
+- `kb_press KEY [KEY ...]` sends one or more QEMU key tokens such as `ret`,
+  `spc`, or `ctrl-alt-delete`.
+- `kb_repeat KEY [COUNT]` sends one key token repeatedly.
+- `kb_type [-n] TEXT` types text, followed by Return when `-n` is supplied.
 
-`WAIT_INTERVAL` controls polling and defaults to 0.1 seconds.
+Keyboard input uses one QMP/HMP `sendkey` request per key. The round trip paces
+input so old guest keyboard controllers do not drop characters.
+
+`WAIT_INTERVAL` controls serial polling and defaults to 0.1 seconds.
+`VGA_WAIT_INTERVAL` controls the more expensive VGA polling and defaults to
+0.25 seconds. Setting `WAIT_INTERVAL` also changes VGA polling when
+`VGA_WAIT_INTERVAL` is unset, preserving the shared override behavior.
 
 ### Install Flow and Media
 

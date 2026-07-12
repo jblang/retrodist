@@ -4,15 +4,15 @@ BOOT_COMMAND="linux root=/dev/hdc"
 
 boot_loader
 vga_wait "This script will walk you through each step of the installation."
-kb_press_key ret
+kb_press ret
 vga_wait "Color Screen"
-kb_press_key ret
+kb_press ret
 vga_wait "Text based install"
-kb_press_key ret
+kb_press ret
 
 partition_disk "Disk Partitions"
 vga_wait "Do you want to use this as a swap partition?"
-kb_press_key y
+kb_press y
 vga_wait "Do you want to configure ethernet TCP/IP networking"
 configure_network_common netmask-first
 format_root
@@ -44,14 +44,14 @@ vga_wait "Select each series that you want to install."
 # 	[ ]    4.9 MB - XView
 # 	[ ]    3.8 MB - a.out compatitibility
 # 	[ ]   39.9 MB - Other
-kb_press_key ret
+kb_press ret
 vga_wait "Which X server would you like to use?"
-kb_press_key s # selects SVGA
-kb_press_key ret
+kb_press s # selects SVGA
+kb_press ret
 vga_wait "Would you like to select and unselect individual packages"
-kb_press_key n
+kb_press n
 vga_wait "Package Installation is complete."
-kb_press_key ret
+kb_press ret
 
 configure_x11_common
 confirm_network_configured

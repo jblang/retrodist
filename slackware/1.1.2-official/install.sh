@@ -2,9 +2,9 @@ script_import ../pkgtool.sh
 
 vga_wait -l "Please remove the boot kernel disk from your floppy drive,"
 script_change_floppy root.img
-kb_press_key ret
+kb_press ret
 vga_wait "VFS: Insert root floppy and press ENTER"
-kb_press_key ret
+kb_press ret
 
 SETUP_HOSTNAME=darkstar
 SETUP_SOURCE=$FAT_PARTITION

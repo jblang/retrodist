@@ -163,7 +163,7 @@ case "$command_name" in
       echo "Usage: $(basename "$0") send-key [OPTIONS] KEY" >&2
       exit 1
     fi
-    kb_send_raw "$1"
+    kb_press "$1" >/dev/null
     ;;
   send-stdin)
     if [ $# -ne 0 ]; then
@@ -177,9 +177,10 @@ case "$command_name" in
       echo "Usage: $(basename "$0") send-text [OPTIONS] TEXT" >&2
       exit 1
     fi
-    kb_send_string "$1"
     if [ "$QMP_SEND_NEWLINE" = "1" ]; then
-      kb_send_return
+      kb_type -n "$1" >/dev/null
+    else
+      kb_type "$1" >/dev/null
     fi
     ;;
   change-image)

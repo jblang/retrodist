@@ -26,7 +26,7 @@ MOUSE_PORT=3      # /dev/cua2
 MOUSE_PROTOCOL=1  # Microsoft
 
 vga_wait -l "boot:"
-kb_send_line ""
+kb_type -n ""
 vga_wait -l "$SHELL_PROMPT"
 
 serial_shell_start || return 1
@@ -120,6 +120,6 @@ serial_console_echo "Rebooting..." || return 1
 serial_shell_send --no-wait "reboot" || return 1
 
 vga_wait -l "$NET_HOSTNAME.$NET_DOMAINNAME login:"
-kb_send_line "root"
+kb_type -n "root"
 vga_wait -l "[root:~]#"
-kb_send_line "$INSTALL_POSTINST_COMMAND"
+kb_type -n "$INSTALL_POSTINST_COMMAND"

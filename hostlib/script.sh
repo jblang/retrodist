@@ -28,19 +28,19 @@ script_run_postinst() {
     local password
 
     vga_wait -l "$LOGIN_PROMPT"
-    kb_send_line root
+    kb_type -n root
 
     if [ "$#" -gt 0 ]; then
         password=$1
         vga_wait "Password:"
-        kb_send_line "$password"
+        kb_type -n "$password"
     else
         sleep 1
-        kb_press_key ret
+        kb_press ret
     fi
 
     vga_wait -l "$SHELL_PROMPT"
-    kb_send_line "$INSTALL_POSTINST_COMMAND"
+    kb_type -n "$INSTALL_POSTINST_COMMAND"
 }
 
 # Changes the configured media device to the given image.
@@ -89,17 +89,23 @@ text_contains_string() {
     screen=$1
     text=$2
 
-    grep -F -- "$text" <<<"$screen" >/dev/null
+    [[ $screen == *"$text"* ]]
 }
 
 # Tests whether text contains a line matching the extended regex. Anchors in
 # the pattern match against individual lines, so ^ and $ mean line start/end.
 text_contains_regex() {
-    local screen pattern
+    local screen pattern line
     screen=$1
     pattern=$2
 
-    grep -E -- "$pattern" <<<"$screen" >/dev/null
+    while IFS= read -r line; do
+        if [[ $line =~ $pattern ]]; then
+            return 0
+        fi
+    done <<<"$screen"
+
+    return 1
 }
 
 # Tests whether text contains a trimmed line equal to expected text.

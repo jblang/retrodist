@@ -68,7 +68,7 @@ slackware_sysinstall() {
     install_type=$(slackware_sysinstall_type) || return 1
 
     vga_wait -l "darkstar login:"
-    kb_send_line "root"
+    kb_type -n "root"
     # shellcheck disable=SC2034 # Read by serial_shell_start.
     SHELL_PROMPT="darkstar:/#"
     serial_shell_start || return 1
@@ -111,10 +111,10 @@ slackware_sysinstall() {
         "echo 'none /proc proc defaults 0 0' >> /root/etc/fstab" || return 1
 
     script_set_boot c
-	kb_press_key ctrl-alt-delete
+	kb_press ctrl-alt-delete
 
     vga_wait -l "darkstar login:"
-    kb_send_line "root"
+    kb_type -n "root"
     vga_wait -l "darkstar:/#"
-    kb_send_line "$INSTALL_POSTINST_COMMAND"
+    kb_type -n "$INSTALL_POSTINST_COMMAND"
 }

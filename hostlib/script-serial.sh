@@ -30,15 +30,31 @@ serial_echo_push() {
 }
 
 serial_echo_pop_if_match() {
-    [ "${#SERIAL_ECHO_LINES[@]}" -gt 0 ] || return 1
-    [ "${SERIAL_ECHO_LINES[0]}" = "$1" ] || return 1
-    SERIAL_ECHO_LINES=("${SERIAL_ECHO_LINES[@]:1}")
+    local i matched=-1
+
+    for ((i = 0; i < ${#SERIAL_ECHO_LINES[@]}; i++)); do
+        if [ "${SERIAL_ECHO_LINES[$i]}" = "$1" ]; then
+            matched=$i
+        fi
+    done
+    [ "$matched" -ge 0 ] || return 1
+
+    # A guest may transform a long echoed line, leaving it unmatched. Drop
+    # stale entries before the newest exact match so they cannot block later
+    # echo suppression indefinitely.
+    SERIAL_ECHO_LINES=("${SERIAL_ECHO_LINES[@]:$((matched + 1))}")
+}
+
+# Prints SERIAL_LOG starting at the zero-based byte offset supplied by callers.
+serial_read_from_offset() {
+    local offset=$1
+    tail -c "+$((offset + 1))" "$SERIAL_LOG" 2>/dev/null
 }
 
 # Prints any serial output not yet included in the transcript. Used before
 # logging host input so already-arrived guest output appears first.
 serial_transcript_drain() {
-    local raw line read_status bytes offset
+    local LC_ALL=C raw line read_status bytes offset
     [ -n "${SERIAL_LOG:-}" ] && [ -f "$SERIAL_LOG" ] || return 0
 
     offset=$SERIAL_TRANSCRIPT_LINE
@@ -64,7 +80,7 @@ serial_transcript_drain() {
         SERIAL_TRANSCRIPT_LINE=$offset
 
         [ "$read_status" -eq 0 ] || break
-    done < <(dd if="$SERIAL_LOG" bs=1 skip="$SERIAL_TRANSCRIPT_LINE" 2>/dev/null)
+    done < <(serial_read_from_offset "$SERIAL_TRANSCRIPT_LINE")
 }
 
 # Writes one line to the guest serial pipe.
@@ -83,7 +99,7 @@ serial_rewind() {
 # Scans unconsumed serial text in stream order, including partial prompt lines.
 # On match, updates SERIAL_LINE, SERIAL_MATCHED, and SERIAL_MATCHED_TEXT.
 serial_scan() {
-    local raw line read_status bytes offset i expected_index
+    local LC_ALL=C raw line read_status bytes offset i expected_index
 
     offset=$SERIAL_LINE
     while :; do
@@ -122,7 +138,7 @@ serial_scan() {
             SERIAL_TRANSCRIPT_LINE=$offset
         fi
         [ "$read_status" -eq 0 ] || break
-    done < <(dd if="$SERIAL_LOG" bs=1 skip="$SERIAL_LINE" 2>/dev/null)
+    done < <(serial_read_from_offset "$SERIAL_LINE")
     return 1
 }
 
@@ -302,7 +318,7 @@ serial_shell_start() {
     launcher="[ -c $(qemu_command_quote_posix_word "$dev") ] || mknod $(qemu_command_quote_posix_word "$dev") c 4 $(qemu_command_quote_posix_word "$minor"); PS1=$(qemu_command_quote_posix_word "$prompt ") sh -i <$(qemu_command_quote_posix_word "$dev") >$(qemu_command_quote_posix_word "$dev") 2>$(qemu_command_quote_posix_word "$dev")"
 
     vga_wait -l "$SHELL_PROMPT"
-    kb_send_line "$launcher" || return 1
+    kb_type -n "$launcher" || return 1
     serial_wait -l "$prompt" || return 1
     serial_console_divider || return 1
     serial_console_echo "Retro Distro Playground Scripted Installation"

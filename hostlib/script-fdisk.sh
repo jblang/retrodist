@@ -55,14 +55,18 @@ fdisk_wait_range() {
 
 # Announces partitioning on the physical console, then starts fdisk.
 fdisk_start() {
-    local device
+    local device quoted_device command
 
     [ $# -eq 1 ] || die "fdisk_start requires DEVICE"
     device=$1
+    quoted_device=$(qemu_command_quote_posix_word "$device")
+    command="fdisk $quoted_device"
+    if [ "$device" = /dev/hda ]; then
+        command="[ -b $quoted_device ] || mknod $quoted_device b 3 0; $command"
+    fi
     serial_console_divider || return 1
     serial_console_echo "Partitioning $device; this may take a while..." || return 1
-    serial_shell_send --no-wait \
-        "fdisk $(qemu_command_quote_posix_word "$device")"
+    serial_shell_send --no-wait "$command"
 }
 
 # Creates swap and root partitions by driving fdisk through a serial shell.

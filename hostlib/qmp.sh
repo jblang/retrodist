@@ -133,14 +133,14 @@ qmp_read_response() {
     local id=$1 line parsed
 
     while IFS= read -r -t "$QMP_TIMEOUT" line <&7; do
-        parsed=$(printf '%s\n' "$line" | jq -r --arg id "$id" '
+        parsed=$(jq -r --arg id "$id" '
             if type == "object" and .id? == $id then
                 if has("error") then "error" + (.error | tojson)
                 else "return" + (if (.return | type) == "string" then .return else (.return | tojson) end)
                 end
             else empty
             end
-        ') || {
+        ' <<<"$line") || {
             log_error "Invalid QMP response: $line"
             return 1
         }

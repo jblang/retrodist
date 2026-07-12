@@ -107,6 +107,41 @@ assert_eq "qmp/hmp-batch-responses" $'response: first\nresponse: second' "$(
     }
     qmp_hmp_command first second
 )"
+assert_eq "kb/type-string" $'shift-a\nb\nc\nd\ne' "$(
+    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    kb_type Abcde 2>&1
+)"
+assert_eq "kb/type-return" $'⌨️  ab ↩️\na\nb\nret' "$(
+    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    kb_type -n ab 2>&1
+)"
+assert_eq "kb/type-empty-return" $'⌨️   ↩️\nret' "$(
+    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    kb_type -n "" 2>&1
+)"
+assert_eq "kb/stdin-lines" $'one<RET>\n<RET>\ntwo' "$(
+    kb_type() {
+        local typed
+        if [ "${1:-}" = -n ]; then
+            shift
+            typed="$1<RET>"
+        else
+            typed=$1
+        fi
+        printf '%s\n' "$typed" >&2
+    }
+    printf 'one\n\ntwo' | kb_send_stdin 2>&1
+)"
+assert_eq "kb/multiple-key-press" $'👇 down down spc\ndown\ndown\nspc' "$(
+    qmp_hmp_command() { printf '%s\n' "${1#sendkey }"; }
+    kb_press down down spc
+)"
+assert_eq "kb/repeated-key-press" $'👇 down (5 times)\ndown\ndown\ndown\ndown\ndown' "$(
+    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    kb_repeat down 5 2>&1
+)"
+assert_fail "kb/repeat-missing-key" kb_repeat >/dev/null 2>&1
+assert_fail "kb/repeat-extra-argument" kb_repeat down 2 extra >/dev/null 2>&1
 assert_eq "script/change-image-default" "change floppy0 boot.img raw" "$(
     # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
     qmp_hmp_command() { printf '%s\n' "$1"; }
@@ -476,10 +511,10 @@ wait_screen="ready"
 qmp_qemu_running() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by vga_wait.
 vga_dump_text() { printf '%s\n' "$wait_screen"; }
-# shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
-kb_send_string() { return 0; }
-# shellcheck disable=SC2329 # Invoked indirectly by kb_send_line.
-kb_send_raw() { return 0; }
+# shellcheck disable=SC2329 # Invoked indirectly by kb_type.
+kb_type() { return 0; }
+# shellcheck disable=SC2329 # Invoked indirectly by kb_type.
+qmp_hmp_command() { return 0; }
 wait_output=$(vga_wait "ready")
 wait_status=$?
 assert_eq "script/wait-string-status" "0" "$wait_status"
@@ -772,6 +807,19 @@ SERIAL_LOG=$serial_tmp/log
 SERIAL_LINE=0
 SERIAL_TRANSCRIPT_LINE=0
 
+# Serial log offsets are zero-based bytes and preserve a partial final line.
+printf 'alpha\nbeta' >"$SERIAL_LOG"
+assert_eq "serial/read-offset-zero" $'alpha\nbeta' "$(serial_read_from_offset 0)"
+assert_eq "serial/read-offset-middle" "beta" "$(serial_read_from_offset 6)"
+assert_eq "serial/read-offset-eof" "" "$(serial_read_from_offset 10)"
+assert_eq "serial/read-offset-past-eof" "" "$(serial_read_from_offset 20)"
+
+# A transformed guest echo must not leave a stale queue head that prevents
+# later exact echoes from being suppressed.
+SERIAL_ECHO_LINES=("transformed outbound line" "d")
+assert_ok "serial/echo-recovers-after-transformed-line" serial_echo_pop_if_match "d"
+assert_eq "serial/echo-recovery-clears-stale-lines" "0" "${#SERIAL_ECHO_LINES[@]}"
+
 # Transcript order: received text, matched waits, then transmitted text.
 printf '%s\n' 'noise' 'MATCH' 'late' >"$SERIAL_LOG"
 exec 9>"$serial_tmp/input"
@@ -798,10 +846,13 @@ SERIAL_SHELL_DEV=/dev/ttyS2
 wait_screen="#"
 qmp_strings=
 # shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
-kb_send_string() { qmp_strings="${qmp_strings}${qmp_strings:+
-}$1"; }
+kb_type() {
+    [ "${1:-}" != -n ] || shift
+    qmp_strings="${qmp_strings}${qmp_strings:+
+}$1"
+}
 # shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
-kb_send_raw() { return 0; }
+qmp_hmp_command() { return 0; }
 printf '%s\n' \
     'SERIAL# ' \
     'SERIAL# ' \
@@ -936,7 +987,7 @@ assert_eq "fdisk/serial-answers" "echo -----------------------------------------
 echo 'Preparing scripted install...' >/dev/console
 echo -------------------------------------------------------------------------------- >/dev/console
 echo 'Partitioning /dev/hda; this may take a while...' >/dev/console
-fdisk /dev/hda
+[ -b /dev/hda ] || mknod /dev/hda b 3 0; fdisk /dev/hda
 d
 1
 d
@@ -968,6 +1019,19 @@ case $(cat "$serial_tmp/fdisk-err") in
     ;;
 esac
 exec 2>&3 3>&-
+
+# The Red Hat C installer creates its missing disk node and partitions the
+# disk through one fdisk_swap_root serial bootstrap.
+redhat_partition_calls=$(
+    # shellcheck source=/dev/null
+    source "$REPO_D/redhat/c-install.sh"
+    kb_press() { printf 'key %s\n' "$*"; }
+    fdisk_swap_root() { printf 'fdisk-swap-root %s\n' "$*"; }
+    partition_disk_helper
+)
+assert_eq "fdisk/redhat-single-serial-bootstrap" "key alt-f2
+fdisk-swap-root /dev/hda 64
+key alt-f1" "$redhat_partition_calls"
 
 # --- dialog adapter serial routing -------------------------------------------
 # The adapter sends screens and reads answers over SERIAL, and tees the

@@ -108,11 +108,11 @@ The usual flow is to wait for known screen text, send a key or line, and repeat:
 
 ```sh
 vga_wait -l "boot:"
-kb_send_line ""
+kb_type -n ""
 vga_wait -l "login:"
-kb_send_line root
+kb_type -n root
 vga_wait -l "$SHELL_PROMPT"
-kb_send_line "$INSTALL_POSTINST_COMMAND"
+kb_type -n "$INSTALL_POSTINST_COMMAND"
 ```
 
 The main primitives are:
@@ -122,8 +122,9 @@ The main primitives are:
 - `serial_shell [--no-wait] COMMAND [COMMAND ...]`
 - `serial_wait [-l | -r] TEXT [TEXT ...]`
 - `serial_send TEXT`
-- `kb_press_key KEY [COUNT]`
-- `kb_send_line TEXT`
+- `kb_press KEY [KEY ...]`
+- `kb_repeat KEY [COUNT]`
+- `kb_type [-n] TEXT`
 - `script_change_image IMAGE [DEVICE [FORMAT]]`
 - `script_eject_disk [DEVICE]`
 - `script_change_floppy IMAGE`

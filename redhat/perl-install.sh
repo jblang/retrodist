@@ -25,7 +25,7 @@ redhat_update_network_names() {
 
 boot_loader() {
     vga_wait -l "$BOOT_PROMPT"
-    kb_send_line "$BOOT_COMMAND"
+    kb_type -n "$BOOT_COMMAND"
 }
 
 load_single_ramdisk() {
@@ -34,20 +34,20 @@ load_single_ramdisk() {
 
     vga_wait -l "VFS: Insert ramdisk floppy and press ENTER"
     script_change_floppy "$image"
-    kb_press_key ret
+    kb_press ret
 }
 
 load_two_ramdisks() {
     load_single_ramdisk ramdisk1.img
     vga_wait -l "RHL: Insert ramdisk 2 floppy and press ENTER"
     script_change_floppy ramdisk2.img
-    kb_press_key ret
+    kb_press ret
 }
 
 insert_boot_disk() {
     vga_wait "Please insert your BOOT disk"
     script_change_floppy boot.img
-    kb_press_key ret
+    kb_press ret
 }
 
 partition_disk() {
@@ -55,11 +55,11 @@ partition_disk() {
     prompt=$1
 
     vga_wait "$prompt"
-    kb_press_key alt-f2
+    kb_press alt-f2
     fdisk_swap_root /dev/hda 64
-    kb_press_key alt-f1
+    kb_press alt-f1
     vga_wait "$prompt"
-    kb_press_key n
+    kb_press n
 }
 
 configure_network_common() {
@@ -67,82 +67,82 @@ configure_network_common() {
     order=$1
 
     redhat_update_network_names
-    kb_press_key y
+    kb_press y
     vga_wait "What hostname have you selected for this computer?"
-    kb_send_line "$NET_HOSTNAME"
+    kb_type -n "$NET_HOSTNAME"
     vga_wait "What domain name is this computer part of?"
-    kb_send_line "$NET_DOMAINNAME"
+    kb_type -n "$NET_DOMAINNAME"
     vga_wait "What is the fully qualified domain name (FQDN) of this computer?"
-    kb_press_key backspace 30 # erase default
-    kb_send_line "$NET_FQDN"
+    kb_repeat backspace 30 # erase default
+    kb_type -n "$NET_FQDN"
     vga_wait "What is the IP address of this computer?"
-    kb_send_line "$NET_IPADDR"
+    kb_type -n "$NET_IPADDR"
     if [ "$order" = "network-first" ]; then
         vga_wait "What is the network address of this computer?"
-        kb_press_key backspace 15 # erase default
-        kb_send_line "$NET_NETWORK"
+        kb_repeat backspace 15 # erase default
+        kb_type -n "$NET_NETWORK"
         vga_wait "What is the netmask used by this computer?"
-        kb_press_key backspace 15 # erase default
-        kb_send_line "$NET_NETMASK"
+        kb_repeat backspace 15 # erase default
+        kb_type -n "$NET_NETMASK"
     else
         vga_wait "What is the netmask used by this computer?"
-        kb_press_key backspace 15 # erase default
-        kb_send_line "$NET_NETMASK"
+        kb_repeat backspace 15 # erase default
+        kb_type -n "$NET_NETMASK"
         vga_wait "What is the network address of this computer?"
-        kb_press_key backspace 15 # erase default
-        kb_send_line "$NET_NETWORK"
+        kb_repeat backspace 15 # erase default
+        kb_type -n "$NET_NETWORK"
     fi
     vga_wait "What is the broadcast address used by this computer?"
-    kb_press_key backspace 15 # erase default
-    kb_send_line "$NET_BROADCAST"
+    kb_repeat backspace 15 # erase default
+    kb_type -n "$NET_BROADCAST"
     vga_wait "Does this computer use a gateway?"
-    kb_press_key y
+    kb_press y
     vga_wait "What is the IP address of the gateway used by this computer?"
-    kb_press_key backspace 15 # erase default
-    kb_send_line "$NET_GATEWAY"
+    kb_repeat backspace 15 # erase default
+    kb_type -n "$NET_GATEWAY"
     vga_wait "Does this computer use a nameserver?"
-    kb_press_key y
+    kb_press y
     vga_wait "What is the IP address of the nameserver?"
-    kb_press_key backspace 15 # erase default
-    kb_send_line "$NET_NAMESERVER"
+    kb_repeat backspace 15 # erase default
+    kb_type -n "$NET_NAMESERVER"
     vga_wait "Does this computer use another nameserver?"
-    kb_press_key n
+    kb_press n
     vga_wait "Is this correct?"
-    kb_press_key y
+    kb_press y
 }
 
 format_root() {
     vga_wait "Use the spacebar to select all partitions to format."
-    kb_press_key spc
-    kb_press_key ret
+    kb_press spc
+    kb_press ret
     vga_wait "Are you absolutely certain that you want to format?"
-    kb_press_key y
+    kb_press y
 }
 
 configure_x11_common() {
     vga_wait "Which type of mouse do you have?"
-    kb_press_key p # selects ps2-bus
-    kb_press_key ret
+    kb_press p # selects ps2-bus
+    kb_press ret
     vga_wait "Do you want to autoprobe?"
-    kb_press_key n
+    kb_press n
     vga_wait "Pick a chipset."
-    kb_press_key ret # don't care; we'll overwrite this later
+    kb_press ret # don't care; we'll overwrite this later
     vga_wait "How much memory does your card have."
-    kb_press_key ret
+    kb_press ret
     vga_wait "Enter your clocks, separated by spaces."
-    kb_press_key ret
+    kb_press ret
     vga_wait "Please choose a monitor."
-    kb_press_key ret
+    kb_press ret
 }
 
 confirm_network_configured() {
     vga_wait "Networking has already been configured"
-    kb_press_key y
+    kb_press y
 }
 
 skip_modem_setup() {
     vga_wait "No Modem"
-    kb_press_key ret
+    kb_press ret
 }
 
 configure_system_clock() {
@@ -150,33 +150,33 @@ configure_system_clock() {
     clock_prompt=$1
 
     vga_wait "$clock_prompt"
-    kb_press_key ret
+    kb_press ret
 }
 
 select_timezone() {
     vga_wait "Pick a time zone."
-    kb_press_key ret
+    kb_press ret
 }
 
 select_keymap() {
     vga_wait "Select a keymap."
-    kb_press_key ret
+    kb_press ret
 }
 
 install_lilo() {
     vga_wait "Do you want to install LILO?"
-    kb_press_key y
+    kb_press y
     vga_wait "Where do you want to install LILO?"
-    kb_press_key ret
+    kb_press ret
     vga_wait "Do you need to specify hardware parameters?"
-    kb_press_key n
+    kb_press n
     vga_wait "Do you want to indicate another operating system"
-    kb_press_key n
+    kb_press n
 }
 
 skip_user_account() {
     vga_wait "Do you want to create a user account?"
-    kb_press_key n
+    kb_press n
 }
 
 set_blank_root_password() {
@@ -184,18 +184,18 @@ set_blank_root_password() {
     confirm_twice=${1:-false}
 
     vga_wait "You will now enter a password for the root user"
-    kb_press_key ret
+    kb_press ret
     if [ "$confirm_twice" = "true" ]; then
-        kb_press_key ret # blank password
+        kb_press ret # blank password
     fi
 }
 
 reboot_to_installed_system() {
     vga_wait "Reboot now?"
-    kb_press_key y
+    kb_press y
     vga_wait "Be sure to remove the boot floppy from your floppy drive!"
     script_set_boot c
-    kb_press_key ret
+    kb_press ret
 }
 
 redhat_run_postinst() {
