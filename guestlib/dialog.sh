@@ -1,511 +1,306 @@
 #!/bin/sh
-# Plain-text dialog adapter for installer scripting.
-#
-# Several installers (Slackware 1.1.2+, Debian 1.x, Red Hat 2.1 + 3.0.3) drive
-# their UI through `dialog(1)`: https://linux.die.net/man/1/dialog
-#
-# This script stands in for that binary. Instead of drawing a curses UI, it
-# renders each widget as labeled plain text so unattended host scripts can read
-# the prompt and send an answer back. The same prompt text is echoed to the
-# console for logs and, when available, to the serial control channel used by
-# `hostlib/script-dialog.sh`.
-#
-# Keep prompt output separate from result output. Real dialog writes selected
-# or typed values to stderr by default, unless options such as --stdout,
-# --stderr, or --output-fd choose another fd. Slackware setup scripts commonly
-# redirect that result stream into files like /tmp/SeTtagpath, so explanatory
-# prompt text must never leak onto the configured result fd.
-#
-# Button choices are returned as dialog-compatible status codes: OK/Yes is 0,
-# Cancel/No is 1, and Esc is 255. Value widgets write their selected tag or
-# typed text to the result fd. Checklist output follows dialog's
-# --separate-output convention when requested.
-#
-# This file runs in old installer environments. Keep it plain /bin/sh and avoid
-# newer shell features or dependencies beyond the small POSIX toolset already
-# used here.
+# Plain-text dialog(1) replacement for scripted installations.
+# Maintain bash 1.14 and ash 0.2 compatibility; add no new external commands.
+# Keep as small as possible. See README.md in this directory for more info.
 
-DIALOG_TITLE=
-DIALOG_BACKTITLE=
-DIALOG_DEFAULT_ITEM=
-DIALOG_OUTPUT_FD=2
-DIALOG_SEPARATE_OUTPUT=0
-DIALOG_PROMPT_FD=1
-DIALOG_SAVED_LINES=
-DIALOG_DIVIDER=--------------------------------------------------------------------------------
-DIALOG_SERIAL_INFOBOXES=${DIALOG_SERIAL_INFOBOXES:-0}
-DIALOG_SERIAL_MUTED=0
+rm -f /bin/dialog.bak /usr/bin/dialog.bak
 
-# Prints a short adapter usage message and exits like dialog would.
-dialog_usage() {
+TITLE=
+BACKTITLE=
+DEFAULT_ITEM=
+OUTPUT_FD=2
+SEPARATE_OUTPUT=0
+PROMPT_FD=1
+SAVED_LINES=
+DIVIDER=--------------------------------------------------------------------------------
+SERIAL_INFOBOXES=${SERIAL_INFOBOXES:-0}
+SERIAL_MUTED=0
+
+usage() {
     echo "fake dialog: converts dialog widgets to plain text prompts" >&2
     exit 1
 }
 
-# Match real dialog's no-item usage error before drawing anything.
-dialog_require_items() {
+require_items() {
     if [ "$1" -lt "$2" ]; then
         echo "fake dialog: $3 requires at least one item" >&2
         exit 255
     fi
 }
 
-# Emits a labeled prompt line through the shared prompt writer.
-dialog_prompt_line() {
-    dialog_prompt_raw "$1: $2"
-}
-
-# Sends prompts to the serial port and echoes them to the console on the
-# prompt fd, keeping redirected result fds clean.
-dialog_prompt_raw() {
-    if [ "$DIALOG_SERIAL_ON" = 1 ] && [ "$DIALOG_SERIAL_MUTED" != 1 ]; then
+prompt() {
+    if [ "$SERIAL_ON" = 1 ] && [ "$SERIAL_MUTED" != 1 ]; then
         echo "$1" >&5
     fi
-    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
+    if [ "$PROMPT_FD" = 2 ]; then
         echo "$1" >&2
     else
         echo "$1"
     fi
 }
 
-# Emits each line of widget text with the supplied prompt label.
-dialog_prompt_text() {
-    while read dialog_line; do
-        dialog_prompt_line "$1" "$dialog_line"
+prompt_text() {
+    while read line; do
+        prompt "$1: $line"
     done
 }
 
-# Emits one menu, checklist, or radiolist item line.
-dialog_prompt_item() {
-    dialog_prompt_line ITEM "$1"
-}
-
-# Prints the response prompt without completing the line.
-dialog_prompt_response() {
-    if [ "$DIALOG_SERIAL_ON" = 1 ]; then
+prompt_response() {
+    if [ "$SERIAL_ON" = 1 ]; then
         echo -n "RESPONSE: " >&5
     fi
-    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
+    if [ "$PROMPT_FD" = 2 ]; then
         echo -n "RESPONSE: " >&2
     else
         echo -n "RESPONSE: "
     fi
 }
 
-# Saves parsed options to show them before the widget body.
-dialog_save_line() {
-    if [ -n "$DIALOG_SAVED_LINES" ]; then
-        DIALOG_SAVED_LINES="$DIALOG_SAVED_LINES
+save() {
+    if [ -n "$SAVED_LINES" ]; then
+        SAVED_LINES="$SAVED_LINES
 $1: $2"
     else
-        DIALOG_SAVED_LINES="$1: $2"
+        SAVED_LINES="$1: $2"
     fi
 }
 
-# Prints the option lines collected while parsing dialog arguments.
-dialog_print_saved_lines() {
-    if [ -n "$DIALOG_SAVED_LINES" ]; then
-        dialog_prompt_raw "$DIALOG_SAVED_LINES"
-    fi
-}
-
-# Reads one response from serial or stdin and mirrors it to the console.
-dialog_read_response() {
-    dialog_prompt_response
-    if [ "$DIALOG_SERIAL_ON" != 1 ]; then
-        read DIALOG_RESPONSE
+read_response() {
+    prompt_response
+    if [ "$SERIAL_ON" != 1 ]; then
+        read RESPONSE
         return
     fi
-    read DIALOG_RESPONSE <&4
-    # Echo the scripted answer so the console transcript is complete. The
-    # host logs what it sends, so don't echo it back over serial.
-    if [ "$DIALOG_PROMPT_FD" = 2 ]; then
-        echo "$DIALOG_RESPONSE" >&2
+    read RESPONSE <&4
+    if [ "$PROMPT_FD" = 2 ]; then
+        echo "$RESPONSE" >&2
     else
-        echo "$DIALOG_RESPONSE"
+        echo "$RESPONSE"
     fi
 }
 
-# Writes one result without a newline, like real dialog.
-dialog_write_response() {
-    case "$DIALOG_OUTPUT_FD" in
+write_response() {
+    case "$OUTPUT_FD" in
         1) echo -n "$1" ;;
         2) echo -n "$1" >&2 ;;
-        *) eval 'echo -n "$1" >&'"$DIALOG_OUTPUT_FD" ;;
+        *) eval 'echo -n "$1" >&'"$OUTPUT_FD" ;;
     esac
 }
 
-# Writes one tag per line for --separate-output.
-dialog_write_line() {
-    case "$DIALOG_OUTPUT_FD" in
+write_line() {
+    case "$OUTPUT_FD" in
         1) echo "$1" ;;
         2) echo "$1" >&2 ;;
-        *) eval 'echo "$1" >&'"$DIALOG_OUTPUT_FD" ;;
+        *) eval 'echo "$1" >&'"$OUTPUT_FD" ;;
     esac
 }
 
-# Writes one or more selected tags using the configured output mode.
-dialog_write_words() {
-    if [ "$DIALOG_SEPARATE_OUTPUT" = 1 ]; then
-        # Preserve quoted multi-word tags, then print one tag per line.
+write_words() {
+    if [ "$SEPARATE_OUTPUT" = 1 ]; then
         eval "set -- $1"
-        for dialog_word in "$@"; do
-            dialog_write_line "$dialog_word"
+        for word in "$@"; do
+            write_line "$word"
         done
     else
-        dialog_write_response "$1"
+        write_response "$1"
     fi
 }
 
-# Converts typed cancel and escape responses into dialog exit statuses.
-dialog_control_exit() {
+control_exit() {
     case "$1" in
-        cancel | CANCEL | Cancel)
-            exit 1
-            ;;
-        esc | ESC | Esc)
-            exit 255
-            ;;
+        cancel | CANCEL | Cancel) exit 1 ;;
+        esc | ESC | Esc) exit 255 ;;
     esac
 }
 
-# Prints the common divider, titles, and widget type header.
-dialog_print_header() {
-    dialog_prompt_raw "$DIALOG_DIVIDER"
-    if [ -n "$DIALOG_BACKTITLE" ]; then
-        dialog_prompt_line BACKTITLE "$DIALOG_BACKTITLE"
+print_header() {
+    prompt "$DIVIDER"
+    if [ -n "$BACKTITLE" ]; then
+        prompt "BACKTITLE: $BACKTITLE"
     fi
-    if [ -n "$DIALOG_TITLE" ]; then
-        dialog_prompt_line TITLE "$DIALOG_TITLE"
+    if [ -n "$TITLE" ]; then
+        prompt "TITLE: $TITLE"
     fi
-    dialog_prompt_line TYPE "$1"
+    prompt "TYPE: $1"
 }
 
-# Reads a status-only widget response and handles cancel or escape.
-dialog_read_status() {
-    dialog_read_response
-    dialog_control_exit "$DIALOG_RESPONSE"
+text() {
+    print_header "$1"
+    echo "$2" | prompt_text TEXT
+    prompt "SIZE: $3 $4"
 }
 
-# Shows a message box and waits for a status-only response.
-dialog_show_msgbox() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_print_header msgbox
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_read_status
-    exit 0
+read_status() {
+    read_response
+    control_exit "$RESPONSE"
 }
 
-# Shows an informational message box without reading a response.
-dialog_show_infobox() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_print_header infobox
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    exit 0
-}
-
-# Shows a text file, including its contents when the path exists.
-dialog_show_textbox() {
-    dialog_file=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_print_header textbox
-    dialog_prompt_line FILE "$dialog_file"
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    if [ -f "$dialog_file" ]; then
-        dialog_prompt_text TEXT < "$dialog_file"
+msgbox() {
+    text "$1" "$2" "$3" "$4"
+    if [ "$1" = msgbox ]; then
+        read_status
     fi
-    dialog_read_status
-    exit 0
 }
 
-# Shows a yes/no prompt and maps the answer to dialog status codes.
-dialog_show_yesno() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_print_header yesno
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_read_response
-    case "$DIALOG_RESPONSE" in
-        y | Y | yes | YES | Yes | ok | OK | true | TRUE | 1)
-            exit 0
-            ;;
-        esc | ESC | Esc)
-            exit 255
-            ;;
-        *)
-            exit 1
-            ;;
+textbox() {
+    print_header textbox
+    prompt "FILE: $1"
+    prompt "SIZE: $2 $3"
+    if [ -f "$1" ]; then
+        prompt_text TEXT < "$1"
+    fi
+    read_status
+}
+
+yesno() {
+    text yesno "$1" "$2" "$3"
+    read_response
+    case "$RESPONSE" in
+        y | Y | yes | YES | Yes | ok | OK | true | TRUE | 1) exit 0 ;;
+        esc | ESC | Esc) exit 255 ;;
+        *) exit 1 ;;
     esac
 }
 
-# Shows an input or password box and writes the entered response.
-dialog_show_inputbox() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_initial=$4
-    case "$dialog_widget" in
-        --inputbox)
-            dialog_print_header inputbox
-            ;;
-        --passwordbox)
-            dialog_print_header passwordbox
-            ;;
-    esac
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_prompt_line DEFAULT "$dialog_initial"
-    dialog_read_response
-    dialog_control_exit "$DIALOG_RESPONSE"
-    dialog_write_response "$DIALOG_RESPONSE"
-    exit 0
+inputbox() {
+    text "$1" "$2" "$3" "$4"
+    prompt "DEFAULT: $5"
+    read_response
+    control_exit "$RESPONSE"
+    write_response "$RESPONSE"
 }
 
-# Shows a menu or inputmenu and writes the selected item tag.
-dialog_show_menu() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_menu_height=$4
-    shift 4
-    dialog_require_items $# 2 "$dialog_widget"
-    case "$dialog_widget" in
-        --menu)
-            dialog_print_header menu
-            ;;
-        --inputmenu)
-            dialog_print_header inputmenu
-            ;;
-    esac
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_prompt_line MENUHEIGHT "$dialog_menu_height"
-    dialog_default_item=$DIALOG_DEFAULT_ITEM
+menu() {
+    require_items $# 7 "$widget"
+    text "$1" "$2" "$3" "$4"
+    prompt "MENUHEIGHT: $5"
+    shift 5
+    default_item=$DEFAULT_ITEM
     while [ $# -gt 1 ]; do
-        if [ -z "$dialog_default_item" ]; then
-            dialog_default_item=$1
+        if [ -z "$default_item" ]; then
+            default_item=$1
         fi
-        dialog_prompt_item "$1 :: $2"
+        prompt "ITEM: $1 :: $2"
         shift 2
     done
-    dialog_read_response
-    dialog_control_exit "$DIALOG_RESPONSE"
-    # An empty response selects the highlighted item, like real dialog.
-    if [ -z "$DIALOG_RESPONSE" ]; then
-        DIALOG_RESPONSE=$dialog_default_item
+    read_response
+    control_exit "$RESPONSE"
+    if [ -z "$RESPONSE" ]; then
+        RESPONSE=$default_item
     fi
-    dialog_write_response "$DIALOG_RESPONSE"
-    exit 0
+    write_response "$RESPONSE"
 }
 
-# Shows a checklist or radiolist and writes the selected tag or tags.
-dialog_show_checklist() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_list_height=$4
-    shift 4
-    dialog_require_items $# 3 "$dialog_widget"
-    case "$dialog_widget" in
-        --checklist)
-            dialog_print_header checklist
-            ;;
-        --radiolist)
-            dialog_print_header radiolist
-            ;;
-    esac
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_prompt_line LISTHEIGHT "$dialog_list_height"
-    dialog_defaults=
-    dialog_default_item=
+checklist() {
+    require_items $# 8 "$widget"
+    text "$1" "$2" "$3" "$4"
+    prompt "LISTHEIGHT: $5"
+    shift 5
+    defaults=
+    default_item=
     while [ $# -gt 2 ]; do
-        dialog_prompt_item "$1 :: $2 $3"
+        prompt "ITEM: $1 :: $2 $3"
         case "$3" in
             [Oo][Nn] | 1)
-                if [ -n "$dialog_defaults" ]; then
-                    dialog_defaults="$dialog_defaults \"$1\""
+                if [ -n "$defaults" ]; then
+                    defaults="$defaults \"$1\""
                 else
-                    dialog_defaults="\"$1\""
+                    defaults="\"$1\""
                 fi
-                dialog_default_item=$1
+                default_item=$1
                 ;;
         esac
         shift 3
     done
-    dialog_read_response
-    dialog_control_exit "$DIALOG_RESPONSE"
-    if [ "$dialog_widget" = "--checklist" ]; then
-        # An empty response keeps the preselected items, like real dialog.
-        if [ -z "$DIALOG_RESPONSE" ]; then
-            DIALOG_RESPONSE=$dialog_defaults
+    read_response
+    control_exit "$RESPONSE"
+    if [ "$widget" = "--checklist" ]; then
+        if [ -z "$RESPONSE" ]; then
+            RESPONSE=$defaults
         fi
-        dialog_write_words "$DIALOG_RESPONSE"
+        write_words "$RESPONSE"
     else
-        if [ -z "$DIALOG_RESPONSE" ]; then
-            DIALOG_RESPONSE=$dialog_default_item
+        if [ -z "$RESPONSE" ]; then
+            RESPONSE=$default_item
         fi
-        dialog_write_response "$DIALOG_RESPONSE"
+        write_response "$RESPONSE"
     fi
-    exit 0
 }
 
-# Shows a gauge and echoes changed progress messages until stdin closes.
-dialog_show_gauge() {
-    dialog_text=$1
-    dialog_height=$2
-    dialog_width=$3
-    dialog_percent=${4:-0}
-    dialog_print_header gauge
-    echo "$dialog_text" | dialog_prompt_text TEXT
-    dialog_prompt_line SIZE "$dialog_height $dialog_width"
-    dialog_prompt_line PERCENT "$dialog_percent"
-    # Consume updates until the writer closes the pipe: bare percent
-    # lines and XXX markers are dropped, message lines are echoed when
-    # they change so progress stays visible.
-    dialog_gauge_last=
-    while read dialog_line; do
-        case "$dialog_line" in
+gauge() {
+    text gauge "$1" "$2" "$3"
+    prompt "PERCENT: ${4:-0}"
+    gauge_last=
+    while read line; do
+        case "$line" in
             XXX | [0-9]*) ;;
             *)
-                if [ "$dialog_line" != "$dialog_gauge_last" ]; then
-                    dialog_prompt_line GAUGE "$dialog_line"
-                    dialog_gauge_last=$dialog_line
+                if [ "$line" != "$gauge_last" ]; then
+                    prompt "GAUGE: $line"
+                    gauge_last=$line
                 fi
                 ;;
         esac
     done
-    exit 0
 }
 
-# Keep the tty open on fds 4/5; otherwise it can discard buffered input.
-DIALOG_SERIAL=${DIALOG_SERIAL:-/dev/ttyS3}
-DIALOG_SERIAL_ON=0
-if [ -w "$DIALOG_SERIAL" ]; then
-    # shellcheck disable=SC2094 # Duplex device: reads and writes are distinct streams.
-    exec 4<"$DIALOG_SERIAL" 5>"$DIALOG_SERIAL"
-    DIALOG_SERIAL_ON=1
+SERIAL=${SERIAL:-/dev/ttyS3}
+SERIAL_ON=0
+if [ -w "$SERIAL" ]; then
+    # Duplex device: reads and writes are distinct streams.
+    # shellcheck disable=SC2094
+    exec 4<"$SERIAL" 5>"$SERIAL"
+    SERIAL_ON=1
 fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --title)
-            DIALOG_TITLE=$2
-            shift 2
-            ;;
-        --backtitle)
-            DIALOG_BACKTITLE=$2
-            shift 2
-            ;;
-        --stdout)
-            DIALOG_OUTPUT_FD=1
-            shift
-            ;;
-        --stderr)
-            DIALOG_OUTPUT_FD=2
-            shift
-            ;;
-        --output-fd)
-            DIALOG_OUTPUT_FD=$2
-            shift 2
-            ;;
-        --separate-output)
-            DIALOG_SEPARATE_OUTPUT=1
-            shift
-            ;;
-        --default-item)
-            dialog_save_line DEFAULT_ITEM "$2"
-            DIALOG_DEFAULT_ITEM=$2
-            shift 2
-            ;;
-        --defaultno)
-            dialog_save_line DEFAULTNO yes
-            shift
-            ;;
+        --title) TITLE=$2; shift 2 ;;
+        --backtitle) BACKTITLE=$2; shift 2 ;;
+        --stdout) OUTPUT_FD=1; shift ;;
+        --stderr) OUTPUT_FD=2; shift ;;
+        --output-fd) OUTPUT_FD=$2; shift 2 ;;
+        --separate-output) SEPARATE_OUTPUT=1; shift ;;
+        --default-item) save DEFAULT_ITEM "$2"; DEFAULT_ITEM=$2; shift 2 ;;
+        --defaultno) save DEFAULTNO yes; shift ;;
         --clear | --colors | --no-collapse | --cr-wrap | --no-shadow | --ascii-lines)
-            dialog_save_line OPTION "$1"
-            shift
-            ;;
+            save OPTION "$1"; shift ;;
         --ok-label | --cancel-label | --yes-label | --no-label | --extra-label | --help-label | --input-fd | --max-input | --sleep | --timeout)
-            dialog_save_line OPTION "$1 $2"
-            shift 2
-            ;;
-        --begin)
-            dialog_save_line BEGIN "$2 $3"
-            shift 3
-            ;;
-        --help)
-            dialog_usage
-            ;;
-        --version)
-            echo "fake-dialog"
-            exit 0
-            ;;
+            save OPTION "$1 $2"; shift 2 ;;
+        --begin) save BEGIN "$2 $3"; shift 3 ;;
+        --help) usage ;;
+        --version) echo "fake-dialog"; exit 0 ;;
         --msgbox | --infobox | --yesno | --inputbox | --passwordbox | --menu | --inputmenu | --checklist | --radiolist | --textbox | --gauge)
-            dialog_widget=$1
-            shift
-            break
-            ;;
-        --*)
-            dialog_save_line OPTION "$1"
-            shift
-            ;;
-        *)
-            dialog_usage
-            ;;
+            widget=$1; shift; break ;;
+        --*) save OPTION "$1"; shift ;;
+        *) usage ;;
     esac
 done
 
-if [ "$DIALOG_OUTPUT_FD" = 1 ]; then
-    DIALOG_PROMPT_FD=2
+if [ "$OUTPUT_FD" = 1 ]; then
+    PROMPT_FD=2
 fi
 
-# Infoboxes are display-only; keep them off the serial transcript by default.
-if [ "$dialog_widget" = "--infobox" ] && [ "$DIALOG_SERIAL_INFOBOXES" != 1 ]; then
-    DIALOG_SERIAL_MUTED=1
+if [ "$widget" = "--infobox" ] && [ "$SERIAL_INFOBOXES" != 1 ]; then
+    SERIAL_MUTED=1
 fi
 
-dialog_print_saved_lines
+if [ -n "$SAVED_LINES" ]; then
+    prompt "$SAVED_LINES"
+fi
 
-case "$dialog_widget" in
-    --msgbox)
-        dialog_show_msgbox "$@"
-        ;;
-    --infobox)
-        dialog_show_infobox "$@"
-        ;;
-    --textbox)
-        dialog_show_textbox "$@"
-        ;;
-    --yesno)
-        dialog_show_yesno "$@"
-        ;;
-    --inputbox | --passwordbox)
-        dialog_show_inputbox "$@"
-        ;;
-    --menu | --inputmenu)
-        dialog_show_menu "$@"
-        ;;
-    --checklist | --radiolist)
-        dialog_show_checklist "$@"
-        ;;
-    --gauge)
-        dialog_show_gauge "$@"
-        ;;
-    "")
-        # Invoked with options but no widget (e.g. `dialog --clear`).
-        exit 0
-        ;;
-    *)
-        dialog_usage
-        ;;
+case "$widget" in
+    --msgbox) msgbox msgbox "$@" ;;
+    --infobox) msgbox infobox "$@" ;;
+    --textbox) textbox "$@" ;;
+    --yesno) yesno "$@" ;;
+    --inputbox) inputbox inputbox "$@" ;;
+    --passwordbox) inputbox passwordbox "$@" ;;
+    --menu) menu menu "$@" ;;
+    --inputmenu) menu inputmenu "$@" ;;
+    --checklist) checklist checklist "$@" ;;
+    --radiolist) checklist radiolist "$@" ;;
+    --gauge) gauge "$@" ;;
+    "") exit 0 ;;
+    *) usage ;;
 esac

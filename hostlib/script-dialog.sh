@@ -1,24 +1,5 @@
 # shellcheck shell=bash
 # Helpers for the guestlib/dialog.sh serial plain-text adapter.
-#
-# Guest installers such as Slackware run `dialog` for interactive screens.
-# During unattended installs, the guest-side `guestlib/dialog.sh` adapter
-# replaces that binary and prints each screen as labeled plain text on the
-# serial transcript: TITLE, TYPE, ITEM, RESPONSE, and related metadata.
-#
-# This host-side interface reads that transcript through `hostlib/script-serial.sh`
-# and sends answers back when the adapter prints `RESPONSE:`. Simple cases use
-# `dialog_expect` for one known screen. Version-dependent flows use
-# `dialog_answer`, which accepts alternatives keyed by widget type, title, and
-# optional required menu items, then answers whichever matching screen appears
-# next in stream order.
-#
-# Answers must match dialog's result contract, not the visual text on screen.
-# Menu-like widgets expect the selected item tag; input widgets expect typed
-# text; yes/no and msgbox-style widgets expect button words that the adapter
-# converts to dialog-compatible status codes. Description matching (`-d`) is
-# available when old installer versions use different tags for the same menu
-# choice.
 
 DIALOG_NO_REQUIRED_ITEM=__retro_dialog_no_required_item__
 

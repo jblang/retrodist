@@ -956,12 +956,14 @@ esac
 exec 2>&3 3>&-
 
 # --- dialog adapter serial routing -------------------------------------------
-# The adapter sends screens and reads answers over DIALOG_SERIAL, and tees the
+# The adapter sends screens and reads answers over SERIAL, and tees the
 # transcript to the console for progress indication.
+assert_fail "adapter/legacy-no-parameter-trimming" \
+    grep -Eq '\$\{[^}]*[#%]' "$REPO_D/guestlib/dialog.sh"
 mkfifo "$serial_tmp/port"
 exec 8<>"$serial_tmp/port"
 printf 'ok\n' >&8
-DIALOG_SERIAL=$serial_tmp/port sh "$REPO_D/guestlib/dialog.sh" \
+SERIAL=$serial_tmp/port sh "$REPO_D/guestlib/dialog.sh" \
     --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/console" 2>&1
 assert_eq "adapter/serial-exit" "0" "$?"
 IFS= read -r serial_line <&8 # divider
@@ -978,7 +980,7 @@ chmod +x "$serial_tmp/dialog" "$serial_tmp/dialog.bak"
 mkfifo "$serial_tmp/port2"
 exec 8<>"$serial_tmp/port2"
 printf 'ok\n' >&8
-DIALOG_SERIAL=$serial_tmp/port2 sh "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/port2 sh "$serial_tmp/dialog" \
     --title Serial --msgbox hi 5 40 </dev/null >"$serial_tmp/view" 2>&1
 assert_eq "adapter/view-exit" "0" "$?"
 assert_fail "adapter/view-no-real-dialog" grep -q -- "VIEW " "$serial_tmp/view"
@@ -991,7 +993,7 @@ printf '#!/bin/sh\necho "VIEW $*" >&2\n' >"$serial_tmp/dialog.bak"
 mkfifo "$serial_tmp/port4"
 exec 8<>"$serial_tmp/port4"
 printf '/retro/tagfiles\n' >&8
-DIALOG_SERIAL=$serial_tmp/port4 bash "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/port4 bash "$serial_tmp/dialog" \
     --title Path --inputbox "tag path" 10 40 \
     </dev/null >/dev/null 2>"$serial_tmp/inputbox-result"
 assert_eq "adapter/inputbox-stderr-result" "/retro/tagfiles" "$(cat "$serial_tmp/inputbox-result")"
@@ -1000,7 +1002,7 @@ exec 8<&-
 mkfifo "$serial_tmp/port7"
 exec 8<>"$serial_tmp/port7"
 printf 'PATH\n' >&8
-DIALOG_SERIAL=$serial_tmp/port7 bash "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/port7 bash "$serial_tmp/dialog" \
     --title Prompt --menu "mode" 10 40 2 NORMAL normal PATH path \
     </dev/null >/dev/null 2>"$serial_tmp/menu-path-result"
 assert_eq "adapter/menu-stderr-result" "PATH" "$(cat "$serial_tmp/menu-path-result")"
@@ -1010,7 +1012,7 @@ exec 8<&-
 # console, do not call dialog.bak, and stay quiet on the serial transcript by
 # default.
 : >"$serial_tmp/infobox-serial"
-DIALOG_SERIAL=$serial_tmp/infobox-serial sh "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/infobox-serial sh "$serial_tmp/dialog" \
     --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox" 2>&1
 assert_eq "adapter/infobox-view-exit" "0" "$?"
 assert_fail "adapter/infobox-no-real-dialog" grep -q -- "VIEW " "$serial_tmp/infobox"
@@ -1018,7 +1020,7 @@ assert_ok "adapter/infobox-console" grep -q -- "TITLE: Info" "$serial_tmp/infobo
 assert_eq "adapter/infobox-serial-muted" "" "$(cat "$serial_tmp/infobox-serial")"
 
 : >"$serial_tmp/infobox-serial-unmuted"
-DIALOG_SERIAL_INFOBOXES=1 DIALOG_SERIAL=$serial_tmp/infobox-serial-unmuted sh "$serial_tmp/dialog" \
+SERIAL_INFOBOXES=1 SERIAL=$serial_tmp/infobox-serial-unmuted sh "$serial_tmp/dialog" \
     --title Info --infobox "real progress" 7 50 </dev/null >"$serial_tmp/infobox-unmuted" 2>&1
 assert_eq "adapter/infobox-unmuted-exit" "0" "$?"
 assert_ok "adapter/infobox-serial-unmuted" grep -q "TITLE: Info" "$serial_tmp/infobox-serial-unmuted"
@@ -1027,7 +1029,7 @@ assert_ok "adapter/infobox-serial-unmuted" grep -q "TITLE: Info" "$serial_tmp/in
 mkfifo "$serial_tmp/port5"
 exec 8<>"$serial_tmp/port5"
 printf 'no\n' >&8
-DIALOG_SERIAL=$serial_tmp/port5 sh "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/port5 sh "$serial_tmp/dialog" \
     --yesno "continue?" 6 40 </dev/null >/dev/null 2>&1
 assert_eq "adapter/yesno-no-exit" "1" "$?"
 exec 8<&-
@@ -1035,7 +1037,7 @@ exec 8<&-
 mkfifo "$serial_tmp/port6"
 exec 8<>"$serial_tmp/port6"
 printf 'esc\n' >&8
-DIALOG_SERIAL=$serial_tmp/port6 sh "$serial_tmp/dialog" \
+SERIAL=$serial_tmp/port6 sh "$serial_tmp/dialog" \
     --menu "pick" 10 40 2 first one second two </dev/null >/dev/null 2>&1
 assert_eq "adapter/menu-esc-exit" "255" "$?"
 exec 8<&-
@@ -1045,7 +1047,7 @@ exec 8<&-
 mkfifo "$serial_tmp/port3"
 exec 8<>"$serial_tmp/port3"
 printf '\n' >&8
-DIALOG_SERIAL=$serial_tmp/port3 bash "$REPO_D/guestlib/dialog.sh" \
+SERIAL=$serial_tmp/port3 bash "$REPO_D/guestlib/dialog.sh" \
     --menu "pick" 10 40 2 first one second two \
     </dev/null >/dev/null 2>"$serial_tmp/menu-result"
 assert_eq "adapter/menu-empty-default" "first" "$(cat "$serial_tmp/menu-result")"

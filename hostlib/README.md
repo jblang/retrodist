@@ -248,22 +248,76 @@ serial device.
 
 ### Dialog Installers
 
-`guestlib/dialog.sh` is a plain-text replacement for the old `dialog` program.
-It writes typed screens and responses over the serial automation pipe while
-preserving redirected result files expected by installers. Host manifests use
-`dialog_answer` to answer that protocol:
+`script-dialog.sh` provides the host API for installers driven by the guest-side
+`dialog.sh` adapter. Config authors use `dialog_answer` in `install.sh`
+manifests; maintainers of either side must preserve the labeled serial
+protocol. The current Debian and Slackware drivers replace the installer's real
+`dialog` binary with the adapter, which exchanges screens and answers over the
+serial pipe while preserving the result expected by the installer.
+
+The common form matches one screen by widget type and title, then sends an
+answer when its `RESPONSE:` prompt appears:
 
 ```bash
+dialog_answer TYPE TITLE ANSWER
+
 dialog_answer menu "Select Keyboard" us
 dialog_answer yesno "Use this partition?" yes
 ```
 
-The base form is `dialog_answer TYPE TITLE ANSWER`. Multiple alternatives can
-be supplied for screens that vary by release; prefix the terminal alternative
-with `-x`. `-r` makes a title an extended regex, `-i ITEM` requires a matching
-menu item, `-d TEXT` answers with the key of the item whose description matches,
-`-f FUNCTION` delegates the response, and `-n` waits without responding. See
-`debian/dinstall.sh` and `slackware/pkgtool.sh` for maintained examples.
+`ANSWER` must be the value expected by `dialog`, which is not always the text
+shown to the user. Supply an item tag for a menu, typed text for an input box,
+or a button word such as `yes`, `no`, `ok`, `cancel`, or `esc`. Use `-d` when
+the displayed menu description is more stable than its tag:
+
+```bash
+dialog_answer menu "SOURCE MEDIA SELECTION" -d "CD-ROM"
+```
+
+By default, `TITLE` matches the complete `TITLE:` line. The remaining matching
+and response controls are:
+
+- `any` as `TYPE` skips the widget-type check. `msgbox` and `textbox` also match
+  each other.
+- `-r` before `TITLE` uses an extended regular expression. It can likewise
+  follow `-i` or `-d` to make that argument a regular expression.
+- `-i ITEM` requires the screen to contain a matching full menu item (tag and
+  description). Use it to distinguish screens that otherwise share a title and
+  type.
+- `-d DESCRIPTION` finds a menu item by its displayed description and sends
+  that item's tag.
+- `-f FUNCTION` calls a handler with the matched title; the handler is
+  responsible for completing the interaction.
+- `-n` waits for the matching screen without responding.
+- `-l LABEL` logs entry to and exit from a multi-screen flow.
+
+For release-dependent or optional screens, pass multiple
+`TYPE TITLE ANSWER` alternatives. `dialog_answer` handles each alternative at
+most once, in the order screens arrive, and returns after the alternative
+prefixed with `-x`:
+
+```bash
+dialog_answer -l "swap partition" \
+    menu -r "Select (Disk|Swap) Partition" "$SWAP_PARTITION" \
+    yesno "Scan for Bad Blocks?" no \
+    -x yesno "Are You Sure?" yes
+```
+
+The adapter's transcript includes `TITLE:`, `TYPE:`, `TEXT:`, widget metadata,
+`ITEM:`, and `RESPONSE:` lines. `dialog_answer` currently matches titles,
+types, and optional items; it does not match `TEXT:`.
+
+For maintainers, `dialog_expect [-r] TITLE TYPE ANSWER` is the single-screen
+primitive: it consumes the title and type in order, then answers at
+`RESPONSE:`. `dialog_answer` builds on it by selecting among alternatives from
+the buffered serial transcript and rewinding before the selected responder
+consumes the screen. Changes to labels, ordering, item formatting, or response
+timing therefore require corresponding changes on both sides of the protocol.
+
+See the guest library's
+[`dialog.sh` documentation](../guestlib/README.md#dialogsh) for the complete
+wire format, supported widgets, output routing, and runtime constraints. See
+`debian/dinstall.sh` and `slackware/pkgtool.sh` for maintained API examples.
 
 `fdisk_swap_root DEVICE SWAP_MB` opens a serial shell and runs `fdisk` itself.
 When an installer has already started `fdisk`, `fdisk_partitions SWAP_MB`

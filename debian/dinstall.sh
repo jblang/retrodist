@@ -11,8 +11,8 @@ LINUX_PARTITION=/dev/hda2
 FAT_PARTITION=/dev/hdb1
 FAT_MOUNT=/retro
 
-# The real dialog binary on the install ramdisk, renamed aside to make room
-# for the interposer.
+# The real dialog binary on the install ramdisk, moved aside while the first
+# screen is active and removed after that screen exits.
 DIALOG_BIN=/usr/bin/dialog
 
 # Main menu title: "Debian Linux 1.1 Installation Main Menu" (1.1),
@@ -77,7 +77,7 @@ dinstall_start() {
     kb_send_line "mkdir -p $FAT_MOUNT; mount -t msdos $FAT_PARTITION $FAT_MOUNT"
     kb_send_line "[ ! -f $FAT_MOUNT/serial.o ] || insmod $FAT_MOUNT/serial.o"
     serial_shell_start || return 1
-    serial_shell_send "mv $DIALOG_BIN $DIALOG_BIN.real" || return 1
+    serial_shell_send "mv $DIALOG_BIN $DIALOG_BIN.bak" || return 1
     serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh $DIALOG_BIN" || return 1
     serial_shell_send "chmod 755 $DIALOG_BIN" || return 1
     serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
