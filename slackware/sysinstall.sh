@@ -73,13 +73,16 @@ slackware_sysinstall() {
     SHELL_PROMPT="darkstar:/#"
     serial_shell_start || return 1
 
-    serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
+    fdisk_start "$TARGET_DISK" || return 1
     fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
 
     serial_shell_send "mkswap $SWAP_PARTITION $SWAP_BLOCKS" || return 1
     serial_shell_send "swapon $SWAP_PARTITION" || return 1
     serial_shell_send "mke2fs $LINUX_PARTITION" || return 1
+    serial_console_divider || return 1
+    serial_console_echo \
+        "Starting Slackware setup; package installation may take a while..." || return 1
     serial_shell_send --no-wait "doinstall $LINUX_PARTITION" || return 1
 
     serial_prompt "Where will you be installing Linux from?" "2"

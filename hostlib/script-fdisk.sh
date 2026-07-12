@@ -53,6 +53,18 @@ fdisk_wait_range() {
     read -r INSTALL_FDISK_FIRST INSTALL_FDISK_LAST <<<"$range"
 }
 
+# Announces partitioning on the physical console, then starts fdisk.
+fdisk_start() {
+    local device
+
+    [ $# -eq 1 ] || die "fdisk_start requires DEVICE"
+    device=$1
+    serial_console_divider || return 1
+    serial_console_echo "Partitioning $device; this may take a while..." || return 1
+    serial_shell_send --no-wait \
+        "fdisk $(qemu_command_quote_posix_word "$device")"
+}
+
 # Creates swap and root partitions by driving fdisk through a serial shell.
 fdisk_swap_root() {
     local device swap_mb status=0
@@ -65,7 +77,8 @@ fdisk_swap_root() {
     device=$1
     swap_mb=$2
 
-    serial_shell --no-wait "fdisk $device" || return 1
+    serial_shell_start || return 1
+    fdisk_start "$device" || return 1
     fdisk_partitions "$swap_mb" || status=$?
     [[ $status -eq 0 ]] || return "$status"
 

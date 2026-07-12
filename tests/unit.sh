@@ -804,6 +804,8 @@ kb_send_string() { qmp_strings="${qmp_strings}${qmp_strings:+
 kb_send_raw() { return 0; }
 printf '%s\n' \
     'SERIAL# ' \
+    'SERIAL# ' \
+    'SERIAL# ' \
     'one' \
     'SERIAL# ' \
     'two' \
@@ -813,8 +815,10 @@ printf '%s\n' \
 : >"$serial_tmp/shell-input"
 exec 9>"$serial_tmp/shell-input"
 serial_shell "echo one" "echo two >&2" >/dev/null 2>/dev/null
-assert_eq "serial/shell-launcher" "[ -c /dev/ttyS2 ] || mknod /dev/ttyS2 c 4 67; PS1='SERIAL# ' sh -i </dev/ttyS2 >/dev/ttyS2 2>&1" "$qmp_strings"
-assert_eq "serial/shell-input" "echo one
+assert_eq "serial/shell-launcher" "[ -c /dev/ttyS2 ] || mknod /dev/ttyS2 c 4 67; PS1='SERIAL# ' sh -i </dev/ttyS2 >/dev/ttyS2 2>/dev/ttyS2" "$qmp_strings"
+assert_eq "serial/shell-input" "echo -------------------------------------------------------------------------------- >/dev/console
+echo 'Preparing scripted install...' >/dev/console
+echo one
 echo two >&2
 exit" "$(cat "$serial_tmp/shell-input")"
 exec 9>&-
@@ -824,11 +828,13 @@ SERIAL_LOG=$serial_tmp/shell-nowait
 SERIAL_LINE=0
 SERIAL_TRANSCRIPT_LINE=0
 qmp_strings=
-printf '%s\n' '# ' >"$SERIAL_LOG"
+printf '%s\n' '# ' '# ' '# ' >"$SERIAL_LOG"
 : >"$serial_tmp/shell-nowait-input"
 exec 9>"$serial_tmp/shell-nowait-input"
 serial_shell --no-wait "long-running install" >/dev/null 2>/dev/null
-assert_eq "serial/shell-nowait-input" "long-running install" "$(cat "$serial_tmp/shell-nowait-input")"
+assert_eq "serial/shell-nowait-input" "echo -------------------------------------------------------------------------------- >/dev/console
+echo 'Preparing scripted install...' >/dev/console
+long-running install" "$(cat "$serial_tmp/shell-nowait-input")"
 exec 9>&-
 
 SERIAL_LINE=0
@@ -898,6 +904,10 @@ SERIAL_LINE=0
 wait_screen="#"
 printf '%s\n' \
     '# ' \
+    '# ' \
+    '# ' \
+    '# ' \
+    '# ' \
     'Command (m for help): ' \
     'Partition number (1-4): ' \
     'Command (m for help): ' \
@@ -922,7 +932,11 @@ printf '%s\n' \
     >"$SERIAL_LOG"
 fdisk_swap_root /dev/hda 64 >"$serial_tmp/fdisk-out" 2>"$serial_tmp/fdisk-err"
 assert_eq "fdisk/serial-status" "0" "$?"
-assert_eq "fdisk/serial-answers" "fdisk /dev/hda
+assert_eq "fdisk/serial-answers" "echo -------------------------------------------------------------------------------- >/dev/console
+echo 'Preparing scripted install...' >/dev/console
+echo -------------------------------------------------------------------------------- >/dev/console
+echo 'Partitioning /dev/hda; this may take a while...' >/dev/console
+fdisk /dev/hda
 d
 1
 d

@@ -60,7 +60,7 @@ pkgtool_start_setup() {
     # full install ramdisk starves setup's /tmp result files (ENOSPC).
     serial_shell_send "rm /bin/dialog" || return 1
     serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh /bin/dialog" || return 1
-    serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
+    fdisk_start "$TARGET_DISK" || return 1
     fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1

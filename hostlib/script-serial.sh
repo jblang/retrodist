@@ -299,11 +299,14 @@ serial_shell_start() {
     prompt=${SERIAL_SHELL_PROMPT:-#}
     dev=${SERIAL_SHELL_DEV:-${SERIAL_DEV:-/dev/ttyS3}}
     minor=${SERIAL_SHELL_MINOR:-67}
-    launcher="[ -c $(qemu_command_quote_posix_word "$dev") ] || mknod $(qemu_command_quote_posix_word "$dev") c 4 $(qemu_command_quote_posix_word "$minor"); PS1=$(qemu_command_quote_posix_word "$prompt ") sh -i <$(qemu_command_quote_posix_word "$dev") >$(qemu_command_quote_posix_word "$dev") 2>&1"
+    launcher="[ -c $(qemu_command_quote_posix_word "$dev") ] || mknod $(qemu_command_quote_posix_word "$dev") c 4 $(qemu_command_quote_posix_word "$minor"); PS1=$(qemu_command_quote_posix_word "$prompt ") sh -i <$(qemu_command_quote_posix_word "$dev") >$(qemu_command_quote_posix_word "$dev") 2>$(qemu_command_quote_posix_word "$dev")"
 
     vga_wait -l "$SHELL_PROMPT"
     kb_send_line "$launcher" || return 1
-    serial_wait -l "$prompt"
+    serial_wait -l "$prompt" || return 1
+    serial_console_divider || return 1
+    serial_console_echo "Retro Distro Playground Scripted Installation"
+    serial_console_echo "Sit back, relax, and please wait..."
 }
 
 # Sends one command to the active serial shell.
@@ -320,6 +323,22 @@ serial_shell_send() {
 
     serial_send "$cmd" || return 1
     [ "$wait_return" = false ] || serial_wait -l "$prompt"
+}
+
+# Displays a message on the guest's physical console from the serial shell.
+serial_console_echo() {
+    local console message
+
+    [ $# -eq 1 ] || die "serial_console_echo requires MESSAGE"
+    message=$1
+    console=${SERIAL_CONSOLE_DEV:-/dev/console}
+    serial_shell_send \
+        "echo $(qemu_command_quote_posix_word "$message") >$(qemu_command_quote_posix_word "$console")"
+}
+
+serial_console_divider() {
+    serial_console_echo \
+        "--------------------------------------------------------------------------------"
 }
 
 # Exits the active serial shell and waits for the screen shell prompt.

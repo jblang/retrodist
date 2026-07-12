@@ -80,7 +80,7 @@ dinstall_start() {
     serial_shell_send "mv $DIALOG_BIN $DIALOG_BIN.bak" || return 1
     serial_shell_send "cp $FAT_MOUNT/guestlib.d/dialog.sh $DIALOG_BIN" || return 1
     serial_shell_send "chmod 755 $DIALOG_BIN" || return 1
-    serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
+    fdisk_start "$TARGET_DISK" || return 1
     fdisk_partitions "$SWAP_MB" || return 1
     serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
     serial_shell_exit || return 1

@@ -38,10 +38,13 @@ serial_shell_send 'for p in /bin/tput /usr/bin/tput /usr/local/bin/tput; do if [
 
 # dinstall's first menu entry runs fdisk interactively, so partition up front
 # and skip to initializing the partitions it made.
-serial_shell_send --no-wait "fdisk $TARGET_DISK" || return 1
+fdisk_start "$TARGET_DISK" || return 1
 fdisk_partitions "$SWAP_MB" || return 1
 serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
 
+serial_console_divider || return 1
+serial_console_echo \
+    "Starting Debian setup; base installation may take a while..." || return 1
 serial_shell_send --no-wait "dinstall" || return 1
 
 serial_prompt "Please select one:" "2"
@@ -112,6 +115,8 @@ serial_shell_send "sh $FAT_MOUNT/guestlib.d/deb091/lilo.sh /dev/$LINUX_PARTITION
 serial_shell_send "umount $FAT_MOUNT" || return 1
 
 script_set_boot c
+serial_console_divider || return 1
+serial_console_echo "Rebooting..." || return 1
 serial_shell_send --no-wait "reboot" || return 1
 
 vga_wait -l "$NET_HOSTNAME.$NET_DOMAINNAME login:"

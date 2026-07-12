@@ -66,9 +66,12 @@ vga_wait -l "darkstar login:"
 kb_send_line "root"
 
 serial_shell_start || return 1
-serial_shell_send --no-wait "fdisk /dev/hda" || return 1
+fdisk_start /dev/hda || return 1
 fdisk_partitions 64 || return 1
 serial_wait -l "${SERIAL_SHELL_PROMPT:-#}" >/dev/null || return 1
+serial_console_divider || return 1
+serial_console_echo \
+    "Starting Slackware setup; package installation may take a while..." || return 1
 serial_shell_send --no-wait "setup" || return 1
 
 serial_prompt \

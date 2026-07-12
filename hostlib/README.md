@@ -242,8 +242,11 @@ serial device.
 - `serial_wait [-l | -r] TEXT...` waits for ordered serial output.
 - `serial_send TEXT` writes a line to the guest.
 - `serial_prompt [-r] QUESTION... ANSWER` waits for prompts and answers them.
+- `serial_console_echo MESSAGE` displays a message on `/dev/console` from an
+  active serial shell. Set `SERIAL_CONSOLE_DEV` to override the device.
 - `serial_shell [--no-wait] COMMAND...` opens a redirected shell, runs commands,
-  and closes it. The `serial_shell_start`, `serial_shell_send`, and
+  displays a preparation notice on the physical console, and closes it. The
+  `serial_shell_start`, `serial_shell_send`, and
   `serial_shell_exit` forms support multi-phase interactions.
 
 ### Dialog Installers
