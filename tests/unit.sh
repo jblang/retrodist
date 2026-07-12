@@ -100,6 +100,13 @@ assert_eq "qemu/net-forward-section-none" "" "$(qemu_endpoints_print | sed -n '/
 QEMU_NET_FORWARD=
 
 # --- QMP-backed script command helpers --------------------------------------
+assert_eq "qmp/hmp-batch-responses" $'response: first\nresponse: second' "$(
+    # shellcheck disable=SC2329 # Invoked indirectly by qmp_hmp_command.
+    qmp_hmp_command_one() {
+        QMP_HMP_RESPONSE="response: $1"
+    }
+    qmp_hmp_command first second
+)"
 assert_eq "script/change-image-default" "change floppy0 boot.img raw" "$(
     # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
     qmp_hmp_command() { printf '%s\n' "$1"; }

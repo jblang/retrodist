@@ -80,7 +80,7 @@ Generated VM state lives under each config's `qemu.d/` directory. Downloaded
 source media usually lives under `download.d/`; CD-ROM based configs link ISO
 files into `qemu.d/`.
 
-The `qmp` utility controls a running VM through its QMP socket. It can inspect
+The `qmp` utility controls a running VM through its QMP pipe. It can inspect
 VGA text, send keyboard input, and change removable media; run `qmp help` for
 the complete interface.
 

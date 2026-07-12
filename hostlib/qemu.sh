@@ -7,7 +7,7 @@ qemu_run_scripted_install() {
     qemu_status=0
 
     echo "🏁 Starting QEMU for scripted install"
-    "${QEMU_ARGS[@]}" &
+    "${QEMU_ARGS[@]}" 6>&- 7>&- &
     qemu_pid=$!
     # shellcheck disable=SC2034 # Read by sourced install script helpers.
     QEMU_PID=$qemu_pid
@@ -76,6 +76,7 @@ qemu_prepare() {
     qemu_devices_build_globals
     qemu_chardevs_build_serials
     qemu_chardevs_build_parallels
+    qemu_chardevs_build_qmp
     qemu_display_warn_if_unavailable
 
     qemu_command_build "$@"
@@ -93,10 +94,17 @@ qemu_prepare() {
 
 # Runs QEMU directly and reports its exit status.
 qemu_run_interactive() {
-    local run_status=0
+    local handshake_pid run_status=0
+
+    qmp_pipe_handshake &
+    handshake_pid=$!
 
     echo "🏁 Starting QEMU"
-    "${QEMU_ARGS[@]}" || run_status=$?
+    "${QEMU_ARGS[@]}" 6>&- 7>&- || run_status=$?
+    if kill -0 "$handshake_pid" 2>/dev/null; then
+        kill "$handshake_pid" 2>/dev/null || true
+    fi
+    wait "$handshake_pid" 2>/dev/null || true
     log_info "QEMU exited with status $run_status"
     return "$run_status"
 }
@@ -109,11 +117,23 @@ qemu_run() {
     qemu_prepare "$@"
 
     pushd "$QEMU_D" >/dev/null || return
+    qmp_set_defaults
+    if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
+        qmp_check_prereqs || {
+            popd >/dev/null || true
+            return 1
+        }
+        qmp_pipe_open || {
+            popd >/dev/null || true
+            return 1
+        }
+    fi
     if [[ $COMMAND == "install" && -n "${QEMU_INSTALL_SCRIPT:-}" ]]; then
         qemu_run_scripted_install || run_status=$?
     else
         qemu_run_interactive || run_status=$?
     fi
+    qmp_pipe_close
     popd >/dev/null || return
     return "$run_status"
 }
@@ -130,7 +150,7 @@ retro_install() {
 
 # Packages prepared QEMU files with runnable host scripts.
 retro_package() {
-    local files tarname package_root package_dir item
+    local files tarname package_root package_dir item qmp_in qmp_out
     if [[ $# -ge 1 && $1 == "--hda" ]]; then
         log_info "Packaging launcher files plus hda.img"
         files=(hda.img retro.bat retro.sh)
@@ -150,7 +170,17 @@ retro_package() {
     log_debug "Wrote $QEMU_D/retro.bat"
     {
         printf '#!/bin/sh\n'
-        printf '%s\n' "$QEMU_COMMAND"
+        if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
+            qmp_in=$(qemu_command_quote_posix_word "$QEMU_QMP_PIPE.in")
+            qmp_out=$(qemu_command_quote_posix_word "$QEMU_QMP_PIPE.out")
+            printf 'if test ! -p %s || test ! -p %s; then\n' "$qmp_in" "$qmp_out"
+            printf '  rm -f %s %s\n' "$qmp_in" "$qmp_out"
+            printf '  mkfifo %s %s\n' "$qmp_in" "$qmp_out"
+            printf 'fi\nexec 6<>%s\nexec 7<>%s\n' "$qmp_in" "$qmp_out"
+            printf '%s 6>&- 7>&-\n' "$QEMU_COMMAND"
+        else
+            printf '%s\n' "$QEMU_COMMAND"
+        fi
     } >"$QEMU_D/retro.sh"
     chmod +x "$QEMU_D/retro.sh"
     log_debug "Wrote $QEMU_D/retro.sh"

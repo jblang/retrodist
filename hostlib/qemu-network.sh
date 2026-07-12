@@ -150,8 +150,8 @@ qemu_endpoints_print() {
     if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
         echo "${indent}Monitor: localhost:$QEMU_MONITOR_PORT"
     fi
-    if [[ -n "${QEMU_QMP_SOCKET:-}" && "$QEMU_QMP_SOCKET" != "none" ]]; then
-        echo "${indent}QMP:     $QEMU_QMP_SOCKET"
+    if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
+        echo "${indent}QMP:     $QEMU_QMP_PIPE.in / $QEMU_QMP_PIPE.out"
     fi
     guest_ports=$(qemu_network_print_forwards)
     if [[ -n "$guest_ports" ]]; then
@@ -191,4 +191,3 @@ qemu_network_finish_config() {
         log_warn "No QEMU network device configured"
     fi
 }
-

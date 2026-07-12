@@ -63,8 +63,8 @@ qemu_command_build() {
         -smp "$QEMU_SMP"
         -m "$QEMU_RAM"
     )
-    if [[ -n "${QEMU_QMP_SOCKET:-}" && "$QEMU_QMP_SOCKET" != "none" ]]; then
-        QEMU_ARGS+=(-qmp "unix:$QEMU_QMP_SOCKET,server=on,wait=off")
+    if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
+        QEMU_ARGS+=(-qmp "pipe:$QEMU_QMP_PIPE")
     fi
     if [[ -n "${QEMU_MONITOR_PORT:-}" && "$QEMU_MONITOR_PORT" != "none" ]]; then
         QEMU_ARGS+=(-monitor "telnet:127.0.0.1:$QEMU_MONITOR_PORT,server=on,wait=off")

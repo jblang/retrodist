@@ -30,12 +30,12 @@ Commands:
   help                    show this help text
 
 Common options:
-  -s SOCKET   QMP Unix socket. Default: qemu.d/qmp.sock, or qmp.sock from qemu.d
+  -s PIPE     QMP pipe base name. Default: qemu.d/qmp, or qmp from qemu.d
   -a ADDR     VGA text buffer address. Default: 0xb8000
   -c COLS     Screen columns. Default: 80
   -r ROWS     Screen rows. Default: 25
   -m BYTES    VGA text memory bytes for dump-screen. Default: 32768
-  -w SECONDS  nc idle timeout. Default: 1
+  -w SECONDS  QMP response timeout. Default: 1
 
 dump-screen options:
   -n          Prefix rows with line numbers.
@@ -47,7 +47,7 @@ change-image options:
   -d DEVICE   device to change. Default: floppy0
 
 Environment variables with the same names are also supported:
-QEMU_QMP_SOCKET, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
+QEMU_QMP_PIPE, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
 EOF
 }
 
@@ -65,7 +65,7 @@ qmp_parse_options() {
   OPTIND=1
   while getopts "$optstring" opt; do
     case "$opt" in
-      s) QEMU_QMP_SOCKET=$OPTARG ;;
+      s) QEMU_QMP_PIPE=$OPTARG ;;
       a) VGA_ADDR=$OPTARG ;;
       c) VGA_COLS=$OPTARG ;;
       r) VGA_ROWS=$OPTARG ;;
@@ -139,6 +139,10 @@ set -- "${QMP_REMAINING_ARGS[@]}"
 set -u
 
 qmp_check_prereqs
+qmp_pipe_open
+qmp_lock_acquire
+trap 'qmp_lock_release; qmp_pipe_close' EXIT
+qmp_pipe_handshake
 
 case "$command_name" in
   dump-screen)

@@ -129,10 +129,10 @@ qemu_config_set_defaults() {
     QEMU_PARALLEL_SOCKET_COUNT="${QEMU_PARALLEL_SOCKET_COUNT:-1}"
     QEMU_PARALLEL_SOCKET_PREFIX="${QEMU_PARALLEL_SOCKET_PREFIX:-lp}"
 
-    # QEMU monitor port and QMP socket
+    # QEMU monitor port and QMP pipe
     QEMU_MONITOR_BASE="${QEMU_MONITOR_BASE:-5555}"
     QEMU_MONITOR_PORT="${QEMU_MONITOR_PORT:-}"
-    QEMU_QMP_SOCKET="${QEMU_QMP_SOCKET:-qmp.sock}"
+    QEMU_QMP_PIPE="${QEMU_QMP_PIPE:-qmp}"
 
     # Guest port forwards
     QEMU_SSH_BASE="${QEMU_SSH_BASE:-2200}"

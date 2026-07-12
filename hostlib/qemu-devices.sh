@@ -186,6 +186,16 @@ qemu_chardevs_build_parallels() {
     qemu_chardevs_build_sockets QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX" parallel
 }
 
+# Creates the FIFO pair used by QEMU's QMP pipe chardev.
+qemu_chardevs_build_qmp() {
+    if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
+        log_debug "Creating QMP pipe chardev $QEMU_QMP_PIPE"
+        rm -f "$QEMU_QMP_PIPE.in" "$QEMU_QMP_PIPE.out"
+        rm -rf "$QEMU_QMP_PIPE.lock"
+        mkfifo "$QEMU_QMP_PIPE.in" "$QEMU_QMP_PIPE.out"
+    fi
+}
+
 # Prints guest disk and character device attachments.
 qemu_devices_print() {
     qemu_drives_print

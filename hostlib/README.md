@@ -28,13 +28,23 @@ guest forwarding, `qemu-devices.sh` builds media and character devices,
 `qemu-command.sh` assembles and renders command lines, and `qemu.sh`
 orchestrates preparation, execution, packaging, and reset.
 
-The QMP boundary is deliberate. `qmp.sh` owns the Unix socket, QMP request and
+The QMP boundary is deliberate. `qmp.sh` owns the QMP pipe, QMP request and
 response JSON, and HMP passthrough. Code outside that module calls
-`qmp_hmp_command`; it does not open the socket or decode QMP responses. Keyboard
+`qmp_hmp_command`; it does not open the pipe or decode QMP responses. Keyboard
 operations belong in `script-kb.sh`, VGA text-memory operations in
 `script-vga.sh`, and install-level media changes in `script.sh`. The `script-`
 filename prefix groups install-automation modules; their functions retain the
 device-oriented `dialog_`, `fdisk_`, `kb_`, `serial_`, and `vga_` prefixes.
+
+`qmp_hmp_command COMMAND...` uses the QMP pipe held open by the current host
+process. It accepts one or more plain HMP commands and prints their non-empty
+plain-text responses in order without starting a client process per command.
+
+The QMP pipe is one shared monitor stream for each QEMU process, so capabilities
+are negotiated once and requests are serialized with a filesystem lock.
+`qmp_pipe_handshake` accepts QEMU's "already complete" response, allowing the
+standalone `qmp` CLI to attach safely even when a packaged launcher created the
+stream.
 
 ## Compatibility
 
@@ -60,7 +70,7 @@ selected config's `qemu.d/`. Depending on the config, it can contain:
 - explicitly named media such as `fda.img` or `hdc.iso`
 - `fat/`, a writable FAT-backed disk normally visible as `/dev/hdb1`
 - `fat/guestlib.d/`, the staged guest runtime and distro `postinst.sh`
-- QMP, serial, and parallel sockets used while QEMU is running
+- QMP pipe, serial, and parallel sockets used while QEMU is running
 
 Treat `qemu.d/`, `download.d/`, and `tagfile.d/` as generated state. Edit the
 source config, `hostlib/`, or `guestlib/` instead.
@@ -172,17 +182,17 @@ to guest SSH and Telnet. The default host port ranges begin at 2200 and 2300.
 `QEMU_NET_ENABLED` to a false value to omit the NIC. `QEMU_NETWORK` is an
 advanced raw network override.
 
-QEMU also exposes a loopback monitor (starting at port 5555), a QMP socket at
-`qemu.d/qmp.sock`, serial sockets for `ttyS0` and `ttyS1`, a dedicated install
-automation pipe on `ttyS3`, and a parallel socket for `lp0`. Startup output is
-the authority for assigned ports and paths because occupied host ports are
-skipped.
+QEMU also exposes a loopback monitor (starting at port 5555), a QMP pipe at
+`qemu.d/qmp.in`/`qemu.d/qmp.out`, serial sockets for `ttyS0` and `ttyS1`, a
+dedicated install automation pipe on `ttyS3`, and a parallel socket for `lp0`.
+Startup output is the authority for assigned ports and paths because occupied
+host ports are skipped.
 
 ## Install Automation
 
 During `retro install`, QEMU runs in the background while the selected distro
 `install.sh` is sourced. The manifest composes device-scoped and protocol-
-scoped helpers; it should not access QMP sockets or serial pipes directly.
+scoped helpers; it should not access QMP or serial pipes directly.
 
 ### Screen and Keyboard
 
@@ -274,7 +284,7 @@ qmp change-image [-d DEVICE] root.img
 qmp eject-disk [DEVICE]
 ```
 
-Run it from a config directory or its `qemu.d/`, or pass `-s SOCKET`. Use
+Run it from a config directory or its `qemu.d/`, or pass `-s PIPE`. Use
 `qmp help` for command-specific options.
 
 ## Slackware Tagsets
