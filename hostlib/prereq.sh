@@ -74,10 +74,50 @@ prereq_install_packages() {
     "${install[@]}" "$@"
 }
 
+# Installs prerequisites for macOS when Homebrew is available.
+prereq_install_macos() {
+    local dry_run=$1
+    command -v brew >/dev/null 2>&1 || return 1
+    log_debug "Selected Homebrew prerequisite installer"
+    RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages brew qemu p7zip unzip wget bchunk xorriso jq mtools
+}
+
+# Installs prerequisites for an active MSYS2 MinGW environment.
+prereq_install_msys2() {
+    local dry_run=$1 mingw_package_prefix
+    command -v pacman >/dev/null 2>&1 || return 1
+    if ! mingw_package_prefix=$(prereq_detect_msys2_prefix); then
+        log_error "MSYS2 detected, but no supported MinGW environment is active."
+        cat >&2 <<EOF
+Run this from an MSYS2 MinGW shell such as UCRT64, MINGW64, CLANG64, or
+CLANGARM64 so QEMU can be installed from the matching MinGW package repo.
+EOF
+        return 2
+    fi
+    log_debug "Selected MSYS2 pacman prerequisite installer"
+    RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof jq mtools
+}
+
+# Installs prerequisites using a supported Linux package manager.
+prereq_install_linux() {
+    local dry_run=$1
+    if command -v apt-get >/dev/null 2>&1; then
+        log_debug "Selected apt-get prerequisite installer"
+        RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof jq mtools
+    elif command -v dnf >/dev/null 2>&1; then
+        log_debug "Selected dnf prerequisite installer"
+        RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof jq mtools
+    elif command -v pacman >/dev/null 2>&1; then
+        log_debug "Selected pacman prerequisite installer"
+        RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof jq mtools
+    else
+        return 1
+    fi
+}
+
 # Top-level retro command handler for installing host prerequisites.
 retro_prereq() {
-    local dry_run=0
-    local mingw_package_prefix
+    local dry_run=0 host_status
     log_info "Checking host prerequisite installer"
     if [[ "${1:-}" == "--dry-run" ]]; then
         dry_run=1
@@ -88,43 +128,14 @@ retro_prereq() {
     fi
 
     case "$(uname -s)" in
-    Darwin)
-        if command -v brew >/dev/null 2>&1; then
-            log_debug "Selected Homebrew prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages brew qemu p7zip unzip wget bchunk xorriso jq mtools
-            return
-        fi
-        ;;
+    Darwin) prereq_install_macos "$dry_run" && return ;;
     MSYS_NT* | MINGW*_NT* | UCRT*_NT* | CLANG*_NT*)
-        if command -v pacman >/dev/null 2>&1; then
-            if ! mingw_package_prefix=$(prereq_detect_msys2_prefix); then
-                log_error "MSYS2 detected, but no supported MinGW environment is active."
-                cat >&2 <<EOF
-Run this from an MSYS2 MinGW shell such as UCRT64, MINGW64, CLANG64, or
-CLANGARM64 so QEMU can be installed from the matching MinGW package repo.
-EOF
-                exit 1
-            fi
-            log_debug "Selected MSYS2 pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages msys2-pacman "${mingw_package_prefix}-qemu" p7zip unzip wget xorriso lsof jq mtools
-            return
-        fi
+        prereq_install_msys2 "$dry_run"
+        host_status=$?
+        [[ $host_status -eq 0 ]] && return
+        [[ $host_status -eq 1 ]] || return 1
         ;;
-    Linux)
-        if command -v apt-get >/dev/null 2>&1; then
-            log_debug "Selected apt-get prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages apt-get qemu-system-x86 qemu-system-arm qemu-system-gui qemu-utils p7zip-full unzip wget bchunk xorriso lsof jq mtools
-            return
-        elif command -v dnf >/dev/null 2>&1; then
-            log_debug "Selected dnf prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages dnf qemu-system-x86-core qemu-system-aarch64-core qemu-img qemu-ui-gtk 7zip unzip wget bchunk xorriso lsof jq mtools
-            return
-        elif command -v pacman >/dev/null 2>&1; then
-            log_debug "Selected pacman prerequisite installer"
-            RETRO_PREREQ_DRY_RUN=$dry_run prereq_install_packages pacman qemu-system-x86 qemu-system-aarch64 qemu-ui-gtk qemu-img p7zip unzip wget bchunk xorriso lsof jq mtools
-            return
-        fi
-        ;;
+    Linux) prereq_install_linux "$dry_run" && return ;;
     esac
 
     if command -v brew >/dev/null 2>&1; then

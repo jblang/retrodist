@@ -59,7 +59,7 @@ fdisk_start() {
 
     [ $# -eq 1 ] || die "fdisk_start requires DEVICE"
     device=$1
-    quoted_device=$(qemu_command_quote_posix_word "$device")
+    quoted_device=$(command_quote_posix_word "$device")
     command="fdisk $quoted_device"
     if [ "$device" = /dev/hda ]; then
         command="[ -b $quoted_device ] || mknod $quoted_device b 3 0; $command"

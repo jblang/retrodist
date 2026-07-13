@@ -2,7 +2,7 @@
 # QEMU argument assembly and portable launcher command rendering.
 
 # Quotes one argument for safe, readable reuse on a POSIX shell command line.
-qemu_command_quote_posix_word() {
+command_quote_posix_word() {
     local s=$1
     case $s in
     '' | *[!a-zA-Z0-9,._=:/@%+-]*)
@@ -12,28 +12,24 @@ qemu_command_quote_posix_word() {
     printf '%s' "$s"
 }
 
-# Appends a whitespace-separated argument string to QEMU_ARGS.
-qemu_command_append_words() {
-    local words=()
-    if [[ -n "${1:-}" ]]; then
-        read -ra words -d '' <<<"$1" || true
-        if [[ ${#words[@]} -gt 0 ]]; then
-            QEMU_ARGS+=("${words[@]}")
-        fi
+# Appends an option and its configured value when the value is non-empty.
+command_add_option() {
+    if [[ -n "${2:-}" ]]; then
+        QEMU_ARGS+=("$1" "$2")
     fi
 }
 
 # Renders QEMU_ARGS as a POSIX shell command line.
-qemu_command_render_sh() {
+command_render_sh() {
     local arg rendered=
     for arg in "${QEMU_ARGS[@]}"; do
-        rendered="$rendered $(qemu_command_quote_posix_word "$arg")"
+        rendered="$rendered $(command_quote_posix_word "$arg")"
     done
     printf '%s\n' "${rendered# }"
 }
 
 # Renders QEMU_ARGS as a Windows cmd command line for the generated retro.bat.
-qemu_command_render_cmd() {
+command_render_cmd() {
     local arg
     local rendered=
     for arg in "${QEMU_ARGS[@]}"; do
@@ -55,7 +51,7 @@ qemu_command_render_cmd() {
 }
 
 # Assembles the final QEMU argument array.
-qemu_command_build() {
+command_build() {
     log_debug "Assembling QEMU command"
     QEMU_ARGS=(
         "$QEMU_SYSTEM"
@@ -71,17 +67,18 @@ qemu_command_build() {
     fi
     QEMU_ARGS+=("${QEMU_SERIALS[@]}")
     QEMU_ARGS+=("${QEMU_PARALLELS[@]}")
-    qemu_command_append_words "${QEMU_DISPLAY:-}"
-    qemu_command_append_words "${QEMU_ACCEL:-}"
-    qemu_command_append_words "${QEMU_NETWORK:-}"
+    command_add_option -display "${QEMU_DISPLAY:-}"
+    command_add_option -accel "${QEMU_ACCEL:-}"
+    command_add_option -vga "${QEMU_VGA:-}"
+    if [[ ${#QEMU_NETWORK[@]} -gt 0 ]]; then
+        QEMU_ARGS+=("${QEMU_NETWORK[@]}")
+    fi
     QEMU_ARGS+=("${QEMU_GLOBALS[@]}")
     QEMU_ARGS+=("${QEMU_DRIVES[@]}")
-    qemu_command_append_words "${QEMU_BOOT_ORDER:-}"
-    qemu_command_append_words "${QEMU_EXTRA:-}"
-    QEMU_ARGS+=("$@")
-    if [[ $# -gt 0 ]]; then
-        log_debug "Appending user QEMU arguments: $*"
+    command_add_option -boot "${QEMU_BOOT_ORDER:-}"
+    if [[ ${#QEMU_EXTRA[@]} -gt 0 ]]; then
+        QEMU_ARGS+=("${QEMU_EXTRA[@]}")
     fi
     # shellcheck disable=SC2034 # Read by qemu.sh after all modules are sourced.
-    QEMU_COMMAND=$(qemu_command_render_sh)
+    QEMU_COMMAND=$(command_render_sh)
 }

@@ -37,7 +37,7 @@ retro install slackware/3.0/walnut
 ```
 
 `boot` and `install` automatically download and extract the needed media before
-starting QEMU. Extra arguments after the config path are passed to QEMU.
+starting QEMU.
 
 The repository is organized around three layers:
 
@@ -64,6 +64,9 @@ alongside FTP-site snapshots, making them useful time capsules as well as
 install media.
 
 ## Common Commands
+
+`retro` requires a command and accepts one optional config directory, which
+defaults to the current directory: `retro COMMAND [CONFIG]`.
 
 ```bash
 retro boot CONFIG       # download, extract, and boot a distro

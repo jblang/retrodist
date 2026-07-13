@@ -2,7 +2,7 @@
 # QMP-backed keyboard helpers.
 
 # Converts one character to a QEMU key code.
-kb_char_to_code() {
+kb_encode_char() {
     local LC_ALL=C	# Force C collation so [a-z]/[A-Z] match by byte.
 
     case "$1" in
@@ -69,7 +69,7 @@ kb_type() {
 
     for ((i = 0; i < ${#text}; i++)); do
         char=${text:i:1}
-        key=$(kb_char_to_code "$char") || {
+        key=$(kb_encode_char "$char") || {
             log_error "$(printf 'Unsupported character for QMP keyboard input: %q' "$char")"
             return 1
         }
@@ -83,7 +83,7 @@ kb_type() {
 }
 
 # Reads stdin and types it one line at a time.
-kb_send_stdin() {
+kb_type_stdin() {
     local line read_status
 
     while :; do
@@ -108,7 +108,7 @@ kb_press() {
 
     echo "👇 $*"
     while [ $# -gt 0 ]; do
-        qmp_hmp_command "sendkey $1" || return 1
+        qmp_hmp_commands "sendkey $1" || return 1
         shift
     done
 }

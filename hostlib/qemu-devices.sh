@@ -2,7 +2,7 @@
 # QEMU startup media, disks, serial, parallel, and device reporting.
 
 # Selects install-time media overrides and boot order.
-qemu_media_select_for_command() {
+device_select_media() {
     log_debug "Selecting startup media"
     QEMU_FDA_OVERRIDE=
     QEMU_HDC_OVERRIDE=
@@ -21,13 +21,13 @@ qemu_media_select_for_command() {
         return
     fi
 
-    if qemu_media_has_boot_floppy; then
+    if device_has_boot_floppy; then
         # shellcheck disable=SC2034 # Read by qemu-command.sh.
-        QEMU_BOOT_ORDER="-boot order=a"
+        QEMU_BOOT_ORDER="order=a"
         log_debug "Install boot order: floppy"
-    elif qemu_media_has_cdrom; then
+    elif device_has_cdrom; then
         # shellcheck disable=SC2034 # Read by qemu-command.sh.
-        QEMU_BOOT_ORDER="-boot order=d"
+        QEMU_BOOT_ORDER="order=d"
         log_debug "Install boot order: CD-ROM"
     else
         log_warn "Install command has no floppy or CD-ROM startup media"
@@ -35,25 +35,25 @@ qemu_media_select_for_command() {
 }
 
 # Tests whether the first floppy has default or override media.
-qemu_media_has_boot_floppy() {
+device_has_boot_floppy() {
     [[ -f fda.img || -n "${QEMU_FDA_OVERRIDE:-}" ]]
 }
 
 # Tests whether the CD-ROM has default or override media.
-qemu_media_has_cdrom() {
+device_has_cdrom() {
     [[ -f hdc.iso || -n "${QEMU_HDC_OVERRIDE:-}" ]]
 }
 
 # Tests whether any bootable startup media exists.
-qemu_media_has_startup() {
-    qemu_media_has_boot_floppy || qemu_media_has_cdrom
+device_has_startup_media() {
+    device_has_boot_floppy || device_has_cdrom
 }
 
 # Creates the primary hard disk when startup media is available.
-qemu_disk_ensure_primary() {
+device_ensure_primary_disk() {
     local create_options
     if [[ ! -f hda.img ]]; then
-        if qemu_media_has_startup; then
+        if device_has_startup_media; then
             log_info "Creating primary disk hda.img ($QEMU_HD_SIZE, $QEMU_HD_FORMAT)"
             create_options=()
             if [[ -n "${QEMU_HD_CREATE_OPTIONS:-}" ]]; then
@@ -69,7 +69,7 @@ qemu_disk_ensure_primary() {
 }
 
 # Maps drive names to QEMU interface indexes.
-qemu_drive_index_for_name() {
+device_drive_index() {
     case "$1" in
     hda | fda) echo 0 ;;
     hdb | fdb) echo 1 ;;
@@ -79,7 +79,7 @@ qemu_drive_index_for_name() {
 }
 
 # Adds one -drive argument to QEMU_DRIVES.
-qemu_drives_add() {
+device_add_drive() {
     local interface=$1
     local index=$2
     local format=$3
@@ -89,7 +89,7 @@ qemu_drives_add() {
 }
 
 # Builds drive attachments from existing images, ISOs, and FAT directories.
-qemu_drives_build() {
+device_build_drives() {
     local drive index interface format drive_options image_file iso_file
     log_debug "Building guest drive list"
     QEMU_DRIVES=()
@@ -103,7 +103,7 @@ qemu_drives_build() {
             iso_file=$QEMU_HDC_OVERRIDE
         fi
 
-        index=$(qemu_drive_index_for_name "$drive")
+        index=$(device_drive_index "$drive")
         if [[ $drive = fd* ]]; then
             interface=floppy
             format=raw
@@ -121,22 +121,22 @@ qemu_drives_build() {
         fi
         if [[ -n "$image_file" && -f $image_file ]]; then
             log_debug "Attaching $image_file as $drive"
-            qemu_drives_add "$interface" "$index" "$format" "file=$image_file$drive_options"
+            device_add_drive "$interface" "$index" "$format" "file=$image_file$drive_options"
         elif [[ -f $iso_file ]]; then
             log_debug "Attaching $iso_file as $drive CD-ROM"
-            qemu_drives_add "$interface" "$index" "$format" "media=cdrom,file=$iso_file"
+            device_add_drive "$interface" "$index" "$format" "media=cdrom,file=$iso_file"
         elif [[ $drive == "hdb" && -d fat ]]; then
             log_debug "Attaching fat/ as hdb"
-            qemu_drives_add "$interface" "$index" raw "file=fat:rw:fat"
+            device_add_drive "$interface" "$index" raw "file=fat:rw:fat"
         elif [[ -d $drive ]]; then
             log_debug "Attaching $drive/ as FAT-backed drive"
-            qemu_drives_add "$interface" "$index" raw "file=fat:rw:$drive"
+            device_add_drive "$interface" "$index" raw "file=fat:rw:$drive"
         fi
     done
 }
 
 # Builds global floppy-controller options.
-qemu_devices_build_globals() {
+device_build_globals() {
     log_debug "Building QEMU global options"
     QEMU_GLOBALS=()
     if [[ -n "$QEMU_FDTYPE_A" ]]; then
@@ -148,7 +148,7 @@ qemu_devices_build_globals() {
 }
 
 # Builds Unix socket chardev arguments for serial or parallel ports.
-qemu_chardevs_build_sockets() {
+device_build_socket_chardevs() {
     local array_name=$1
     local option=$2
     local count=$3
@@ -168,8 +168,8 @@ qemu_chardevs_build_sockets() {
 # Builds the guest serial ports in the order QEMU numbers them: sockets, then
 # QEMU_SERIAL_AUX, then the scripting pipe the serial shell and dialog adapter
 # talk to the host over (see serial_start). Set QEMU_SERIAL_PIPE= to disable it.
-qemu_chardevs_build_serials() {
-    qemu_chardevs_build_sockets QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX" serial
+device_build_serials() {
+    device_build_socket_chardevs QEMU_SERIALS -serial "$QEMU_SERIAL_SOCKET_COUNT" "$QEMU_SERIAL_SOCKET_PREFIX" serial
     if [[ -n "${QEMU_SERIAL_AUX:-}" ]]; then
         QEMU_SERIALS+=(-serial "$QEMU_SERIAL_AUX")
     fi
@@ -182,12 +182,12 @@ qemu_chardevs_build_serials() {
 }
 
 # Builds guest parallel socket arguments.
-qemu_chardevs_build_parallels() {
-    qemu_chardevs_build_sockets QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX" parallel
+device_build_parallels() {
+    device_build_socket_chardevs QEMU_PARALLELS -parallel "$QEMU_PARALLEL_SOCKET_COUNT" "$QEMU_PARALLEL_SOCKET_PREFIX" parallel
 }
 
 # Creates the FIFO pair used by QEMU's QMP pipe chardev.
-qemu_chardevs_build_qmp() {
+device_build_qmp_pipe() {
     if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
         log_debug "Creating QMP pipe chardev $QEMU_QMP_PIPE"
         rm -f "$QEMU_QMP_PIPE.in" "$QEMU_QMP_PIPE.out"
@@ -197,14 +197,14 @@ qemu_chardevs_build_qmp() {
 }
 
 # Prints guest disk and character device attachments.
-qemu_devices_print() {
-    qemu_drives_print
+device_print() {
+    device_print_drives
     echo
-    qemu_chardevs_print
+    device_print_chardevs
 }
 
 # Prints the guest disk attachments.
-qemu_drives_print() {
+device_print_drives() {
     local i option value
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 
@@ -221,20 +221,20 @@ qemu_drives_print() {
 }
 
 # Prints exported guest character devices.
-qemu_chardevs_print() {
+device_print_chardevs() {
     local printed_chardev=0
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 
     echo "⌨️  Guest character devices:"
-    qemu_chardevs_print_exported "${QEMU_SERIALS[@]}" && printed_chardev=1
-    qemu_chardevs_print_exported "${QEMU_PARALLELS[@]}" && printed_chardev=1
+    device_print_exported_chardevs "${QEMU_SERIALS[@]}" && printed_chardev=1
+    device_print_exported_chardevs "${QEMU_PARALLELS[@]}" && printed_chardev=1
     if [[ $printed_chardev -eq 0 ]]; then
         echo "${indent}none"
     fi
 }
 
 # Prints chardev arguments that expose Unix sockets or pipes.
-qemu_chardevs_print_exported() {
+device_print_exported_chardevs() {
     local option printed=1 value
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 

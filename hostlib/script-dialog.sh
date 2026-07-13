@@ -16,9 +16,9 @@ dialog_expect() {
     fi
     [ $# -eq 3 ] || die "$usage"
 
-    serial_wait_one "$matcher" "TITLE: $1"
+    serial_wait_match "$matcher" "TITLE: $1"
     if [ "$2" != any ]; then
-        serial_wait_one dialog_line_type_matches "$2"
+        serial_wait_match dialog_line_type_matches "$2"
     fi
     serial_prompt "RESPONSE:" "$3"
 }
@@ -79,8 +79,8 @@ dialog_type_matches() {
 }
 
 # Collects into candidates the alternatives whose title patterns match the
-# matched title line (dynamic scope of dialog_wait_typed_alternative).
-dialog_title_candidates() {
+# matched title line (dynamic scope of dialog_wait_alternative).
+dialog_collect_title_candidates() {
     local i
 
     candidates=()
@@ -91,8 +91,8 @@ dialog_title_candidates() {
 }
 
 # Filters candidates to the alternatives the screen's TYPE line satisfies,
-# dying if none do (dynamic scope of dialog_wait_typed_alternative).
-dialog_probe_type() {
+# dying if none do (dynamic scope of dialog_wait_alternative).
+dialog_filter_type_candidates() {
     local i type_line
     local typed_candidates=()
 
@@ -122,8 +122,8 @@ dialog_probe_type() {
 
 # Selects the first candidate whose required menu item appears. If no
 # candidate has an item requirement, the first type-matched candidate wins
-# (dynamic scope of dialog_wait_typed_alternative).
-dialog_probe_required_item() {
+# (dynamic scope of dialog_wait_alternative).
+dialog_select_required_item_candidate() {
     local i matched fallback=
     local pairs=() pair_indexes=()
 
@@ -157,8 +157,8 @@ dialog_probe_required_item() {
 # Waits for one of the MATCHER TYPE TITLE REQUIRED_ITEM_MATCHER REQUIRED_ITEM
 # INDEX alternatives and returns the matched INDEX, leaving the screen
 # unconsumed for the caller to answer.
-dialog_wait_typed_alternative() {
-    local usage="dialog_wait_typed_alternative requires [MATCHER TYPE TITLE REQUIRED_ITEM_MATCHER REQUIRED_ITEM INDEX ...]"
+dialog_wait_alternative() {
+    local usage="dialog_wait_alternative requires [MATCHER TYPE TITLE REQUIRED_ITEM_MATCHER REQUIRED_ITEM INDEX ...]"
     local titles=() types=() indexes=() matchers=() required_item_matchers=() required_items=() pairs=() candidates=()
     local mark title_line alt
 
@@ -176,18 +176,18 @@ dialog_wait_typed_alternative() {
         shift 6
     done
 
-    mark=$SERIAL_LINE
+    mark=$SERIAL_MATCH_OFFSET
     serial_wait_until "${pairs[@]}" -- >/dev/null
     title_line=$SERIAL_MATCHED_TEXT
-    dialog_title_candidates
-    dialog_probe_type
-    dialog_probe_required_item
+    dialog_collect_title_candidates
+    dialog_filter_type_candidates
+    dialog_select_required_item_candidate
     serial_rewind "$mark"
     return "${indexes[$alt]}"
 }
 
 # Answers parsed alternative I (dynamic scope of dialog_answer).
-dialog_answer_alt() {
+dialog_answer_alternative() {
     local i=$1
 
     if [ "${modes[$i]}" = none ]; then
@@ -195,7 +195,7 @@ dialog_answer_alt() {
     elif [ "${modes[$i]}" = func ]; then
         "${answers[$i]}" "${keys[$i]}"
     elif [ "${modes[$i]}" = desc ]; then
-        dialog_answer_desc "$i"
+        dialog_answer_description "$i"
     elif [ "${matchers[$i]}" = text_contains_regex ]; then
         dialog_expect -r "${keys[$i]}" "${types[$i]}" "${answers[$i]}"
     else
@@ -205,12 +205,12 @@ dialog_answer_alt() {
 
 # Answers menu alternative I by sending the key of the item whose displayed
 # text matches the description (dynamic scope of dialog_answer).
-dialog_answer_desc() {
+dialog_answer_description() {
     local i=$1 item_key
 
-    serial_wait_one "${matchers[$i]}" "TITLE: ${keys[$i]}"
+    serial_wait_match "${matchers[$i]}" "TITLE: ${keys[$i]}"
     if [ "${types[$i]}" != any ]; then
-        serial_wait_one dialog_line_type_matches "${types[$i]}"
+        serial_wait_match dialog_line_type_matches "${types[$i]}"
     fi
     serial_wait_until \
         "${item_matchers[$i]}" "${answers[$i]}" \
@@ -221,84 +221,110 @@ dialog_answer_desc() {
     serial_prompt "RESPONSE:" "$item_key"
 }
 
-# Parses the alternative triples into dialog_answer's arrays (dynamic scope).
-dialog_answer_parse() {
-    local key type answer mode matcher item_matcher required_item_matcher required_item terminate_next
+# Parses an optional required-item clause for one alternative. Parser state
+# and result variables are dynamically scoped by dialog_parse_alternative.
+dialog_parse_required_item() {
+    required_item_matcher=:
+    required_item=$DIALOG_NO_REQUIRED_ITEM
+    [ "${dialog_args[$dialog_cursor]:-}" = -i ] || return 0
 
-    while [ $# -gt 0 ]; do
-        terminate_next=false
-        if [ "$1" = "-x" ]; then
-            terminate_next=true
-            shift
+    dialog_cursor=$((dialog_cursor + 1))
+    required_item_matcher=dialog_item_matches
+    if [ "${dialog_args[$dialog_cursor]:-}" = -r ]; then
+        required_item_matcher=dialog_item_matches_regex
+        dialog_cursor=$((dialog_cursor + 1))
+    fi
+    [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+    required_item=${dialog_args[$dialog_cursor]}
+    dialog_cursor=$((dialog_cursor + 1))
+}
+
+# Parses the answer mode and value for one alternative.
+dialog_parse_answer() {
+    mode=answer
+    item_matcher=''
+    case "${dialog_args[$dialog_cursor]:-}" in
+    -n)
+        mode=none
+        answer=''
+        dialog_cursor=$((dialog_cursor + 1))
+        ;;
+    -f)
+        mode=func
+        dialog_cursor=$((dialog_cursor + 1))
+        [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+        answer=${dialog_args[$dialog_cursor]}
+        dialog_cursor=$((dialog_cursor + 1))
+        ;;
+    -d)
+        mode=desc
+        item_matcher=dialog_item_text_matches
+        dialog_cursor=$((dialog_cursor + 1))
+        if [ "${dialog_args[$dialog_cursor]:-}" = -r ]; then
+            item_matcher=dialog_item_text_matches_regex
+            dialog_cursor=$((dialog_cursor + 1))
         fi
-        [ $# -ge 3 ] || die "$usage"
-        type=$1
-        [ -n "$type" ] || die "$usage"
-        shift
-        matcher=text_contains_line
-        if [ "$1" = "-r" ]; then
-            matcher=text_contains_regex
-            shift
-        fi
-        key=$1
-        shift
-        required_item_matcher=:
-        required_item=$DIALOG_NO_REQUIRED_ITEM
-        if [ "${1:-}" = "-i" ]; then
-            required_item_matcher=dialog_item_matches
-            shift
-            if [ "${1:-}" = "-r" ]; then
-                required_item_matcher=dialog_item_matches_regex
-                shift
-            fi
-            [ $# -ge 1 ] || die "$usage"
-            required_item=$1
-            shift
-        fi
-        mode=answer
-        item_matcher=''
-        if [ "${1:-}" = "-n" ]; then
-            mode=none
-            answer=''
-            shift
-        elif [ "${1:-}" = "-f" ]; then
-            mode=func
-            shift
-            [ $# -ge 1 ] || die "$usage"
-            answer=$1
-            shift
-        elif [ "${1:-}" = "-d" ]; then
-            mode=desc
-            item_matcher=dialog_item_text_matches
-            shift
-            if [ "${1:-}" = "-r" ]; then
-                item_matcher=dialog_item_text_matches_regex
-                shift
-            fi
-            [ $# -ge 1 ] || die "$usage"
-            answer=$1
-            shift
-        else
-            [ $# -ge 1 ] || die "$usage"
-            answer=$1
-            shift
-        fi
-        types+=("$type")
-        matchers+=("$matcher")
-        keys+=("$key")
-        modes+=("$mode")
-        item_matchers+=("$item_matcher")
-        required_item_matchers+=("$required_item_matcher")
-        required_items+=("$required_item")
-        answers+=("$answer")
-        answered+=(false)
-        terminal+=("$terminate_next")
+        [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+        answer=${dialog_args[$dialog_cursor]}
+        dialog_cursor=$((dialog_cursor + 1))
+        ;;
+    *)
+        [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+        answer=${dialog_args[$dialog_cursor]}
+        dialog_cursor=$((dialog_cursor + 1))
+        ;;
+    esac
+}
+
+# Parses and appends one dialog alternative.
+dialog_parse_alternative() {
+    local key type answer mode matcher item_matcher required_item_matcher required_item
+    local terminate_next=false
+
+    if [ "${dialog_args[$dialog_cursor]:-}" = -x ]; then
+        terminate_next=true
+        dialog_cursor=$((dialog_cursor + 1))
+    fi
+    [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+    type=${dialog_args[$dialog_cursor]}
+    [ -n "$type" ] || die "$usage"
+    dialog_cursor=$((dialog_cursor + 1))
+
+    matcher=text_contains_line
+    if [ "${dialog_args[$dialog_cursor]:-}" = -r ]; then
+        matcher=text_contains_regex
+        dialog_cursor=$((dialog_cursor + 1))
+    fi
+    [ "$dialog_cursor" -lt "${#dialog_args[@]}" ] || die "$usage"
+    key=${dialog_args[$dialog_cursor]}
+    dialog_cursor=$((dialog_cursor + 1))
+
+    dialog_parse_required_item
+    dialog_parse_answer
+    types+=("$type")
+    matchers+=("$matcher")
+    keys+=("$key")
+    modes+=("$mode")
+    item_matchers+=("$item_matcher")
+    required_item_matchers+=("$required_item_matcher")
+    required_items+=("$required_item")
+    answers+=("$answer")
+    answered+=(false)
+    terminal+=("$terminate_next")
+}
+
+# Parses alternatives into dialog_answer's arrays (dynamic scope).
+dialog_parse_alternatives() {
+    local dialog_args=("$@") dialog_cursor=0
+
+    while [ "$dialog_cursor" -lt "${#dialog_args[@]}" ]; do
+        dialog_parse_alternative
     done
 }
 
 # Rebuilds the pending quads from the unanswered alternatives (dynamic scope
 # of dialog_answer).
-dialog_answer_pending() {
+dialog_build_pending_alternatives() {
     local i
 
     pending=()
@@ -329,16 +355,16 @@ dialog_answer() {
         label=$2
         shift 2
     fi
-    dialog_answer_parse "$@"
+    dialog_parse_alternatives "$@"
     count=${#keys[@]}
     [ "$count" -gt 0 ] || die "$usage"
 
     # A lone alternative needs no dispatch, but still matches through the same
     # path so that -i is honored and -n waits for its screen before returning.
     if [ "$count" -eq 1 ]; then
-        dialog_answer_pending
-        dialog_wait_typed_alternative "${pending[@]}" >/dev/null
-        dialog_answer_alt 0
+        dialog_build_pending_alternatives
+        dialog_wait_alternative "${pending[@]}" >/dev/null
+        dialog_answer_alternative 0
         return 0
     fi
 
@@ -346,10 +372,10 @@ dialog_answer() {
 
     [ -z "$label" ] || log_write "🔀" "Answering $label questions with $count alternatives"
     while :; do
-        dialog_answer_pending
-        dialog_wait_typed_alternative "${pending[@]}"
+        dialog_build_pending_alternatives
+        dialog_wait_alternative "${pending[@]}"
         i=$?
-        dialog_answer_alt "$i"
+        dialog_answer_alternative "$i"
         answered[i]=true
         if [ "${terminal[$i]}" = true ]; then
             [ -z "$label" ] || log_write "🔀" "Exiting $label questions after answering \"${keys[$i]}\""

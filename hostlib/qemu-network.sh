@@ -2,14 +2,14 @@
 # QEMU host ports, user networking, forwarding, and endpoint reporting.
 
 # Tests whether a TCP port already has a listener.
-qemu_port_is_listening() {
+network_port_is_listening() {
     local port
     port=$1
     lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
 }
 
 # Verifies that lsof is available for port allocation.
-qemu_port_require_lsof() {
+network_require_lsof() {
     if ! command -v lsof >/dev/null 2>&1; then
         log_error "Missing lsof in PATH; cannot allocate QEMU ports."
         return 1
@@ -17,13 +17,13 @@ qemu_port_require_lsof() {
 }
 
 # Finds the first available port in a 100-port range.
-qemu_port_find_available() {
+network_find_available_port() {
     local base label offset port
     label=$1
     base=$2
     for ((offset = 0; offset <= 99; offset++)); do
         port=$((base + offset))
-        if ! qemu_port_is_listening "$port"; then
+        if ! network_port_is_listening "$port"; then
             printf '%s\n' "$port"
             return 0
         fi
@@ -33,7 +33,7 @@ qemu_port_find_available() {
 }
 
 # Assigns or validates one host port.
-qemu_port_assign() {
+network_assign_port() {
     local label base current
     label=$1
     base=$2
@@ -43,9 +43,9 @@ qemu_port_assign() {
         log_debug "Skipping $label port allocation"
         return 0
     fi
-    qemu_port_require_lsof || return 1
+    network_require_lsof || return 1
     if [[ -n "$current" ]]; then
-        if qemu_port_is_listening "$current"; then
+        if network_port_is_listening "$current"; then
             log_error "Requested $label port $current is already in use."
             return 1
         fi
@@ -53,21 +53,21 @@ qemu_port_assign() {
         printf '%s\n' "$current"
         return 0
     fi
-    qemu_port_find_available "$label" "$base"
+    network_find_available_port "$label" "$base"
 }
 
 # Assigns all monitor and guest forwarding ports.
-qemu_ports_assign() {
+network_assign_ports() {
     log_debug "Assigning host ports"
-    if qemu_network_is_enabled && [[ -z "${QEMU_NET_FORWARD:-}" ]]; then
-        QEMU_SSH_PORT=$(qemu_port_assign ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
-        QEMU_TELNET_PORT=$(qemu_port_assign telnet "$QEMU_TELNET_BASE" "$QEMU_TELNET_PORT") || return 1
+    if network_is_enabled && [[ -z "${QEMU_NET_FORWARD:-}" ]]; then
+        QEMU_SSH_PORT=$(network_assign_port ssh "$QEMU_SSH_BASE" "$QEMU_SSH_PORT") || return 1
+        QEMU_TELNET_PORT=$(network_assign_port telnet "$QEMU_TELNET_BASE" "$QEMU_TELNET_PORT") || return 1
     fi
-    QEMU_MONITOR_PORT=$(qemu_port_assign monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
+    QEMU_MONITOR_PORT=$(network_assign_port monitor "$QEMU_MONITOR_BASE" "$QEMU_MONITOR_PORT") || return 1
 }
 
 # Emits QEMU user-network forwarding options for QEMU_NET_FORWARD.
-qemu_network_build_forward_args() {
+network_render_forward_suffix() {
     local forward forwards host_port guest_port extra result
 
     forwards=${QEMU_NET_FORWARD//,/ }
@@ -90,7 +90,7 @@ qemu_network_build_forward_args() {
 }
 
 # Prints configured guest port forwards, prioritizing familiar services.
-qemu_network_print_forwards() {
+network_print_forwards() {
     local forward forwards host_port guest_port extra
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 
@@ -130,7 +130,7 @@ qemu_network_print_forwards() {
 }
 
 # Returns success unless QEMU_NET_ENABLED is a recognized false value.
-qemu_network_is_enabled() {
+network_is_enabled() {
     case "$(printf '%s' "$QEMU_NET_ENABLED" | tr '[:upper:]' '[:lower:]')" in
     0 | false | no | off | disable | disabled | none | n | f | null | nil)
         return 1
@@ -142,7 +142,7 @@ qemu_network_is_enabled() {
 }
 
 # Prints assigned QEMU and guest TCP ports.
-qemu_endpoints_print() {
+network_print_endpoints() {
     local guest_ports
     local indent=${QEMU_HARDWARE_DETAIL_INDENT:-    }
 
@@ -153,7 +153,7 @@ qemu_endpoints_print() {
     if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
         echo "${indent}QMP:     $QEMU_QMP_PIPE.in / $QEMU_QMP_PIPE.out"
     fi
-    guest_ports=$(qemu_network_print_forwards)
+    guest_ports=$(network_print_forwards)
     if [[ -n "$guest_ports" ]]; then
         echo
         echo "📡 Guest ports:"
@@ -162,13 +162,13 @@ qemu_endpoints_print() {
 }
 
 # Finalizes user networking and guest port forwarding.
-qemu_network_finish_config() {
+network_build() {
     local default_forwards qemu_internet_netdev
 
-    if ! qemu_network_is_enabled; then
-        QEMU_NETWORK=
+    if ! network_is_enabled; then
+        QEMU_NETWORK=()
         log_debug "Networking disabled by QEMU_NET_ENABLED=$QEMU_NET_ENABLED"
-    elif [[ -z "${QEMU_NETWORK:-}" && -n "${QEMU_NET_DEVICE:-}" ]]; then
+    elif [[ ${#QEMU_NETWORK[@]} -eq 0 && -n "${QEMU_NET_DEVICE:-}" ]]; then
         log_debug "Configuring user networking"
         qemu_internet_netdev="user,id=internet"
         if [[ -z "${QEMU_NET_FORWARD:-}" ]]; then
@@ -181,11 +181,12 @@ qemu_network_finish_config() {
             fi
             QEMU_NET_FORWARD=$default_forwards
         fi
-        qemu_internet_netdev+=$(qemu_network_build_forward_args) || return 1
-        QEMU_NETWORK="
-          -netdev $qemu_internet_netdev
-          -device $QEMU_NET_DEVICE,netdev=internet"
-    elif [[ -n "${QEMU_NETWORK:-}" ]]; then
+        qemu_internet_netdev+=$(network_render_forward_suffix) || return 1
+        QEMU_NETWORK=(
+            -netdev "$qemu_internet_netdev"
+            -device "$QEMU_NET_DEVICE,netdev=internet"
+        )
+    elif [[ ${#QEMU_NETWORK[@]} -gt 0 ]]; then
         log_debug "Using explicit QEMU network configuration"
     else
         log_warn "No QEMU network device configured"

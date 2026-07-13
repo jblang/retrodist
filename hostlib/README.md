@@ -30,21 +30,26 @@ orchestrates preparation, execution, packaging, and reset.
 
 The QMP boundary is deliberate. `qmp.sh` owns the QMP pipe, QMP request and
 response JSON, and HMP passthrough. Code outside that module calls
-`qmp_hmp_command`; it does not open the pipe or decode QMP responses. Keyboard
+`qmp_hmp_commands`; it does not open the pipe or decode QMP responses. Keyboard
 operations belong in `script-kb.sh`, VGA text-memory operations in
 `script-vga.sh`, and install-level media changes in `script.sh`. The `script-`
 filename prefix groups install-automation modules; their functions retain the
 device-oriented `dialog_`, `fdisk_`, `kb_`, `serial_`, and `vga_` prefixes.
 
-`qmp_hmp_command COMMAND...` uses the QMP pipe held open by the current host
+`qmp_hmp_commands COMMAND...` uses the QMP pipe held open by the current host
 process. It accepts one or more plain HMP commands and prints their non-empty
 plain-text responses in order without starting a client process per command.
 
 The QMP pipe is one shared monitor stream for each QEMU process, so capabilities
 are negotiated once and requests are serialized with a filesystem lock.
-`qmp_pipe_handshake` accepts QEMU's "already complete" response, allowing the
-standalone `qmp` CLI to attach safely even when a packaged launcher created the
-stream.
+`qmp_negotiate_capabilities` accepts QEMU's "already complete" response,
+allowing the standalone `qmp` CLI to attach safely even when a packaged
+launcher created the stream.
+
+Raw QMP requests and received protocol lines are written as JSON lines to
+`qmp.log` beside the active pipe. A new `retro boot` or `retro install` run
+truncates the log; standalone `qmp` commands append to it. Set `QMP_LOG` to
+another path or to `none` to disable logging.
 
 ## Compatibility
 
@@ -53,12 +58,14 @@ Host code supports modern GNU and BSD/macOS userlands and Bash 3.2. Avoid Bash
 `|&`. Keep external command options portable between GNU and BSD variants.
 
 Every host module is sourced unconditionally. It should define functions and
-defaults without performing work at source time. Prefix new public functions
-for their owning module (`qemu_`, `qmp_`, `kb_`, `vga_`, `script_`, and so on).
+defaults without performing work at source time. Prefix functions for their
+owning module: `command_`, `config_`, `device_`, and `network_` for the
+corresponding `qemu-*.sh` modules; `qemu_` for the QEMU lifecycle in `qemu.sh`;
+and the natural `qmp_`, `kb_`, `vga_`, `script_`, and similar prefixes elsewhere.
 
 ## Config Resolution
 
-Configs normally live at `distro/version/variant/`. `qemu_config_find_file FILE`
+Configs normally live at `distro/version/variant/`. `config_find_file FILE`
 looks in the selected config directory first and then its parent, allowing a
 version to share files across variants. The variant-level file wins.
 
@@ -144,14 +151,13 @@ The commonly useful overrides are:
 | `QEMU_HD_CREATE_OPTIONS`, `QEMU_HDA_OPTIONS` | Extra primary-disk creation and attachment options. |
 | `QEMU_NET_ENABLED` | Enable guest networking; default `true`. False values such as `0`, `false`, `no`, and `off` disable it, case-insensitively. |
 | `QEMU_NET_DEVICE` | Guest NIC model. |
-| `QEMU_DISPLAY`, `QEMU_ACCEL`, `QEMU_EXTRA` | Display, acceleration, and additional QEMU arguments. |
+| `QEMU_DISPLAY`, `QEMU_ACCEL`, `QEMU_VGA` | Values for QEMU's `-display`, `-accel`, and `-vga` options. |
+| `QEMU_EXTRA` | Bash array of additional QEMU arguments. |
 | `QEMU_FDTYPE_A`, `QEMU_FDTYPE_B` | Floppy geometry globals; default `144`. |
 | `QEMU_SERIAL_AUX` | Third serial device; use `msmouse` for guests that need a serial mouse. |
 
 Environment values may override config values where supported; notably,
-exported `QEMU_PROFILE` takes precedence over the distro's profile. Arguments
-after `CONFIG` on `retro boot` and `retro install` are appended to the final
-QEMU command.
+exported `QEMU_PROFILE` takes precedence over the distro's profile.
 
 ### Drives
 
@@ -172,15 +178,15 @@ exists and no primary disk has been staged.
 ### Display and Networking
 
 The default display is GTK on Linux and Cocoa on macOS. Set `QEMU_DISPLAY` to a
-complete display argument when another backend is required. QEMU 11 Cocoa
-displays receive the supported zoom-to-fit options automatically.
+display value such as `sdl` or `gtk,gl=on` when another backend is required.
+QEMU 11 Cocoa displays receive the supported zoom-to-fit options automatically.
 
 Guest networking provides outbound SLIRP networking and loopback-only forwards
 to guest SSH and Telnet. The default host port ranges begin at 2200 and 2300.
 `QEMU_NET_FORWARD` replaces those defaults with whitespace- or comma-separated
 `host:guest` port pairs; use `none` to disable all forwards. Set
 `QEMU_NET_ENABLED` to a false value to omit the NIC. `QEMU_NETWORK` is an
-advanced raw network override.
+advanced Bash-array override containing complete network arguments.
 
 QEMU also exposes a loopback monitor (starting at port 5555), a QMP pipe at
 `qemu.d/qmp.in`/`qemu.d/qmp.out`, serial sockets for `ttyS0` and `ttyS1`, a
@@ -210,7 +216,7 @@ Public helpers:
 
 - `vga_wait [-l | -r] [-t SECONDS] TEXT...` waits for each screen match in
   order. `-l` matches a trimmed full line; `-r` uses an extended regex.
-- `vga_dump_text` returns the decoded 80x25 VGA text screen. Override
+- `vga_read_text` returns the decoded 80x25 VGA text screen. Override
   `VGA_ADDR`, `VGA_COLS`, `VGA_ROWS`, or `VGA_MEM_BYTES` for unusual hardware.
 - `kb_press KEY [KEY ...]` sends one or more QEMU key tokens such as `ret`,
   `spc`, or `ctrl-alt-delete`.

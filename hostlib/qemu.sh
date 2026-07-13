@@ -1,6 +1,16 @@
 # shellcheck shell=bash
 # QEMU preparation, execution, packaging, and workspace lifecycle.
 
+# Stops a just-started QEMU process after host transport initialization fails.
+qemu_abort_startup() {
+    local qemu_pid=$1 message=$2
+
+    log_error "$message"
+    kill "$qemu_pid" 2>/dev/null || true
+    wait "$qemu_pid" 2>/dev/null || true
+    serial_stop
+}
+
 # Runs QEMU while a QMP-driven install script controls it.
 qemu_run_scripted_install() {
     local qemu_pid script_status qemu_status
@@ -13,13 +23,14 @@ qemu_run_scripted_install() {
     QEMU_PID=$qemu_pid
 
     if ! qmp_init; then
-        log_error "Failed to initialize QMP for install script"
-        kill "$qemu_pid" 2>/dev/null || true
-        wait "$qemu_pid" 2>/dev/null || true
+        qemu_abort_startup "$qemu_pid" "Failed to initialize QMP for install script"
         return 1
     fi
 
-    serial_start
+    if ! serial_start; then
+        qemu_abort_startup "$qemu_pid" "Failed to initialize serial transport"
+        return 1
+    fi
 
     log_info "Running install script $QEMU_INSTALL_SCRIPT"
     (
@@ -30,23 +41,25 @@ qemu_run_scripted_install() {
     if [[ $script_status -ne 0 ]]; then
         # Leave QEMU running on any install failure so the guest can be
         # inspected; the user exits QEMU manually when done investigating.
-        if qmp_qemu_running; then
+        if qmp_vm_is_running; then
             log_error "Install script failed (status $script_status)."
             log_warn "QEMU has been left running so you can investigate the guest."
             log_warn "Close the QEMU window (or use the monitor) to exit."
         fi
         wait "$qemu_pid" 2>/dev/null || true
+        serial_stop
         return "$script_status"
     fi
 
     echo "🎉 Install script complete!"
     wait "$qemu_pid" || qemu_status=$?
+    serial_stop
     log_info "QEMU exited with status $qemu_status"
     return "$qemu_status"
 }
 
 # Removes an empty qemu.d directory left by failed preparation.
-qemu_workspace_remove_if_empty() {
+qemu_remove_empty_workspace() {
     # shellcheck disable=SC2153 # Set by retro before this library is sourced.
     if [[ -d $QEMU_D && -z $(ls -A "$QEMU_D") ]]; then
         log_debug "Removing empty QEMU directory $QEMU_D"
@@ -57,35 +70,37 @@ qemu_workspace_remove_if_empty() {
 # Extracts files, loads config, and assembles the QEMU command without launching
 qemu_prepare() {
     log_debug "Preparing QEMU workspace"
-    retro_extract
-    mkdir -p "$QEMU_D"
+    retro_extract || return 1
+    mkdir -p "$QEMU_D" || return 1
 
-    qemu_config_load
+    config_load || return 1
 
     pushd "$QEMU_D" >/dev/null || return 1
 
-    qemu_media_select_for_command
-    if ! qemu_disk_ensure_primary; then
+    device_select_media
+    if ! device_ensure_primary_disk; then
         log_error "No bootable devices"
         popd >/dev/null || true
-        qemu_workspace_remove_if_empty
+        qemu_remove_empty_workspace
         exit 1
     fi
 
-    qemu_drives_build
-    qemu_devices_build_globals
-    qemu_chardevs_build_serials
-    qemu_chardevs_build_parallels
-    qemu_chardevs_build_qmp
-    qemu_display_warn_if_unavailable
-
-    qemu_command_build "$@"
+    if ! device_build_drives ||
+        ! device_build_globals ||
+        ! device_build_serials ||
+        ! device_build_parallels ||
+        ! device_build_qmp_pipe ||
+        ! config_warn_if_display_unavailable ||
+        ! command_build; then
+        popd >/dev/null || true
+        return 1
+    fi
     log_debug "QEMU preparation complete"
 
     echo
-    qemu_endpoints_print
+    network_print_endpoints
     echo
-    qemu_devices_print
+    device_print
     echo
     echo "QEMU command: $QEMU_COMMAND"
     echo
@@ -96,7 +111,7 @@ qemu_prepare() {
 qemu_run_interactive() {
     local handshake_pid run_status=0
 
-    qmp_pipe_handshake &
+    qmp_negotiate_capabilities &
     handshake_pid=$!
 
     echo "🏁 Starting QEMU"
@@ -114,7 +129,7 @@ qemu_run() {
     local run_status=0
 
     log_debug "Preparing $COMMAND workflow"
-    qemu_prepare "$@"
+    qemu_prepare || return 1
 
     pushd "$QEMU_D" >/dev/null || return
     qmp_set_defaults
@@ -124,6 +139,11 @@ qemu_run() {
             return 1
         }
         qmp_pipe_open || {
+            popd >/dev/null || true
+            return 1
+        }
+        qmp_log_reset || {
+            qmp_pipe_close
             popd >/dev/null || true
             return 1
         }
@@ -140,39 +160,28 @@ qemu_run() {
 
 # Top-level retro command handler for booting a distro.
 retro_boot() {
-    qemu_run "$@"
+    qemu_run
 }
 
 # Top-level retro command handler for installing a distro.
 retro_install() {
-    qemu_run "$@"
+    qemu_run
 }
 
-# Packages prepared QEMU files with runnable host scripts.
-retro_package() {
-    local files tarname package_root package_dir item qmp_in qmp_out
-    if [[ $# -ge 1 && $1 == "--hda" ]]; then
-        log_info "Packaging launcher files plus hda.img"
-        files=(hda.img retro.bat retro.sh)
-        shift
-    else
-        log_info "Packaging full QEMU workspace"
-        files=()
-    fi
-    # Prepare images and the rendered command only; never boot QEMU to package.
-    qemu_prepare "$@"
-    echo
-    log_info "Packaging $CONFNAME..."
+# Writes portable Windows and POSIX launchers into QEMU_D.
+qemu_write_package_launchers() {
+    local qmp_in qmp_out
+
     {
         printf '@echo off\n'
-        qemu_command_render_cmd
-    } >"$QEMU_D/retro.bat"
+        command_render_cmd
+    } >"$QEMU_D/retro.bat" || return 1
     log_debug "Wrote $QEMU_D/retro.bat"
     {
         printf '#!/bin/sh\n'
         if [[ -n "${QEMU_QMP_PIPE:-}" && "$QEMU_QMP_PIPE" != "none" ]]; then
-            qmp_in=$(qemu_command_quote_posix_word "$QEMU_QMP_PIPE.in")
-            qmp_out=$(qemu_command_quote_posix_word "$QEMU_QMP_PIPE.out")
+            qmp_in=$(command_quote_posix_word "$QEMU_QMP_PIPE.in")
+            qmp_out=$(command_quote_posix_word "$QEMU_QMP_PIPE.out")
             printf 'if test ! -p %s || test ! -p %s; then\n' "$qmp_in" "$qmp_out"
             printf '  rm -f %s %s\n' "$qmp_in" "$qmp_out"
             printf '  mkfifo %s %s\n' "$qmp_in" "$qmp_out"
@@ -181,28 +190,46 @@ retro_package() {
         else
             printf '%s\n' "$QEMU_COMMAND"
         fi
-    } >"$QEMU_D/retro.sh"
-    chmod +x "$QEMU_D/retro.sh"
+    } >"$QEMU_D/retro.sh" || return 1
+    chmod +x "$QEMU_D/retro.sh" || return 1
     log_debug "Wrote $QEMU_D/retro.sh"
+}
+
+# Copies all prepared files into a package.
+qemu_copy_package_files() {
+    local package_dir=$1 item
+
+    mkdir -p "$package_dir" || return 1
+    for item in "$QEMU_D"/*; do
+        [[ -e "$item" ]] || continue
+        cp -RL "$item" "$package_dir/" || return 1
+    done
+}
+
+# Creates and reports the final compressed package archive.
+qemu_create_package_archive() {
+    local package_root=$1 tarname=$2
+
+    tar -C "$package_root" -czhf "$tarname.tar.gz" "$tarname" || return 1
+    log_info "Package archive created: $tarname.tar.gz"
+    ls -lh "$tarname.tar.gz"
+}
+
+# Packages prepared QEMU files with runnable host scripts.
+retro_package() {
+    local tarname package_root package_dir
+    log_info "Packaging full QEMU workspace"
+    # Prepare images and the rendered command only; never boot QEMU to package.
+    qemu_prepare || return 1
+    echo
+    log_info "Packaging $CONFNAME..."
+    qemu_write_package_launchers || return 1
     tarname=$(printf '%s\n' "$CONFNAME" | tr / -)
     package_root=$TEMP_D/package
     package_dir=$package_root/$tarname
     rm -rf "$package_root"
-    mkdir -p "$package_dir"
-    if [[ ${#files[@]} -eq 0 ]]; then
-        for item in "$QEMU_D"/*; do
-            [[ -e "$item" ]] || continue
-            cp -RL "$item" "$package_dir/"
-        done
-    else
-        for item in "${files[@]}"; do
-            [[ -e "$QEMU_D/$item" ]] || continue
-            cp -RL "$QEMU_D/$item" "$package_dir/"
-        done
-    fi
-    tar -C "$package_root" -czhf "$tarname.tar.gz" "$tarname"
-    log_info "Package archive created: $tarname.tar.gz"
-    ls -lh "$tarname.tar.gz"
+    qemu_copy_package_files "$package_dir" || return 1
+    qemu_create_package_archive "$package_root" "$tarname"
 }
 
 # Top-level retro command handler for deleting extracted QEMU files.

@@ -54,7 +54,7 @@ script_change_image() {
         log_error "Missing image for QMP change command"
         return 1
     fi
-    qmp_hmp_command "change $device $image $format"
+    qmp_hmp_commands "change $device $image $format"
 }
 
 # Ejects media from a QEMU block device.
@@ -63,7 +63,7 @@ script_eject_disk() {
     device=${1:-floppy0}
 
     echo "⏏️  Ejecting $device"
-    qmp_hmp_command "eject $device"
+    qmp_hmp_commands "eject $device"
 }
 
 # Swaps the first floppy image.
@@ -80,7 +80,7 @@ script_set_boot() {
         return 1
     fi
     echo "🥾 Set boot device to $1"
-    qmp_hmp_command "boot_set $1"
+    qmp_hmp_commands "boot_set $1"
 }
 
 # Tests whether text contains expected fixed text.

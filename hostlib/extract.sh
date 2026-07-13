@@ -12,7 +12,7 @@ extract_stage_guestlib() {
     # shellcheck disable=SC2153 # Set by retro before this library is sourced.
     cp -R "$GUESTLIB_D"/. "$guestlib_d"
     mkdir -p "$guestlib_d/distro"
-    if postinst_file=$(qemu_config_find_file postinst.sh); then
+    if postinst_file=$(config_find_file postinst.sh); then
         log_debug "Staging distro postinst manifest $postinst_file"
         cp "$postinst_file" "$guestlib_d/distro/postinst.sh"
     else
@@ -87,13 +87,19 @@ debian_extract_fat_serial() {
 }
 
 # Clears EXTRACT_* control variables after an extraction pass.
-extract_install_files_reset() {
+extract_reset_install_files() {
     EXTRACT_SOURCE=
     EXTRACT_BOOT_IMAGE=
     EXTRACT_ROOT_IMAGE=
     EXTRACT_EXTRA_IMAGES=()
     EXTRACT_FAT_FILES=()
     EXTRACT_PACKAGES=
+}
+
+# Clears extraction controls and reports a failed install-file operation.
+extract_fail_install_files() {
+    extract_reset_install_files
+    return 1
 }
 
 # Resolves the configured extraction source against DOWNLOAD_D.
@@ -168,7 +174,6 @@ redhat_stage_kickstart() {
     local boot_image=${1:-boot.img}
     local kickstart
     local stripped_kickstart
-    local help_file
     local status
 
     case ${CONFNAME:-} in
@@ -176,7 +181,7 @@ redhat_stage_kickstart() {
     *) return 0 ;;
     esac
 
-    kickstart=$(qemu_config_find_file ks.cfg || true)
+    kickstart=$(config_find_file ks.cfg || true)
     if [[ -z "$kickstart" ]]; then
         return 0
     fi
@@ -200,15 +205,6 @@ redhat_stage_kickstart() {
     }
 
     log_info "Adding stripped ${kickstart##*/} to Red Hat floppy image $boot_image"
-    if mcopy -o -i "$boot_image" "$stripped_kickstart" ::ks.cfg 2>/dev/null; then
-        rm -f "$stripped_kickstart"
-        return 0
-    fi
-
-    log_warn "Kickstart file did not fit; removing Red Hat boot help messages and retrying."
-    for help_file in expert.msg general.msg kickit.msg param.msg rescue.msg examples.msg; do
-        mdel -i "$boot_image" "::$help_file" >/dev/null 2>&1 || true
-    done
     mcopy -o -i "$boot_image" "$stripped_kickstart" ::ks.cfg
     status=$?
     rm -f "$stripped_kickstart"
@@ -222,9 +218,9 @@ extract_install_archive_images() {
     if [[ $# -gt 0 ]]; then
         log_info "Extracting install images from ${source##*/}"
         if extract_install_is_tar_stream "$source"; then
-            7z x -so "$source" | 7z e -y -si -ttar "$@" >/dev/null
+            (set -o pipefail; 7z x -so "$source" | 7z e -y -si -ttar "$@" >/dev/null) || return 1
         else
-            7z e -y "$source" "$@" >/dev/null
+            7z e -y "$source" "$@" >/dev/null || return 1
         fi
         extract_make_user_writable "${@##*/}"
     fi
@@ -238,9 +234,9 @@ extract_install_archive_fat_files() {
         log_info "Extracting FAT files from ${source##*/}"
         mkdir -p fat
         if extract_install_is_tar_stream "$source"; then
-            7z x -so "$source" | 7z e -y -si -ttar -ofat "$@" >/dev/null
+            (set -o pipefail; 7z x -so "$source" | 7z e -y -si -ttar -ofat "$@" >/dev/null) || return 1
         else
-            7z e -y -ofat "$source" "$@" >/dev/null
+            7z e -y -ofat "$source" "$@" >/dev/null || return 1
         fi
         extract_make_user_writable fat
     fi
@@ -261,9 +257,9 @@ extract_install_archive_packages() {
     if [[ "$packages" == "." ]]; then
         mkdir -p fat/packages
         if extract_install_is_tar_stream "$source"; then
-            7z x -so "$source" | 7z x -y -si -ttar -ofat/packages >/dev/null
+            (set -o pipefail; 7z x -so "$source" | 7z x -y -si -ttar -ofat/packages >/dev/null) || return 1
         else
-            7z x -y -ofat/packages "$source" >/dev/null
+            7z x -y -ofat/packages "$source" >/dev/null || return 1
         fi
         extract_make_user_writable fat/packages
     else
@@ -272,11 +268,11 @@ extract_install_archive_packages() {
         package_root=${package_target%%/*}
         rm -rf fat/packages "fat/$package_root"
         if extract_install_is_tar_stream "$source"; then
-            7z x -so "$source" | 7z x -y -si -ttar -ofat "$packages/*" >/dev/null
+            (set -o pipefail; 7z x -so "$source" | 7z x -y -si -ttar -ofat "$packages/*" >/dev/null) || return 1
         else
-            7z x -y -ofat "$source" "$packages/*" >/dev/null
+            7z x -y -ofat "$source" "$packages/*" >/dev/null || return 1
         fi
-        mv "fat/$package_target" fat/packages
+        mv "fat/$package_target" fat/packages || return 1
         rm -rf "fat/$package_root"
         extract_make_user_writable fat/packages
     fi
@@ -293,7 +289,7 @@ extract_install_copy_images() {
         target=${file##*/}
         if [[ "$file" != "$target" || ! -e "$target" ]]; then
             log_info "Copying install image $file"
-            cp "$source_file" "$target"
+            cp "$source_file" "$target" || return 1
             extract_make_user_writable "$target"
         else
             log_debug "Install image already staged: $target"
@@ -316,7 +312,7 @@ extract_install_copy_fat_files() {
     for file in "$@"; do
         source_file=$(extract_install_source_file "$source" "$file")
         log_info "Copying FAT file $file"
-        cp "$source_file" fat/
+        cp "$source_file" fat/ || return 1
     done
     extract_make_user_writable fat
 }
@@ -334,8 +330,38 @@ extract_install_copy_packages() {
     log_info "Copying package tree $packages"
     rm -f fat/packages
     mkdir -p fat/packages
-    cp -R "$source_file"/. fat/packages/
+    cp -R "$source_file"/. fat/packages/ || return 1
     extract_make_user_writable fat/packages
+}
+
+# Stages configured install files from an archive or disk-image source.
+extract_install_from_archive() {
+    local source=$1 packages=$2
+    shift 2
+    local image_count=$1
+    shift
+    local images=("${@:1:image_count}")
+    shift "$image_count"
+    local fat_files=("$@")
+
+    extract_install_archive_images "$source" "${images[@]}" || return 1
+    extract_install_archive_fat_files "$source" "${fat_files[@]}" || return 1
+    extract_install_archive_packages "$source" "$packages"
+}
+
+# Stages configured install files from a directory source.
+extract_install_from_directory() {
+    local source=$1 packages=$2
+    shift 2
+    local image_count=$1
+    shift
+    local images=("${@:1:image_count}")
+    shift "$image_count"
+    local fat_files=("$@")
+
+    extract_install_copy_images "$source" "${images[@]}" || return 1
+    extract_install_copy_fat_files "$source" "${fat_files[@]}" || return 1
+    extract_install_copy_packages "$source" "$packages"
 }
 
 # Extracts or copies configured install media into qemu.d.
@@ -353,12 +379,12 @@ extract_install_files() {
 
     if [[ $# -gt 0 ]]; then
         log_error "extract_install_files is controlled by EXTRACT_* variables, not arguments."
-        extract_install_files_reset
+        extract_reset_install_files
         return 1
     fi
     if [[ -z "$boot_image" && -z "$root_image" && -z "$packages" && ${#extra_images[@]} -eq 0 && ${#fat_files[@]} -eq 0 ]]; then
         log_error "Set EXTRACT_BOOT_IMAGE, EXTRACT_ROOT_IMAGE, EXTRACT_EXTRA_IMAGES, EXTRACT_FAT_FILES, or EXTRACT_PACKAGES before calling extract_install_files."
-        extract_install_files_reset
+        extract_reset_install_files
         return 1
     fi
     # EXTRACT_PACKAGES can be absolute (a pre-built source directory) or relative
@@ -367,7 +393,7 @@ extract_install_files() {
     case "${packages#./}" in
         .. | ../* | */.. | */../*)
             log_error "Refusing unsafe EXTRACT_PACKAGES path: $packages"
-            extract_install_files_reset
+            extract_reset_install_files
             return 1
             ;;
     esac
@@ -381,30 +407,40 @@ extract_install_files() {
     log_debug "Images: ${image_files[*]:-(none)}"
     log_debug "FAT files: ${fat_files[*]:-(none)}"
     log_debug "Packages: ${packages:-(none)}"
-    extract_link_install_iso "$source"
+    extract_link_install_iso "$source" || {
+        extract_fail_install_files
+        return 1
+    }
     if [[ -n "$source" && ! -d "$source" ]]; then
         log_debug "Extraction source is an archive or image"
-        extract_install_archive_images "$source" "${image_files[@]}"
-        extract_install_archive_fat_files "$source" "${fat_files[@]}"
-        extract_install_archive_packages "$source" "$packages"
+        extract_install_from_archive "$source" "$packages" "${#image_files[@]}" \
+            "${image_files[@]}" "${fat_files[@]}" || {
+            extract_fail_install_files
+            return 1
+        }
     else
         log_debug "Extraction source is a directory"
-        extract_install_copy_images "$source" "${image_files[@]}"
-        extract_install_copy_fat_files "$source" "${fat_files[@]}"
-        extract_install_copy_packages "$source" "$packages"
+        extract_install_from_directory "$source" "$packages" "${#image_files[@]}" \
+            "${image_files[@]}" "${fat_files[@]}" || {
+            extract_fail_install_files
+            return 1
+        }
     fi
 
-    extract_link_boot_media "${boot_image##*/}" "${root_image##*/}"
-    extract_install_files_reset
+    extract_link_boot_media "${boot_image##*/}" "${root_image##*/}" || {
+        extract_fail_install_files
+        return 1
+    }
+    extract_reset_install_files
 }
 
 # Top-level retro command handler for extracting and staging a distro.
 retro_extract() {
     local extract_file status
     log_debug "Starting extraction for $CONFNAME"
-    retro_download
+    retro_download || return 1
     if [[ ! -f $EXTRACT_D/.extracted ]]; then
-        extract_file=$(qemu_config_find_file extract.sh || true)
+        extract_file=$(config_find_file extract.sh || true)
         if [[ -z "$extract_file" ]]; then
             die "No extract.sh configured for $CONFNAME"
         fi
@@ -426,7 +462,12 @@ retro_extract() {
 
     pushd "$EXTRACT_D" >/dev/null || return
     extract_make_user_writable boot.img root.img fat
-    redhat_stage_kickstart boot.img || return
-    extract_stage_guestlib
-    popd >/dev/null || return
+    redhat_stage_kickstart boot.img
+    status=$?
+    if [[ $status -eq 0 ]]; then
+        extract_stage_guestlib
+        status=$?
+    fi
+    popd >/dev/null || return 1
+    return "$status"
 }

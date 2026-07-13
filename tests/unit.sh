@@ -66,57 +66,91 @@ assert_fail() {
     fi
 }
 
-# --- qemu_command_quote_posix_word -----------------------------------------
-assert_eq "quote/plain" "plain" "$(qemu_command_quote_posix_word plain)"
-assert_eq "quote/comma-eq" "if=ide,index=0" "$(qemu_command_quote_posix_word 'if=ide,index=0')"
-assert_eq "quote/space" "'a b'" "$(qemu_command_quote_posix_word 'a b')"
-assert_eq "quote/empty" "''" "$(qemu_command_quote_posix_word '')"
-assert_eq "quote/single-quote" "'a'\\''b'" "$(qemu_command_quote_posix_word "a'b")"
-assert_eq "quote/amp" "'a&b'" "$(qemu_command_quote_posix_word 'a&b')"
+# --- command_quote_posix_word -----------------------------------------
+assert_eq "quote/plain" "plain" "$(command_quote_posix_word plain)"
+assert_eq "quote/comma-eq" "if=ide,index=0" "$(command_quote_posix_word 'if=ide,index=0')"
+assert_eq "quote/space" "'a b'" "$(command_quote_posix_word 'a b')"
+assert_eq "quote/empty" "''" "$(command_quote_posix_word '')"
+assert_eq "quote/single-quote" "'a'\\''b'" "$(command_quote_posix_word "a'b")"
+assert_eq "quote/amp" "'a&b'" "$(command_quote_posix_word 'a&b')"
 
 # --- QEMU networking --------------------------------------------------------
 for value in 0 false FALSE False no NO No off OFF Off disabled DISABLED n F null NIL; do
     QEMU_NET_ENABLED=$value
-    assert_fail "qemu/net-disabled-$value" qemu_network_is_enabled
+    assert_fail "qemu/net-disabled-$value" network_is_enabled
 done
 QEMU_NET_ENABLED=true
-assert_ok "qemu/net-enabled-true" qemu_network_is_enabled
+assert_ok "qemu/net-enabled-true" network_is_enabled
 QEMU_NET_ENABLED=1
-assert_ok "qemu/net-enabled-1" qemu_network_is_enabled
+assert_ok "qemu/net-enabled-1" network_is_enabled
 unset QEMU_NET_ENABLED
-qemu_config_set_defaults
+config_set_defaults
 assert_eq "qemu/net-default" "true" "$QEMU_NET_ENABLED"
 QEMU_NET_FORWARD="2200:22,2323:23 8080:80"
-assert_eq "qemu/net-forward-custom" ",hostfwd=tcp:127.0.0.1:2200-:22,hostfwd=tcp:127.0.0.1:2323-:23,hostfwd=tcp:127.0.0.1:8080-:80" "$(qemu_network_build_forward_args)"
+assert_eq "qemu/net-forward-custom" ",hostfwd=tcp:127.0.0.1:2200-:22,hostfwd=tcp:127.0.0.1:2323-:23,hostfwd=tcp:127.0.0.1:8080-:80" "$(network_render_forward_suffix)"
 QEMU_NET_FORWARD=none
-assert_eq "qemu/net-forward-none" "" "$(qemu_network_build_forward_args)"
+assert_eq "qemu/net-forward-none" "" "$(network_render_forward_suffix)"
 QEMU_NET_FORWARD=invalid
-assert_fail "qemu/net-forward-invalid" qemu_network_build_forward_args
+assert_fail "qemu/net-forward-invalid" network_render_forward_suffix
 QEMU_NET_FORWARD="8080:80 2323:23 2200:22 8443:443"
-assert_eq "qemu/net-forward-display" $'    SSH:     localhost:2200 -> guest :22\n    Telnet:  localhost:2323 -> guest :23\n    TCP:     localhost:8080 -> guest :80\n    TCP:     localhost:8443 -> guest :443' "$(qemu_network_print_forwards)"
+assert_eq "qemu/net-forward-display" $'    SSH:     localhost:2200 -> guest :22\n    Telnet:  localhost:2323 -> guest :23\n    TCP:     localhost:8080 -> guest :80\n    TCP:     localhost:8443 -> guest :443' "$(network_print_forwards)"
 QEMU_NET_FORWARD=none
-assert_eq "qemu/net-forward-section-none" "" "$(qemu_endpoints_print | sed -n '/📡 Guest ports:/p')"
-# shellcheck disable=SC2034 # Read by qemu_network_finish_config in subsequent tests.
+assert_eq "qemu/net-forward-section-none" "" "$(network_print_endpoints | sed -n '/📡 Guest ports:/p')"
+# shellcheck disable=SC2034 # Read by network_build in subsequent tests.
 QEMU_NET_FORWARD=
 
 # --- QMP-backed script command helpers --------------------------------------
 assert_eq "qmp/hmp-batch-responses" $'response: first\nresponse: second' "$(
-    # shellcheck disable=SC2329 # Invoked indirectly by qmp_hmp_command.
-    qmp_hmp_command_one() {
+    # shellcheck disable=SC2329 # Invoked indirectly by qmp_hmp_commands.
+    qmp_execute_hmp() {
         QMP_HMP_RESPONSE="response: $1"
     }
-    qmp_hmp_command first second
+    qmp_hmp_commands first second
 )"
+assert_fail "qmp/hmp-requires-command" qmp_hmp_commands >/dev/null 2>&1
+assert_fail "qmp/init-stops-after-prereq-failure" bash -c '
+    source "$1/hostlib/qmp.sh"
+    log_info() { :; }
+    qmp_set_defaults() { :; }
+    qmp_check_prereqs() { return 1; }
+    qmp_negotiate_capabilities() { printf reached; return 0; }
+    qmp_init
+' _ "$REPO_D"
+assert_fail "qemu/run-stops-after-prepare-failure" bash -c '
+    source "$1/hostlib/qemu.sh"
+    log_debug() { :; }
+    qemu_prepare() { return 1; }
+    COMMAND=boot
+    qemu_run
+' _ "$REPO_D"
+qmp_log_tmp=$(mktemp -d)
+QMP_LOG=$qmp_log_tmp/qmp.log
+printf 'stale\n' >"$QMP_LOG"
+qmp_log_reset
+assert_eq "qmp/log-reset" "" "$(cat "$QMP_LOG")"
+(
+    exec 6>"$qmp_log_tmp/request"
+    qmp_write_request '{"execute":"test","id":"test-id"}'
+    printf '%s\n' '{"return":{},"id":"test-id"}' >"$qmp_log_tmp/response"
+    exec 7<"$qmp_log_tmp/response"
+    QMP_TIMEOUT=1
+    qmp_read_response test-id
+)
+assert_eq "qmp/log-request-write" '{"execute":"test","id":"test-id"}' "$(cat "$qmp_log_tmp/request")"
+assert_eq "qmp/log-transactions" '{"execute":"test","id":"test-id"}
+{"return":{},"id":"test-id"}' "$(cat "$QMP_LOG")"
+rm -rf "$qmp_log_tmp"
+unset QMP_LOG
 assert_eq "kb/type-string" $'shift-a\nb\nc\nd\ne' "$(
-    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    qmp_hmp_commands() { printf '%s\n' "${1#sendkey }" >&2; }
     kb_type Abcde 2>&1
 )"
 assert_eq "kb/type-return" $'⌨️  ab ↩️\na\nb\nret' "$(
-    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    qmp_hmp_commands() { printf '%s\n' "${1#sendkey }" >&2; }
     kb_type -n ab 2>&1
 )"
 assert_eq "kb/type-empty-return" $'⌨️   ↩️\nret' "$(
-    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    qmp_hmp_commands() { printf '%s\n' "${1#sendkey }" >&2; }
     kb_type -n "" 2>&1
 )"
 assert_eq "kb/stdin-lines" $'one<RET>\n<RET>\ntwo' "$(
@@ -130,26 +164,26 @@ assert_eq "kb/stdin-lines" $'one<RET>\n<RET>\ntwo' "$(
         fi
         printf '%s\n' "$typed" >&2
     }
-    printf 'one\n\ntwo' | kb_send_stdin 2>&1
+    printf 'one\n\ntwo' | kb_type_stdin 2>&1
 )"
 assert_eq "kb/multiple-key-press" $'👇 down down spc\ndown\ndown\nspc' "$(
-    qmp_hmp_command() { printf '%s\n' "${1#sendkey }"; }
+    qmp_hmp_commands() { printf '%s\n' "${1#sendkey }"; }
     kb_press down down spc
 )"
 assert_eq "kb/repeated-key-press" $'👇 down (5 times)\ndown\ndown\ndown\ndown\ndown' "$(
-    qmp_hmp_command() { printf '%s\n' "${1#sendkey }" >&2; }
+    qmp_hmp_commands() { printf '%s\n' "${1#sendkey }" >&2; }
     kb_repeat down 5 2>&1
 )"
 assert_fail "kb/repeat-missing-key" kb_repeat >/dev/null 2>&1
 assert_fail "kb/repeat-extra-argument" kb_repeat down 2 extra >/dev/null 2>&1
 assert_eq "script/change-image-default" "change floppy0 boot.img raw" "$(
     # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
-    qmp_hmp_command() { printf '%s\n' "$1"; }
+    qmp_hmp_commands() { printf '%s\n' "$1"; }
     script_change_image boot.img
 )"
 assert_eq "script/change-image-format" "change floppy0 boot.img raw" "$(
     # shellcheck disable=SC2329 # Invoked indirectly by script_change_image.
-    qmp_hmp_command() { printf '%s\n' "$1"; }
+    qmp_hmp_commands() { printf '%s\n' "$1"; }
     script_change_image boot.img floppy0 raw
 )"
 
@@ -162,27 +196,45 @@ assert_fail "safe/mid-dotdot" download_path_is_safe_relative "a/../b"
 assert_fail "safe/empty"      download_path_is_safe_relative ""
 assert_fail "safe/bare-dotdot" download_path_is_safe_relative ".."
 
+download_tmp=$(mktemp -d)
+printf 'nested/file.img https://example.invalid/file.img' >"$download_tmp/manifest"
+assert_ok "download/manifest-nested-path" bash -c '
+    source "$1/hostlib/logging.sh"
+    source "$1/hostlib/download.sh"
+    wget() { printf downloaded >"$4"; }
+    download_manifest "$2/manifest" "$2/output"
+' _ "$REPO_D" "$download_tmp"
+assert_eq "download/manifest-nested-file" "downloaded" "$(cat "$download_tmp/output/nested/file.img")"
+assert_fail "download/manifest-propagates-wget-failure" bash -c '
+    source "$1/hostlib/logging.sh"
+    source "$1/hostlib/download.sh"
+    wget() { return 1; }
+    download_manifest "$2/manifest" "$2/failed"
+' _ "$REPO_D" "$download_tmp"
+rm -rf "$download_tmp"
+
 # --- download_url_path_depth ------------------------------------------------
 assert_eq "depth/one"   "1" "$(download_url_path_depth 'http://example.com/a')"
 assert_eq "depth/three" "3" "$(download_url_path_depth 'http://example.com/a/b/c')"
 assert_eq "depth/trailing" "2" "$(download_url_path_depth 'http://example.com/a/b/')"
 assert_eq "depth/mirror" "2" "$(download_url_path_depth 'http://mirrors.slackware.com/slackware/slackware-3.6/')"
 
-# --- qemu_config_find_file --------------------------------------------------
+# --- config_find_file --------------------------------------------------
 tmp=$(mktemp -d)
 mkdir -p "$tmp/parent/child"
 : >"$tmp/parent/shared.txt"
 : >"$tmp/parent/child/local.txt"
-assert_eq "config/local"  "$tmp/parent/child/local.txt"  "$(qemu_config_find_file "$tmp/parent/child" local.txt)"
-assert_eq "config/parent" "$tmp/parent/shared.txt"        "$(qemu_config_find_file "$tmp/parent/child" shared.txt)"
-assert_fail "config/missing" qemu_config_find_file "$tmp/parent/child" missing.txt
+assert_eq "config/local"  "$tmp/parent/child/local.txt"  "$(config_find_file "$tmp/parent/child" local.txt)"
+assert_eq "config/parent" "$tmp/parent/shared.txt"        "$(config_find_file "$tmp/parent/child" shared.txt)"
+assert_fail "config/missing" config_find_file "$tmp/parent/child" missing.txt
 rm -rf "$tmp"
 
 # --- retro command parsing --------------------------------------------------
-assert_eq "retro/default-help" "Usage: retro [COMMAND] [CONFIG] [OPTIONS]" \
-    "$("$REPO_D/retro" | sed -n '/^Usage:/p')"
-assert_eq "retro/unrecognized-help" "Usage: retro [COMMAND] [CONFIG] [OPTIONS]" \
-    "$("$REPO_D/retro" not-a-command | sed -n '/^Usage:/p')"
+assert_fail "retro/requires-command" "$REPO_D/retro" >/dev/null 2>&1
+assert_eq "retro/help-usage" "Usage: retro COMMAND [CONFIG]" \
+    "$("$REPO_D/retro" help | sed -n '/^Usage:/p')"
+assert_fail "retro/rejects-unknown-command" "$REPO_D/retro" not-a-command >/dev/null 2>&1
+assert_fail "retro/rejects-extra-arguments" "$REPO_D/retro" help . extra >/dev/null 2>&1
 
 # --- script_import ----------------------------------------------------------
 imp_tmp=$(mktemp -d)
@@ -227,15 +279,56 @@ import_missing_status() {
 assert_fail "import/missing-status" import_missing_status
 rm -rf "$imp_tmp"
 
-# --- qemu_command_render_sh / _cmd ------------------------------------------
+# --- command_render_sh / _cmd ------------------------------------------
 # shellcheck disable=SC2034  # Read by the render functions via the global.
 QEMU_ARGS=(qemu-system-i386 -drive "if=ide,index=0,format=qcow2,file=hda.img" "weird arg" "amp&x" "pct%v" "par(s)")
 assert_eq "render/sh" \
     "qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img 'weird arg' 'amp&x' pct%v 'par(s)'" \
-    "$(qemu_command_render_sh)"
+    "$(command_render_sh)"
 assert_eq "render/cmd" \
     'qemu-system-i386 -drive if=ide,index=0,format=qcow2,file=hda.img "weird arg" "amp&x" pct%%v "par(s)"' \
-    "$(qemu_command_render_cmd)"
+    "$(command_render_cmd)"
+
+# Option-specific settings contain only values; raw argument groups are arrays.
+assert_eq "command/value-options-and-arrays" $'qemu-system-i386
+-machine
+pc
+-smp
+1
+-m
+64M
+-display
+cocoa
+-accel
+tcg
+-vga
+cirrus
+-netdev
+user,id=internet
+-boot
+order=c
+-name
+two words' "$(
+    set +u
+    QEMU_SYSTEM=qemu-system-i386
+    QEMU_MACHINE=pc
+    QEMU_SMP=1
+    QEMU_RAM=64M
+    QEMU_QMP_PIPE=none
+    QEMU_MONITOR_PORT=none
+    QEMU_SERIALS=()
+    QEMU_PARALLELS=()
+    QEMU_DISPLAY=cocoa
+    QEMU_ACCEL=tcg
+    QEMU_VGA=cirrus
+    QEMU_NETWORK=(-netdev user,id=internet)
+    QEMU_GLOBALS=()
+    QEMU_DRIVES=()
+    QEMU_BOOT_ORDER=order=c
+    QEMU_EXTRA=(-name "two words")
+    command_build
+    printf '%s\n' "${QEMU_ARGS[@]}"
+)"
 
 # --- QEMU display scaling ---------------------------------------------------
 qemu_mock_tmp=$(mktemp -d)
@@ -243,23 +336,23 @@ qemu_mock="$qemu_mock_tmp/qemu-system-i386"
 # shellcheck disable=SC2016 # The mock reads QEMU_MOCK_VERSION at execution time.
 printf '#!/usr/bin/env bash\nprintf "QEMU emulator version %%s\\n" "$QEMU_MOCK_VERSION"\n' >"$qemu_mock"
 chmod +x "$qemu_mock"
-# shellcheck disable=SC2034 # Read by qemu_version_detect_major through QEMU_SYSTEM.
+# shellcheck disable=SC2034 # Read by config_detect_qemu_major through QEMU_SYSTEM.
 QEMU_SYSTEM=$qemu_mock
 
 export QEMU_MOCK_VERSION=11.0.0
-QEMU_DISPLAY="-display cocoa"
-qemu_display_apply_scaling
-assert_eq "display/cocoa-qemu11" "-display cocoa,zoom-to-fit=on,zoom-interpolation=on" "$QEMU_DISPLAY"
+QEMU_DISPLAY="cocoa"
+config_apply_display_scaling
+assert_eq "display/cocoa-qemu11" "cocoa,zoom-to-fit=on,zoom-interpolation=on" "$QEMU_DISPLAY"
 
 export QEMU_MOCK_VERSION=10.1.0
-QEMU_DISPLAY="-display cocoa"
-qemu_display_apply_scaling
-assert_eq "display/cocoa-qemu10" "-display cocoa" "$QEMU_DISPLAY"
+QEMU_DISPLAY="cocoa"
+config_apply_display_scaling
+assert_eq "display/cocoa-qemu10" "cocoa" "$QEMU_DISPLAY"
 
 export QEMU_MOCK_VERSION=11.0.0
-QEMU_DISPLAY="-display gtk"
-qemu_display_apply_scaling
-assert_eq "display/gtk-qemu11" "-display gtk" "$QEMU_DISPLAY"
+QEMU_DISPLAY="gtk"
+config_apply_display_scaling
+assert_eq "display/gtk-qemu11" "gtk" "$QEMU_DISPLAY"
 
 rm -rf "$qemu_mock_tmp"
 
@@ -508,13 +601,13 @@ rm -rf "$config_tmp"
 
 wait_screen="ready"
 # shellcheck disable=SC2329 # Invoked indirectly by vga_wait.
-qmp_qemu_running() { return 0; }
+qmp_vm_is_running() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by vga_wait.
-vga_dump_text() { printf '%s\n' "$wait_screen"; }
+vga_read_text() { printf '%s\n' "$wait_screen"; }
 # shellcheck disable=SC2329 # Invoked indirectly by kb_type.
 kb_type() { return 0; }
 # shellcheck disable=SC2329 # Invoked indirectly by kb_type.
-qmp_hmp_command() { return 0; }
+qmp_hmp_commands() { return 0; }
 wait_output=$(vga_wait "ready")
 wait_status=$?
 assert_eq "script/wait-string-status" "0" "$wait_status"
@@ -577,7 +670,7 @@ serial_send() { printf '%s\n' "$1" >>"$case_tmp/answers"; }
 exec 4>&2 2>/dev/null
 
 # Screens are answered in stream order; unmatched alternatives stay unanswered.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: SECOND' 'RESPONSE: ' \
@@ -596,7 +689,7 @@ assert_eq "dialog/case-out-of-order" "SECOND
 FIRST" "$(cat "$case_tmp/answers")"
 
 # dialog_answer directly answers matching TYPE TITLE ANSWER triples.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 dialog_answer -x any "FIRST" "one" any "SECOND" "two" >/dev/null
 wait_status=$?
@@ -605,7 +698,7 @@ assert_eq "dialog/answer-out-of-order" "two
 one" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -x answers the marked triple and then returns.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: FIRST' 'RESPONSE: ' \
@@ -619,7 +712,7 @@ assert_eq "dialog/answer-terminal" "one
 done" "$(cat "$case_tmp/answers")"
 
 # dialog_answer handles repeated type/title alternatives in listed order.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: CHOOSE PARTITION' 'TYPE: inputbox' 'RESPONSE: ' \
@@ -636,7 +729,7 @@ assert_eq "dialog/answer-repeat-terminal" "/dev/hdb1
 q" "$(cat "$case_tmp/answers")"
 
 # dialog_answer treats msgbox and textbox as interchangeable.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: SWAP SPACE CONFIGURED' 'TYPE: textbox' 'RESPONSE: ' \
@@ -650,7 +743,7 @@ assert_eq "dialog/answer-textbox-status" "0" "$wait_status"
 assert_eq "dialog/answer-textbox" "ok" "$(cat "$case_tmp/answers")"
 
 # A repeated title is handled once per occurrence, in the order listed.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: REPEAT' 'RESPONSE: ' \
@@ -666,7 +759,7 @@ assert_eq "dialog/case-repeat" "one
 two" "$(cat "$case_tmp/answers")"
 
 # dialog_answer can distinguish screens that share a title but have different types.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: MODEM CONFIGURATION' 'TYPE: menu' 'RESPONSE: ' \
@@ -682,7 +775,7 @@ dialog_answer \
 assert_eq "dialog/case-type" "no modem" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -i dispatches same-title menus by required full item text.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: Debian GNU/Linux Installation Main Menu' \
@@ -700,7 +793,7 @@ dialog_answer \
 assert_eq "dialog/case-item" "Next" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -i -r matches required full item text as an extended regex.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: Debian GNU/Linux Installation Main Menu' \
@@ -714,7 +807,7 @@ dialog_answer \
 assert_eq "dialog/case-item-regex" "Next" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -n matches without sending a response and takes no answer.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 SERIAL_MATCHED_TEXT=
 printf '%s\n' \
@@ -725,7 +818,7 @@ assert_eq "dialog/no-answer" "" "$(cat "$case_tmp/answers")"
 assert_eq "dialog/no-answer-match" "TYPE: menu" "$SERIAL_MATCHED_TEXT"
 
 # dialog_answer -x runs the marked handler and then returns.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: FIRST' 'TYPE: msgbox' 'RESPONSE: ' \
@@ -740,7 +833,7 @@ assert_eq "dialog/case-terminal" "FIRST
 DONE" "$(cat "$case_tmp/answers")"
 
 # dialog_answer matches -r keys as extended regexes.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: FORMAT PARTITION /dev/hda2' 'TYPE: menu' 'RESPONSE: ' \
@@ -754,7 +847,7 @@ assert_eq "dialog/answer-regex-status" "0" "$wait_status"
 assert_eq "dialog/answer-regex-key" "Format" "$(cat "$case_tmp/answers")"
 
 # A single triple answers one screen directly, with -r regex title matching.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: Slackware Linux Setup (version 3.4)' 'TYPE: menu' 'RESPONSE: ' \
@@ -763,7 +856,7 @@ dialog_answer menu -r "Slackware Linux Setup \(version .*\)" ADDSWAP >/dev/null
 assert_eq "dialog/answer-single-regex" "ADDSWAP" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -d selects the key for the item whose displayed text matches.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: SOURCE MEDIA SELECTION' \
@@ -776,7 +869,7 @@ dialog_answer menu "SOURCE MEDIA SELECTION" -d "CD-ROM" >/dev/null
 assert_eq "dialog/menu-text" "1" "$(cat "$case_tmp/answers")"
 
 # dialog_answer -d -r matches item text as an extended regex.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$case_tmp/answers"
 printf '%s\n' \
     'TITLE: Install from the Slackware CD-ROM' \
@@ -804,29 +897,34 @@ source "$REPO_D/hostlib/script-fdisk.sh"
 source "$REPO_D/hostlib/script-dialog.sh"
 serial_tmp=$(mktemp -d)
 SERIAL_LOG=$serial_tmp/log
-SERIAL_LINE=0
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_MATCH_OFFSET=0
+SERIAL_TRANSCRIPT_OFFSET=0
+
+sleep 0 &
+SERIAL_DRAIN_PID=$!
+assert_ok "serial/stop-reaps-drain" serial_stop
+assert_eq "serial/stop-clears-pid" "" "$SERIAL_DRAIN_PID"
 
 # Serial log offsets are zero-based bytes and preserve a partial final line.
 printf 'alpha\nbeta' >"$SERIAL_LOG"
-assert_eq "serial/read-offset-zero" $'alpha\nbeta' "$(serial_read_from_offset 0)"
-assert_eq "serial/read-offset-middle" "beta" "$(serial_read_from_offset 6)"
-assert_eq "serial/read-offset-eof" "" "$(serial_read_from_offset 10)"
-assert_eq "serial/read-offset-past-eof" "" "$(serial_read_from_offset 20)"
+assert_eq "serial/read-offset-zero" $'alpha\nbeta' "$(serial_read_from_byte_offset 0)"
+assert_eq "serial/read-offset-middle" "beta" "$(serial_read_from_byte_offset 6)"
+assert_eq "serial/read-offset-eof" "" "$(serial_read_from_byte_offset 10)"
+assert_eq "serial/read-offset-past-eof" "" "$(serial_read_from_byte_offset 20)"
 
 # A transformed guest echo must not leave a stale queue head that prevents
 # later exact echoes from being suppressed.
 SERIAL_ECHO_LINES=("transformed outbound line" "d")
-assert_ok "serial/echo-recovers-after-transformed-line" serial_echo_pop_if_match "d"
+assert_ok "serial/echo-recovers-after-transformed-line" serial_consume_echo_if_match "d"
 assert_eq "serial/echo-recovery-clears-stale-lines" "0" "${#SERIAL_ECHO_LINES[@]}"
 
 # Transcript order: received text, matched waits, then transmitted text.
 printf '%s\n' 'noise' 'MATCH' 'late' >"$SERIAL_LOG"
 exec 9>"$serial_tmp/input"
-serial_wait_one text_contains_line "MATCH" >/dev/null 2>"$serial_tmp/transcript"
+serial_wait_match text_contains_line "MATCH" >/dev/null 2>"$serial_tmp/transcript"
 serial_send "typed" 2>>"$serial_tmp/transcript"
 printf '%s\n' 'typed' 'DONE' >>"$SERIAL_LOG"
-serial_wait_one text_contains_line "DONE" >/dev/null 2>>"$serial_tmp/transcript"
+serial_wait_match text_contains_line "DONE" >/dev/null 2>>"$serial_tmp/transcript"
 assert_eq "serial/transcript" "➡️  noise
 ✅ MATCH
 ➡️  late
@@ -837,8 +935,8 @@ exec 9>&-
 
 # serial_shell starts a screen-launched shell redirected to serial.
 SERIAL_LOG=$serial_tmp/shell
-SERIAL_LINE=0
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_MATCH_OFFSET=0
+SERIAL_TRANSCRIPT_OFFSET=0
 # shellcheck disable=SC2034 # Read by serial_shell_start.
 SERIAL_SHELL_PROMPT="SERIAL#"
 # shellcheck disable=SC2034 # Read by serial_shell_start.
@@ -852,7 +950,7 @@ kb_type() {
 }$1"
 }
 # shellcheck disable=SC2329 # Invoked indirectly by serial_shell.
-qmp_hmp_command() { return 0; }
+qmp_hmp_commands() { return 0; }
 printf '%s\n' \
     'SERIAL# ' \
     'SERIAL# ' \
@@ -876,8 +974,8 @@ exec 9>&-
 unset SERIAL_SHELL_PROMPT SERIAL_SHELL_DEV
 
 SERIAL_LOG=$serial_tmp/shell-nowait
-SERIAL_LINE=0
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_MATCH_OFFSET=0
+SERIAL_TRANSCRIPT_OFFSET=0
 qmp_strings=
 printf '%s\n' '# ' '# ' '# ' >"$SERIAL_LOG"
 : >"$serial_tmp/shell-nowait-input"
@@ -888,32 +986,32 @@ echo 'Preparing scripted install...' >/dev/console
 long-running install" "$(cat "$serial_tmp/shell-nowait-input")"
 exec 9>&-
 
-SERIAL_LINE=0
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_MATCH_OFFSET=0
+SERIAL_TRANSCRIPT_OFFSET=0
 exec 3>&2 2>/dev/null
 
 # A prompt blocks without a trailing newline, so the partial line matches too.
 printf 'TITLE: Foo\nRESPONSE: ' >"$SERIAL_LOG"
-serial_wait_one text_contains_line "TITLE: Foo" >/dev/null
+serial_wait_match text_contains_line "TITLE: Foo" >/dev/null
 assert_eq "serial/title-consumed" "TITLE: Foo" "$SERIAL_MATCHED_TEXT"
-serial_wait_one text_contains_line "RESPONSE:" >/dev/null
+serial_wait_match text_contains_line "RESPONSE:" >/dev/null
 assert_eq "serial/partial-consumed" "RESPONSE: " "$SERIAL_MATCHED_TEXT"
 
 # Consumed text never matches again; a fresh occurrence does.
-assert_fail "serial/no-rematch" serial_scan text_contains_line "TITLE: Foo"
+assert_fail "serial/no-rematch" serial_scan_matches text_contains_line "TITLE: Foo"
 printf '\nTITLE: Foo\n' >>"$SERIAL_LOG"
-serial_wait_one text_contains_line "TITLE: Foo" >/dev/null
+serial_wait_match text_contains_line "TITLE: Foo" >/dev/null
 assert_eq "serial/second-occurrence" "TITLE: Foo" "$SERIAL_MATCHED_TEXT"
 
 # Consuming a partial prompt must not hide later text on the same line.
 SERIAL_LOG=$serial_tmp/appended-prompt
-SERIAL_LINE=0
-# shellcheck disable=SC2034 # Read by serial_scan.
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_MATCH_OFFSET=0
+# shellcheck disable=SC2034 # Read by serial_scan_matches.
+SERIAL_TRANSCRIPT_OFFSET=0
 printf 'Command (m for help): ' >"$SERIAL_LOG"
-serial_wait_one text_contains_line "Command (m for help):" >/dev/null
+serial_wait_match text_contains_line "Command (m for help):" >/dev/null
 printf 't\r\nPartition number (1-4): ' >>"$SERIAL_LOG"
-serial_wait_one text_contains_line "Partition number (1-4):" >/dev/null
+serial_wait_match text_contains_line "Partition number (1-4):" >/dev/null
 assert_eq "serial/appended-prompt" "Partition number (1-4): " "$SERIAL_MATCHED_TEXT"
 
 # Alternatives match in stream order, not argument order.
@@ -943,14 +1041,14 @@ assert_eq "serial/case-handler" "handled" "$(cat "$serial_tmp/answers")"
 
 # Echoed answers and CRLF output do not confuse serial matching.
 printf 'picked\r\nTITLE: After Echo\r\n' >>"$SERIAL_LOG"
-serial_wait_one text_contains_line "TITLE: After Echo" >/dev/null
+serial_wait_match text_contains_line "TITLE: After Echo" >/dev/null
 assert_eq "serial/echo-crlf-consumed" "TITLE: After Echo" "$SERIAL_MATCHED_TEXT"
 
 # fdisk_swap_root drives every fdisk prompt over the serial pipe; the shell
 # prompt waits around it stay on the screen.
 SERIAL_LOG=$serial_tmp/fdisk
 # shellcheck disable=SC2034 # Read by fdisk_swap_root through serial helpers.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 : >"$serial_tmp/answers"
 wait_screen="#"
 printf '%s\n' \
@@ -1133,6 +1231,17 @@ exec 8<&-
 rm -rf "$serial_tmp"
 
 # --- extract image links ----------------------------------------------------
+assert_fail "extract/install-files-propagates-helper-failure" bash -c '
+    source "$1/hostlib/logging.sh"
+    source "$1/hostlib/extract.sh"
+    extract_install_archive_images() { return 1; }
+    EXTRACT_SOURCE=source.tgz
+    EXTRACT_BOOT_IMAGE=boot.img
+    EXTRACT_EXTRA_IMAGES=()
+    EXTRACT_FAT_FILES=()
+    extract_install_files
+' _ "$REPO_D"
+
 extract_tmp=$(mktemp -d)
 printf 'boot image\n' >"$extract_tmp/boot.img"
 (cd "$extract_tmp" && extract_link_boot_media boot.img)

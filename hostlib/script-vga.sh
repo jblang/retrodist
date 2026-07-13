@@ -33,7 +33,7 @@ vga_validate_config() {
 }
 
 # Dumps bytes from physical memory using QEMU pmemsave.
-vga_dump_physical_memory() {
+vga_read_physical_memory() {
     local addr bytes hmp_file_dir dump_file qemu_dump_file
     addr=${1:-}
     bytes=${2:-}
@@ -50,7 +50,7 @@ vga_dump_physical_memory() {
     rm -f "$dump_file"
 
     log_debug "Dumping QEMU physical memory at $addr for $bytes byte(s)"
-    if ! qmp_hmp_command "pmemsave $addr $bytes $qemu_dump_file"; then
+    if ! qmp_hmp_commands "pmemsave $addr $bytes $qemu_dump_file"; then
         rm -f "$dump_file"
         return 1
     fi
@@ -69,7 +69,7 @@ vga_dump_physical_memory() {
 }
 
 # Extracts plain VGA text bytes from a saved VGA memory dump stream.
-vga_decode_dump() {
+vga_decode_text_memory() {
     xxd -p -c 2 |
         cut -c 1-2 |
         xxd -r -p |
@@ -78,13 +78,13 @@ vga_decode_dump() {
 }
 
 # Dumps VGA memory and decodes it as text.
-vga_dump_text() {
+vga_read_text() {
     vga_set_defaults
     vga_check_prereqs || return 1
     vga_validate_config || return 1
     (
         set -o pipefail
-        vga_dump_physical_memory "$VGA_ADDR" "$VGA_MEM_BYTES" | vga_decode_dump
+        vga_read_physical_memory "$VGA_ADDR" "$VGA_MEM_BYTES" | vga_decode_text_memory
     )
 }
 
@@ -125,10 +125,10 @@ vga_wait() {
             remaining=$(awk -v t="$timeout" -v i="$interval" 'BEGIN { printf "%d", t / i }')
         fi
         while :; do
-            if ! qmp_qemu_running; then
+            if ! qmp_vm_is_running; then
                 die "QEMU exited while waiting for screen match: $expected"
             fi
-            if screen=$(vga_dump_text); then
+            if screen=$(vga_read_text); then
                 if "$matcher" "$screen" "$expected"; then
                     printf "\r🖥️  %s\033[K\n" "$expected"
                     break

@@ -171,11 +171,10 @@ slackware_collect_tagsets() {
     log_debug "Selected Slackware tagsets: ${SLACKWARE_TAGSETS[*]:-(none)}"
 }
 
-# Writes install tagfiles and disksets.txt from tagset rules.
-slackware_prepare_tagfiles() {
-    local pkgroot universe=$TEMP_D/tagfile-universe d
-    local clean_tagfiles=
-    local -a SLACKWARE_TAGSETS=()
+# Builds the package universe consumed by tagfile generation.
+# clean_tagfiles is dynamically scoped by slackware_prepare_tagfiles.
+slackware_build_package_universe() {
+    local universe=$1 pkgroot
 
     if pkgroot=$(slackware_staged_pkg_root); then
         log_info "Preparing Slackware tagfiles from staged packages"
@@ -198,12 +197,18 @@ slackware_prepare_tagfiles() {
         slackware_universe_from_iso >"$universe"
     else
         log_debug "No Slackware package source available for tagfile preparation"
-        return
+        return 1
     fi
     [[ -s "$universe" ]] || {
         log_warn "Slackware package universe is empty; skipping tagfile preparation"
-        return
+        return 1
     }
+}
+
+# Writes install tagfiles and disksets.txt from a package universe and rules.
+slackware_write_tagfiles() {
+    local universe=$1 clean_tagfiles=$2 d
+    local -a SLACKWARE_TAGSETS=()
 
     # Sort (byte order for determinism) to group each target's lines so the awk
     # writes each in one pass, then create the target dirs.
@@ -254,6 +259,15 @@ slackware_prepare_tagfiles() {
 
     sync
     log_info "Slackware tagfile preparation complete"
+}
+
+# Builds the package universe and writes configured Slackware tagfiles.
+slackware_prepare_tagfiles() {
+    local universe=$TEMP_D/tagfile-universe
+    local clean_tagfiles=
+
+    slackware_build_package_universe "$universe" || return 0
+    slackware_write_tagfiles "$universe" "$clean_tagfiles"
 }
 
 # Generates default.tag from extracted tagfile and description sources.

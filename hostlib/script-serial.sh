@@ -5,10 +5,10 @@
 # Unlike VGA text memory, the serial log never scrolls away.
 
 # Byte offset in SERIAL_LOG already consumed by matches.
-SERIAL_LINE=0
+SERIAL_MATCH_OFFSET=0
 
 # Byte offset in SERIAL_LOG already printed in the serial transcript.
-SERIAL_TRANSCRIPT_LINE=0
+SERIAL_TRANSCRIPT_OFFSET=0
 
 # Lines sent to the serial pipe that may be echoed back by the guest tty.
 SERIAL_ECHO_LINES=()
@@ -18,18 +18,28 @@ serial_start() {
     SERIAL_LOG=${SERIAL_LOG:-${QEMU_SERIAL_PIPE:-}.log}
     [ -p "${QEMU_SERIAL_PIPE:-}.out" ] || return 0
     : >"$SERIAL_LOG"
-    SERIAL_LINE=0
-    SERIAL_TRANSCRIPT_LINE=0
+    SERIAL_MATCH_OFFSET=0
+    SERIAL_TRANSCRIPT_OFFSET=0
     SERIAL_ECHO_LINES=()
     cat "$QEMU_SERIAL_PIPE.out" >>"$SERIAL_LOG" &
+    SERIAL_DRAIN_PID=$!
     exec 9>"$QEMU_SERIAL_PIPE.in"
 }
 
-serial_echo_push() {
+# Reaps the background serial drain. Call only after QEMU has closed the pipe;
+# otherwise waiting for the drain would block.
+serial_stop() {
+    if [ -n "${SERIAL_DRAIN_PID:-}" ]; then
+        wait "$SERIAL_DRAIN_PID" 2>/dev/null || true
+        SERIAL_DRAIN_PID=
+    fi
+}
+
+serial_queue_echo() {
     SERIAL_ECHO_LINES+=("$1")
 }
 
-serial_echo_pop_if_match() {
+serial_consume_echo_if_match() {
     local i matched=-1
 
     for ((i = 0; i < ${#SERIAL_ECHO_LINES[@]}; i++)); do
@@ -46,18 +56,18 @@ serial_echo_pop_if_match() {
 }
 
 # Prints SERIAL_LOG starting at the zero-based byte offset supplied by callers.
-serial_read_from_offset() {
+serial_read_from_byte_offset() {
     local offset=$1
     tail -c "+$((offset + 1))" "$SERIAL_LOG" 2>/dev/null
 }
 
 # Prints any serial output not yet included in the transcript. Used before
 # logging host input so already-arrived guest output appears first.
-serial_transcript_drain() {
+serial_drain_transcript() {
     local LC_ALL=C raw line read_status bytes offset
     [ -n "${SERIAL_LOG:-}" ] && [ -f "$SERIAL_LOG" ] || return 0
 
-    offset=$SERIAL_TRANSCRIPT_LINE
+    offset=$SERIAL_TRANSCRIPT_OFFSET
     while :; do
         IFS= read -r raw
         read_status=$?
@@ -68,40 +78,40 @@ serial_transcript_drain() {
         offset=$((offset + bytes))
 
         line=${raw//$'\r'/}
-        if serial_echo_pop_if_match "$line"; then
-            SERIAL_TRANSCRIPT_LINE=$offset
-            if [ "$offset" -gt "$SERIAL_LINE" ]; then
-                SERIAL_LINE=$offset
+        if serial_consume_echo_if_match "$line"; then
+            SERIAL_TRANSCRIPT_OFFSET=$offset
+            if [ "$offset" -gt "$SERIAL_MATCH_OFFSET" ]; then
+                SERIAL_MATCH_OFFSET=$offset
             fi
             [ "$read_status" -eq 0 ] || break
             continue
         fi
         echo "➡️  $line" >&2
-        SERIAL_TRANSCRIPT_LINE=$offset
+        SERIAL_TRANSCRIPT_OFFSET=$offset
 
         [ "$read_status" -eq 0 ] || break
-    done < <(serial_read_from_offset "$SERIAL_TRANSCRIPT_LINE")
+    done < <(serial_read_from_byte_offset "$SERIAL_TRANSCRIPT_OFFSET")
 }
 
 # Writes one line to the guest serial pipe.
 serial_send() {
-    serial_transcript_drain
+    serial_drain_transcript
     printf '%s\n' "$1" >&9
-    serial_echo_push "$1"
+    serial_queue_echo "$1"
     echo "⬅️  $1" >&2
 }
 
 # Rewinds consumption so a later wait can re-match a peeked screen.
 serial_rewind() {
-    SERIAL_LINE=$1
+    SERIAL_MATCH_OFFSET=$1
 }
 
 # Scans unconsumed serial text in stream order, including partial prompt lines.
-# On match, updates SERIAL_LINE, SERIAL_MATCHED, and SERIAL_MATCHED_TEXT.
-serial_scan() {
+# On match, updates SERIAL_MATCH_OFFSET, SERIAL_MATCHED, and SERIAL_MATCHED_TEXT.
+serial_scan_matches() {
     local LC_ALL=C raw line read_status bytes offset i expected_index
 
-    offset=$SERIAL_LINE
+    offset=$SERIAL_MATCH_OFFSET
     while :; do
         IFS= read -r raw
         read_status=$?
@@ -112,42 +122,40 @@ serial_scan() {
         offset=$((offset + bytes))
 
         line=${raw//$'\r'/}
-        if serial_echo_pop_if_match "$line"; then
-            if [ "$offset" -gt "$SERIAL_TRANSCRIPT_LINE" ]; then
-                SERIAL_TRANSCRIPT_LINE=$offset
+        if serial_consume_echo_if_match "$line"; then
+            if [ "$offset" -gt "$SERIAL_TRANSCRIPT_OFFSET" ]; then
+                SERIAL_TRANSCRIPT_OFFSET=$offset
             fi
-            SERIAL_LINE=$offset
+            SERIAL_MATCH_OFFSET=$offset
             [ "$read_status" -eq 0 ] || break
             continue
         fi
         for ((i = 1; i <= $#; i += 2)); do
             expected_index=$((i + 1))
             if "${!i}" "$line" "${!expected_index}"; then
-                if [ "$offset" -gt "$SERIAL_TRANSCRIPT_LINE" ]; then
+                if [ "$offset" -gt "$SERIAL_TRANSCRIPT_OFFSET" ]; then
                     echo "✅ $line" >&2
-                    SERIAL_TRANSCRIPT_LINE=$offset
+                    SERIAL_TRANSCRIPT_OFFSET=$offset
                 fi
-                SERIAL_LINE=$offset
+                SERIAL_MATCH_OFFSET=$offset
                 SERIAL_MATCHED=$(((i - 1) / 2))
                 SERIAL_MATCHED_TEXT=$line
                 return 0
             fi
         done
-        if [ "$offset" -gt "$SERIAL_TRANSCRIPT_LINE" ]; then
+        if [ "$offset" -gt "$SERIAL_TRANSCRIPT_OFFSET" ]; then
             echo "➡️  $line" >&2
-            SERIAL_TRANSCRIPT_LINE=$offset
+            SERIAL_TRANSCRIPT_OFFSET=$offset
         fi
         [ "$read_status" -eq 0 ] || break
-    done < <(serial_read_from_offset "$SERIAL_LINE")
+    done < <(serial_read_from_byte_offset "$SERIAL_MATCH_OFFSET")
     return 1
 }
 
-# Waits until the serial log satisfies one of the given matcher functions.
-serial_wait_until() {
-    local interval label
+# Normalizes wait arguments into matcher pairs and a diagnostic label.
+# Outputs are dynamically scoped by serial_wait_until.
+serial_parse_wait_conditions() {
     local separator_index condition_count i
-    local matchers=() expected=() pairs=()
-
     separator_index=0
     for ((i = 1; i <= $#; i++)); do
         if [ "${!i}" = "--" ]; then
@@ -179,7 +187,6 @@ serial_wait_until() {
             expected+=("${!expected_index}")
         done
     fi
-    interval=${WAIT_INTERVAL:-0.1}
     condition_count=${#matchers[@]}
     label=${expected[0]}
     for ((i = 1; i < condition_count; i++)); do
@@ -188,12 +195,21 @@ serial_wait_until() {
     for ((i = 0; i < condition_count; i++)); do
         pairs+=("${matchers[$i]}" "${expected[$i]}")
     done
+}
+
+# Waits until the serial log satisfies one of the given matcher functions.
+serial_wait_until() {
+    local interval label
+    local matchers=() expected=() pairs=()
+
+    serial_parse_wait_conditions "$@"
+    interval=${WAIT_INTERVAL:-0.1}
     while :; do
-        if ! qmp_qemu_running; then
+        if ! qmp_vm_is_running; then
             die "QEMU exited while waiting for serial match: $label"
         fi
 
-        if serial_scan "${pairs[@]}"; then
+        if serial_scan_matches "${pairs[@]}"; then
             printf '%s\n' "$SERIAL_MATCHED_TEXT"
             return "$SERIAL_MATCHED"
         fi
@@ -204,9 +220,9 @@ serial_wait_until() {
 
 # Waits for one serial matcher/text pair. Transcript output from
 # serial_wait_until is the only progress display.
-serial_wait_one() {
+serial_wait_match() {
     local matcher expected
-    [ $# -eq 2 ] || die "serial_wait_one requires MATCHER TEXT"
+    [ $# -eq 2 ] || die "serial_wait_match requires MATCHER TEXT"
     matcher=$1
     expected=$2
 
@@ -281,7 +297,7 @@ serial_wait() {
 
     [ $# -gt 0 ] || die "serial_wait requires [-l] [-r] TEXT [TEXT ...]"
     for expected in "$@"; do
-        serial_wait_one "$matcher" "$expected" || return 1
+        serial_wait_match "$matcher" "$expected" || return 1
     done
 }
 
@@ -302,7 +318,7 @@ serial_prompt() {
 
     for ((i = 1; i <= final_i; i++)); do
         question=${!i}
-        serial_wait_one "$matcher" "$question" >/dev/null
+        serial_wait_match "$matcher" "$question" >/dev/null
     done
 
     serial_send "$answer" || return 1
@@ -315,14 +331,13 @@ serial_shell_start() {
     prompt=${SERIAL_SHELL_PROMPT:-#}
     dev=${SERIAL_SHELL_DEV:-${SERIAL_DEV:-/dev/ttyS3}}
     minor=${SERIAL_SHELL_MINOR:-67}
-    launcher="[ -c $(qemu_command_quote_posix_word "$dev") ] || mknod $(qemu_command_quote_posix_word "$dev") c 4 $(qemu_command_quote_posix_word "$minor"); PS1=$(qemu_command_quote_posix_word "$prompt ") sh -i <$(qemu_command_quote_posix_word "$dev") >$(qemu_command_quote_posix_word "$dev") 2>$(qemu_command_quote_posix_word "$dev")"
+    launcher="[ -c $(command_quote_posix_word "$dev") ] || mknod $(command_quote_posix_word "$dev") c 4 $(command_quote_posix_word "$minor"); PS1=$(command_quote_posix_word "$prompt ") sh -i <$(command_quote_posix_word "$dev") >$(command_quote_posix_word "$dev") 2>$(command_quote_posix_word "$dev")"
 
     vga_wait -l "$SHELL_PROMPT"
     kb_type -n "$launcher" || return 1
     serial_wait -l "$prompt" || return 1
     serial_console_divider || return 1
-    serial_console_echo "Retro Distro Playground Scripted Installation"
-    serial_console_echo "Sit back, relax, and please wait..."
+    serial_console_echo "Preparing scripted install..."
 }
 
 # Sends one command to the active serial shell.
@@ -349,7 +364,7 @@ serial_console_echo() {
     message=$1
     console=${SERIAL_CONSOLE_DEV:-/dev/console}
     serial_shell_send \
-        "echo $(qemu_command_quote_posix_word "$message") >$(qemu_command_quote_posix_word "$console")"
+        "echo $(command_quote_posix_word "$message") >$(command_quote_posix_word "$console")"
 }
 
 serial_console_divider() {

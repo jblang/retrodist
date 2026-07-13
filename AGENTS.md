@@ -34,8 +34,6 @@ qmp change-image root.img
 qmp eject-disk
 ```
 
-Extra arguments after `CONFIG` are passed to QEMU.
-
 ## Hard Rules
 
 - Do not edit staged guest-library copies under `qemu.d/fat/guestlib.d/`.

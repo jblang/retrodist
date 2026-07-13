@@ -47,7 +47,8 @@ change-image options:
   -d DEVICE   device to change. Default: floppy0
 
 Environment variables with the same names are also supported:
-QEMU_QMP_PIPE, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES, QMP_TIMEOUT.
+QEMU_QMP_PIPE, QMP_LOG, VGA_ADDR, VGA_COLS, VGA_ROWS, VGA_MEM_BYTES,
+QMP_TIMEOUT. Set QMP_LOG=none to disable the transaction log.
 EOF
 }
 
@@ -142,7 +143,7 @@ qmp_check_prereqs
 qmp_pipe_open
 qmp_lock_acquire
 trap 'qmp_lock_release; qmp_pipe_close' EXIT
-qmp_pipe_handshake
+qmp_negotiate_capabilities
 
 case "$command_name" in
   dump-screen)
@@ -153,9 +154,9 @@ case "$command_name" in
     vga_check_prereqs
     vga_validate_config
     if [ "$QMP_DUMP_LINE_NUMBERS" = "1" ]; then
-      vga_dump_text | qmp_number_lines
+      vga_read_text | qmp_number_lines
     else
-      vga_dump_text
+      vga_read_text
     fi
     ;;
   send-key)
@@ -170,7 +171,7 @@ case "$command_name" in
       echo "Usage: INPUT | $(basename "$0") send-stdin [OPTIONS]" >&2
       exit 1
     fi
-    kb_send_stdin
+    kb_type_stdin
     ;;
   send-text)
     if [ $# -ne 1 ]; then
