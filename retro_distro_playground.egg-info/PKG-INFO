@@ -5,3 +5,5 @@ Summary: Python host runtime for Retro Distro Playground
 Requires-Python: >=3.11
 Requires-Dist: pycdlib<2,>=1.16
 Requires-Dist: qemu.qmp==0.0.6
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"

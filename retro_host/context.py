@@ -15,9 +15,7 @@ class Context:
     temporary: Path
 
     @classmethod
-    def create(
-        cls, root: Path, command: str, config: str | None = None
-    ) -> "Context":
+    def create(cls, root: Path, command: str, config: str | None = None) -> "Context":
         root = root.resolve()
         candidate = Path.cwd() if config is None else Path(config)
         if config is not None and not candidate.is_dir():
@@ -61,4 +59,3 @@ class Context:
             if path.is_file():
                 return path
         return None
-

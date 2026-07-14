@@ -75,7 +75,15 @@ class Dinstall:
     def _step(self, item: str) -> None:
         self.d.answer_until(
             Choice("textbox", "Release Notes", "ok"),
-            Choice("menu", self.menu, item, regex=True, description=True, item_regex=True, terminal=True),
+            Choice(
+                "menu",
+                self.menu,
+                item,
+                regex=True,
+                description=True,
+                item_regex=True,
+                terminal=True,
+            ),
         )
 
     def _dispatch(self) -> None:
@@ -93,7 +101,15 @@ class Dinstall:
         )
         choices = [Choice("textbox", "Release Notes", "ok")]
         choices += [
-            Choice("menu", self.menu, handler, regex=True, item=item, item_regex=True, terminal=i == len(handlers) - 1)
+            Choice(
+                "menu",
+                self.menu,
+                handler,
+                regex=True,
+                item=item,
+                item_regex=True,
+                terminal=i == len(handlers) - 1,
+            )
             for i, (item, handler) in enumerate(handlers)
         ]
         self.d.answer_until(*choices)
@@ -122,7 +138,12 @@ class Dinstall:
     def _base(self, _: str) -> None:
         self._main()
         self.d.answer_until(
-            Choice("menu", "Select Installation Medium", "already mounted filesystem", description=True),
+            Choice(
+                "menu",
+                "Select Installation Medium",
+                "already mounted filesystem",
+                description=True,
+            ),
             Choice("inputbox", "Choose Debian directory", self.fat_mount),
             Choice("menu", "Select Base Archive file", "manually", description=True),
             Choice("inputbox", "Enter the Base Archive directory", self.fat_mount),
@@ -136,10 +157,20 @@ class Dinstall:
         self.d.answer_until(
             Choice("menu", "Select Disk Drive", "/dev/fd0"),
             Choice("msgbox", "Please Insert Disk", "ok", terminal=True),
-            Choice("menu", "Select Installation Medium", "already mounted filesystem", description=True),
+            Choice(
+                "menu",
+                "Select Installation Medium",
+                "already mounted filesystem",
+                description=True,
+            ),
             Choice("inputbox", "Choose Debian directory", self.fat_mount),
             Choice("menu", "Select Base Archive file", "manually", description=True),
-            Choice("inputbox", "Enter the Base Archive directory", self.fat_mount, terminal=True),
+            Choice(
+                "inputbox",
+                "Enter the Base Archive directory",
+                self.fat_mount,
+                terminal=True,
+            ),
         )
 
     def _drivers(self, _: str) -> None:
@@ -160,7 +191,12 @@ class Dinstall:
                 Choice("menu", "Select Category", "net"),
                 Choice("menu", r"Select (net )? ?modules", module, regex=True),
                 Choice("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
-                Choice("inputbox", "Enter Command-Line Arguments", self.o.net_module_args, terminal=True),
+                Choice(
+                    "inputbox",
+                    "Enter Command-Line Arguments",
+                    self.o.net_module_args,
+                    terminal=True,
+                ),
             )
             self.s.vga_wait("Please press ENTER when you are ready to continue.", match=Match.LINE)
             self.s.kb_press("ret")
@@ -190,7 +226,12 @@ class Dinstall:
             Choice("inputbox", "Please Enter Netmask", o.netmask),
             Choice("inputbox", "Please Enter Network Address", o.network),
             Choice("inputbox", "Please Enter Broadcast Address", o.broadcast),
-            Choice("menu", "Choose Broadcast Address", "Last bits set to one", description=True),
+            Choice(
+                "menu",
+                "Choose Broadcast Address",
+                "Last bits set to one",
+                description=True,
+            ),
             Choice("yesno", "Is there a Gateway?", "yes"),
             Choice("inputbox", "Please Enter Gateway Address", o.gateway),
             Choice("menu", "Locate DNS Server", "2"),
@@ -219,7 +260,11 @@ class Dinstall:
         self.s.kb_type(o.user_password, enter=True)
         while True:
             try:
-                self.s.vga_wait(r"^Is (the|this finger) information correct\?? \[y/n\]\??", match=Match.REGEX, timeout=0.1)
+                self.s.vga_wait(
+                    r"^Is (the|this finger) information correct\?? \[y/n\]\??",
+                    match=Match.REGEX,
+                    timeout=0.1,
+                )
                 break
             except TimeoutError:
                 self.s.kb_press("ret")
@@ -232,13 +277,22 @@ class Dinstall:
             except TimeoutError:
                 if not shadow:
                     try:
-                        self.s.vga_wait("Shall I install shadow passwords? [Y/n]", match=Match.LINE, timeout=0.1)
+                        self.s.vga_wait(
+                            "Shall I install shadow passwords? [Y/n]",
+                            match=Match.LINE,
+                            timeout=0.1,
+                        )
                     except TimeoutError:
                         continue
                     self.s.kb_type("y", enter=True)
                     shadow = True
         self.s.kb_press("ret")
-        self.s.vga_wait("Debian Linux `dselect' package handling frontend.", "6. [Q]uit        Quit dselect.", "Press ENTER to confirm selection.   ^L to redraw screen.", match=Match.LINE)
+        self.s.vga_wait(
+            "Debian Linux `dselect' package handling frontend.",
+            "6. [Q]uit        Quit dselect.",
+            "Press ENTER to confirm selection.   ^L to redraw screen.",
+            match=Match.LINE,
+        )
         self.s.kb_press("q", "ret")
 
     def _postinst(self) -> None:

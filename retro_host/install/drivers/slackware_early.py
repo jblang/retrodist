@@ -28,8 +28,10 @@ class Sysinstall:
 
     def _install_type(self) -> str:
         install = self.s.qemu_dir / "fat/install"
-        return "3" if (install / "x1").is_dir() and (install / "t1").is_dir() else (
-            "2" if (install / "x1").is_dir() else "1"
+        return (
+            "3"
+            if (install / "x1").is_dir() and (install / "t1").is_dir()
+            else ("2" if (install / "x1").is_dir() else "1")
         )
 
     def install(self) -> None:
@@ -45,15 +47,24 @@ class Sysinstall:
             f"mke2fs {o.linux_partition}",
         ):
             self.s.serial_shell_send(command)
-        self.s.serial_console_echo("Starting Slackware setup; package installation may take a while...")
+        self.s.serial_console_echo(
+            "Starting Slackware setup; package installation may take a while..."
+        )
         self.s.serial_shell_send(f"doinstall {o.linux_partition}", wait=False)
         self._prompt("Where will you be installing Linux from?", answer="2")
-        self._prompt("Enter the partition that the source is on (eg. /dev/hda1):", answer=o.fat_partition)
+        self._prompt(
+            "Enter the partition that the source is on (eg. /dev/hda1):",
+            answer=o.fat_partition,
+        )
         self._prompt("Enter the type of the filesystem (minix/ext2/msdos)", answer="msdos")
         self._prompt("Enter type of install (1 or 2):", answer=self._install_type())
         self._packages()
         self._prompt(r"^[Dd]o you have a mouse \(y/n\)\? *$", answer="n", regex=True)
-        self._prompt("LILO (Linux Loader) Installation:", "Which option would you like? (1/2/3):", answer="2")
+        self._prompt(
+            "LILO (Linux Loader) Installation:",
+            "Which option would you like? (1/2/3):",
+            answer="2",
+        )
         self.s.serial.wait("Installation is complete.", line=True)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_send(f"echo '{o.swap_partition} none swap sw 0 0' >> /root/etc/fstab")

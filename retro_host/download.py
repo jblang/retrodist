@@ -22,9 +22,7 @@ class Downloader:
             directory = self.context.root / "cdrom" / name
             if not directory.is_dir():
                 raise ConfigError(f"CD-ROM configuration does not exist: {name}")
-            cd_context = Context(
-                self.context.root, directory, "download", self.context.temporary
-            )
+            cd_context = Context(self.context.root, directory, "download", self.context.temporary)
             await self._manifest(cd_context, directory / "download.d")
             self.context.qemu_dir.mkdir(parents=True, exist_ok=True)
             for image in (directory / "download.d").glob("*.iso"):
@@ -89,7 +87,9 @@ class Downloader:
             "rex": (["README", "Contents"], ["msdos-i386", "disks-i386"]),
             "bo": (["README", "Contents-i386.gz"], ["msdos-i386", "disks-i386"]),
         }
-        files, directories = assets.get(release, (["Contents-i386.gz"], ["binary-i386", "disks-i386"]))
+        files, directories = assets.get(
+            release, (["Contents-i386.gz"], ["binary-i386", "disks-i386"])
+        )
         base.mkdir(parents=True, exist_ok=True)
         for name in files:
             target = base / name
@@ -101,12 +101,21 @@ class Downloader:
                 await self._wget_tree(f"{root}/{name}/", destination, cut_dirs=depth)
 
     @staticmethod
-    async def _wget_tree(url: str, destination: Path, *, cut_dirs: int, reject: str = "*index*") -> None:
+    async def _wget_tree(
+        url: str, destination: Path, *, cut_dirs: int, reject: str = "*index*"
+    ) -> None:
         log.info("Downloading directory tree %s", url)
         process = await asyncio.create_subprocess_exec(
-            "wget", "--no-verbose", "--show-progress", "--recursive", "--no-parent",
-            "--no-host-directories", f"--cut-dirs={cut_dirs}",
-            f"--directory-prefix={destination}", f"--reject={reject}", url,
+            "wget",
+            "--no-verbose",
+            "--show-progress",
+            "--recursive",
+            "--no-parent",
+            "--no-host-directories",
+            f"--cut-dirs={cut_dirs}",
+            f"--directory-prefix={destination}",
+            f"--reject={reject}",
+            url,
         )
         if await process.wait():
             raise OSError(f"wget failed for {url}")

@@ -57,31 +57,23 @@ class Serial:
         timeout: float | None = None,
     ) -> str:
         return self._session._call(
-            self._session._runtime.serial.wait(
-                expected, line=line, regex=regex, timeout=timeout
-            )
+            self._session._runtime.serial.wait(expected, line=line, regex=regex, timeout=timeout)
         )
 
     def prompt(self, *questions: str, answer: str, regex: bool = False) -> None:
         self._session._call(
-            self._session._runtime.serial.prompt(
-                *questions, answer=answer, regex=regex
-            )
+            self._session._runtime.serial.prompt(*questions, answer=answer, regex=regex)
         )
 
     def wait_any(
         self, *patterns: str, regex: bool = False, timeout: float | None = None
     ) -> tuple[int, str]:
         return self._session._call(
-            self._session._runtime.serial.wait_any(
-                patterns, regex=regex, timeout=timeout
-            )
+            self._session._runtime.serial.wait_any(patterns, regex=regex, timeout=timeout)
         )
 
     def read_until(self, pattern: re.Pattern[str]) -> str:
-        return self._session._call(
-            self._session._runtime.serial.read_until(pattern)
-        )
+        return self._session._call(self._session._runtime.serial.read_until(pattern))
 
     def mark(self) -> int:
         return self._session._call(self._session._runtime.serial.mark())
@@ -153,9 +145,7 @@ class InstallSession:
             log.info("⌨️  %s ↩️", text)
         self._send_keys(keys)
 
-    def change_image(
-        self, image: str, device: str = "floppy0", format: str = "raw"
-    ) -> None:
+    def change_image(self, image: str, device: str = "floppy0", format: str = "raw") -> None:
         log.info("💾 Inserting %r", image)
         self._call(self._runtime.monitor.hmp(f"change {device} {image} {format}"))
 
@@ -171,9 +161,7 @@ class InstallSession:
         log.info("🥾 Set boot device to %s", disk)
         self._call(self._runtime.monitor.hmp(f"boot_set {disk}"))
 
-    def serial_shell_start(
-        self, *, screen_prompt: str = "#", serial_prompt: str = "#"
-    ) -> None:
+    def serial_shell_start(self, *, screen_prompt: str = "#", serial_prompt: str = "#") -> None:
         device = "/dev/ttyS3"
         launcher = (
             f"[ -c {device} ] || mknod {device} c 4 67; "
@@ -183,9 +171,7 @@ class InstallSession:
         self.kb_type(launcher, enter=True)
         self.serial.wait(serial_prompt, line=True)
 
-    def serial_shell_send(
-        self, command: str, *, wait: bool = True, prompt: str = "#"
-    ) -> None:
+    def serial_shell_send(self, command: str, *, wait: bool = True, prompt: str = "#") -> None:
         self.serial.send(command)
         if wait:
             self.serial.wait(prompt, line=True)

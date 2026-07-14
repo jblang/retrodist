@@ -70,9 +70,7 @@ class ScreenObserver:
             dump = Path(stream.name)
         dump.unlink()
         try:
-            await self.monitor.hmp(
-                f"pmemsave {self.address:#x} {self.memory_bytes} {dump.name}"
-            )
+            await self.monitor.hmp(f"pmemsave {self.address:#x} {self.memory_bytes} {dump.name}")
             return decode(dump.read_bytes(), self.columns, None)
         finally:
             dump.unlink(missing_ok=True)

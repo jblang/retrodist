@@ -31,9 +31,11 @@ class Choice:
             if self.regex
             else self.title == screen.title
         )
-        type_matches = self.widget == "any" or self.widget == screen.widget or {
-            self.widget, screen.widget
-        } == {"msgbox", "textbox"}
+        type_matches = (
+            self.widget == "any"
+            or self.widget == screen.widget
+            or {self.widget, screen.widget} == {"msgbox", "textbox"}
+        )
         if not (title_matches and type_matches):
             return False
         if self.item is None:
@@ -92,8 +94,12 @@ class Dialog:
             else:
                 answer = choice.answer
                 if choice.description:
-                    matcher = re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
-                    answer = next(key for key, description in screen.items if matcher.search(description))
+                    matcher = (
+                        re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
+                    )
+                    answer = next(
+                        key for key, description in screen.items if matcher.search(description)
+                    )
                 self.serial.send(answer)
             pending.remove(choice)
             if choice.terminal:

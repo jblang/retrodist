@@ -23,7 +23,7 @@ async def package(context: Context) -> Path:
     await runtime.ensure_disk()
     command = runtime.command()
     (context.qemu_dir / "retro.sh").write_text(
-        "#!/bin/sh\ncd -- \"$(dirname -- \"$0\")\"\nexec " + shlex.join(command) + "\n"
+        '#!/bin/sh\ncd -- "$(dirname -- "$0")"\nexec ' + shlex.join(command) + "\n"
     )
     (context.qemu_dir / "retro.sh").chmod(0o755)
     (context.qemu_dir / "retro.bat").write_text(
@@ -38,19 +38,73 @@ async def package(context: Context) -> Path:
 
 
 _PACKAGES = {
-    "apt-get": ("sudo", ["apt-get", "install", "qemu-system-x86", "qemu-system-gui", "qemu-utils", "p7zip-full", "unzip", "wget", "bchunk", "mtools"]),
-    "dnf": ("sudo", ["dnf", "install", "qemu-system-x86-core", "qemu-img", "qemu-ui-gtk", "7zip", "unzip", "wget", "bchunk", "mtools"]),
-    "pacman": ("sudo", ["pacman", "-S", "--needed", "qemu-system-x86", "qemu-ui-gtk", "qemu-img", "p7zip", "unzip", "wget", "bchunk", "mtools"]),
+    "apt-get": (
+        "sudo",
+        [
+            "apt-get",
+            "install",
+            "qemu-system-x86",
+            "qemu-system-gui",
+            "qemu-utils",
+            "p7zip-full",
+            "unzip",
+            "wget",
+            "bchunk",
+            "mtools",
+        ],
+    ),
+    "dnf": (
+        "sudo",
+        [
+            "dnf",
+            "install",
+            "qemu-system-x86-core",
+            "qemu-img",
+            "qemu-ui-gtk",
+            "7zip",
+            "unzip",
+            "wget",
+            "bchunk",
+            "mtools",
+        ],
+    ),
+    "pacman": (
+        "sudo",
+        [
+            "pacman",
+            "-S",
+            "--needed",
+            "qemu-system-x86",
+            "qemu-ui-gtk",
+            "qemu-img",
+            "p7zip",
+            "unzip",
+            "wget",
+            "bchunk",
+            "mtools",
+        ],
+    ),
 }
 
 
 async def install_prerequisites(*, dry_run: bool = False) -> None:
     if platform.system() == "Darwin" and shutil.which("brew"):
-        command = ["brew", "install", "qemu", "p7zip", "unzip", "wget", "bchunk", "mtools"]
+        command = [
+            "brew",
+            "install",
+            "qemu",
+            "p7zip",
+            "unzip",
+            "wget",
+            "bchunk",
+            "mtools",
+        ]
     else:
         manager = next((name for name in ("apt-get", "dnf", "pacman") if shutil.which(name)), None)
         if manager is None:
-            raise CommandError("No supported package manager found; install QEMU, 7z, wget, bchunk, unzip, and mtools manually")
+            raise CommandError(
+                "No supported package manager found; install QEMU, 7z, wget, bchunk, unzip, and mtools manually"
+            )
         prefix, arguments = _PACKAGES[manager]
         command = [prefix, *arguments]
     log.info("Prerequisite command: %s", shlex.join(command))

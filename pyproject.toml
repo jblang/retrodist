@@ -12,9 +12,17 @@ dependencies = [
   "qemu.qmp==0.0.6",
 ]
 
+[project.optional-dependencies]
+dev = ["black"]
+
 [project.scripts]
 retro-py = "retro_host.cli:main"
 qmp-py = "retro_host.qmp_cli:main"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 99
+extend-exclude = "/(qemu\\.d|download\\.d|tagfile\\.d|\\.venv)/"
 
 [tool.setuptools.packages.find]
 include = ["retro_host*"]

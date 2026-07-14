@@ -73,7 +73,7 @@ class _DialogSerial:
         match = pattern.search(self.text, self.offset)
         assert match
         start, self.offset = self.offset, match.end()
-        return self.text[start:self.offset]
+        return self.text[start : self.offset]
 
     def send(self, text: str) -> None:
         self.answers.append(text)
@@ -105,10 +105,7 @@ class DialogTests(unittest.TestCase):
 
     def test_none_answer_leaves_lookahead_for_outer_dispatch(self) -> None:
         def screen(item: str) -> str:
-            return (
-                "TITLE: Main\nTYPE: menu\n"
-                f"ITEM: Next :: {item}\nRESPONSE:\n"
-            )
+            return "TITLE: Main\nTYPE: menu\n" f"ITEM: Next :: {item}\nRESPONSE:\n"
 
         serial = _DialogSerial(screen("Install Base") + screen("Install Kernel"))
         dialog = Dialog(serial)
@@ -341,7 +338,9 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SerialTests(unittest.IsolatedAsyncioTestCase):
-    async def test_wait_consumes_prompt_padding_before_next_anchored_regex(self) -> None:
+    async def test_wait_consumes_prompt_padding_before_next_anchored_regex(
+        self,
+    ) -> None:
         console = SerialConsole(Path("unused.sock"))
         console._buffer = "Install type: "
         await console.wait("Install type:", timeout=0.1)

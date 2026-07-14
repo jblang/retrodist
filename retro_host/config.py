@@ -48,7 +48,9 @@ class QemuConfig:
     nic: str | None = None
     network_enabled: bool = True
     forwards: list[tuple[int, int]] = field(default_factory=list)
-    display: str = field(default_factory=lambda: "cocoa" if platform.system() == "Darwin" else "gtk")
+    display: str = field(
+        default_factory=lambda: "cocoa" if platform.system() == "Darwin" else "gtk"
+    )
     acceleration: str | None = None
     vga: str | None = None
     extra: list[str] = field(default_factory=list)
@@ -122,7 +124,12 @@ def _apply_legacy_assignments(config: QemuConfig, path: Path) -> None:
         name, value = match.groups()
         if name == "QEMU_NET_ENABLED":
             config.network_enabled = value.lower() not in {
-                "0", "false", "no", "off", "none", "disabled"
+                "0",
+                "false",
+                "no",
+                "off",
+                "none",
+                "disabled",
             }
             continue
         if name not in _LEGACY_FIELDS:

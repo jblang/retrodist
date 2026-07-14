@@ -19,7 +19,17 @@ from .qemu import QemuRuntime
 from .slackware import generate_default_tag
 
 log = logging.getLogger(__name__)
-COMMANDS = ("help", "boot", "install", "extract", "download", "tagfile", "package", "prereq", "reset")
+COMMANDS = (
+    "help",
+    "boot",
+    "install",
+    "extract",
+    "download",
+    "tagfile",
+    "package",
+    "prereq",
+    "reset",
+)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -30,7 +40,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("command", choices=COMMANDS, nargs="?", default="help")
     result.add_argument("config", nargs="?")
     result.add_argument("--debug", action="store_true")
-    result.add_argument("--dry-run", action="store_true", help="print prerequisite command without running it")
+    result.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print prerequisite command without running it",
+    )
     return result
 
 

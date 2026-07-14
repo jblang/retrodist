@@ -8,7 +8,9 @@ def install(session):
     session.kb_type("", enter=True)
     session.vga_wait("#", match=Match.LINE)
     session.serial_shell_start()
-    session.serial_shell_send("for p in /bin/tput /usr/bin/tput /usr/local/bin/tput; do if [ -f $p ]; then mv $p $p.real; echo exit 0 >$p; chmod 755 $p; fi; done")
+    session.serial_shell_send(
+        "for p in /bin/tput /usr/bin/tput /usr/local/bin/tput; do if [ -f $p ]; then mv $p $p.real; echo exit 0 >$p; chmod 755 $p; fi; done"
+    )
     Fdisk(session).partition()
     session.serial.wait("#", line=True)
     session.serial_console_echo("Starting Debian setup; base installation may take a while...")
@@ -40,7 +42,11 @@ def install(session):
     session.serial.send("")
     answers = (
         ("Which partition contains your root filesystem? /dev/", "hda2", False),
-        ("Which partition is your swap partition (<RETURN> for none)? /dev/", "hda1", False),
+        (
+            "Which partition is your swap partition (<RETURN> for none)? /dev/",
+            "hda1",
+            False,
+        ),
         ("What is the unqualified hostname of your machine?", "debra", False),
         (r"What is the local domainname", "retro.net", True),
         (r"Your fully-qualified hostname is .* Correct \(y/n\)\?", "y", True),
@@ -61,7 +67,11 @@ def install(session):
         ("Which type of mouse do you have (if you have one)?", "1", False),
         ("Which port contains your mouse?", "3", False),
         ("What type of serial mouse do you have?", "1", False),
-        ("Would you like to make a custom bootdisk before proceeding (y/n)?", "n", False),
+        (
+            "Would you like to make a custom bootdisk before proceeding (y/n)?",
+            "n",
+            False,
+        ),
         ("Press <RETURN> to continue...", "", False),
         ("Please select one:", "7", False),
     )

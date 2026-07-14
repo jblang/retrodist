@@ -22,7 +22,9 @@ class PerlInstallerOptions:
 class PerlInstaller:
     """Reusable actions for Red Hat's 1.x-3.x Perl/dialog installer."""
 
-    def __init__(self, session: InstallSession, options: PerlInstallerOptions | None = None) -> None:
+    def __init__(
+        self, session: InstallSession, options: PerlInstallerOptions | None = None
+    ) -> None:
         self.s = session
         self.o = options or PerlInstallerOptions()
 
@@ -70,7 +72,11 @@ class PerlInstaller:
         fields = [
             ("What hostname have you selected for this computer?", o.hostname, 0),
             ("What domain name is this computer part of?", o.domain, 0),
-            ("What is the fully qualified domain name (FQDN) of this computer?", self.fqdn, 30),
+            (
+                "What is the fully qualified domain name (FQDN) of this computer?",
+                self.fqdn,
+                30,
+            ),
             ("What is the IP address of this computer?", o.ip, 0),
         ]
         network_fields = [
@@ -102,7 +108,12 @@ class PerlInstaller:
     def configure_x11(self) -> None:
         self.step("Which type of mouse do you have?", "p", "ret")
         self.step("Do you want to autoprobe?", "n")
-        for prompt in ("Pick a chipset.", "How much memory does your card have.", "Enter your clocks, separated by spaces.", "Please choose a monitor."):
+        for prompt in (
+            "Pick a chipset.",
+            "How much memory does your card have.",
+            "Enter your clocks, separated by spaces.",
+            "Please choose a monitor.",
+        ):
             self.step(prompt, "ret")
 
     def finish(self, clock_prompt: str, *, blank_twice: bool = False) -> None:

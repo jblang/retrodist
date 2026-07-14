@@ -82,7 +82,13 @@ def prepare_tagfiles(context: Context, qemu_dir: Path) -> None:
                     continue
                 disk = parts[-2]
                 series = re.sub(r"\d+$", "", disk)
-                universe.append((fat / "tagfiles" / disk / "tagfile", series, _package_name(parts[-1])))
+                universe.append(
+                    (
+                        fat / "tagfiles" / disk / "tagfile",
+                        series,
+                        _package_name(parts[-1]),
+                    )
+                )
         finally:
             image.close()
         shutil.rmtree(fat / "tagfiles", ignore_errors=True)
@@ -117,7 +123,11 @@ def generate_default_tag(context: Context, qemu_dir: Path) -> None:
     )
     if source:
         for path in source.glob("*/*"):
-            if path.is_file() and (path.name in {"tagfile", "tagfile.org"} or path.name.startswith("disk") or path.suffix == ".txt"):
+            if path.is_file() and (
+                path.name in {"tagfile", "tagfile.org"}
+                or path.name.startswith("disk")
+                or path.suffix == ".txt"
+            ):
                 disk = path.parent.name
                 first = re.sub(r"\d+$", "1", disk)
                 target = tagroot / first / ("tagfile" if path.name == "tagfile.org" else path.name)
@@ -133,7 +143,11 @@ def generate_default_tag(context: Context, qemu_dir: Path) -> None:
                     if directory or len(parts) < 4 or parts[1] not in {"slakware", "slackware"}:
                         continue
                     name = parts[-1]
-                    if name not in {"tagfile", "tagfile.org"} and not name.startswith("disk") and not name.endswith(".txt"):
+                    if (
+                        name not in {"tagfile", "tagfile.org"}
+                        and not name.startswith("disk")
+                        and not name.endswith(".txt")
+                    ):
                         continue
                     first = re.sub(r"\d+$", "1", parts[-2])
                     target = tagroot / first / ("tagfile" if name == "tagfile.org" else name)

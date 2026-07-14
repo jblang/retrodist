@@ -5,7 +5,10 @@ from retro_host.install.drivers.debian import Dinstall, DinstallOptions
 def install(session):
     session.vga_wait("boot:", match=Match.LINE)
     session.kb_type("", enter=True)
-    session.vga_wait("VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER", match=Match.LINE)
+    session.vga_wait(
+        "VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER",
+        match=Match.LINE,
+    )
     session.change_floppy("root.img")
     session.kb_press("ret")
     Dinstall(

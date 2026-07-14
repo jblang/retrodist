@@ -52,6 +52,13 @@ ISO access. It retains the existing external QEMU, `7z`, `wget`, `mtools`, and
 `bchunk` tools. See [the Python host notes](hostlib/README.md#python-host) for
 the compatibility boundary and installer API.
 
+Install the Python development tools and check formatting with:
+
+```bash
+python3 -m pip install -e '.[dev]'
+black --check .
+```
+
 The repository is organized around three layers:
 
 - distro configs describe source media, staged files, emulated hardware, and

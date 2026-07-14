@@ -8,4 +8,3 @@ class ConfigError(RetroError):
 
 class CommandError(RetroError):
     """An external command failed."""
-

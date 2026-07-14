@@ -72,6 +72,7 @@ def legacy_extraction(path: Path, context: Context) -> "Extraction":
         "extract_link_boot_media",
         "gunzip",
     }
+
     def supported(command: list[str]) -> bool:
         return bool(command) and (
             command[0] in allowed
@@ -81,11 +82,23 @@ def legacy_extraction(path: Path, context: Context) -> "Extraction":
 
     custom = next((command for command in commands if not supported(command)), None)
     if custom:
-        raise ConfigError(
-            f"Custom extraction command {custom[0]!r} in {path} requires extract.py"
-        )
-    links = next((command[1:] for command in commands if command and command[0] == "extract_link_boot_media"), [])
-    install_iso = next((command[1] for command in commands if command and command[0] == "extract_link_install_iso" and len(command) > 1), None)
+        raise ConfigError(f"Custom extraction command {custom[0]!r} in {path} requires extract.py")
+    links = next(
+        (
+            command[1:]
+            for command in commands
+            if command and command[0] == "extract_link_boot_media"
+        ),
+        [],
+    )
+    install_iso = next(
+        (
+            command[1]
+            for command in commands
+            if command and command[0] == "extract_link_install_iso" and len(command) > 1
+        ),
+        None,
+    )
     source = variables.get("EXTRACT_SOURCE", "")
     if install_iso and not source:
         source = install_iso
@@ -153,11 +166,13 @@ class Iso:
         for base, directories, files in self.image.walk(**{self.argument: "/"}):
             for name in directories:
                 self.paths[self._key(f"{base.rstrip('/')}/{name}")] = (
-                    f"{base.rstrip('/')}/{name}", True
+                    f"{base.rstrip('/')}/{name}",
+                    True,
                 )
             for name in files:
                 self.paths[self._key(f"{base.rstrip('/')}/{name}")] = (
-                    f"{base.rstrip('/')}/{name}", False
+                    f"{base.rstrip('/')}/{name}",
+                    False,
                 )
 
     @staticmethod
@@ -177,9 +192,7 @@ class Iso:
         if directory:
             raise ConfigError(f"Expected ISO file, found directory: {source}")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        self.image.get_file_from_iso(
-            local_path=str(destination), **{self.argument: actual}
-        )
+        self.image.get_file_from_iso(local_path=str(destination), **{self.argument: actual})
 
     def extract_files(self, source: str, destination: Path) -> None:
         matches = [
@@ -207,9 +220,7 @@ class Iso:
             relative = key[len(prefix) :].lstrip("/")
             target = destination / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            self.image.get_file_from_iso(
-                local_path=str(target), **{self.argument: actual}
-            )
+            self.image.get_file_from_iso(local_path=str(target), **{self.argument: actual})
 
 
 class MediaStager:
@@ -234,7 +245,9 @@ class MediaStager:
                 spec = None
                 shell_manifest = legacy
         else:
-            raise ConfigError(f"No extract.py or compatible extract.sh configured for {self.context.name}")
+            raise ConfigError(
+                f"No extract.py or compatible extract.sh configured for {self.context.name}"
+            )
         if shell_manifest is None and not isinstance(spec, Extraction):
             raise ConfigError(f"{manifest or legacy} must define an Extraction named 'extraction'")
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -261,10 +274,7 @@ class MediaStager:
             "CONFNAME": self.context.name,
             "COMMAND": self.context.command,
         }
-        command = (
-            'for library in "$HOSTLIB_D"/*.sh; do source "$library"; done; '
-            'source "$1"'
-        )
+        command = 'for library in "$HOSTLIB_D"/*.sh; do source "$library"; done; ' 'source "$1"'
         process = await asyncio.create_subprocess_exec(
             "bash",
             "-c",
@@ -285,9 +295,11 @@ class MediaStager:
         stripped = self.context.temporary / "ks.cfg"
         stripped.write_text(
             "\n".join(
-                line for line in source.read_text().splitlines()
+                line
+                for line in source.read_text().splitlines()
                 if line.strip() and not line.lstrip().startswith("#")
-            ) + "\n"
+            )
+            + "\n"
         )
         process = await asyncio.create_subprocess_exec(
             "mcopy", "-o", "-i", str(boot), str(stripped), "::ks.cfg"
@@ -298,7 +310,9 @@ class MediaStager:
     async def _stage(self, spec: Extraction) -> None:
         source = Path(spec.source)
         if not source.is_absolute():
-            source = self.context.download_dir / source if spec.source else self.context.download_dir
+            source = (
+                self.context.download_dir / source if spec.source else self.context.download_dir
+            )
         images = [item for item in [spec.boot_image, spec.root_image, *spec.extra_images] if item]
         if source.suffix.lower() == ".iso":
             self._link(source, self.directory / "install.iso")
@@ -318,7 +332,11 @@ class MediaStager:
             for item in spec.fat_files:
                 self._copy_matches(source, item, self.directory / "fat")
             if spec.packages:
-                shutil.copytree(source / spec.packages, self.directory / "fat" / "packages", dirs_exist_ok=True)
+                shutil.copytree(
+                    source / spec.packages,
+                    self.directory / "fat" / "packages",
+                    dirs_exist_ok=True,
+                )
         else:
             await self._extract_with_7z(source, spec)
         self._postprocess(spec)
@@ -375,7 +393,9 @@ class MediaStager:
     @staticmethod
     def _copy_matches(source: Path, pattern: str, destination: Path) -> None:
         path = Path(pattern)
-        matches = list(path.parent.glob(path.name)) if path.is_absolute() else list(source.glob(pattern))
+        matches = (
+            list(path.parent.glob(path.name)) if path.is_absolute() else list(source.glob(pattern))
+        )
         if not matches:
             raise ConfigError(f"Source path not found: {pattern}")
         destination.mkdir(parents=True, exist_ok=True)

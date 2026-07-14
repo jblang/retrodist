@@ -59,7 +59,11 @@ async def _run(arguments: list[str] | None = None) -> None:
             try:
                 await monitor.hmp(f"pmemsave {args.address:#x} {args.bytes} {dump}")
                 lines = decode(dump.read_bytes(), args.columns, args.rows).splitlines()
-                print("\n".join(f"{i:6}\t{line}" for i, line in enumerate(lines, 1)) if args.line_numbers else "\n".join(lines))
+                print(
+                    "\n".join(f"{i:6}\t{line}" for i, line in enumerate(lines, 1))
+                    if args.line_numbers
+                    else "\n".join(lines)
+                )
             finally:
                 dump.unlink(missing_ok=True)
         elif args.command == "send-key":

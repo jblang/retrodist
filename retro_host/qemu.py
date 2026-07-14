@@ -76,7 +76,11 @@ class QemuRuntime:
             options: str | None = None
             if image.is_file():
                 format = "raw" if interface == "floppy" else self.config.disk_format
-                extra = f",{self.config.hda_options}" if name == "hda" and self.config.hda_options else ""
+                extra = (
+                    f",{self.config.hda_options}"
+                    if name == "hda" and self.config.hda_options
+                    else ""
+                )
                 options = f"if={interface},index={index},format={format},file={image.name}{extra}"
             elif iso.is_file():
                 options = f"if={interface},index={index},format=raw,media=cdrom,file={iso.name}"
@@ -92,10 +96,14 @@ class QemuRuntime:
         cfg = self.config
         args = [
             cfg.system,
-            "-machine", cfg.machine or "type=isapc",
-            "-smp", str(cfg.smp),
-            "-m", cfg.ram or "16M",
-            "-qmp", "unix:qmp.sock,server=on,wait=off",
+            "-machine",
+            cfg.machine or "type=isapc",
+            "-smp",
+            str(cfg.smp),
+            "-m",
+            cfg.ram or "16M",
+            "-qmp",
+            "unix:qmp.sock,server=on,wait=off",
         ]
         for index in range(2):
             args += ["-serial", f"unix:ttyS{index}.sock,server=on,wait=off"]
@@ -104,7 +112,9 @@ class QemuRuntime:
         args += ["-serial", "unix:ttyS3.sock,server=on,wait=off"]
         args += ["-parallel", "unix:lp0.sock,server=on,wait=off"]
         for option, value in (
-            ("-display", cfg.display), ("-accel", cfg.acceleration), ("-vga", cfg.vga)
+            ("-display", cfg.display),
+            ("-accel", cfg.acceleration),
+            ("-vga", cfg.vga),
         ):
             if value:
                 args += [option, value]
@@ -120,7 +130,11 @@ class QemuRuntime:
             args += ["-global", f"isa-fdc.fdtypeB={cfg.fdtype_b}"]
         args += self._drives()
         floppy, cdrom = self._startup_media()
-        boot = cfg.boot_order or ("order=a" if self.context.command == "install" and floppy else "order=d" if self.context.command == "install" and cdrom else None)
+        boot = cfg.boot_order or (
+            "order=a"
+            if self.context.command == "install" and floppy
+            else "order=d" if self.context.command == "install" and cdrom else None
+        )
         if boot:
             args += ["-boot", boot]
         return args + cfg.extra

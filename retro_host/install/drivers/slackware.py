@@ -102,12 +102,23 @@ class Pkgtool:
         self.d.answer_until(
             Choice("menu", "Select Linux installation partition:", o.linux_partition),
             Choice("msgbox", "Using this partition for Linux:", "ok"),
-            Choice("menu", r"(CHOOSE LINUX FILESYSTEM|SELECT FILESYSTEM FOR .*)", "ext2", regex=True),
+            Choice(
+                "menu",
+                r"(CHOOSE LINUX FILESYSTEM|SELECT FILESYSTEM FOR .*)",
+                "ext2",
+                regex=True,
+            ),
             Choice("menu", r"FORMAT PARTITION( .*)?", "Format", regex=True),
             Choice("menu", r"SELECT INODE DENSITY( .*)?", "4096", regex=True),
             Choice("msgbox", "DONE ADDING LINUX PARTITIONS TO /etc/fstab", "ok"),
             Choice("yesno", "DOS AND OS/2 PARTITION SETUP", "yes", terminal=True),
-            Choice("yesno", r"FAT/FAT32(/HPFS)? PARTITIONS DETECTED", "yes", regex=True, terminal=True),
+            Choice(
+                "yesno",
+                r"FAT/FAT32(/HPFS)? PARTITIONS DETECTED",
+                "yes",
+                regex=True,
+                terminal=True,
+            ),
         )
         self.d.answer_until(
             Choice("inputbox", "CHOOSE PARTITION", o.fat_partition),
@@ -128,7 +139,13 @@ class Pkgtool:
         if o.source == "/dev/hdc":
             self.d.answer_until(
                 Choice("menu", "SOURCE MEDIA SELECTION", "CD-ROM", description=True),
-                Choice("menu", "Install from the Slackware CD-ROM", r"(IDE.*CD drives|ATAPI/IDE CD drives)", description=True, item_regex=True),
+                Choice(
+                    "menu",
+                    "Install from the Slackware CD-ROM",
+                    r"(IDE.*CD drives|ATAPI/IDE CD drives)",
+                    description=True,
+                    item_regex=True,
+                ),
                 Choice("menu", "SCAN FOR CD-ROM DRIVE?", "manual"),
                 Choice("menu", "SELECT IDE DEVICE", o.source),
                 Choice("menu", "MANUAL CD-ROM DEVICE SELECTION", o.source),
@@ -139,7 +156,13 @@ class Pkgtool:
             )
         elif o.source == o.fat_partition:
             self.d.answer(Choice("menu", "SOURCE MEDIA SELECTION", "4"))
-            self.d.answer(Choice("inputbox", "INSTALL FROM THE CURRENT FILESYSTEM", f"{o.fat_mount}/packages"))
+            self.d.answer(
+                Choice(
+                    "inputbox",
+                    "INSTALL FROM THE CURRENT FILESYSTEM",
+                    f"{o.fat_mount}/packages",
+                )
+            )
             self.d.answer(Choice("yesno", "CONTINUE?", "yes"))
         else:
             log.warning("Manual package source selection required; automation will resume")
@@ -148,12 +171,23 @@ class Pkgtool:
     def _sets(self) -> None:
         mode = "custom path" if self.o.tagfile_path else "default tagfiles"
         self.d.answer_until(
-            Choice("checklist", r"(PACKAGE |SOFTWARE )?SERIES SELECTION", self.o.package_sets, regex=True),
+            Choice(
+                "checklist",
+                r"(PACKAGE |SOFTWARE )?SERIES SELECTION",
+                self.o.package_sets,
+                regex=True,
+            ),
             Choice("yesno", "CONTINUE?", "yes"),
             Choice("menu", "SELECT PROMPTING MODE", mode, description=True, terminal=True),
         )
         if self.o.tagfile_path:
-            self.d.answer(Choice("inputbox", "PROVIDE A CUSTOM PATH TO YOUR TAGFILES", self.o.tagfile_path))
+            self.d.answer(
+                Choice(
+                    "inputbox",
+                    "PROVIDE A CUSTOM PATH TO YOUR TAGFILES",
+                    self.o.tagfile_path,
+                )
+            )
 
     def _configure(self) -> None:
         o = self.o
@@ -168,7 +202,11 @@ class Pkgtool:
             self.d.answer_until(
                 Choice("menu", title, "Begin"),
                 Choice("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
-                Choice("menu", "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?", o.lilo_framebuffer),
+                Choice(
+                    "menu",
+                    "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?",
+                    o.lilo_framebuffer,
+                ),
                 Choice("menu", "SELECT LILO TARGET LOCATION", "MBR"),
                 Choice("inputbox", "CONFIRM LOCATION TO INSTALL LILO", o.target_disk),
                 Choice("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
@@ -186,7 +224,12 @@ class Pkgtool:
                 Choice("inputbox", r"ENTER DOMAINNAME( FOR .*)?", o.domain, regex=True),
                 Choice("yesno", "LOOPBACK ONLY?", "no"),
                 Choice("menu", r"SETUP IP (ADDRESS )?FOR .*", "static IP", regex=True),
-                Choice("inputbox", r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)", o.ip, regex=True),
+                Choice(
+                    "inputbox",
+                    r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)",
+                    o.ip,
+                    regex=True,
+                ),
                 Choice("inputbox", "ENTER NETWORK ADDRESS", o.network),
                 Choice("inputbox", "ENTER BROADCAST ADDRESS", o.broadcast),
                 Choice("inputbox", "ENTER GATEWAY ADDRESS", o.gateway),

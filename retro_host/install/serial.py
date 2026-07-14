@@ -34,20 +34,14 @@ class SerialConsole:
         deadline = loop.time() + self.connect_timeout
         while True:
             try:
-                self._reader, self._writer = await asyncio.open_unix_connection(
-                    self.socket
-                )
+                self._reader, self._writer = await asyncio.open_unix_connection(self.socket)
                 break
             except (FileNotFoundError, ConnectionRefusedError):
                 if loop.time() >= deadline:
-                    raise TimeoutError(
-                        f"Timed out connecting to serial socket {self.socket}"
-                    )
+                    raise TimeoutError(f"Timed out connecting to serial socket {self.socket}")
                 await asyncio.sleep(0.05)
         self._log_file = self.log_path.open("wb")
-        self._drain_task = asyncio.create_task(
-            self._drain(), name="serial-console-reader"
-        )
+        self._drain_task = asyncio.create_task(self._drain(), name="serial-console-reader")
 
     async def close(self) -> None:
         if self._writer:
@@ -156,11 +150,14 @@ class SerialConsole:
             return await waiting()
 
     async def wait_any(
-        self, patterns: tuple[str, ...], *, regex: bool = False, timeout: float | None = None
+        self,
+        patterns: tuple[str, ...],
+        *,
+        regex: bool = False,
+        timeout: float | None = None,
     ) -> tuple[int, str]:
         compiled = tuple(
-            re.compile(value if regex else re.escape(value), re.MULTILINE)
-            for value in patterns
+            re.compile(value if regex else re.escape(value), re.MULTILINE) for value in patterns
         )
 
         async def waiting() -> tuple[int, str]:
@@ -212,9 +209,7 @@ class SerialConsole:
             raise ValueError("Invalid serial buffer offset")
         self._offset = offset
 
-    async def prompt(
-        self, *questions: str, answer: str, regex: bool = False
-    ) -> None:
+    async def prompt(self, *questions: str, answer: str, regex: bool = False) -> None:
         for question in questions:
             await self.wait(question, regex=regex)
         await self.send(answer)

@@ -58,9 +58,7 @@ class Monitor:
             except EOFError:
                 log.debug("QMP peer closed before disconnect completed")
 
-    async def execute(
-        self, command: str, arguments: dict[str, object] | None = None
-    ) -> Any:
+    async def execute(self, command: str, arguments: dict[str, object] | None = None) -> Any:
         if self._client is None:
             raise QmpUnavailable("QMP is not connected")
         log.debug("QMP %s %s", command, arguments or "")
@@ -68,20 +66,14 @@ class Monitor:
             return await self._client.execute(command, arguments)
 
     async def hmp(self, command: str) -> str:
-        response = await self.execute(
-            "human-monitor-command", {"command-line": command}
-        )
+        response = await self.execute("human-monitor-command", {"command-line": command})
         return response if isinstance(response, str) else ""
 
-    async def send_key(
-        self, key: str, *, hold_time: int = 10, interval: float = 0.02
-    ) -> None:
+    async def send_key(self, key: str, *, hold_time: int = 10, interval: float = 0.02) -> None:
         await self.execute(
             "send-key",
             {
-                "keys": [
-                    {"type": "qcode", "data": part} for part in key.split("-")
-                ],
+                "keys": [{"type": "qcode", "data": part} for part in key.split("-")],
                 "hold-time": hold_time,
             },
         )
