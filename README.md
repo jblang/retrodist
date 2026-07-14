@@ -39,6 +39,19 @@ retro install slackware/3.0/walnut
 `boot` and `install` automatically download and extract the needed media before
 starting QEMU.
 
+An alternative Python host is available alongside the Bash implementation:
+
+```bash
+python3 -m pip install -e .
+retro-py install slackware/3.0/walnut
+qmp-py dump-screen
+```
+
+It requires Python 3.11 or newer and uses `qemu.qmp` for QMP and `pycdlib` for
+ISO access. It retains the existing external QEMU, `7z`, `wget`, `mtools`, and
+`bchunk` tools. See [the Python host notes](hostlib/README.md#python-host) for
+the compatibility boundary and installer API.
+
 The repository is organized around three layers:
 
 - distro configs describe source media, staged files, emulated hardware, and

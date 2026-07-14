@@ -28,6 +28,39 @@ guest forwarding, `qemu-devices.sh` builds media and character devices,
 `qemu-command.sh` assembles and renders command lines, and `qemu.sh`
 orchestrates preparation, execution, packaging, and reset.
 
+## Python Host
+
+`retro_host/` and the `retro-py` entry point are an alternative Python 3.11+
+implementation that can be installed with `python3 -m pip install -e .`. It
+runs beside the existing Bash entry points; it does not replace `retro`,
+`hostlib/`, or the Bash config manifests.
+
+The Python host uses the standard-library logging API, `qemu.qmp` over a Unix
+domain socket, and `pycdlib` for ISO traversal. QEMU and `qemu-img` remain
+external programs. Initial archive extraction deliberately remains with
+external `7z`; mirror recursion uses `wget`, and the few floppy/CD conversion
+cases retain `mtools` and `bchunk`.
+
+Ordinary assignment-based `qemu.sh` and declarative `EXTRACT_*` manifests are
+read without executing shell. If an `extract.sh` contains custom operations,
+the Python host runs that existing manifest under Bash with the normal
+`DISTRO_D`, `DOWNLOAD_D`, `EXTRACT_D`, `QEMU_D`, `TEMP_D`, and library paths.
+New configs may instead provide `qemu.py` and `extract.py`; a selected config
+wins over its immediate parent just as it does in the Bash host.
+
+Python installer manifests expose a synchronous public API. An `install.py`
+defines `install(session)`, and may use `session.dialog`, `session.serial`,
+`vga_wait`, keyboard methods, media changes, and the shared drivers in
+`retro_host.install.drivers`. The event loop and QMP/serial stream machinery
+remain private to the runtime, so Pkgtool, Dialog, Fdisk, and manifest callbacks
+do not require `async` or `await`.
+
+The Python serial automation channel is `qemu.d/ttyS3.sock`; QMP is
+`qemu.d/qmp.sock`. Raw guest serial output is retained in
+`qemu.d/ttyS3.log`, while the live transcript uses `➡️`, `✅`, and `⬅️` markers
+for guest output, matched prompts, and host answers. `qmp-py` provides the same
+screen, keyboard, and removable media operations against the QMP socket.
+
 The QMP boundary is deliberate. `qmp.sh` owns the QMP pipe, QMP request and
 response JSON, and HMP passthrough. Code outside that module calls
 `qmp_hmp_commands`; it does not open the pipe or decode QMP responses. Keyboard

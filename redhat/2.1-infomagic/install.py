@@ -1,0 +1,30 @@
+from retro_host.install.drivers.redhat_early import PerlInstaller
+
+
+def install(session):
+    i = PerlInstaller(session)
+    i.boot()
+    i.load_two_ramdisks()
+    i.step("Welcome to the Red Hat Linux installation program!", "ret")
+    i.insert_boot_disk()
+    i.step("Red Hat supports a number of different sources for installation.", "ret")
+    i.step("Text based install", "t", "ret")
+    i.partition("Do you need to partition your disks?")
+    i.step("Do you want to use this as a swap partition?", "y", "ret", "ret", "ret")
+    session.vga_wait("Do you want to configure networking")
+    i.configure_network(network_first=True)
+    i.step("I think I've found the Red Hat CD-ROM", "y")
+    i.format_root()
+    session.vga_wait("Select each series that you want to install.")
+    session.kb_repeat("down", 3)
+    session.kb_press("spc")
+    session.kb_repeat("down", 6)
+    for _ in range(4):
+        session.kb_press("spc", "down")
+    session.kb_press("spc")
+    session.kb_repeat("down", 3)
+    session.kb_press("spc")
+    session.kb_repeat("down", 3)
+    session.kb_press("spc", "down", "spc", "ret")
+    i.step("Which type of video card you you have?", "s", "ret")
+    i.finish("Is your system clock set to local time", blank_twice=True)

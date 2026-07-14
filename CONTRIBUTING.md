@@ -42,6 +42,12 @@ Common files:
 | `postinst.sh` | Optional in-guest post-installation configuration manifest |
 | `*.tag` | Slackware package-selection tagset |
 
+The alternative Python host also recognizes `download.py`, `extract.py`,
+`qemu.py`, and synchronous `install.py` manifests. Existing Bash manifests
+remain authoritative for `retro`; keep both forms while the Python host is
+being evaluated. Declarative `extract.sh` files are read directly by Python,
+while custom extraction scripts run through the Bash compatibility path.
+
 ## Downloads
 
 `retro download` runs every download mechanism configured for the distro. When

@@ -1,0 +1,3 @@
+[console_scripts]
+qmp-py = retro_host.qmp_cli:main
+retro-py = retro_host.cli:main
