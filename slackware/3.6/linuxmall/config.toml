@@ -6,4 +6,4 @@ url = "https://archive.org/download/walnut-creek-slackware-36-intel-linux-mall/W
 
 [extract]
 custom_script = "extract.sh"
-
+custom_source = "disc1.iso"

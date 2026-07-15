@@ -86,16 +86,20 @@ guest library, and writes `qemu.d/.extracted`.
 
 The standard `[extract]` table supports:
 
-- `source`: an ISO, directory, or downloaded source path.
+- `source`: an ISO, tar archive, directory, or downloaded source path.
 - `boot_image`, `root_image`, and `extra_images`: files staged at the top of
   `qemu.d/`.
 - `fat_files`: files staged in `qemu.d/fat/`.
-- `packages`: directory tree staged as `qemu.d/fat/packages/`.
+- `package_source`: package directory tree within the extraction source.
+- `package_dest`: destination beneath `qemu.d/fat/`; defaults to `packages`.
 - `decompress`: staged gzip files or glob patterns to decompress.
 - `truncate`: staged floppy files or glob patterns to normalize to 1.44 MB.
 - `boot_link` and `root_link`: staged source names for `boot.img` and `root.img`.
-- `packages_as_install`: rename the staged package directory to `fat/install`.
-- `custom_script`: exceptional shell extraction script.
+- `overlays`: downloaded files copied over paths in the staged tree.
+- `image_extracts`: selected files extracted from staged disk images.
+- `archive_extracts`: selected files extracted from staged tar archives.
+- `custom_script` and `custom_source`: exceptional preprocessing hook and the
+  file or directory it produces beneath the temporary directory.
 
 Example:
 
@@ -106,16 +110,18 @@ boot_image = "bootdsks.144/bare.i"
 root_image = "rootdsks/color.gz"
 extra_images = ["rootdsks/text.gz"]
 fat_files = ["kernels/bare.i/bzImage"]
-packages = "slakware"
+package_source = "slakware"
 decompress = ["*.gz"]
 boot_link = "bare.i"
 root_link = "color"
 ```
 
-Use `custom_script = "extract.sh"` only for archive reshaping, image conversion,
-or package replacement that the standard stager cannot express. Python runs
-that script as a bounded exception and does not parse configuration from it.
-Keep all ordinary extraction settings in TOML.
+Python reads tar archives directly and handles ordinary staging, overlays,
+nested image extraction, links, and postprocessing. Use `custom_script =
+"extract.sh"` only for archive reshaping or image conversion that Python cannot
+express, and set `custom_source` to the hook's output beneath `$TEMP_D`. Python
+then stages that output using the remaining declarative settings. The hook is a
+bounded action and must not contain extraction configuration.
 
 ## QEMU
 
@@ -254,9 +260,11 @@ chipset = "clgd5434"
 mouse_device = "/dev/psaux"
 ```
 
-Use `stages = ["custom"]` with `custom_script = "postinst.sh"` only when the
-guest needs logic not expressible through the standard stages. Custom scripts
-must follow the portability rules in [guestlib/README.md](guestlib/README.md).
+Include `custom` in `stages` and set `custom_script = "postinst.sh"` only when
+the guest needs logic not expressible through the standard stages. Keep
+ordinary stages such as `tty` and `x11` in the array rather than invoking their
+helpers from the custom script. Custom scripts must follow the portability
+rules in [guestlib/README.md](guestlib/README.md).
 
 ## Slackware Tagsets
 
@@ -281,7 +289,7 @@ Run the cheap checks after source changes:
 ```bash
 git diff --check
 python3 -m unittest tests.test_python
-tests/unit.sh
+tests/shellcheck.sh
 black --check .
 ```
 

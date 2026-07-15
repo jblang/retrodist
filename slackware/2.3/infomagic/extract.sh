@@ -1,4 +1,0 @@
-EXTRACT_SOURCE=disc1.iso
-EXTRACT_BOOT_IMAGE=slakinst/boot144/idecd
-EXTRACT_ROOT_IMAGE=slakinst/root144/color144
-extract_install_files

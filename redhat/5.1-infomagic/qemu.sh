@@ -1,1 +1,0 @@
-QEMU_PROFILE=linux-2.0

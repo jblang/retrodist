@@ -4,4 +4,20 @@
 cdrom = "infomagic/ldr/1997_04"
 
 [extract]
-custom_script = "extract.sh"
+source = "disc3.iso"
+boot_image = "rex-updates/disks-i386/1997-01-18/rsc1440.bin"
+root_image = "rex-updates/disks-i386/1997-01-18/root.bin"
+extra_images = ["rex-updates/disks-i386/1997-01-18/drv1440.bin", "rex-updates/disks-i386/1997-01-18/base14-*.bin"]
+fat_files = ["rex-updates/disks-i386/1997-01-18/base1_2.tgz"]
+
+[[extract.image_extracts]]
+image = "drv1440.bin"
+members = ["MODULES.TGZ"]
+destination = "fat/drivers"
+lowercase = true
+
+[[extract.archive_extracts]]
+archive = "fat/drivers/modules.tgz"
+members = ["lib/modules/*/misc/serial.o"]
+destination = "fat"
+flatten = true

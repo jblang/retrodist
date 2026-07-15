@@ -6,4 +6,7 @@ url = "https://archive.org/download/slackware101/slackware101.zip"
 
 [extract]
 custom_script = "extract.sh"
-
+custom_source = "staged"
+boot_image = "boot.img"
+package_source = "packages"
+package_dest = "install"

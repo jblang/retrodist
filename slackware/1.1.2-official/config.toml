@@ -14,7 +14,7 @@ slackware_mirror = "1.1.2"
 [extract]
 boot_image = "slackware-1.1.2/bootdisk/1_44meg/bareboot.gz"
 root_image = "slackware-1.1.2/bootdisk/1_44meg/color144.gz"
-packages = "slackware-1.1.2"
+package_source = "slackware-1.1.2"
 boot_link = "bareboot"
 root_link = "color144"
 decompress = ["bareboot.gz", "color144.gz"]

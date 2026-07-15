@@ -5,7 +5,6 @@ import ast
 import gzip
 import io
 from pathlib import Path
-import shlex
 import tempfile
 import tomllib
 from types import SimpleNamespace
@@ -15,6 +14,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import patch
 import re
 import sys
+import tarfile
 
 from hostlib.config import QemuConfig, RetroConfig, load_config, load_qemu_config
 from hostlib.context import Context
@@ -37,7 +37,7 @@ from hostlib.installers import (
 from hostlib import installers
 from hostlib.installers import redhat, redhat_early
 from hostlib.vga import Screen, ScreenObserver, decode
-from hostlib.media import MediaStager, toml_extraction
+from hostlib.media import Extraction, MediaStager, toml_extraction
 from hostlib.qmp import Monitor
 from hostlib.qemu import QemuRuntime
 
@@ -67,7 +67,7 @@ class ContextTests(unittest.TestCase):
 
 
 class CommandNameTests(unittest.TestCase):
-    def test_python_owns_canonical_names_and_shell_commands_are_namespaced(self) -> None:
+    def test_python_owns_canonical_names_and_bash_commands_are_removed(self) -> None:
         root = Path(__file__).resolve().parent.parent
         project = tomllib.loads((root / "pyproject.toml").read_text())
         self.assertEqual(
@@ -76,8 +76,9 @@ class CommandNameTests(unittest.TestCase):
         )
         self.assertIn("from hostlib.cli import main", (root / "retro").read_text())
         self.assertIn("from hostlib.qmp_cli import main", (root / "qmp").read_text())
-        self.assertTrue((root / "retro-bash").is_file())
-        self.assertTrue((root / "qmp-bash").is_file())
+        self.assertFalse((root / "retro-bash").exists())
+        self.assertFalse((root / "qmp-bash").exists())
+        self.assertFalse((root / "hostlib-bash").exists())
 
     def test_prerequisites_are_owned_by_the_standalone_shell_script(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -507,6 +508,7 @@ class ConfigTests(unittest.TestCase):
                 '[qemu]\nprofile = "linux-2.0"\nram = "32M"\n'
                 '[qemu.network]\ndevice = "pcnet"\n'
                 '[extract]\nsource = "disc1.iso"\nboot_image = "images/boot.img"\n'
+                'package_source = "slakware"\n'
             )
             context = Context.create(root, "boot", str(directory))
             qemu = load_qemu_config(load_config(context))
@@ -515,6 +517,8 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(qemu.nic, "pcnet")
             self.assertEqual(extraction.source, "disc1.iso")
             self.assertEqual(extraction.boot_image, "images/boot.img")
+            self.assertEqual(extraction.package_source, "slakware")
+            self.assertEqual(extraction.package_dest, "packages")
 
     def test_qemu_rejects_unknown_toml_settings(self) -> None:
         config = RetroConfig(
@@ -667,11 +671,11 @@ class MediaStagerTests(unittest.TestCase):
                         "source": "media",
                         "boot_image": "boot.gz",
                         "fat_files": ["README"],
-                        "packages": "packages",
+                        "package_source": "packages",
+                        "package_dest": "install",
                         "decompress": ["boot.gz"],
                         "truncate": ["boot"],
                         "boot_link": "boot",
-                        "packages_as_install": True,
                     },
                     "postinst": {"stages": ["network"], "network": {"hostname": "retro"}},
                 },
@@ -705,14 +709,51 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((old / "stale").exists())
             self.assertEqual((old / "current").read_text(), "new")
 
+    def test_tar_extraction_stages_declared_images_and_package_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {
+                    "extract": {
+                        "source": "media.tar.gz",
+                        "boot_image": "release/a1.img",
+                        "package_source": "release",
+                    }
+                },
+            )
+            archive_path = config.download_dir / "media.tar.gz"
+            archive_path.parent.mkdir()
+            with tarfile.open(archive_path, "w:gz") as archive:
+                for name, contents in (
+                    ("release/a1.img", b"boot"),
+                    ("release/a1/base.tgz", b"package"),
+                ):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(contents)
+                    archive.addfile(member, io.BytesIO(contents))
+
+            MediaStager(context, config).extract()
+
+            self.assertEqual((context.qemu_dir / "a1.img").read_bytes(), b"boot")
+            self.assertTrue((context.qemu_dir / "boot.img").is_symlink())
+            self.assertEqual(
+                (context.qemu_dir / "fat/packages/a1/base.tgz").read_bytes(), b"package"
+            )
+
     def test_custom_extraction_script_receives_project_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "guestlib").mkdir()
             context, config = temporary_config(
-                root, "distro/version", {"extract": {"custom_script": "extract.sh"}}
+                root,
+                "distro/version",
+                {"extract": {"custom_script": "extract.sh", "custom_source": "source"}},
             )
             (context.config / "extract.sh").write_text("true\n")
+            (context.temporary / "source").mkdir()
             with patch(
                 "hostlib.media.subprocess.run", return_value=SimpleNamespace(returncode=0)
             ) as run:
@@ -722,11 +763,65 @@ class MediaStagerTests(unittest.TestCase):
             self.assertEqual(environment["QEMU_D"], str(context.qemu_dir))
             self.assertEqual(run.call_args.args[0][-1], str(context.config / "extract.sh"))
 
+    def test_postprocessing_applies_overlay_and_nested_image_extractions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            context, config = temporary_config(root, "distro/version")
+            context.qemu_dir.mkdir()
+            (context.qemu_dir / "driver.img").touch()
+            config.download_dir.mkdir()
+            (config.download_dir / "replacement.tgz").write_bytes(b"replacement")
+            modules = context.qemu_dir / "fat/drivers/MODULES.TGZ"
+
+            def extract_image(*_args, **_kwargs):
+                modules.parent.mkdir(parents=True, exist_ok=True)
+                with tarfile.open(modules, "w:gz") as archive:
+                    contents = b"serial module"
+                    member = tarfile.TarInfo("lib/modules/2.0/misc/serial.o")
+                    member.size = len(contents)
+                    archive.addfile(member, io.BytesIO(contents))
+                return SimpleNamespace(returncode=0)
+
+            spec = Extraction(
+                overlays=[
+                    {
+                        "source": "replacement.tgz",
+                        "destination": "fat/packages/x2/x_svga.tgz",
+                    }
+                ],
+                image_extracts=[
+                    {
+                        "image": "driver.img",
+                        "members": ["MODULES.TGZ"],
+                        "destination": "fat/drivers",
+                        "lowercase": True,
+                    }
+                ],
+                archive_extracts=[
+                    {
+                        "archive": "fat/drivers/modules.tgz",
+                        "members": ["lib/modules/*/misc/serial.o"],
+                        "destination": "fat",
+                        "flatten": True,
+                    }
+                ],
+            )
+            with patch("hostlib.media.subprocess.run", side_effect=extract_image) as run:
+                MediaStager(context, config)._postprocess(spec)
+
+            self.assertEqual(
+                (context.qemu_dir / "fat/packages/x2/x_svga.tgz").read_bytes(),
+                b"replacement",
+            )
+            self.assertEqual((context.qemu_dir / "fat/serial.o").read_bytes(), b"serial module")
+            self.assertEqual(run.call_args.args[0][-1], "MODULES.TGZ")
+
     def test_extraction_and_postinstall_schema_errors_are_rejected(self) -> None:
         context = SimpleNamespace(name="test")
         for table, message in (
             ({"extra_images": "boot.img"}, "array of strings"),
-            ({"packages_as_install": "yes"}, "must be a boolean"),
+            ({"package_dest": True}, "must be a string"),
+            ({"custom_script": "extract.sh"}, "requires extract.custom_source"),
             ({"unknown": True}, "Unknown extract"),
         ):
             with self.assertRaisesRegex(ConfigError, message):
@@ -738,6 +833,17 @@ class MediaStagerTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ConfigError, message):
                 MediaStager._validate_postinst(table)
+
+    def test_extraction_paths_cannot_escape_their_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "staging"
+            directory.mkdir()
+            with self.assertRaisesRegex(ConfigError, "escapes destination"):
+                MediaStager._safe_child(directory, Path("../outside"))
+            context = SimpleNamespace(extract_dir=directory)
+            stager = MediaStager(context, SimpleNamespace())
+            with self.assertRaisesRegex(ConfigError, "escapes destination"):
+                stager._package_destination(Extraction(package_dest="../outside"))
 
 
 class FdiskTests(unittest.TestCase):
@@ -1097,63 +1203,6 @@ class PkgtoolPromptTests(unittest.TestCase):
         )
         session.vga_wait.assert_any_call("VFS: Insert root floppy and press ENTER")
 
-    def test_python_driver_covers_every_fixed_shell_prompt(self) -> None:
-        """Keep the Python dispatch table aligned with the original driver."""
-        root = Path(__file__).resolve().parent.parent
-        shell = (root / "slackware/pkgtool.sh").read_text()
-        python = (root / "hostlib/installers/slackware.py").read_text()
-
-        commands: list[str] = []
-        pending = ""
-        for line in shell.splitlines():
-            stripped = line.strip()
-            if pending or stripped.startswith("dialog_answer"):
-                pending += stripped.removesuffix("\\").strip() + " "
-                if not stripped.endswith("\\"):
-                    commands.append(pending)
-                    pending = ""
-
-        shell_prompts: list[str] = []
-        for command in commands:
-            words = shlex.split(command, comments=True)
-            position = 1
-            if position < len(words) and words[position] == "-l":
-                position += 2
-            while position < len(words):
-                if words[position] == "-x":
-                    position += 1
-                position += 1  # widget
-                if position < len(words) and words[position] == "-r":
-                    position += 1
-                if position >= len(words):
-                    break
-                shell_prompts.append(words[position])
-                position += 1
-                if position < len(words) and words[position] == "-d":
-                    position += 1
-                    if position < len(words) and words[position] == "-r":
-                        position += 1
-                elif position < len(words) and words[position] == "-f":
-                    position += 1
-                position += 1  # answer, description, or callback
-
-        tree = ast.parse(python)
-        python_prompts = {
-            call.args[1].value
-            for call in ast.walk(tree)
-            if isinstance(call, ast.Call)
-            and isinstance(call.func, ast.Name)
-            and call.func.id == "Choice"
-            and len(call.args) > 1
-            and isinstance(call.args[1], ast.Constant)
-            and isinstance(call.args[1].value, str)
-        }
-        fixed_shell_prompts = {prompt for prompt in shell_prompts if not prompt.startswith("$")}
-
-        self.assertEqual(len(shell_prompts), 97)
-        self.assertEqual(len(set(shell_prompts)), 83)
-        self.assertEqual(fixed_shell_prompts - python_prompts, set())
-
 
 class SysinstallTests(unittest.TestCase):
     def test_bootdisk_prompt_creates_a_1440k_floppy(self) -> None:
@@ -1176,6 +1225,18 @@ class SysinstallTests(unittest.TestCase):
 
 
 class ManifestCoverageTests(unittest.TestCase):
+    def test_every_extraction_configuration_passes_schema_validation(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        validated = []
+        for family in ("cdrom", "debian", "redhat", "slackware"):
+            for path in (root / family).glob("**/config.toml"):
+                context = Context(root, path.parent, "extract", root / "temporary")
+                config = load_config(context)
+                if config.section("extract"):
+                    toml_extraction(config)
+                    validated.append(path)
+        self.assertEqual(len(validated), 50)
+
     def test_every_install_configuration_passes_driver_validation(self) -> None:
         root = Path(__file__).resolve().parent.parent
         validated = []
@@ -1263,17 +1324,9 @@ class ManifestCoverageTests(unittest.TestCase):
         self.assertEqual(
             custom,
             {
-                "debian/1.1/infomagic",
-                "debian/1.1/official",
-                "debian/1.2/infomagic",
-                "debian/1.2/official",
-                "debian/1.3/infomagic",
-                "debian/1.3/official",
                 "slackware/1.01/channel1",
                 "slackware/1.01/official+sls",
                 "slackware/1.0beta/official",
-                "slackware/1.0beta/official+sls",
-                "slackware/1.1.1-infomagic",
                 "slackware/3.6/linuxmall",
             },
         )
@@ -1288,26 +1341,29 @@ class ManifestCoverageTests(unittest.TestCase):
                     script.relative_to(root),
                 )
 
-    def test_shell_manifest_locations_have_toml_sections(self) -> None:
+    def test_every_distro_shell_script_is_referenced_by_toml(self) -> None:
         root = Path(__file__).resolve().parent.parent
-        cases = {
-            "qemu": {"qemu.sh"},
-            "download": {"download.txt", "cdrom.txt", "slackmirror.txt", "debmirror.txt"},
-            "postinst": {"postinst.sh"},
+        referenced = set()
+        for path in root.glob("**/config.toml"):
+            data = tomllib.loads(path.read_text())
+            for section in ("extract", "postinst"):
+                script = data.get(section, {}).get("custom_script")
+                if script:
+                    referenced.add((path.parent / script).resolve())
+        scripts = {
+            path.resolve()
+            for family in ("slackware", "redhat", "debian", "cdrom")
+            for path in (root / family).glob("**/*.sh")
+            if "qemu.d" not in path.parts and "download.d" not in path.parts
         }
-        for section, names in cases.items():
-            directories = {
-                path.parent
-                for family in ("slackware", "redhat", "debian", "cdrom")
-                for path in (root / family).glob("**/*")
-                if path.is_file() and path.name in names and "qemu.d" not in path.parts
-            }
-            for directory in directories:
-                context = Context.create(root, "boot", str(directory))
-                self.assertTrue(
-                    load_config(context).section(section),
-                    directory.relative_to(root),
-                )
+        self.assertEqual(scripts, referenced)
+
+    def test_custom_extraction_scripts_contain_actions_not_configuration(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        for script in (root / "slackware").glob("**/extract.sh"):
+            contents = script.read_text()
+            self.assertNotIn("EXTRACT_", contents, script.relative_to(root))
+            self.assertNotIn("extract_install", contents, script.relative_to(root))
 
     def test_custom_postinstall_stages_name_their_script(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1320,7 +1376,7 @@ class ManifestCoverageTests(unittest.TestCase):
                     path.relative_to(root),
                 )
 
-    def test_declarative_extraction_sources_are_isos_or_directories(self) -> None:
+    def test_only_supported_declarative_archive_source_is_used(self) -> None:
         root = Path(__file__).resolve().parent.parent
         archives = []
         for path in root.glob("**/config.toml"):
@@ -1328,19 +1384,16 @@ class ManifestCoverageTests(unittest.TestCase):
             source = extract.get("source", "")
             if source and not source.lower().endswith(".iso"):
                 archives.append(path.relative_to(root))
-        self.assertEqual(archives, [])
+        self.assertEqual(archives, [Path("slackware/1.0beta/official+sls/config.toml")])
 
-    def test_every_install_shell_manifest_has_toml_driver(self) -> None:
+    def test_legacy_install_shell_manifests_are_removed(self) -> None:
         root = Path(__file__).resolve().parent.parent
         scripts = (
             script
             for family in ("slackware", "redhat", "debian")
             for script in (root / family).glob("**/install.sh")
         )
-        for script in scripts:
-            context = Context.create(root, "install", str(script.parent))
-            driver = load_config(context).value("install", "driver")
-            self.assertIn(driver, DRIVERS, script.relative_to(root))
+        self.assertEqual(list(scripts), [])
 
     def test_prompt_sequence_configs_use_supported_actions(self) -> None:
         root = Path(__file__).resolve().parent.parent

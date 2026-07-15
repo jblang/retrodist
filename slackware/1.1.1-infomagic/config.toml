@@ -11,7 +11,13 @@ path = "x_svga.tgz"
 url = "https://mirrors.slackware.com/slackware/slackware-1.1.2/x2/x_svga.tgz"
 
 [extract]
-custom_script = "extract.sh"
+source = "disc1.iso"
+boot_image = "sunsite/distributions/slackware/bootdisk/1_44meg/uniboot"
+package_source = "sunsite/distributions/slackware"
+
+[[extract.overlays]]
+source = "x_svga.tgz"
+destination = "fat/packages/x2/x_svga.tgz"
 
 [qemu]
 profile = "linux-1.0"

@@ -14,7 +14,7 @@ cdrom = "infomagic/ldr/1994_06"
 source = "disc1.iso"
 boot_image = "slakinst/boot144/bare"
 root_image = "slakinst/root144/color144"
-packages = "slakware"
+package_source = "slakware"
 
 [qemu]
 profile = "linux-1.0"

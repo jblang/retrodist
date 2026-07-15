@@ -14,7 +14,7 @@ hostname = "rex"
 
 [postinst]
 custom_script = "postinst.sh"
-stages = ["custom"]
+stages = ["custom", "tty"]
 
 [postinst.network]
 gateway_hwaddr = "52:55:0a:00:02:02"

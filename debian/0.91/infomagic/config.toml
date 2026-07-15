@@ -8,7 +8,7 @@ cdrom = "infomagic/ldr/1994_06"
 
 [extract]
 source = "disc1.iso"
-packages = "distributions/debian/dist/packages"
+package_source = "distributions/debian/dist/packages"
 boot_link = "bootdisk"
 extra_images = ["distributions/debian/dist/base/bootdisk.gz", "distributions/debian/dist/base/basedsk1.gz", "distributions/debian/dist/base/basedsk2.gz"]
 decompress = ["*.gz"]
@@ -48,7 +48,7 @@ mouse_protocol = 1
 
 [postinst]
 custom_script = "postinst.sh"
-stages = ["custom"]
+stages = ["custom", "tty", "x11"]
 
 [postinst.x11]
 mouse_device = "/dev/cua2"

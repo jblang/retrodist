@@ -13,7 +13,7 @@ cdrom = "infomagic/ldr/1994_12"
 source = "disc1.iso"
 boot_image = "distributions/slakinst/boot144/bare"
 root_image = "distributions/slakinst/root144/color144"
-packages = "distributions/slackware"
+package_source = "distributions/slackware"
 
 [qemu]
 profile = "linux-1.0"

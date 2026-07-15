@@ -36,7 +36,6 @@ The files in the `a` series are identical to those from the official mirror, exc
 
 Run `retro install slackware/1.01/VARIANT` for an automated installation. The
 shared Python `slackware-sysinstall` driver partitions the disk, then runs and
-answers the original Slackware 1.01
-[`doinstall`](../../reference/slackware/1.01/text/doinstall) and `syssetup`
-scripts. It installs the fullest set available on the selected media: A, A+X,
-or A+X+TeX.
+answers the original Slackware 1.01 `doinstall` and `syssetup` scripts from the
+selected media. It installs the fullest set available there: A, A+X, or
+A+X+TeX.

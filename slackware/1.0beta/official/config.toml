@@ -5,4 +5,7 @@ slackware_mirror = "pre-1.0-beta"
 
 [extract]
 custom_script = "extract.sh"
-
+custom_source = "packages"
+boot_image = "a1/a1disk"
+package_source = "."
+package_dest = "install"

@@ -12,7 +12,7 @@ slackware_mirror = "3.6"
 [extract]
 boot_image = "slackware-3.6/bootdsks.144/bare.i"
 root_image = "slackware-3.6/rootdsks/color.gz"
-packages = "slackware-3.6/slakware"
+package_source = "slackware-3.6/slakware"
 truncate = ["bare.i"]
 
 [install.slackware]

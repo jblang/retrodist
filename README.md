@@ -16,8 +16,9 @@ Install a Unix-like environment first:
 - macOS: install [Homebrew](https://brew.sh/).
 - Windows: use [MSYS2](https://www.msys2.org/) or WSL2 with a Linux distro.
 
-Clone the repo, then run the bootstrap script. It installs Python, QEMU, and
-`mtools`, creates `.venv`, and installs the project into it:
+Clone the repo, then run the bootstrap script. It installs Python, QEMU, media
+extraction tools, and `mtools`, creates `.venv`, and installs the project into
+it:
 
 ```bash
 ./retro-prereq
@@ -42,17 +43,17 @@ retro install slackware/3.0/walnut
 starting QEMU.
 
 The host requires Python 3.11 or newer and uses `qemu.qmp` for QMP and
-`pycdlib` for ISO access. QEMU and `mtools` are external programs invoked by
-the host. Distro behavior is configured in logically sectioned `config.toml`
-files; see [CONTRIBUTING.md](CONTRIBUTING.md) for the schema and extension
-workflow.
+`pycdlib` for ISO access. QEMU, `mtools`, 7-Zip, and a few exceptional media
+conversion tools are external programs invoked by the host or custom hooks.
+Distro behavior is configured in logically sectioned `config.toml` files; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the schema and extension workflow.
 
 Install the Python development tools and check formatting with:
 
 ```bash
 python -m pip install -e '.[dev]'
 python -m unittest tests.test_python
-tests/unit.sh
+tests/shellcheck.sh
 black --check .
 ```
 
@@ -204,9 +205,3 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-### License Exceptions
-
-The scripts in the reference directory are a notable exception and retain their
-original license. License headers have been kept intact if present. Debian 1.1+
-scripts do not contain license headers but are assumed to be GPL.

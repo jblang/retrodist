@@ -12,7 +12,7 @@ fi
 . "$GUESTLIB_D/logging.sh"
 
 # Load the module autoloading configurator.
-# shellcheck disable=SC2120 # Legacy distro manifests may pass helper arguments.
+# shellcheck disable=SC2120 # Public wrappers accept optional helper arguments.
 mod_config() {
     POSTINST_REBOOT=true
     . "$GUESTLIB_D/config/modules.sh"
@@ -20,7 +20,7 @@ mod_config() {
 }
 
 # Load the network configurator.
-# shellcheck disable=SC2120 # Legacy distro manifests may pass helper arguments.
+# shellcheck disable=SC2120 # Public wrappers accept optional helper arguments.
 net_config() {
     POSTINST_REBOOT=true
     . "$GUESTLIB_D/config/net.sh"
@@ -28,7 +28,7 @@ net_config() {
 }
 
 # Load the serial console configurator.
-# shellcheck disable=SC2120 # Legacy distro manifests may pass helper arguments.
+# shellcheck disable=SC2120 # Public wrappers accept optional helper arguments.
 tty_config() {
     POSTINST_REBOOT=true
     . "$GUESTLIB_D/config/tty.sh"
@@ -36,7 +36,7 @@ tty_config() {
 }
 
 # Load the X11 configurator.
-# shellcheck disable=SC2120 # Legacy distro manifests may pass helper arguments.
+# shellcheck disable=SC2120 # Public wrappers accept optional helper arguments.
 x11_config() {
     . "$GUESTLIB_D/config/x11.sh"
     _x11_config "$@"
@@ -54,35 +54,31 @@ log INFO "Post-Installation Configuration (postinst.sh)"
 log INFO "Configuration paths:"
 log INFO "  GUESTLIB_D=$GUESTLIB_D"
 
-# Run declarative stages when Python staged config.sh. Bash-host staging keeps
-# the legacy distro postinst.sh behavior below.
-if [ -n "${POSTINST_STAGES:-}" ]; then
-    for POSTINST_STAGE in $POSTINST_STAGES; do
-        # shellcheck disable=SC2119 # Declarative stages intentionally pass no arguments.
-        case "$POSTINST_STAGE" in
-            modules) mod_config ;;
-            network) net_config ;;
-            tty) tty_config ;;
-            x11) x11_config ;;
-            custom)
-                if [ ! -f "$GUESTLIB_D/distro/postinst.sh" ]; then
-                    log ERROR "Custom post-install stage has no postinst.sh; aborting."
-                    exit 1
-                fi
-                . "$GUESTLIB_D/distro/postinst.sh"
-                ;;
-            *)
-                log ERROR "Unknown post-install stage: $POSTINST_STAGE"
-                exit 1
-                ;;
-        esac
-    done
-elif [ -f "$GUESTLIB_D/distro/postinst.sh" ]; then
-    . "$GUESTLIB_D/distro/postinst.sh"
-else
-    log ERROR "No distro-specific postinst script found; aborting."
+# Run the stages rendered from the distro's declarative TOML configuration.
+if [ -z "${POSTINST_STAGES:-}" ]; then
+    log ERROR "No declarative post-install stages found; aborting."
     exit 1
 fi
+for POSTINST_STAGE in $POSTINST_STAGES; do
+    # shellcheck disable=SC2119 # Declarative stages intentionally pass no arguments.
+    case "$POSTINST_STAGE" in
+        modules) mod_config ;;
+        network) net_config ;;
+        tty) tty_config ;;
+        x11) x11_config ;;
+        custom)
+            if [ ! -f "$GUESTLIB_D/distro/postinst.sh" ]; then
+                log ERROR "Custom post-install stage has no postinst.sh; aborting."
+                exit 1
+            fi
+            . "$GUESTLIB_D/distro/postinst.sh"
+            ;;
+        *)
+            log ERROR "Unknown post-install stage: $POSTINST_STAGE"
+            exit 1
+            ;;
+    esac
+done
 
 log_div
 log INFO "Configuration complete!"

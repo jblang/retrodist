@@ -1,5 +1,3 @@
-7z x -y -o"$EXTRACT_D" "$DOWNLOAD_D/slackware-3.6.7z" > /dev/null
-bchunk "$EXTRACT_D/SLK3609118-1.bin" "$EXTRACT_D/SLK3609118-1.cue" "$EXTRACT_D/SLK3609118-1" > /dev/null
-rm "$EXTRACT_D/SLK3609118-1.bin" "$EXTRACT_D/SLK3609118-1.cue"
-mv "$EXTRACT_D/SLK3609118-101.iso" "$DOWNLOAD_D/disc1.iso"
-extract_link_install_iso "$DOWNLOAD_D/disc1.iso"
+7z x -y -o"$TEMP_D" "$DOWNLOAD_D/slackware-3.6.7z" > /dev/null
+bchunk "$TEMP_D/SLK3609118-1.bin" "$TEMP_D/SLK3609118-1.cue" "$TEMP_D/SLK3609118-1" > /dev/null
+mv "$TEMP_D/SLK3609118-101.iso" "$TEMP_D/disc1.iso"

@@ -59,9 +59,11 @@ hostname = "darkstar"
 ```
 
 Python converts these keys to the uppercase variables used by the portable
-helpers. A custom distro `postinst.sh` should set only the variables it needs
-and call the appropriate wrappers. Helper files must remain function-only so
-they can be safely sourced.
+helpers. A custom distro `postinst.sh` receives any values from
+`[postinst.custom]` as uppercase variables and should perform only the
+exceptional action that standard stages cannot express. Keep ordinary helper
+configuration and stage ordering in TOML. Helper files must remain
+function-only so they can be safely sourced.
 
 The runner sets `GUESTLIB_D=/retro/guestlib.d`; manifests may use it to invoke
 additional staged scripts. Keep media changes, VGA waits, and keyboard input in

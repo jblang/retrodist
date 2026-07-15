@@ -1,2 +1,0 @@
-QEMU_PROFILE=linux-2.0
-QEMU_NET_DEVICE=pcnet
