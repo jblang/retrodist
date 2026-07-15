@@ -9,6 +9,7 @@ description = "Python host runtime for Retro Distro Playground"
 requires-python = ">=3.11"
 dependencies = [
   "fsspec[http]>=2025.3",
+  "pydantic>=2.11,<3",
   "pycdlib>=1.16,<2",
   "qemu.qmp==0.0.6",
 ]

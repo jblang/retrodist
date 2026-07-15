@@ -11,7 +11,6 @@ come exclusively from TOML; script contents provide actions, not configuration.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import fnmatch
 import gzip
 import os
@@ -22,34 +21,17 @@ import subprocess
 import tarfile
 
 from .context import Context
-from .config import RetroConfig, reject_unknown
+from .config import RetroConfig
 from .errors import CommandError, ConfigError
+from .schemas import (
+    ArchiveExtract,
+    ExtractionConfig,
+    ImageExtract,
+    Overlay,
+    PostinstConfig,
+)
 
-
-@dataclass(slots=True)
-class Extraction:
-    """Describe one standard, fully declarative media-staging plan.
-
-    Paths refer to content within ``source`` and lists may contain glob
-    patterns. Conventional links expose staged files to QEMU as ``boot.img``,
-    ``root.img``, and ``install.iso``.
-    """
-
-    source: str = ""
-    boot_image: str | None = None
-    root_image: str | None = None
-    extra_images: list[str] = field(default_factory=list)
-    fat_files: list[str] = field(default_factory=list)
-    package_source: str | None = None
-    package_dest: str = "packages"
-    decompress: list[str] = field(default_factory=list)
-    truncate: list[str] = field(default_factory=list)
-    boot_link: str | None = None
-    root_link: str | None = None
-    custom_source: str | None = None
-    overlays: list[dict[str, str]] = field(default_factory=list)
-    image_extracts: list[dict[str, object]] = field(default_factory=list)
-    archive_extracts: list[dict[str, object]] = field(default_factory=list)
+Extraction = ExtractionConfig
 
 
 def toml_extraction(config: RetroConfig) -> Extraction:
@@ -62,108 +44,7 @@ def toml_extraction(config: RetroConfig) -> Extraction:
     Raises:
         ConfigError: If ``[extract]`` does not match the supported schema.
     """
-    table = config.section("extract")
-    reject_unknown(
-        table,
-        {
-            "source",
-            "boot_image",
-            "root_image",
-            "extra_images",
-            "fat_files",
-            "package_source",
-            "package_dest",
-            "decompress",
-            "truncate",
-            "boot_link",
-            "root_link",
-            "custom_script",
-            "custom_source",
-            "overlays",
-            "image_extracts",
-            "archive_extracts",
-        },
-        "extract",
-    )
-    for key in (
-        "source",
-        "boot_image",
-        "root_image",
-        "package_source",
-        "package_dest",
-        "boot_link",
-        "root_link",
-        "custom_source",
-    ):
-        value = table.get(key)
-        if value is not None and not isinstance(value, str):
-            raise ConfigError(f"extract.{key} must be a string")
-    for key in ("extra_images", "fat_files", "decompress", "truncate"):
-        value = table.get(key, [])
-        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-            raise ConfigError(f"extract.{key} must be an array of strings")
-    custom_script = table.get("custom_script")
-    if custom_script is not None and not isinstance(custom_script, str):
-        raise ConfigError("extract.custom_script must be a string")
-    if custom_script and not table.get("custom_source"):
-        raise ConfigError("extract.custom_script requires extract.custom_source")
-    overlays = _validate_extract_actions(table, "overlays", {"source", "destination"})
-    image_extracts = _validate_extract_actions(
-        table, "image_extracts", {"image", "members", "destination", "lowercase"}
-    )
-    archive_extracts = _validate_extract_actions(
-        table, "archive_extracts", {"archive", "members", "destination", "flatten"}
-    )
-    return Extraction(
-        source=str(table.get("source", "")),
-        boot_image=table.get("boot_image"),
-        root_image=table.get("root_image"),
-        extra_images=list(table.get("extra_images", [])),
-        fat_files=list(table.get("fat_files", [])),
-        package_source=table.get("package_source"),
-        package_dest=str(table.get("package_dest", "packages")),
-        decompress=list(table.get("decompress", [])),
-        truncate=list(table.get("truncate", [])),
-        boot_link=table.get("boot_link"),
-        root_link=table.get("root_link"),
-        custom_source=table.get("custom_source"),
-        overlays=overlays,
-        image_extracts=image_extracts,
-        archive_extracts=archive_extracts,
-    )
-
-
-def _validate_extract_actions(
-    table: dict[str, object], key: str, allowed: set[str]
-) -> list[dict[str, object]]:
-    """Validate an array of extraction action tables."""
-    actions = table.get(key, [])
-    if not isinstance(actions, list) or not all(isinstance(action, dict) for action in actions):
-        raise ConfigError(f"extract.{key} must be an array of tables")
-    for action in actions:
-        reject_unknown(action, allowed, f"extract.{key}")
-        for name, value in action.items():
-            if name == "members":
-                if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-                    raise ConfigError(f"extract.{key}.members must be an array of strings")
-            elif name in {"lowercase", "flatten"}:
-                if not isinstance(value, bool):
-                    raise ConfigError(f"extract.{key}.{name} must be a boolean")
-            elif not isinstance(value, str):
-                raise ConfigError(f"extract.{key}.{name} must be a string")
-        required = (
-            {"source", "destination"}
-            if key == "overlays"
-            else allowed
-            - {
-                "lowercase",
-                "flatten",
-            }
-        )
-        missing = required - action.keys()
-        if missing:
-            raise ConfigError(f"extract.{key} requires {', '.join(sorted(missing))}")
-    return actions
+    return config.extraction
 
 
 class Iso:
@@ -284,17 +165,14 @@ class MediaStager:
         if marker.exists():
             self._stage_guestlib()
             return
-        extract = self.config.section("extract")
-        if not extract:
+        if not self.config.section("extract"):
             raise ConfigError(f"No [extract] configuration for {self.context.name}")
         spec = toml_extraction(self.config)
         shell_script: Path | None = None
-        if extract.get("custom_script"):
-            shell_script = self.context.find(str(extract["custom_script"]))
+        if spec.custom_script:
+            shell_script = self.context.find(spec.custom_script)
             if shell_script is None:
-                raise ConfigError(
-                    f"Custom extraction script not found: {extract['custom_script']}"
-                )
+                raise ConfigError(f"Custom extraction script not found: {spec.custom_script}")
         self.directory.mkdir(parents=True, exist_ok=True)
         if shell_script:
             self._run_shell_script(shell_script)
@@ -493,48 +371,48 @@ class MediaStager:
         for action in spec.archive_extracts:
             self._extract_archive_files(action)
 
-    def _apply_overlays(self, overlays: list[dict[str, str]]) -> None:
+    def _apply_overlays(self, overlays: list[Overlay]) -> None:
         """Copy declarative downloaded-file replacements into staged media."""
         for overlay in overlays:
-            source = Path(overlay["source"])
+            source = Path(overlay.source)
             if not source.is_absolute():
                 source = self.config.download_dir / source
-            destination = self._staged_path(overlay["destination"])
+            destination = self._staged_path(overlay.destination)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 
-    def _extract_image_files(self, action: dict[str, object]) -> None:
+    def _extract_image_files(self, action: ImageExtract) -> None:
         """Extract selected files from a staged disk image with 7-Zip."""
-        image = self._staged_path(str(action["image"]))
-        destination = self._staged_path(str(action["destination"]))
+        image = self._staged_path(action.image)
+        destination = self._staged_path(action.destination)
         shutil.rmtree(destination, ignore_errors=True)
         destination.mkdir(parents=True)
         result = subprocess.run(
-            ["7z", "x", "-y", "-aoa", f"-o{destination}", str(image), *action["members"]],
+            ["7z", "x", "-y", "-aoa", f"-o{destination}", str(image), *action.members],
             check=False,
             stdout=subprocess.DEVNULL,
         )
         if result.returncode:
             raise CommandError(f"Could not extract files from {image}")
-        if action.get("lowercase", False):
+        if action.lowercase:
             for path in destination.iterdir():
                 lowered = path.with_name(path.name.lower())
                 if lowered != path:
                     path.rename(lowered)
 
-    def _extract_archive_files(self, action: dict[str, object]) -> None:
+    def _extract_archive_files(self, action: ArchiveExtract) -> None:
         """Extract selected members from a staged tar archive in Python."""
-        archive_path = self._staged_path(str(action["archive"]))
-        destination = self._staged_path(str(action["destination"]))
+        archive_path = self._staged_path(action.archive)
+        destination = self._staged_path(action.destination)
         with tarfile.open(archive_path) as archive:
             members = [member for member in archive.getmembers() if member.isfile()]
-            for pattern in action["members"]:
+            for pattern in action.members:
                 self._extract_tar_matches(
                     archive,
                     members,
-                    str(pattern),
+                    pattern,
                     destination,
-                    flatten=bool(action.get("flatten", False)),
+                    flatten=action.flatten,
                 )
 
     def _staged_path(self, value: str) -> Path:
@@ -564,16 +442,14 @@ class MediaStager:
         destination = self.directory / "fat" / "guestlib.d"
         shutil.rmtree(destination, ignore_errors=True)
         shutil.copytree(self.context.root / "guestlib", destination)
-        postinst_config = self.config.section("postinst")
-        if postinst_config:
-            self._validate_postinst(postinst_config)
+        if self.config.section("postinst"):
+            postinst_config = self.config.postinst
             distro = destination / "distro"
             distro.mkdir()
             (distro / "config.sh").write_text(self._render_postinst_config(postinst_config))
-            if "custom" in postinst_config.get("stages", []):
-                script_name = postinst_config.get("custom_script")
-                if not isinstance(script_name, str):
-                    raise ConfigError("Custom post-install stage requires postinst.custom_script")
+            if "custom" in postinst_config.stages:
+                assert postinst_config.custom_script is not None
+                script_name = postinst_config.custom_script
                 postinst = self.context.find(script_name)
                 if postinst is None:
                     raise ConfigError(f"Custom post-install script not found: {script_name}")
@@ -583,63 +459,9 @@ class MediaStager:
         prepare_tagfiles(self.context, self.directory, self.config.download_dir)
 
     @staticmethod
-    def _validate_postinst(config: dict[str, object]) -> None:
-        """Validate post-install stages and their declarative settings.
-
-        ``modules``, ``network``, ``tty``, and ``x11`` map to reusable guestlib
-        helpers. ``custom`` requires an explicit script and is the only stage
-        that copies distro-specific executable logic into the guest runtime.
-        """
-        reject_unknown(
-            config,
-            {
-                "stages",
-                "custom_script",
-                "debug",
-                "log",
-                "reboot",
-                "modules",
-                "network",
-                "tty",
-                "x11",
-                "custom",
-            },
-            "postinst",
-        )
-        stages = config.get("stages", [])
-        supported = {"modules", "network", "tty", "x11", "custom"}
-        if not isinstance(stages, list) or not all(isinstance(stage, str) for stage in stages):
-            raise ConfigError("postinst.stages must be an array of strings")
-        unknown = set(stages) - supported
-        if unknown:
-            raise ConfigError(f"Unknown post-install stage(s): {', '.join(sorted(unknown))}")
-        script = config.get("custom_script")
-        if script is not None and not isinstance(script, str):
-            raise ConfigError("postinst.custom_script must be a string")
-        if "custom" in stages and script is None:
-            raise ConfigError("Custom post-install stage requires postinst.custom_script")
-        for key in ("debug", "reboot"):
-            value = config.get(key)
-            if value is not None and not isinstance(value, bool):
-                raise ConfigError(f"postinst.{key} must be a boolean")
-        if "log" in config and not isinstance(config["log"], str):
-            raise ConfigError("postinst.log must be a string")
-        for section in supported:
-            table = config.get(section, {})
-            if not isinstance(table, dict):
-                raise ConfigError(f"postinst.{section} must be a table")
-            if not all(
-                isinstance(key, str) and isinstance(value, (str, int, bool))
-                for key, value in table.items()
-            ):
-                raise ConfigError(f"postinst.{section} values must be scalar")
-
-    @staticmethod
-    def _render_postinst_config(config: dict[str, object]) -> str:
+    def _render_postinst_config(config: PostinstConfig) -> str:
         """Render post-install TOML values as portable shell assignments."""
-        variables: dict[str, object] = {
-            "POSTINST_STAGES": " ".join(str(stage) for stage in config.get("stages", []))
-        }
+        variables: dict[str, object] = {"POSTINST_STAGES": " ".join(config.stages)}
         prefixes = {
             "modules": "MOD",
             "network": "NET",
@@ -649,9 +471,7 @@ class MediaStager:
         }
         aliases = {("x11", "mouse_device"): "X11_MOUSEDEV"}
         for section, prefix in prefixes.items():
-            table = config.get(section, {})
-            if not isinstance(table, dict):
-                continue
+            table = getattr(config, section)
             for key, value in table.items():
                 name = aliases.get((section, key))
                 if name is None:
@@ -659,8 +479,9 @@ class MediaStager:
                     name = name.upper()
                 variables[name] = value
         for key in ("debug", "log", "reboot"):
-            if key in config:
-                variables[f"POSTINST_{key.upper()}"] = config[key]
+            value = getattr(config, key)
+            if value is not None:
+                variables[f"POSTINST_{key.upper()}"] = value
         lines = ["# Generated from config.toml; do not edit."]
         for name, value in variables.items():
             if re.fullmatch(r"[A-Z][A-Z0-9_]*", name) is None:

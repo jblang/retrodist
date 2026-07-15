@@ -7,19 +7,17 @@ staged package layout, answers package prompts, and performs system setup.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from ..fdisk import Fdisk
+from ..schemas import ConfigModel
 from ..session import InstallSession, Match
 
 
-def run_sysinstall(session: InstallSession, _: dict[str, object]) -> None:
+def run_sysinstall(session: InstallSession) -> None:
     """Run an early Slackware Sysinstall installation."""
     Sysinstall(session).install()
 
 
-@dataclass(slots=True)
-class SysinstallOptions:
+class SysinstallOptions(ConfigModel):
     """Configure early Slackware Sysinstall automation."""
 
     target_disk: str = "/dev/hda"

@@ -7,15 +7,13 @@ The configured flow names the small release-specific composition.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from ..fdisk import Fdisk
+from ..schemas import ConfigModel
 from ..session import InstallSession, Match
 from ..errors import ConfigError
 
 
-@dataclass(slots=True)
-class PerlInstallerOptions:
+class PerlInstallerOptions(ConfigModel):
     """Configure early Red Hat Perl-installer automation."""
 
     target_disk: str = "/dev/hda"
@@ -31,12 +29,9 @@ class PerlInstallerOptions:
     nameserver: str = "10.0.2.3"
 
 
-def run_perl_installer(session: InstallSession, install: dict[str, object]) -> None:
+def run_perl_installer(session: InstallSession) -> None:
     """Run an early Red Hat Perl-installer installation."""
-    redhat = install.get("redhat", {})
-    if not isinstance(redhat, dict):
-        raise ConfigError("install.redhat must be a table")
-    flow = str(redhat.get("flow", ""))
+    flow = session.config.redhat_flow.flow
     installer = PerlInstaller(session)
     installer.boot()
     if flow == "1.1":

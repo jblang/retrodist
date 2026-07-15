@@ -8,18 +8,16 @@ post-installation remain shared.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
 import shlex
 
 from ..dialog import Choice
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..errors import ConfigError
+from ..schemas import ConfigModel
 
 
-@dataclass(slots=True)
-class DinstallOptions:
+class DinstallOptions(ConfigModel):
     """Configure Debian Dinstall automation.
 
     Options cover target media, optional kernel and driver floppies, keyboard
@@ -52,16 +50,14 @@ class DinstallOptions:
     nameserver: str = "10.0.2.3"
 
 
-def run_dinstall(session: InstallSession, install: dict[str, object]) -> None:
+def run_dinstall(session: InstallSession) -> None:
     """Run a Debian Dinstall installation with resolved options."""
-    boot = install.get("boot", {})
-    if not isinstance(boot, dict):
-        raise ConfigError("install.boot must be a table")
-    session.vga_wait(str(boot.get("prompt", "boot:")), match=Match.LINE)
-    session.kb_type(str(boot.get("command", "")) + "\n")
-    if root_prompt := boot.get("root_prompt"):
-        session.vga_wait(str(root_prompt), match=Match.LINE)
-        session.change_floppy(str(boot.get("root_image", "root.img")))
+    boot = session.config.dinstall_boot
+    session.vga_wait(boot.prompt, match=Match.LINE)
+    session.kb_type(boot.command + "\n")
+    if boot.root_prompt:
+        session.vga_wait(boot.root_prompt, match=Match.LINE)
+        session.change_floppy(boot.root_image)
         session.kb_type("\n")
     Dinstall(session).install()
 

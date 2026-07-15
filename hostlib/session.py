@@ -151,9 +151,9 @@ class InstallSession:
         The mount device and path come from installer options so distributions
         with nonstandard disk layouts use the same global guest runner.
         """
-        values = self.config.install_values
-        mount = str(values.get("fat_mount", "/retro"))
-        partition = str(values.get("fat_partition", "/dev/hdb1"))
+        common = self.config.install_common
+        mount = common.fat_mount
+        partition = common.fat_partition
         return (
             f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
             f"mkdir -p {shlex.quote(mount)} && mount -t msdos "

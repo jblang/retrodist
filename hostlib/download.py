@@ -20,8 +20,9 @@ from fsspec.callbacks import Callback
 from fsspec.spec import AbstractFileSystem
 
 from .context import Context
-from .config import RetroConfig, load_config, reject_unknown
+from .config import RetroConfig, load_config
 from .errors import ConfigError
+from .schemas import DownloadConfig
 
 log = logging.getLogger(__name__)
 
@@ -117,30 +118,28 @@ class Downloader:
             ConfigError: If the schema or a CD-ROM reference is invalid.
             OSError: If an HTTP listing or transfer fails.
         """
-        self._validate(self.config)
-        name = self.config.value("download", "cdrom")
+        download = self.config.download
+        name = download.cdrom
         if name:
             directory = self.context.root / "cdrom" / name
             if not directory.is_dir():
                 raise ConfigError(f"CD-ROM configuration does not exist: {name}")
             cd_context = Context(self.context.root, directory, "download", self.context.temporary)
-            self._download(load_config(cd_context), directory / "download.d")
+            shared = load_config(cd_context).download
+            self._download(shared, directory / "download.d")
             self.context.qemu_dir.mkdir(parents=True, exist_ok=True)
             for image in (directory / "download.d").glob("*.iso"):
                 target = self.context.qemu_dir / image.name
                 target.unlink(missing_ok=True)
                 target.symlink_to(image)
-        self._download(self.config, self.config.download_dir)
+        self._download(download, self.config.download_dir)
 
-    def _download(self, config: RetroConfig, destination: Path) -> None:
+    def _download(self, download: DownloadConfig, destination: Path) -> None:
         """Download one config's direct files and mirror sources."""
         destination.mkdir(parents=True, exist_ok=True)
-        download = config.section("download")
-        self._validate(config)
-        files = download.get("files", [])
-        for number, item in enumerate(files, 1):
-            filename = item["path"]
-            url = item["url"]
+        for item in download.files:
+            filename = item.path
+            url = item.url
             path = PurePosixPath(filename)
             if path.is_absolute() or ".." in path.parts:
                 raise ConfigError(f"Unsafe download path in config.toml: {filename}")
@@ -150,35 +149,10 @@ class Downloader:
             target.parent.mkdir(parents=True, exist_ok=True)
             log.info("Downloading %s", filename)
             self._retrieve(url, target)
-        if mirror := download.get("slackware_mirror"):
+        if mirror := download.slackware_mirror:
             self._slackware(mirror, destination)
-        if mirror := download.get("debian_mirror"):
+        if mirror := download.debian_mirror:
             self._debian(mirror, destination)
-
-    @staticmethod
-    def _validate(config: RetroConfig) -> None:
-        """Validate the declarative download table."""
-        download = config.section("download")
-        reject_unknown(
-            download,
-            {"cdrom", "files", "slackware_mirror", "debian_mirror"},
-            "download",
-        )
-        for key in ("cdrom", "slackware_mirror", "debian_mirror"):
-            value = download.get(key)
-            if value is not None and not isinstance(value, str):
-                raise ConfigError(f"download.{key} must be a string")
-        files = download.get("files", [])
-        if not isinstance(files, list):
-            raise ConfigError("download.files must be an array of tables")
-        for number, item in enumerate(files, 1):
-            if not isinstance(item, dict) or not isinstance(item.get("path"), str):
-                raise ConfigError(f"Invalid download.files entry {number} in config.toml")
-            reject_unknown(item, {"path", "url"}, f"download.files entry {number}")
-            filename = item["path"]
-            url = item.get("url")
-            if not isinstance(url, str):
-                raise ConfigError(f"Missing URL for download.files entry {number}")
 
     def _slackware(self, version: str, destination: Path) -> None:
         """Mirror the requested Slackware release tree."""

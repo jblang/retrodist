@@ -14,6 +14,7 @@ hostlib/operations.py
 hostlib/qemu.py
 hostlib/qmp.py
 hostlib/qmp_cli.py
+hostlib/schemas.py
 hostlib/serial.py
 hostlib/session.py
 hostlib/slackware.py

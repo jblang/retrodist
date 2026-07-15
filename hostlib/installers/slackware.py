@@ -8,19 +8,17 @@ configuration dialogs declaratively.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 
 from ..dialog import Choice
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..errors import ConfigError
+from ..schemas import ConfigModel
 
 log = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
-class PkgtoolOptions:
+class PkgtoolOptions(ConfigModel):
     """Configure Slackware Pkgtool automation.
 
     Options describe target and source media, tagfile/package selection,
@@ -57,18 +55,16 @@ class PkgtoolOptions:
     simple_lilo: bool = False
 
 
-def run_pkgtool(session: InstallSession, install: dict[str, object]) -> None:
+def run_pkgtool(session: InstallSession) -> None:
     """Run a Slackware Pkgtool installation with resolved options."""
-    boot = install.get("boot", {})
-    if not isinstance(boot, dict):
-        raise ConfigError("install.boot must be a table")
+    boot = session.config.pkgtool_boot
     boot_pkgtool(
         session,
-        boot_prompt=_optional_prompt(boot, "boot_prompt", "boot:"),
-        root_prompt=_optional_prompt(boot, "root_prompt"),
-        root_image=_optional_string(boot, "root_image") or "root.img",
-        continuation_prompt=_optional_prompt(boot, "continuation_prompt"),
-        keyboard_prompt=_boolean(boot, "keyboard_prompt", False),
+        boot_prompt=boot.boot_prompt or None,
+        root_prompt=boot.root_prompt or None,
+        root_image=boot.root_image,
+        continuation_prompt=boot.continuation_prompt or None,
+        keyboard_prompt=boot.keyboard_prompt,
     )
 
 
@@ -375,29 +371,3 @@ def boot_pkgtool(
         session.vga_wait("Enter 1 to select a keyboard map:", match=Match.LINE)
         session.kb_type("\n")
     Pkgtool(session, options).install()
-
-
-def _optional_string(table: dict[str, object], key: str) -> str | None:
-    """Return an optional string installer setting."""
-    value = table.get(key)
-    if value is not None and not isinstance(value, str):
-        raise ConfigError(f"install.boot.{key} must be a string")
-    return value
-
-
-def _optional_prompt(table: dict[str, object], key: str, default: str | None = None) -> str | None:
-    """Return an optional prompt, treating false as disabled."""
-    value = table.get(key, default)
-    if value is False:
-        return None
-    if value is not None and not isinstance(value, str):
-        raise ConfigError(f"install.boot.{key} must be a string or false")
-    return value
-
-
-def _boolean(table: dict[str, object], key: str, default: bool) -> bool:
-    """Read an optional Boolean field from declarative configuration."""
-    value = table.get(key, default)
-    if not isinstance(value, bool):
-        raise ConfigError(f"install.boot.{key} must be a boolean")
-    return value

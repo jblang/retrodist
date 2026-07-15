@@ -8,16 +8,15 @@ the smaller unattended entry point in this module.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
 
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
 from ..errors import ConfigError
+from ..schemas import ConfigModel
 
 
-@dataclass(slots=True)
-class CInstallerOptions:
+class CInstallerOptions(ConfigModel):
     """Configure Red Hat C-installer automation.
 
     Prompt flags describe screens present in particular releases; flow and
@@ -56,7 +55,7 @@ class CInstallerOptions:
     nameserver: str = "10.0.2.3"
 
 
-def run_c_installer(session: InstallSession, _: dict[str, object]) -> None:
+def run_c_installer(session: InstallSession) -> None:
     """Run a Red Hat C-installer installation with resolved options."""
     installer = CInstaller(session)
     flow = installer.o.flow
@@ -108,32 +107,20 @@ def run_c_installer(session: InstallSession, _: dict[str, object]) -> None:
     installer.finish()
 
 
-def run_unattended(session: InstallSession, install: dict[str, object]) -> None:
+def run_unattended(session: InstallSession) -> None:
     """Wait for an unattended Red Hat install and complete post-install setup."""
-    boot = install.get("boot", {})
-    completion = install.get("completion", {})
-    if not isinstance(boot, dict) or not isinstance(completion, dict):
-        raise ConfigError("install.boot and install.completion must be tables")
-    prompt = boot.get("prompt", "boot:")
-    command = boot.get("command")
-    complete_prompt = completion.get("prompt")
-    if not isinstance(prompt, str) or not isinstance(command, str):
-        raise ConfigError("install.boot prompt and command must be strings")
-    if not isinstance(complete_prompt, str):
-        raise ConfigError("install.completion.prompt must be a string")
-    session.vga_wait(prompt, match=Match.LINE)
-    session.kb_type(command + "\n")
-    session.vga_wait(complete_prompt)
-    if completion.get("reboot", True):
-        session.set_boot(str(completion.get("boot_device", "c")))
+    settings = session.config.unattended_install
+    session.vga_wait(settings.boot.prompt, match=Match.LINE)
+    session.kb_type(settings.boot.command + "\n")
+    session.vga_wait(settings.completion.prompt)
+    if settings.completion.reboot:
+        session.set_boot(settings.completion.boot_device)
         session.kb_type("\n")
-    if completion.get("postinst"):
-        accounts = session.config.section("install", "accounts")
-        prompts = session.config.section("install", "prompts")
+    if settings.completion.postinst:
         session.run_postinst(
-            accounts.get("root_password"),
-            login=str(prompts.get("login_prompt", "login:")),
-            shell=str(prompts.get("shell_prompt", "#")),
+            settings.accounts.root_password,
+            login=settings.prompts.login_prompt,
+            shell=settings.prompts.shell_prompt,
         )
 
 

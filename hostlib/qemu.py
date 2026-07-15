@@ -87,10 +87,10 @@ class QemuRuntime:
             return
         if not (floppy or cdrom):
             raise CommandError("No bootable devices")
-        command = ["qemu-img", "create", "-f", self.config.disk_format]
-        if self.config.disk_create_options:
-            command += ["-o", self.config.disk_create_options]
-        command += [str(disk), self.config.disk_size or "500M"]
+        command = ["qemu-img", "create", "-f", self.config.disk.format]
+        if self.config.disk.create_options:
+            command += ["-o", self.config.disk.create_options]
+        command += [str(disk), self.config.disk.size or "500M"]
         result = subprocess.run(command, check=False)
         if result.returncode:
             raise CommandError("Could not create hda.img")
@@ -110,10 +110,10 @@ class QemuRuntime:
                 image, iso = Path(), cdrom
             options: str | None = None
             if image.is_file():
-                format = "raw" if interface == "floppy" else self.config.disk_format
+                format = "raw" if interface == "floppy" else self.config.disk.format
                 extra = (
-                    f",{self.config.hda_options}"
-                    if name == "hda" and self.config.hda_options
+                    f",{self.config.disk.hda_options}"
+                    if name == "hda" and self.config.disk.hda_options
                     else ""
                 )
                 options = f"if={interface},index={index},format={format},file={image.name}{extra}"
@@ -130,13 +130,15 @@ class QemuRuntime:
     def _forwards(self) -> list[tuple[int, int]]:
         """Resolve configured or automatically assigned host port forwards."""
         if self._assigned_forwards is None:
-            if self.config.forwards is None:
+            if self.config.network.forwards is None:
                 self._assigned_forwards = [
                     (available_port(2200), 22),
                     (available_port(2300), 23),
                 ]
             else:
-                self._assigned_forwards = [(pair[0], pair[1]) for pair in self.config.forwards]
+                self._assigned_forwards = [
+                    (pair[0], pair[1]) for pair in self.config.network.forwards
+                ]
         return self._assigned_forwards
 
     def _chardevs(self) -> list[tuple[str, str]]:
@@ -150,8 +152,8 @@ class QemuRuntime:
             ("-serial", "unix:ttyS0.sock,server=on,wait=off"),
             ("-serial", "unix:ttyS1.sock,server=on,wait=off"),
         ]
-        if self.config.serial_aux:
-            devices.append(("-serial", self.config.serial_aux))
+        if self.config.serial.auxiliary:
+            devices.append(("-serial", self.config.serial.auxiliary))
         devices.extend(
             [
                 ("-serial", "unix:ttyS3.sock,server=on,wait=off"),
@@ -181,22 +183,27 @@ class QemuRuntime:
         for option, value in self._chardevs():
             args += [option, value]
         for option, value in (
-            ("-display", cfg.display),
-            ("-accel", cfg.acceleration),
-            ("-vga", cfg.vga),
+            ("-display", cfg.display.backend),
+            ("-accel", cfg.display.acceleration),
+            ("-vga", cfg.display.vga),
         ):
             if value:
                 args += [option, value]
-        if cfg.network_enabled and cfg.nic:
+        if cfg.network.enabled and cfg.network.device:
             forwards = self._forwards()
             netdev = "user,id=internet" + "".join(
                 f",hostfwd=tcp:127.0.0.1:{host}-:{guest}" for host, guest in forwards
             )
-            args += ["-netdev", netdev, "-device", f"{cfg.nic},netdev=internet"]
-        if cfg.fdtype_a:
-            args += ["-global", f"isa-fdc.fdtypeA={cfg.fdtype_a}"]
-        if cfg.fdtype_b:
-            args += ["-global", f"isa-fdc.fdtypeB={cfg.fdtype_b}"]
+            args += [
+                "-netdev",
+                netdev,
+                "-device",
+                f"{cfg.network.device},netdev=internet",
+            ]
+        if cfg.disk.floppy_a_type:
+            args += ["-global", f"isa-fdc.fdtypeA={cfg.disk.floppy_a_type}"]
+        if cfg.disk.floppy_b_type:
+            args += ["-global", f"isa-fdc.fdtypeB={cfg.disk.floppy_b_type}"]
         args += self._drives()
         floppy, cdrom = self._startup_media()
         boot = cfg.boot_order or (
@@ -212,7 +219,9 @@ class QemuRuntime:
         """Log QMP, forwarding, disk, and character-device endpoints."""
         log.info("⚙️  QEMU endpoints:")
         log.info("    QMP:     %s", self.qmp_socket.name)
-        forwards = self._forwards() if self.config.network_enabled and self.config.nic else []
+        forwards = (
+            self._forwards() if self.config.network.enabled and self.config.network.device else []
+        )
         if forwards:
             log.info("📡 Guest ports:")
             ordered = sorted(
@@ -251,7 +260,7 @@ class QemuRuntime:
         command = self.command()
         self._report_devices()
         log.info("🏁 Starting QEMU")
-        log.info("⚙️  %s", shlex.join(command))
+        log.info("#️⃣  Command: %s", shlex.join(command))
         return await asyncio.create_subprocess_exec(*command, cwd=self.directory)
 
     async def connect_monitor(self, process: asyncio.subprocess.Process) -> Monitor:

@@ -50,7 +50,7 @@ def temporary_config(
     directory.mkdir(parents=True)
     context = Context(root, directory, "boot", root / "temporary")
     context.temporary.mkdir(exist_ok=True)
-    return context, RetroConfig(context, data or {})
+    return context, RetroConfig(context=context, data=data or {})
 
 
 class ContextTests(unittest.TestCase):
@@ -208,12 +208,13 @@ class DownloadTests(unittest.TestCase):
             ([{"path": "disk.img"}], "Missing URL"),
             ("disk.img", "array of tables"),
         ):
-            config = RetroConfig(context, {"download": {"files": files}})
+            config = RetroConfig(context=context, data={"download": {"files": files}})
             with self.assertRaisesRegex(ConfigError, message):
                 if isinstance(files, list) and files and "url" in files[0]:
-                    download.Downloader(context, config)._download(config, Path("unused"))
+                    settings = config.download
+                    download.Downloader(context, config)._download(settings, Path("unused"))
                 else:
-                    download.Downloader._validate(config)
+                    config.download
 
     def test_cdrom_download_links_shared_iso_into_selected_qemu_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -474,10 +475,9 @@ class SlackwareTagfileTests(unittest.TestCase):
 class ConfigTests(unittest.TestCase):
     def test_profile_only_fills_unspecified_values(self) -> None:
         config = QemuConfig(profile="linux-2.0", ram="32M")
-        config.apply_profile()
         self.assertEqual(config.ram, "32M")
-        self.assertEqual(config.disk_size, "8G")
-        self.assertEqual(config.vga, "cirrus")
+        self.assertEqual(config.disk.size, "8G")
+        self.assertEqual(config.display.vga, "cirrus")
 
     def test_toml_inherits_parent_tables_and_replaces_arrays(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -514,7 +514,7 @@ class ConfigTests(unittest.TestCase):
             qemu = load_qemu_config(load_config(context))
             extraction = toml_extraction(load_config(context))
             self.assertEqual(qemu.ram, "32M")
-            self.assertEqual(qemu.nic, "pcnet")
+            self.assertEqual(qemu.network.device, "pcnet")
             self.assertEqual(extraction.source, "disc1.iso")
             self.assertEqual(extraction.boot_image, "images/boot.img")
             self.assertEqual(extraction.package_source, "slakware")
@@ -522,8 +522,8 @@ class ConfigTests(unittest.TestCase):
 
     def test_qemu_rejects_unknown_toml_settings(self) -> None:
         config = RetroConfig(
-            SimpleNamespace(name="test"),
-            {"qemu": {"profile": "default", "unsupported_flag": True}},
+            context=SimpleNamespace(name="test"),
+            data={"qemu": {"profile": "default", "unsupported_flag": True}},
         )
         with self.assertRaisesRegex(ConfigError, "unsupported_flag"):
             load_qemu_config(config)
@@ -544,14 +544,18 @@ class ConfigTests(unittest.TestCase):
             self.assertTrue(options.relogin)
 
     def test_postinstall_config_renders_logical_sections(self) -> None:
-        rendered = MediaStager._render_postinst_config(
-            {
-                "stages": ["network", "tty"],
-                "network": {"hostname": "retro"},
-                "tty": {"baud": 19200},
-                "reboot": True,
-            }
-        )
+        settings = RetroConfig(
+            context=SimpleNamespace(),
+            data={
+                "postinst": {
+                    "stages": ["network", "tty"],
+                    "network": {"hostname": "retro"},
+                    "tty": {"baud": 19200},
+                    "reboot": True,
+                }
+            },
+        ).postinst
+        rendered = MediaStager._render_postinst_config(settings)
         self.assertIn("POSTINST_STAGES='network tty'", rendered)
         self.assertIn("NET_HOSTNAME='retro'", rendered)
         self.assertIn("TTY_BAUD='19200'", rendered)
@@ -564,7 +568,6 @@ class QemuTests(unittest.TestCase):
         (directory / "qemu.d").mkdir(parents=True)
         (directory / "qemu.d/boot.img").touch()
         qemu = config or QemuConfig()
-        qemu.apply_profile()
         return QemuRuntime(Context(root, directory, "boot", root / "temporary"), qemu)
 
     def test_default_forwards_use_the_documented_port_ranges(self) -> None:
@@ -581,14 +584,14 @@ class QemuTests(unittest.TestCase):
 
     def test_explicit_empty_forward_list_disables_port_forwards(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            config = QemuConfig(forwards=[])
+            config = QemuConfig(network={"forwards": []})
             runtime = self.runtime(Path(temporary), config)
             netdev = runtime.command()[runtime.command().index("-netdev") + 1]
             self.assertEqual(netdev, "user,id=internet")
 
     def test_device_report_includes_endpoints_disks_and_character_sockets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            runtime = self.runtime(Path(temporary), QemuConfig(forwards=[[2200, 22]]))
+            runtime = self.runtime(Path(temporary), QemuConfig(network={"forwards": [[2200, 22]]}))
             with self.assertLogs("hostlib.qemu", "INFO") as report:
                 runtime._report_devices()
 
@@ -617,7 +620,7 @@ class QemuTests(unittest.TestCase):
     def test_drives_include_floppy_cdrom_fat_and_disk_options(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            config = QemuConfig(hda_options="cache=writeback")
+            config = QemuConfig(disk={"hda_options": "cache=writeback"})
             runtime = self.runtime(root, config)
             (runtime.directory / "hda.img").touch()
             (runtime.directory / "install.iso").touch()
@@ -640,8 +643,7 @@ class QemuLifecycleTests(unittest.IsolatedAsyncioTestCase):
             stale = directory / "qmp.sock"
             stale.touch()
             context = Context(root, directory.parent, "boot", root / "temp")
-            config = QemuConfig(network_enabled=False)
-            config.apply_profile()
+            config = QemuConfig(network={"enabled": False})
             runtime = QemuRuntime(context, config)
             process = SimpleNamespace()
             with (
@@ -825,14 +827,14 @@ class MediaStagerTests(unittest.TestCase):
             ({"unknown": True}, "Unknown extract"),
         ):
             with self.assertRaisesRegex(ConfigError, message):
-                toml_extraction(RetroConfig(context, {"extract": table}))
+                toml_extraction(RetroConfig(context=context, data={"extract": table}))
         for table, message in (
             ({"stages": ["mystery"]}, "Unknown post-install"),
             ({"stages": ["custom"]}, "requires postinst.custom_script"),
             ({"stages": [], "network": []}, "must be a table"),
         ):
             with self.assertRaisesRegex(ConfigError, message):
-                MediaStager._validate_postinst(table)
+                RetroConfig(context=context, data={"postinst": table}).postinst
 
     def test_extraction_paths_cannot_escape_their_destination(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -906,8 +908,8 @@ class InstallPlanTests(unittest.TestCase):
 
     def test_prompt_sequence_rejects_invalid_boolean(self) -> None:
         config = RetroConfig(
-            SimpleNamespace(),
-            {
+            context=SimpleNamespace(),
+            data={
                 "install": {
                     "driver": "prompt-sequence",
                     "steps": [
@@ -941,8 +943,8 @@ class InstallPlanTests(unittest.TestCase):
             {"action": "run-postinst", "password": "secret", "login": "login:", "shell": "#"},
         ]
         config = RetroConfig(
-            SimpleNamespace(),
-            {
+            context=SimpleNamespace(),
+            data={
                 "install": {
                     "driver": "prompt-sequence",
                     "network": {"hostname": "retro"},
@@ -1001,14 +1003,14 @@ class InstallPlanTests(unittest.TestCase):
         for data, message in cases:
             with self.subTest(message=message):
                 with self.assertRaisesRegex(ConfigError, message):
-                    validate_install_config(RetroConfig(SimpleNamespace(), data))
+                    validate_install_config(RetroConfig(context=SimpleNamespace(), data=data))
 
 
 class RedHatDriverTests(unittest.TestCase):
     def test_unattended_flow_boots_reboots_and_runs_postinstall(self) -> None:
         config = RetroConfig(
-            SimpleNamespace(),
-            {
+            context=SimpleNamespace(),
+            data={
                 "install": {
                     "accounts": {"root_password": "secret"},
                     "prompts": {"login_prompt": "login:", "shell_prompt": "#"},
@@ -1024,7 +1026,7 @@ class RedHatDriverTests(unittest.TestCase):
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
-        redhat.run_unattended(session, config.section("install"))
+        redhat.run_unattended(session)
         self.assertEqual(session.vga_wait.call_args_list[0].args, ("boot:",))
         session.kb_type.assert_any_call("linux ks=floppy\n")
         session.set_boot.assert_called_once_with("c")
@@ -1035,7 +1037,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer = unittest.mock.Mock()
         installer.o.flow = "4x"
         with patch.object(redhat, "CInstaller", return_value=installer):
-            redhat.run_c_installer(session, {})
+            redhat.run_c_installer(session)
         for method in (
             installer.start,
             installer.partition_4x,
@@ -1049,19 +1051,28 @@ class RedHatDriverTests(unittest.TestCase):
         installer.o.flow = "mystery"
         with patch.object(redhat, "CInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat C installer flow"):
-                redhat.run_c_installer(session, {})
+                redhat.run_c_installer(session)
 
     def test_early_redhat_flow_composes_release_specific_phases(self) -> None:
-        session = SimpleNamespace()
+        session = SimpleNamespace(
+            config=RetroConfig(
+                context=SimpleNamespace(),
+                data={"install": {"redhat": {"flow": "1.1"}}},
+            )
+        )
         installer = unittest.mock.Mock()
         with patch.object(redhat_early, "PerlInstaller", return_value=installer):
-            redhat_early.run_perl_installer(session, {"redhat": {"flow": "1.1"}})
+            redhat_early.run_perl_installer(session)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
         installer.insert_boot_disk.assert_called_once_with()
+        session.config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"install": {"redhat": {"flow": "unknown"}}},
+        )
         with patch.object(redhat_early, "PerlInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat Perl installer flow"):
-                redhat_early.run_perl_installer(session, {"redhat": {"flow": "unknown"}})
+                redhat_early.run_perl_installer(session)
 
 
 class KeyboardTests(unittest.TestCase):
@@ -1572,7 +1583,7 @@ class SessionTests(unittest.TestCase):
         session = InstallSession(
             runtime,
             None,
-            RetroConfig(SimpleNamespace(), {"install": install or {}}),
+            RetroConfig(context=SimpleNamespace(), data={"install": install or {}}),
         )
         session._call = lambda coroutine: asyncio.run(coroutine)
         return session
