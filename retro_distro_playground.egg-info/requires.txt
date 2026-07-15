@@ -1,3 +1,4 @@
+fsspec[http]>=2025.3
 pycdlib<2,>=1.16
 qemu.qmp==0.0.6
 

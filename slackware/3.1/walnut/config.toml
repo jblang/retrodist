@@ -1,0 +1,11 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "walnut/slackware/3.1"
+
+[extract]
+source = "disc1.iso"
+boot_image = "bootdsks.144/bare.i"
+root_image = "rootdsks/color.gz"
+truncate = ["bare.i"]
+

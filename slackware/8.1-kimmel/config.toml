@@ -1,0 +1,25 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "slackware-pkgtool"
+
+[install.boot]
+keyboard_prompt = true
+
+[download]
+cdrom = "kimmel/slackware/8.1"
+
+[extract]
+source = "disc1.iso"
+
+[qemu]
+profile = "linux-2.4"
+
+[install.prompts]
+postinst_prompt = "root@darkstar:~#"
+
+[install.slackware]
+xwmconfig = true
+
+[postinst]
+stages = ["tty", "x11"]

@@ -14,7 +14,7 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 # Bash host scripts: strict.
-HOST_SCRIPTS=(retro qmp hostlib/*.sh slackware/sysinstall.sh slackware/pkgtool.sh debian/dinstall.sh tests/*.sh)
+HOST_SCRIPTS=(retro-prereq retro-bash qmp-bash hostlib-bash/*.sh slackware/sysinstall.sh slackware/pkgtool.sh debian/dinstall.sh tests/*.sh)
 
 # POSIX guest fragments: run on legacy guest shells, so accept patterns that are
 # intentional there (word splitting, expr math, -a/-o tests, $? checks, legacy

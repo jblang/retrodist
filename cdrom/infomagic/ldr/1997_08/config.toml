@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD1.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD2.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD3.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD4.iso"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD5.iso"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/infomagic-linux-developers-resource-1997-aug/InfoMagic-Linux-Developers-Resource-1997-Aug-CD6.iso"
+

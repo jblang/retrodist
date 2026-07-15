@@ -1,0 +1,8 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "walnut/slackware/7.0"
+
+[extract]
+source = "disc1.iso"
+

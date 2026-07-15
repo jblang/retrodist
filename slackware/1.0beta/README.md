@@ -31,3 +31,6 @@ XFree86 1.2 doesn't support the Cirrus Logic SVGA card emulated by QEMU, so it c
 The serial-driven installation used for 1.01 also works with 1.0beta, and the
 manual installation procedure is similar. See the
 [instructions](../1.01/README.md#installation) for 1.01.
+
+Run `retro install slackware/1.0beta/VARIANT`; the selected `config.toml` uses
+the shared Python `slackware-sysinstall` driver.

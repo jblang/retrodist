@@ -1,0 +1,32 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "redhat-c"
+
+[download]
+cdrom = "infomagic/ldr/1998_01"
+
+[extract]
+source = "disc1.iso"
+boot_image = "images/boot.img"
+
+[qemu]
+profile = "linux-2.0"
+
+[qemu.network]
+device = "pcnet"
+
+[install.redhat]
+keyboard_early = true
+pcmcia_prompt = false
+cdrom_type_prompt = false
+insert_cd_prompt = "Insert your Red Hat CD"
+flow = "50"
+timezone_prompt = "Configure Timezones"
+lilo_extra_f12 = 1
+
+[postinst]
+stages = ["x11"]
+
+[postinst.x11]
+chipset = "clgd5446"

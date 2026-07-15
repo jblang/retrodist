@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Python host runtime for Retro Distro Playground"
 requires-python = ">=3.11"
 dependencies = [
+  "fsspec[http]>=2025.3",
   "pycdlib>=1.16,<2",
   "qemu.qmp==0.0.6",
 ]
@@ -16,8 +17,8 @@ dependencies = [
 dev = ["black"]
 
 [project.scripts]
-retro-py = "retro_host.cli:main"
-qmp-py = "retro_host.qmp_cli:main"
+retro = "hostlib.cli:main"
+qmp = "hostlib.qmp_cli:main"
 
 [tool.black]
 target-version = ["py311"]
@@ -25,4 +26,4 @@ line-length = 99
 extend-exclude = "/(qemu\\.d|download\\.d|tagfile\\.d|\\.venv)/"
 
 [tool.setuptools.packages.find]
-include = ["retro_host*"]
+include = ["hostlib", "hostlib.*"]

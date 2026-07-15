@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%201%29.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%202%29.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%203%29.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%204%29.iso"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%205%29.iso"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_December_1999/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28December%201999%29%20%28Disc%206%29.iso"
+

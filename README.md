@@ -16,13 +16,15 @@ Install a Unix-like environment first:
 - macOS: install [Homebrew](https://brew.sh/).
 - Windows: use [MSYS2](https://www.msys2.org/) or WSL2 with a Linux distro.
 
-Clone the repo, then install host tools from the repo root:
+Clone the repo, then run the bootstrap script. It installs Python, QEMU, and
+`mtools`, creates `.venv`, and installs the project into it:
 
 ```bash
-retro prereq
+./retro-prereq
+source .venv/bin/activate
 ```
 
-Running `retro` without a recognized command prints command help.
+Running `retro` without a command prints command help.
 
 Boot a distro:
 
@@ -39,23 +41,18 @@ retro install slackware/3.0/walnut
 `boot` and `install` automatically download and extract the needed media before
 starting QEMU.
 
-An alternative Python host is available alongside the Bash implementation:
-
-```bash
-python3 -m pip install -e .
-retro-py install slackware/3.0/walnut
-qmp-py dump-screen
-```
-
-It requires Python 3.11 or newer and uses `qemu.qmp` for QMP and `pycdlib` for
-ISO access. It retains the existing external QEMU, `7z`, `wget`, `mtools`, and
-`bchunk` tools. See [the Python host notes](hostlib/README.md#python-host) for
-the compatibility boundary and installer API.
+The host requires Python 3.11 or newer and uses `qemu.qmp` for QMP and
+`pycdlib` for ISO access. QEMU and `mtools` are external programs invoked by
+the host. Distro behavior is configured in logically sectioned `config.toml`
+files; see [CONTRIBUTING.md](CONTRIBUTING.md) for the schema and extension
+workflow.
 
 Install the Python development tools and check formatting with:
 
 ```bash
-python3 -m pip install -e '.[dev]'
+python -m pip install -e '.[dev]'
+python -m unittest tests.test_python
+tests/unit.sh
 black --check .
 ```
 
@@ -63,10 +60,10 @@ The repository is organized around three layers:
 
 - distro configs describe source media, staged files, emulated hardware, and
   optional install and post-install steps;
-- `hostlib/` implements downloads, extraction, QEMU lifecycle, and host-driven
-  installer automation;
+- `hostlib/` implements downloads, extraction, QEMU lifecycle, and
+  host-driven installer automation;
 - `guestlib/` is portable code staged into guests for installer adapters and
-  final system configuration.
+  final system configuration;
 
 ## What You Can Run
 
@@ -85,8 +82,8 @@ install media.
 
 ## Common Commands
 
-`retro` requires a command and accepts one optional config directory, which
-defaults to the current directory: `retro COMMAND [CONFIG]`.
+`retro` accepts a command and one optional config directory, which defaults to
+the current directory: `retro COMMAND [CONFIG]`.
 
 ```bash
 retro boot CONFIG       # download, extract, and boot a distro
@@ -96,23 +93,25 @@ retro download CONFIG   # download original media only
 retro reset CONFIG      # remove generated qemu.d/ and extracted files
 retro package CONFIG    # build a portable tar with qemu.d/ and launch scripts
 retro tagfile CONFIG    # Slackware only: regenerate default.tag from install media
-retro prereq            # install host prerequisites
 ```
+
+`retro-prereq` is a standalone Bash bootstrap script, not a `retro` command.
 
 Generated VM state lives under each config's `qemu.d/` directory. Downloaded
 source media usually lives under `download.d/`; CD-ROM based configs link ISO
 files into `qemu.d/`.
 
-The `qmp` utility controls a running VM through its QMP pipe. It can inspect
-VGA text, send keyboard input, and change removable media; run `qmp help` for
+The `qmp` utility controls a running VM through its QMP socket. It can inspect
+VGA text, send keyboard input, and change removable media; run `qmp --help` for
 the complete interface.
 
 Older distros usually do not support power management. Shut guests down from
 inside the VM when possible, for example with `shutdown -h now`, then close the
 QEMU window or press `Ctrl-C` in the terminal that started `retro`.
 
-Slackware automated installs can choose package sets with `INSTALL_TAGSETS`.
-See [Slackware package selection](slackware/README.md#package-selection).
+Slackware automated installs can choose package series and tagfile behavior in
+`[install.slackware]`. See
+[Slackware package selection](slackware/README.md#package-selection).
 
 ## Networking
 
@@ -124,17 +123,16 @@ host port forwards for common guest services:
 
 The exact ports are printed when QEMU starts.
 
-Set `QEMU_NET_FORWARD` to whitespace- or comma-separated `host:guest` port
-pairs to replace these defaults, for example `QEMU_NET_FORWARD="8080:80
-2200:22"`. Set it to `none` to disable all guest port forwards.
+`[qemu.network]` may set `forwards = [[8080, 80],
+[2200, 22]]`. An explicit empty array disables forwarding; when the setting is
+absent, `retro` uses the default SSH and Telnet ranges above. Set
+`enabled = false` in the same table to omit the guest NIC.
 
 **Disclaimer!** Old distros are very insecure, so be careful. QEMU user mode
 networking puts the guest interface behind a firewall that blocks incoming
 traffic so the risk is mitigated. Just be informed about the risks and avoid
 forwarding guest ports to any public interfaces or using guest VMs to send
 or store any sensitive information.
-
-Set `QEMU_NET_ENABLED=false` to boot a VM with no network interface.
 
 ## File Transfer
 
@@ -172,8 +170,6 @@ before boot, and shut the guest down cleanly before reading files back.
 ## More Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): adding new distro configs and scripted installs.
-- [hostlib/README.md](hostlib/README.md): host architecture, QEMU configuration,
-  media staging, and install automation APIs.
 - [guestlib/README.md](guestlib/README.md): portable installer adapters and
   post-installation runtime.
 

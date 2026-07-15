@@ -5,29 +5,29 @@ set -uo pipefail
 REPO_D=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/logging.sh"
+source "$REPO_D/hostlib-bash/logging.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/download.sh"
-for qemu_lib in "$REPO_D"/hostlib/qemu*.sh; do
+source "$REPO_D/hostlib-bash/download.sh"
+for qemu_lib in "$REPO_D"/hostlib-bash/qemu*.sh; do
     # shellcheck source=/dev/null
     source "$qemu_lib"
 done
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/qmp.sh"
+source "$REPO_D/hostlib-bash/qmp.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-kb.sh"
+source "$REPO_D/hostlib-bash/script-kb.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-vga.sh"
+source "$REPO_D/hostlib-bash/script-vga.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script.sh"
+source "$REPO_D/hostlib-bash/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-serial.sh"
+source "$REPO_D/hostlib-bash/script-serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-fdisk.sh"
+source "$REPO_D/hostlib-bash/script-fdisk.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/slackware.sh"
+source "$REPO_D/hostlib-bash/slackware.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/extract.sh"
+source "$REPO_D/hostlib-bash/extract.sh"
 # shellcheck source=/dev/null
 source "$REPO_D/slackware/sysinstall.sh"
 
@@ -109,7 +109,7 @@ assert_eq "qmp/hmp-batch-responses" $'response: first\nresponse: second' "$(
 )"
 assert_fail "qmp/hmp-requires-command" qmp_hmp_commands >/dev/null 2>&1
 assert_fail "qmp/init-stops-after-prereq-failure" bash -c '
-    source "$1/hostlib/qmp.sh"
+    source "$1/hostlib-bash/qmp.sh"
     log_info() { :; }
     qmp_set_defaults() { :; }
     qmp_check_prereqs() { return 1; }
@@ -117,7 +117,7 @@ assert_fail "qmp/init-stops-after-prereq-failure" bash -c '
     qmp_init
 ' _ "$REPO_D"
 assert_fail "qemu/run-stops-after-prepare-failure" bash -c '
-    source "$1/hostlib/qemu.sh"
+    source "$1/hostlib-bash/qemu.sh"
     log_debug() { :; }
     qemu_prepare() { return 1; }
     COMMAND=boot
@@ -199,15 +199,15 @@ assert_fail "safe/bare-dotdot" download_path_is_safe_relative ".."
 download_tmp=$(mktemp -d)
 printf 'nested/file.img https://example.invalid/file.img' >"$download_tmp/manifest"
 assert_ok "download/manifest-nested-path" bash -c '
-    source "$1/hostlib/logging.sh"
-    source "$1/hostlib/download.sh"
+    source "$1/hostlib-bash/logging.sh"
+    source "$1/hostlib-bash/download.sh"
     wget() { printf downloaded >"$4"; }
     download_manifest "$2/manifest" "$2/output"
 ' _ "$REPO_D" "$download_tmp"
 assert_eq "download/manifest-nested-file" "downloaded" "$(cat "$download_tmp/output/nested/file.img")"
 assert_fail "download/manifest-propagates-wget-failure" bash -c '
-    source "$1/hostlib/logging.sh"
-    source "$1/hostlib/download.sh"
+    source "$1/hostlib-bash/logging.sh"
+    source "$1/hostlib-bash/download.sh"
     wget() { return 1; }
     download_manifest "$2/manifest" "$2/failed"
 ' _ "$REPO_D" "$download_tmp"
@@ -230,11 +230,11 @@ assert_fail "config/missing" config_find_file "$tmp/parent/child" missing.txt
 rm -rf "$tmp"
 
 # --- retro command parsing --------------------------------------------------
-assert_fail "retro/requires-command" "$REPO_D/retro" >/dev/null 2>&1
-assert_eq "retro/help-usage" "Usage: retro COMMAND [CONFIG]" \
-    "$("$REPO_D/retro" help | sed -n '/^Usage:/p')"
-assert_fail "retro/rejects-unknown-command" "$REPO_D/retro" not-a-command >/dev/null 2>&1
-assert_fail "retro/rejects-extra-arguments" "$REPO_D/retro" help . extra >/dev/null 2>&1
+assert_fail "retro-bash/requires-command" "$REPO_D/retro-bash" >/dev/null 2>&1
+assert_eq "retro-bash/help-usage" "Usage: retro-bash COMMAND [CONFIG]" \
+    "$("$REPO_D/retro-bash" help | sed -n '/^Usage:/p')"
+assert_fail "retro-bash/rejects-unknown-command" "$REPO_D/retro-bash" not-a-command >/dev/null 2>&1
+assert_fail "retro-bash/rejects-extra-arguments" "$REPO_D/retro-bash" help . extra >/dev/null 2>&1
 
 # --- script_import ----------------------------------------------------------
 imp_tmp=$(mktemp -d)
@@ -661,7 +661,7 @@ assert_fail "serial/contains-regex-miss" text_contains_regex "$regex_screen" "Se
 # --- dialog helpers ----------------------------------------------------------
 # Dialog screens are seeded up front and answered through serial_send.
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-dialog.sh"
+source "$REPO_D/hostlib-bash/script-dialog.sh"
 
 case_tmp=$(mktemp -d)
 SERIAL_LOG=$case_tmp/log
@@ -886,15 +886,15 @@ rm -rf "$case_tmp"
 # --- serial transport --------------------------------------------------------
 # Restore the real serial helpers after dialog tests mocked serial_send.
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-kb.sh"
+source "$REPO_D/hostlib-bash/script-kb.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script.sh"
+source "$REPO_D/hostlib-bash/script.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-serial.sh"
+source "$REPO_D/hostlib-bash/script-serial.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-fdisk.sh"
+source "$REPO_D/hostlib-bash/script-fdisk.sh"
 # shellcheck source=/dev/null
-source "$REPO_D/hostlib/script-dialog.sh"
+source "$REPO_D/hostlib-bash/script-dialog.sh"
 serial_tmp=$(mktemp -d)
 SERIAL_LOG=$serial_tmp/log
 SERIAL_MATCH_OFFSET=0
@@ -1232,8 +1232,8 @@ rm -rf "$serial_tmp"
 
 # --- extract image links ----------------------------------------------------
 assert_fail "extract/install-files-propagates-helper-failure" bash -c '
-    source "$1/hostlib/logging.sh"
-    source "$1/hostlib/extract.sh"
+    source "$1/hostlib-bash/logging.sh"
+    source "$1/hostlib-bash/extract.sh"
     extract_install_archive_images() { return 1; }
     EXTRACT_SOURCE=source.tgz
     EXTRACT_BOOT_IMAGE=boot.img

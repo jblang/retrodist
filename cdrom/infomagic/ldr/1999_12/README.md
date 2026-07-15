@@ -2,6 +2,9 @@
 
 The "Linux Developer's Resource" CD-ROM box from InfoMagic.
 
+Run `retro download cdrom/infomagic/ldr/1999_12` to fetch the discs declared in
+this directory's `config.toml`.
+
 - Disc 1: Red Hat 6.1 Binaries
 - Disc 2: Red Hat 6.1 Sources
 - Disc 3: Mandrake Linux 6.1 Binaries

@@ -1,0 +1,8 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+slackware_mirror = "pre-1.0-beta"
+
+[extract]
+custom_script = "extract.sh"
+

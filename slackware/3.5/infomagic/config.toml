@@ -1,0 +1,8 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "infomagic/ldr/1998_06"
+
+[extract]
+source = "disc3.iso"
+

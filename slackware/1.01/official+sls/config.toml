@@ -1,0 +1,9 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "slackware.zip"
+url = "https://archive.org/download/slackware101/slackware101.zip"
+
+[extract]
+custom_script = "extract.sh"
+

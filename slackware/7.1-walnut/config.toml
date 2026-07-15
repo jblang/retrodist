@@ -1,0 +1,22 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "slackware-pkgtool"
+
+[download]
+cdrom = "walnut/slackware/7.1"
+
+[extract]
+source = "disc1.iso"
+
+[qemu]
+profile = "linux-2.2"
+
+[install.prompts]
+postinst_prompt = "root@darkstar:~#"
+
+[install.slackware]
+xwmconfig = true
+
+[postinst]
+stages = ["tty", "x11"]

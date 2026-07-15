@@ -1,0 +1,6 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/cdrom-infomagiclinuxcdromdecember1993/infomagiclinuxcdromdecember1993.iso"
+

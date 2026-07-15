@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04971.ISO"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04972.ISO"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04973.ISO"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04974.ISO"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04975.ISO"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/LDR0497_6cd/LDR_04976.ISO"
+

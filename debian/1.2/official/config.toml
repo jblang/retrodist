@@ -1,0 +1,7 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+debian_mirror = "rex"
+
+[extract]
+custom_script = "extract.sh"

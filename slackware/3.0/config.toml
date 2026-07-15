@@ -1,0 +1,16 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "slackware-pkgtool"
+
+[install.boot]
+root_prompt = "VFS: Insert ramdisk floppy and press ENTER"
+
+[qemu]
+profile = "linux-1.2"
+
+[install.slackware]
+install_mode = "VERBOSE"
+
+[postinst]
+stages = ["tty", "x11"]

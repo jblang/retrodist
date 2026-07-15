@@ -1,0 +1,7 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "infomagic/ldr/1997_04"
+
+[extract]
+custom_script = "extract.sh"

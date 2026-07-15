@@ -1,0 +1,25 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "debian-dinstall"
+
+[qemu]
+profile = "linux-2.0"
+
+[qemu.network]
+device = "pcnet"
+
+[install.network]
+hostname = "rex"
+
+[postinst]
+custom_script = "postinst.sh"
+stages = ["custom"]
+
+[postinst.network]
+gateway_hwaddr = "52:55:0a:00:02:02"
+nameserver = "10.0.2.3"
+nameserver_hwaddr = "52:55:0a:00:02:03"
+
+[postinst.custom]
+etc_initd_network = "/etc/init.d/network"

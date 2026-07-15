@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%201%20Red%20Hat%205_0.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%202%20Slackware%203_4.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%203%20SuSE%205_1.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%204%20Sunsite%20Archive%20part%201.iso"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%205%20Sunsite%20Archive%20part%202.iso"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%206%20Red%20Hat%20Powertools%205_0.iso"
+

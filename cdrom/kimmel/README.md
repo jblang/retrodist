@@ -4,4 +4,7 @@ Internet Archive user [kimmel](https://archive.org/details/@kimmel) uploaded a l
 
 I have collected the URLs for the Slackware ISOs that were not available elsewhere since downloading the ISOs is faster than downloading the individual files from the official mirror.
 
+The ISO URLs are declared in per-release `config.toml` files and consumed by
+`retro download` or by distro configs that reference these CD-ROMs.
+
 No documentation is provided about the origin of these images, but I have spot-checked the slackware directory on Slackware 9.0 disc 1 and verified that the files on the ISO match those on the official mirror.

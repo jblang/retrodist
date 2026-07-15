@@ -1,0 +1,6 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/slackware-3.9_release/slackware-3.9-install.iso"
+
