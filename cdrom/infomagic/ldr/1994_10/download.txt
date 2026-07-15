@@ -1,2 +1,0 @@
-disc1.iso https://archive.org/download/linux_developer-s-resource_Oct1994_2CDset/linux_developer-s-resource_Oct1994_1of2.iso
-disc2.iso https://archive.org/download/linux_developer-s-resource_Oct1994_2CDset/linux_developer-s-resource_Oct1994_2of2.iso

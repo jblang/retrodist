@@ -1,6 +1,0 @@
-disc1.iso https://archive.org/download/ldr-november-1998/LDR1.ISO
-disc2.iso https://archive.org/download/ldr-november-1998/LDR2.ISO
-disc3.iso https://archive.org/download/ldr-november-1998/LDR3.ISO
-disc4.iso https://archive.org/download/ldr-november-1998/LDR4.ISO
-disc5.iso https://archive.org/download/ldr-november-1998/LDR5.ISO
-disc6.iso https://archive.org/download/ldr-november-1998/LDR6.ISO
