@@ -1,7 +1,0 @@
-fsspec[http]>=2025.3
-pydantic<3,>=2.11
-pycdlib<2,>=1.16
-qemu.qmp==0.0.6
-
-[dev]
-black
