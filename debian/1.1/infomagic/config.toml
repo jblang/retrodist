@@ -1,0 +1,23 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "infomagic/ldr/1996_09"
+
+[extract]
+source = "disc3.iso"
+boot_image = "buzz-updates/disks-i386/1996_7_14/boot1440.bin"
+root_image = "buzz-updates/disks-i386/1996_7_14/root.bin"
+extra_images = ["buzz-updates/disks-i386/1996_7_14/base14-*.bin"]
+fat_files = ["buzz-updates/disks-i386/1996_7_14/base1_1.tgz"]
+
+[[extract.image_extracts]]
+image = "boot.img"
+members = ["MODULES.TGZ"]
+destination = "fat/bootflop"
+lowercase = true
+
+[[extract.archive_extracts]]
+archive = "fat/bootflop/modules.tgz"
+members = ["lib/modules/*/misc/serial.o"]
+destination = "fat"
+flatten = true

@@ -2,13 +2,14 @@
 
 `guestlib/` contains portable code that runs in old installer environments and
 installed guests. During `retro extract`, the host stages it at
-`qemu.d/fat/guestlib.d/` and copies the selected distro's `postinst.sh` to
-`guestlib.d/distro/`. Host-side install automation mounts that FAT disk at
+`qemu.d/fat/guestlib.d/` and writes declarative post-install settings to
+`guestlib.d/distro/config.sh`. A distro `postinst.sh` is copied only for a
+configured custom stage. Host-side install automation mounts that FAT disk at
 `/retro` and starts `/retro/guestlib.d/postinst.sh` after installation.
 
 Do not edit staged `qemu.d/fat/guestlib.d/` files; edit this directory or the
-distro's source `postinst.sh`. Host staging details are in
-[hostlib/README.md](../hostlib/README.md); adding a distro is covered by
+distro's source `postinst.sh`. Host staging is implemented and documented in
+[`hostlib/media.py`](../hostlib/media.py); adding a distro is covered by
 [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Compatibility
@@ -23,9 +24,13 @@ distro's source `postinst.sh`. Host staging details are in
 
 ## Post-Installation Runner
 
-`postinst.sh` expects `/retro/guestlib.d` to be mounted, loads logging, and
-sources `/retro/guestlib.d/distro/postinst.sh`. It provides these lazy-loading
-public wrappers for manifests:
+`postinst.sh` expects `/retro/guestlib.d` to be mounted and loads logging. Host
+staging writes `/retro/guestlib.d/distro/config.sh`; the runner sources that
+generated file and executes its `POSTINST_STAGES` in order. Supported
+stage names are `modules`, `network`, `tty`, `x11`, and `custom`. The `custom`
+stage sources the staged distro `postinst.sh` for exceptional guest logic.
+
+The runner provides these lazy-loading public wrappers:
 
 | Wrapper | Helper | Purpose |
 | --- | --- | --- |
@@ -40,26 +45,30 @@ It sets `ETC_D` to `/etc` and defaults `POSTINST_DEBUG` to `0`,
 called; `x11_config` does not. The runner syncs and reboots for `true`, `TRUE`,
 `True`, `yes`, `YES`, `Yes`, or `1`.
 
-Each distro `postinst.sh` should set only the variables it needs and call the
-appropriate wrappers. Helper files must remain function-only so they can be
-safely sourced.
+Normal configuration belongs in the distro's `config.toml`:
 
-A normal manifest is intentionally small:
+```toml
+[postinst]
+stages = ["modules", "network", "tty", "x11"]
 
-```sh
-MOD_ENABLE="tulip"
-mod_config
+[postinst.modules]
+enable = "tulip"
 
-NET_HOSTNAME=darkstar
-net_config
-
-tty_config
-x11_config
+[postinst.network]
+hostname = "darkstar"
 ```
+
+Python converts these keys to the uppercase variables used by the portable
+helpers. A custom distro `postinst.sh` receives any values from
+`[postinst.custom]` as uppercase variables and should perform only the
+exceptional action that standard stages cannot express. Keep ordinary helper
+configuration and stage ordering in TOML. Helper files must remain
+function-only so they can be safely sourced.
 
 The runner sets `GUESTLIB_D=/retro/guestlib.d`; manifests may use it to invoke
 additional staged scripts. Keep media changes, VGA waits, and keyboard input in
-the host-side `install.sh`, not in this manifest.
+the host-side installer driver or declarative install steps, not in this
+manifest.
 
 ## Configuration Helpers
 
@@ -125,10 +134,9 @@ divider, and `die MESSAGE...` logs an error then exits.
 Debian, Slackware, and early Red Hat installers. The current Debian and
 Slackware automation replaces the real binary with this executable, turning
 each curses screen into a labeled text exchange on the control serial port.
-Host-side `dialog_answer` calls consume that exchange and send the answer
-expected by the original installer. See
-[Dialog Installers](../hostlib/README.md#dialog-installers) and
-[`script-dialog.sh`](../hostlib/script-dialog.sh).
+The Python `Dialog` driver consumes that exchange and sends the answer expected
+by the original installer. Its protocol contract is documented in
+[`hostlib/dialog.py`](../hostlib/dialog.py).
 
 For example, a menu exchange is:
 
@@ -148,9 +156,9 @@ The labels are a wire protocol, not just diagnostic output. The adapter emits
 `BACKTITLE:`, `TITLE:`, `TYPE:`, one `TEXT:` line per prompt line, widget
 metadata, `ITEM:` lines, and `RESPONSE:` where input is required. Preserve
 their spelling and ordering, including `ITEM: tag :: description` and empty
-`TEXT:` lines. The current `script-dialog.sh` matchers find `TITLE:` and
-`TYPE:` in stream order, may inspect `ITEM:` lines to distinguish similar
-menus or select by description, and wait for `RESPONSE:` before answering.
+`TEXT:` lines. The Python Dialog matcher finds `TITLE:` and `TYPE:` in stream
+order, may inspect `ITEM:` lines to distinguish similar menus or select by
+description, and waits for `RESPONSE:` before answering.
 
 Answers must use the value expected by `dialog`: an item tag for menus, text
 for input boxes, and a button word such as `yes`, `no`, `ok`, `cancel`, or

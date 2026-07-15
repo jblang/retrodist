@@ -29,7 +29,8 @@ current automation status.
 
 ## Installation
 
-Run a scripted install when the selected version contains `install.sh`:
+Run a scripted install when the selected version's `config.toml` selects an
+installer driver:
 
 ```sh
 retro install redhat/VERSION-infomagic
@@ -60,11 +61,11 @@ qmp change-image boot.img
 
 ## Kickstart
 
-If a Red Hat config or version directory contains `ks.cfg`, `retro extract`
+If a Red Hat config directory or its parent contains `ks.cfg`, `retro extract`
 copies a comment-stripped and empty-line-stripped copy into the root of the
 staged boot floppy image as `ks.cfg`.
 
-Red Hat 5.2 currently provides a Kickstart file. Its install script boots with:
+Red Hat 5.2 currently provides a Kickstart file. Its declarative boot command is:
 
 ```sh
 linux ks=floppy
@@ -75,27 +76,27 @@ separate Kickstart floppy.
 
 ## Scripted Installs
 
-The `install.sh` files are host-side QMP scripts. They wait for installer screen
-text, send keys or boot commands, and change floppy images when the installer
-asks for another disk.
+The Python family drivers wait for installer screen text, send keys or boot
+commands, and change floppy images when the installer asks for another disk.
+Release-specific prompts and flags are declared in each `config.toml`.
 
 The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
 
-- `perl-install.sh` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
+- `redhat_early.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
   handles boot/root/ramdisk floppy handoffs and the common partitioning,
   networking, X11, LILO, and reboot prompts used by 2.1 and 3.0.3. Version-only
-  package series and startup prompts stay in each release's `install.sh`.
-- `c-install.sh` covers the 4.0 through 5.1 C-based text installer era. Version
-  `install.sh` files set prompt-order flags and compose the common blocks with
-  release-specific partitioning, package component, and X11 prompt sequences.
+  package series and startup prompts stay in each release's TOML.
+- `redhat.py` covers the 4.0 through 5.1 C-based text installer era. Version
+  configs set prompt-order options and select common flow variants.
 - 5.2 uses the installer Kickstart support instead of driving every screen.
 - 6.1 currently boots the text installer from the CD-ROM media; Kickstart is
   not configured for it.
 
-After installation, each scripted version runs `postinst.sh`. Its launcher
-mounts the staged FAT disk at `/retro` when needed. Later versions set
-`X11_CHIPSET=clgd5446` to match the emulated Cirrus Logic video hardware.
+After installation, each scripted version runs its configured `[postinst]`
+stages. The launcher mounts the staged FAT disk at `/retro` when needed. Later
+versions set `postinst.x11.chipset = "clgd5446"` to match the emulated Cirrus
+Logic video hardware.
 
 ## Known Issues
 

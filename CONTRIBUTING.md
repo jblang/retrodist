@@ -1,225 +1,308 @@
 # Contributing
 
-This guide is the main reference for adding or maintaining distro configs. For
-host implementation and public automation APIs, see
-[hostlib/README.md](hostlib/README.md). For code that runs inside old guests,
-see [guestlib/README.md](guestlib/README.md).
+This guide is the main reference for adding and maintaining distro configs.
+The Python commands `retro` and `qmp` are the supported workflow, and
+configuration belongs in `config.toml`.
+
+For code that runs inside old guests, see [guestlib/README.md](guestlib/README.md).
 
 ## Add a Distro
 
-1. Create a `distro/version/variant/` directory.
-2. Add download metadata with `download.txt`, `slackmirror.txt`,
-   `debmirror.txt`, `download.sh`, or `cdrom.txt`.
-3. Add `extract.sh` to stage install media into `qemu.d/`.
-4. Add `qemu.sh` to select an era-appropriate QEMU profile and hardware.
-5. Add `install.sh` when the install can be driven through QMP.
-6. Optionally add `postinst.sh` for post-installation configuration.
-7. Add a distro README when there are release-specific notes an end user should
-   know before booting or installing.
+1. Create `distro/version/variant/` and add `config.toml`.
+2. Describe downloads in `[download]`.
+3. Describe staging in `[extract]`.
+4. Select emulated hardware in `[qemu]` and its nested tables.
+5. Add `[install]` when an automated installer is supported.
+6. Add `[postinst]` for installed-system configuration.
+7. Add release notes to the nearest README when users need special instructions.
 
-`slackware/3.0/walnut/` is a compact working example. Prefer extending an
-existing version or installer-family driver when the media and prompts are
-substantially shared.
+Use `slackware/3.0/walnut/` as a compact example. Prefer extending an existing
+installer-family driver when releases share the same installer.
 
-## Config Files
+## Configuration Loading
 
-Configs live at `distro/version/variant/`. Most files may also live one
-directory up at `distro/version/` to be shared by variants. Lookup checks only
-the selected directory and its parent; the selected directory wins.
+Each selected config must have a `config.toml` locally or in its immediate
+parent. The selected config inherits values from that parent. Child scalars and
+arrays replace inherited values, while nested tables retain inherited keys that
+the child does not override. Lookup does not continue above the immediate
+parent.
 
-Common files:
+Organize TOML by concern:
 
-| File | Purpose |
-|---|---|
-| `download.txt` | `filename url` pairs for `wget` |
-| `slackmirror.txt` | Slackware version for official mirror download |
-| `debmirror.txt` | Debian release name for archive.debian.org download |
-| `download.sh` | Custom download logic |
-| `cdrom.txt` | Reference to a `cdrom/` config |
-| `extract.sh` | Stages install images, packages, and FAT files |
-| `qemu.sh` | Sets QEMU profile, RAM, disk, network, and extra args |
-| `install.sh` | Host-side scripted install sequence |
-| `postinst.sh` | Optional in-guest post-installation configuration manifest |
-| `*.tag` | Slackware package-selection tagset |
+```toml
+[download]
+cdrom = "walnut/slackware/3.0"
+
+[extract]
+source = "disc1.iso"
+boot_image = "bootdsks.144/idecd"
+root_image = "rootdsks/color.gz"
+
+[qemu]
+profile = "linux-1.2"
+
+[install]
+driver = "slackware-pkgtool"
+
+[install.network]
+hostname = "darkstar"
+domain = "retro.net"
+
+[postinst]
+stages = ["tty", "x11"]
+```
+
+Unknown settings and incorrectly typed values are errors. When adding a new
+setting, update its Python model or validator and add unit coverage.
 
 ## Downloads
 
-`retro download` runs every download mechanism configured for the distro. When
-multiple files exist, they run in this order:
+`retro download CONFIG` supports these `[download]` settings:
 
-1. `download.txt`
-2. `slackmirror.txt`
-3. `debmirror.txt`
-4. `download.sh`
+- `cdrom`: config name below `cdrom/`; its downloaded ISO files are linked into
+  the selected config's `qemu.d/`.
+- `slackware_mirror`: version directory from the official Slackware mirror.
+- `debian_mirror`: release name from `archive.debian.org`.
+- `files`: array of `{ path, url }` tables.
 
-For CD-ROM based configs, `cdrom.txt` names a config under [cdrom](cdrom).
-`retro download` downloads that CD-ROM config first, then links the ISO files
-into the distro's `qemu.d/` directory.
+Example:
 
-Non-CD-ROM downloads are stored in the config's `download.d/` directory.
-CD-ROM based configs use `qemu.d/` as their original-media directory because
-the ISO links are part of the staged QEMU layout.
+```toml
+[download]
+slackware_mirror = "1.01"
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/example/disc1.iso"
+```
+
+Paths are relative and may include directories. Non-CD-ROM media is stored in
+the config's `download.d/`; CD-ROM-backed configs use linked media in `qemu.d/`.
 
 ## Extraction
 
-`retro extract` calls `download`, creates `qemu.d/`, runs `extract.sh`, and
-writes `qemu.d/.extracted`. Later runs reuse the extracted tree.
+`retro extract CONFIG` downloads media, stages it in `qemu.d/`, refreshes the
+guest library, and writes `qemu.d/.extracted`.
 
-For the common case, `extract.sh` sets `EXTRACT_*` variables and calls
-`extract_install_files`:
+The standard `[extract]` table supports:
 
-```bash
-EXTRACT_BOOT_IMAGE=bootdsks.144/bare.i
-EXTRACT_ROOT_IMAGE=rootdsks/color.gz
-EXTRACT_PACKAGES=slakware
-extract_install_files
+- `source`: an ISO, tar archive, directory, or downloaded source path.
+- `boot_image`, `root_image`, and `extra_images`: files staged at the top of
+  `qemu.d/`.
+- `fat_files`: files staged in `qemu.d/fat/`.
+- `package_source`: package directory tree within the extraction source.
+- `package_dest`: destination beneath `qemu.d/fat/`; defaults to `packages`.
+- `decompress`: staged gzip files or glob patterns to decompress.
+- `truncate`: staged floppy files or glob patterns to normalize to 1.44 MB.
+- `boot_link` and `root_link`: staged source names for `boot.img` and `root.img`.
+- `overlays`: downloaded files copied over paths in the staged tree.
+- `image_extracts`: selected files extracted from staged disk images.
+- `archive_extracts`: selected files extracted from staged tar archives.
+- `custom_script` and `custom_source`: exceptional preprocessing hook and the
+  file or directory it produces beneath the temporary directory.
+
+Example:
+
+```toml
+[extract]
+source = "disc1.iso"
+boot_image = "bootdsks.144/bare.i"
+root_image = "rootdsks/color.gz"
+extra_images = ["rootdsks/text.gz"]
+fat_files = ["kernels/bare.i/bzImage"]
+package_source = "slakware"
+decompress = ["*.gz"]
+boot_link = "bare.i"
+root_link = "color"
 ```
 
-See [hostlib/README.md](hostlib/README.md#media-staging) for the full
-`EXTRACT_*` variable list and extraction helper reference.
+Python reads tar archives directly and handles ordinary staging, overlays,
+nested image extraction, links, and postprocessing. Use `custom_script =
+"extract.sh"` only for archive reshaping or image conversion that Python cannot
+express, and set `custom_source` to the hook's output beneath `$TEMP_D`. Python
+then stages that output using the remaining declarative settings. The hook is a
+bounded action and must not contain extraction configuration.
 
-## QEMU Configuration
+## QEMU
 
-`qemu.sh` should describe hardware and QEMU behavior only: profile, RAM, disk
-size, network device, display or acceleration flags, boot order, extra QEMU
-arguments, or explicit device images such as `fda.img` and `hdc.iso`.
+Start with a profile and override only required hardware:
 
-Use `QEMU_PROFILE` first and override only what the distro needs:
+```toml
+[qemu]
+profile = "linux-1.2"
+ram = "32M"
+smp = 1
+boot_order = "order=a"
+extra = ["-no-reboot"]
 
-```bash
-QEMU_PROFILE=linux-1.2
-QEMU_RAM=32M
+[qemu.disk]
+size = "2G"
+format = "qcow2"
+create_options = "lazy_refcounts=on"
+hda_options = "cache=writeback"
+floppy_a_type = "144"
+floppy_b_type = "144"
+
+[qemu.network]
+device = "ne2k_isa"
+enabled = true
+forwards = [[2200, 22], [2300, 23]]
+
+[qemu.display]
+backend = "gtk"
+acceleration = "tcg"
+vga = "cirrus"
+
+[qemu.serial]
+auxiliary = "null"
 ```
 
-General install media links should be created by `extract.sh`, not by
-`qemu.sh`. See [hostlib/README.md](hostlib/README.md#qemu-configuration) for
-profiles, drive attachment rules, network modes, and supported `QEMU_*`
-variables.
+Available profiles are `default`, `linux-0.99`, `linux-1.0`, `linux-1.2`,
+`linux-2.0-isa`, `linux-2.0`, `linux-2.2`, and `linux-2.4`. If `forwards` is
+absent, Python assigns loopback SSH and Telnet forwards from the ranges starting
+at ports 2200 and 2300. An explicit empty array disables forwarding.
 
-## Scripted Installs
+The stager supplies conventional `boot.img`, `root.img`, `install.iso`, and FAT
+media. Do not encode ordinary media attachment in `qemu.extra`.
 
-If a config or its parent contains `install.sh`, `retro install` starts QEMU,
-initializes QMP, then sources that script to drive the installer. These scripts
-are not standalone entry points; they call functions from the host-side
-automation helpers in `hostlib/`. They run on the host under Bash and follow the
-host compatibility rules.
+## Automated Installation
 
-The usual flow is to wait for known screen text, send a key or line, and repeat:
+Set `install.driver` to one of:
 
-```sh
-vga_wait -l "boot:"
-kb_type -n ""
-vga_wait -l "login:"
-kb_type -n root
-vga_wait -l "$SHELL_PROMPT"
-kb_type -n "$INSTALL_POSTINST_COMMAND"
+- `debian-dinstall`
+- `slackware-pkgtool`
+- `slackware-sysinstall`
+- `redhat-perl`
+- `redhat-c`
+- `redhat-unattended`
+- `prompt-sequence`
+
+Family-driver options are grouped into logical tables such as `install.boot`,
+`install.disk`, `install.network`, `install.locale`, and an installer-family
+table. Leaf names map to the selected driver's option dataclass. See the
+existing configs and `hostlib/installers/` for supported fields.
+
+Example Slackware boot configuration:
+
+```toml
+[install]
+driver = "slackware-pkgtool"
+
+[install.boot]
+boot_prompt = "boot:"
+root_prompt = "VFS: Insert ramdisk floppy and press ENTER"
+continuation_prompt = "VFS: Insert root floppy and press ENTER"
+root_image = "root.img"
 ```
 
-The main primitives are:
+Omit optional prompts when they do not occur. Set `boot_prompt = false` when a
+kernel starts without an interactive boot prompt.
 
-- `script_import HELPER`
-- `vga_wait [-l | -r] [-t SECONDS] TEXT [TEXT ...]`
-- `serial_shell [--no-wait] COMMAND [COMMAND ...]`
-- `serial_wait [-l | -r] TEXT [TEXT ...]`
-- `serial_send TEXT`
-- `kb_press KEY [KEY ...]`
-- `kb_repeat KEY [COUNT]`
-- `kb_type [-n] TEXT`
-- `script_change_image IMAGE [DEVICE [FORMAT]]`
-- `script_eject_disk [DEVICE]`
-- `script_change_floppy IMAGE`
-- `script_set_boot DISK`
+Use `prompt-sequence` for exceptional linear installers that cannot share a
+family driver:
 
-`INSTALL_POSTINST_COMMAND` mounts the staged FAT media at `/retro` if needed
-and runs `/retro/guestlib.d/postinst.sh`. Send it once the guest has booted
-into the installed system and reached a shell prompt. `script_run_postinst`
-wraps this pattern: it waits for `$LOGIN_PROMPT`, logs in, waits for
-`$SHELL_PROMPT`, and sends `$INSTALL_POSTINST_COMMAND`. Override `SHELL_PROMPT`
-or `LOGIN_PROMPT` when a guest uses non-default prompt text.
+```toml
+[install]
+driver = "prompt-sequence"
 
-Slackware 1.1.2 and up (`slackware/pkgtool.sh`) replace the guest's `dialog`
-binary with the `guestlib/dialog.sh` adapter. The host-side helpers live in
-`hostlib/script-dialog.sh`; `dialog_answer TYPE TITLE ANSWER` is the normal
-interface.
-It also supports alternatives for installer screens that vary by release.
-Keep shared screen sequences in an installer-family driver and leave only
-release-specific values and ordering in each `install.sh`. The
-[host library guide](hostlib/README.md#dialog-installers) documents the adapter
-protocol and options; `debian/dinstall.sh` and `slackware/pkgtool.sh` are the
-maintained examples.
+[[install.steps]]
+action = "wait"
+transport = "vga"
+text = "boot:"
+match = "line"
 
-Slackware 1.01 and 1.0beta use `slackware/sysinstall.sh` to drive their original
-SLS-style `doinstall` scripts over serial after partitioning with the shared
-`fdisk_partitions` helper.
+[[install.steps]]
+action = "type"
+text = "ramdisk root=/dev/fd0\n"
+
+[[install.steps]]
+action = "change-floppy"
+image = "root.img"
+```
+
+Supported actions are `wait`, `type`, `press`, `prompt`, `partition`,
+`change-floppy`, `set-boot`, `serial-send`, `serial-shell-start`,
+`serial-shell-send`, `serial-shell-exit`, `console-echo`, and `run-postinst`.
+Use `\n` for Enter and `\t` for Tab in typed text. `${install.table.key}`
+interpolates another install value.
+
+Keep screen sequences and branching in `hostlib/installers/`. Only truly
+exceptional linear sequences belong in distro TOML. Per-distro Python install
+scripts are not supported.
 
 ## Post-Installation Configuration
 
-`postinst.sh` is an optional post-installation configuration manifest, copied
-into the guest runtime and staged as `guestlib.d/distro/postinst.sh`. It is
-sourced inside the installed guest and must be portable `sh`. Use `MOD_ENABLE`
-with `mod_config` for kernel modules and `net_config` for networking.
+`[postinst]` is converted during staging to
+`qemu.d/fat/guestlib.d/distro/config.sh`. The guest runner sources that file
+and executes `stages` in order. Supported stages are `modules`, `network`,
+`tty`, `x11`, and `custom`.
 
-A typical manifest is declarative and short:
+```toml
+[postinst]
+stages = ["modules", "network", "tty", "x11"]
+debug = false
+log = "/postinst.log"
+reboot = true
 
-```sh
-MOD_ENABLE="tulip"
-mod_config
-tty_config
-X11_CHIPSET=clgd5446
-x11_config
+[postinst.modules]
+enable = "ne io=0x300"
+
+[postinst.network]
+hostname = "darkstar"
+domainname = "retro.net"
+
+[postinst.tty]
+dev = "ttyS0"
+baud = 9600
+
+[postinst.x11]
+chipset = "clgd5434"
+mouse_device = "/dev/psaux"
 ```
 
-Keep host orchestration in `install.sh`; put only commands that must run in the
-installed guest in `postinst.sh` or a reusable `guestlib/` helper.
-
-See [guestlib/README.md](guestlib/README.md) for runner behavior, wrapper
-functions, portability constraints, and source-versus-generated file guidance.
+Include `custom` in `stages` and set `custom_script = "postinst.sh"` only when
+the guest needs logic not expressible through the standard stages. Keep
+ordinary stages such as `tty` and `x11` in the array rather than invoking their
+helpers from the custom script. Custom scripts must follow the portability
+rules in [guestlib/README.md](guestlib/README.md).
 
 ## Slackware Tagsets
 
-Slackware 1.1.1 and later automated installs choose packages with `*.tag`
-files. See [slackware/README.md](slackware/README.md#package-selection) for
-tagset syntax and user-facing selection examples.
+Slackware 1.1.2 and later installs may use `*.tag` files. Each line is
+`series package state`, where state is `ADD`, `REC`, `OPT`, or `SKP`; `*` sets
+the series default. A variant-level tagset shadows the version-level file.
 
-A variant-level tagset shadows a same-named version-level tagset. Run
-`retro tagfile slackware/<version>/<variant>` to regenerate `default.tag` from
-the install media.
+Run `retro tagfile slackware/VERSION/VARIANT` to regenerate `default.tag` from
+staged packages. Installer package series and tagfile paths are configured in
+`[install.slackware]`.
 
 ## Generated Files
 
-Do not edit files under `qemu.d/fat/guestlib.d/` directly. They are generated
-copies staged for post-installation configuration.
-
-Edit the source files instead:
-
-- `guestlib/` for shared post-installation configuration helpers.
-- `slackware/VERSION[/VARIANT]/postinst.sh` for Slackware post-installation
-  manifests.
-- `debian/VERSION/postinst.sh` for Debian post-installation manifests.
-- The relevant distro config directory for `install.sh`, `qemu.sh`,
-  `extract.sh`, tagsets, and per-release notes.
+Do not edit `qemu.d/`, `download.d/`, `tagfile.d/`, or staged
+`qemu.d/fat/guestlib.d/` copies. Edit `config.toml`, `guestlib/`, custom source
+scripts, tagsets, and source READMEs instead.
 
 ## Validation
 
-Run cheap checks after source changes:
+Run the cheap checks after source changes:
 
 ```bash
 git diff --check
-tests/unit.sh
+python3 -m unittest tests.test_python
+tests/shellcheck.sh
+black --check .
 ```
 
-For config changes, run the most relevant command you can reasonably verify:
+Use the narrowest relevant runtime check:
 
 ```bash
+retro download CONFIG
 retro extract CONFIG
 retro boot CONFIG
 retro install CONFIG
 ```
 
-Full installs are slower and may require manual VM interaction, so reserve
-`retro install` for changes that affect scripted installation or in-guest
-configuration.
-
-After changing `hostlib/`, check Bash 3.2 and GNU/BSD command compatibility.
-After changing `guestlib/` or a distro `postinst.sh`, apply the portability
-constraints in [guestlib/README.md](guestlib/README.md#compatibility).
+Full installs are expensive and sometimes manual. Run one when a change affects
+VM interaction, installer flow, or in-guest configuration. After changing
+`guestlib/` or a custom `postinst.sh`, apply the portability constraints in
+[guestlib/README.md](guestlib/README.md#compatibility).

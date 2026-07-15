@@ -1,0 +1,19 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "slackware-pkgtool"
+
+[download]
+cdrom = "kimmel/slackware/3.9"
+
+[extract]
+source = "disc1.iso"
+
+[qemu]
+profile = "linux-2.0"
+
+[postinst]
+stages = ["modules", "tty", "x11"]
+
+[postinst.modules]
+enable = "tulip"

@@ -1,0 +1,8 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "kimmel/slackware/3.5"
+
+[extract]
+source = "disc1.iso"
+

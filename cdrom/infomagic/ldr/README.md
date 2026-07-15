@@ -2,6 +2,9 @@
 
 InfoMagic was a purveyor of shareware and open-source CD-ROMs during the 90s similar to Walnut Creek. They made several editions of their Linux Developer's Resource CDs each year from 1993 until 1998. Their December 1993 edition was the earliest Linux CD-ROM that I could find on archive.org. A scan of their [1996 Catalog](https://archive.org/details/InfoMagic1996CDROMCatalog/mode/2up) is also on archive.org.
 
+Each edition's Python download recipe is stored in its `config.toml`. Run
+`retro download cdrom/infomagic/ldr/EDITION` to fetch the configured discs.
+
 Each edition contained current distributions at the time as well as snapshots the sunsite and tsx-11 FTP sites. A summary of distros on each edition is listed below. Release dates use the timestamp of the first disc's top-level README, README.1ST, or README.LNX where available, formatted as YYYY/MM/DD. Some CDs also contain other bonus materials. Refer to the README in each directory for details.
 
 | Directory | Release date | Slackware | Debian | Red Hat | Other |

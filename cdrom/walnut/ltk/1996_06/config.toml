@@ -1,0 +1,6 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "toolkit_1996_10.7z"
+url = "https://archive.org/download/Linux_Toolkit_Walnut_Creek_October_1996/Linux%20Toolkit%20%28Walnut%20Creek%29%20%28October%201996%29.7z"
+

@@ -1,2 +1,0 @@
-tty_config
-x11_config

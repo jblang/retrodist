@@ -1,2 +1,0 @@
-#!/bin/sh
-dialog --title "Slackware Setup Help" --exit-label OK --textbox "/usr/lib/setup/FDhelp" 22 77

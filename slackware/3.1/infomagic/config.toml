@@ -1,0 +1,11 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "infomagic/ldr/1996_12"
+
+[extract]
+source = "disc2.iso"
+boot_image = "bootdsks.144/bare.i"
+root_image = "rootdsks/color.gz"
+truncate = ["bare.i"]
+

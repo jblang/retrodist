@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%201.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%202.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%203.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%204.iso"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%205.iso"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%206.iso"
+

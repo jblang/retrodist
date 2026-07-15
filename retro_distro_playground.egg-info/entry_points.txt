@@ -1,0 +1,3 @@
+[console_scripts]
+qmp = hostlib.qmp_cli:main
+retro = hostlib.cli:main

@@ -1,5 +1,0 @@
-EXTRACT_SOURCE=disc1.iso
-EXTRACT_BOOT_IMAGE=slackwar/boot144/idecd
-EXTRACT_ROOT_IMAGE=slackwar/rootdsks/color.gz
-extract_install_files
-extract_truncate_floppy_image idecd

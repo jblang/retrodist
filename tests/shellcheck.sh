@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Runs ShellCheck over the project, treating host scripts as Bash and the
-# sourced guest fragments under guestlib/ as POSIX sh. Host scripts are checked
-# strictly; the guest fragments accept a curated set of legacy-compatible
-# patterns required to run on very old guest shells.
+# Runs ShellCheck over the bootstrap, custom extraction hooks, test launchers,
+# and portable guest fragments.
 set -euo pipefail
 
 REPO_D=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
@@ -13,8 +11,11 @@ if ! command -v shellcheck >/dev/null 2>&1; then
     exit 1
 fi
 
-# Bash host scripts: strict.
-HOST_SCRIPTS=(retro qmp hostlib/*.sh slackware/sysinstall.sh slackware/pkgtool.sh debian/dinstall.sh tests/*.sh)
+# The bootstrap, extraction hooks, and test launchers use Bash strictly.
+HOST_SCRIPTS=(retro-prereq tests/*.sh)
+while IFS= read -r file; do
+    HOST_SCRIPTS+=("$file")
+done < <(find debian redhat slackware -name extract.sh -not -path '*/qemu.d/*' -not -path '*/download.d/*' -print)
 
 # POSIX guest fragments: run on legacy guest shells, so accept patterns that are
 # intentional there (word splitting, expr math, -a/-o tests, $? checks, legacy
@@ -22,7 +23,7 @@ HOST_SCRIPTS=(retro qmp hostlib/*.sh slackware/sysinstall.sh slackware/pkgtool.s
 GUESTLIB_SCRIPTS=(guestlib/*.sh guestlib/config/*.sh guestlib/deb091/*.sh)
 while IFS= read -r file; do
     GUESTLIB_SCRIPTS+=("$file")
-done < <(find debian redhat slackware -name postinst.sh -not -path '*/qemu.d/*' -print)
+done < <(find debian redhat slackware -name postinst.sh -not -path '*/qemu.d/*' -not -path '*/download.d/*' -print)
 GUEST_EXCLUDES=SC1091,SC2034,SC2086,SC2003,SC2166,SC2181,SC2162,SC2129,SC2196,SC2197,SC2153,SC2030,SC2031,SC3043,SC2045,SC3037
 
 status=0

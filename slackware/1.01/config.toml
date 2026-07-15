@@ -1,0 +1,14 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "slackware-sysinstall"
+
+[qemu]
+profile = "linux-0.99"
+
+[postinst]
+stages = ["tty", "network", "x11"]
+
+[postinst.network]
+hostname = "darkstar"
+ancient_route = 1

@@ -1,0 +1,10 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/cdrom-ldr-0694/ldr_0694_disc1.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/cdrom-ldr-0694/ldr_0694_disc2.iso"
+

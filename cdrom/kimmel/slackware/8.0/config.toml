@@ -1,0 +1,18 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/slackware-8.0_release/slackware-8.0-install-d1.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/slackware-8.0_release/slackware-8.0-livefs-d2.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/slackware-8.0_release/slackware-8.0-source-d3.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/slackware-8.0_release/slackware-8.0-extra-d4.iso"
+

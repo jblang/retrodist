@@ -11,7 +11,7 @@ distributions in QEMU, with scripted unattended installs where supported.
 
 - User-facing overview and commands: [README.md](README.md)
 - Adding or maintaining distro configs: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Host-side library details: [hostlib/README.md](hostlib/README.md)
+- Python host implementation and API documentation: [`hostlib/`](hostlib)
 - In-guest installation runtime: [guestlib/README.md](guestlib/README.md)
 
 Use `slackware/3.0/walnut/` as a compact working config example.
@@ -25,7 +25,8 @@ retro extract CONFIG    # stage files into qemu.d/
 retro download CONFIG   # download source media
 retro reset CONFIG      # remove generated qemu.d/ state
 retro package CONFIG    # build a portable qemu.d/ tar
-retro prereq            # install host dependencies
+
+./retro-prereq          # install host tools and create .venv
 
 qmp dump-screen
 qmp send-text -n 'text'
@@ -34,13 +35,18 @@ qmp change-image root.img
 qmp eject-disk
 ```
 
+`retro` and `qmp` are Python entry points configured by `pyproject.toml`.
+`retro-prereq` is the standalone Bash bootstrap script.
+
 ## Hard Rules
 
 - Do not edit staged guest-library copies under `qemu.d/fat/guestlib.d/`.
-- Edit source files instead: `guestlib/`, distro `postinst.sh` manifests, and
-  the relevant config directory.
+- Edit source files instead: `hostlib/`, `guestlib/`, distro `config.toml`,
+  custom scripts, and the relevant config directory.
 - Treat `qemu.d/`, `download.d/`, and `tagfile.d/` as generated state unless
   the task explicitly targets generated artifacts.
+- Treat `config.toml` as authoritative. Use custom scripts only for extraction
+  or post-install behavior that the declarative path cannot express.
 
 ## Validation
 
@@ -48,6 +54,7 @@ Run cheap local checks after source changes:
 
 ```bash
 git diff --check
+python3 -m unittest tests.test_python
 tests/unit.sh
 ```
 
@@ -56,14 +63,9 @@ them only when the task calls for VM-level verification.
 
 After code or config changes, review related documentation for needed updates.
 Check the nearest README plus any linked reference doc, such as
-[CONTRIBUTING.md](CONTRIBUTING.md), [hostlib/README.md](hostlib/README.md),
-or [guestlib/README.md](guestlib/README.md).
+[CONTRIBUTING.md](CONTRIBUTING.md) or [guestlib/README.md](guestlib/README.md).
 
 ## Compatibility Verification
-
-After editing `hostlib/`, verify the change against the Compatibility Notes in
-[hostlib/README.md](hostlib/README.md). Check especially for Bash 4+ syntax
-and GNU-only command flags.
 
 After editing `guestlib/`, verify the change against the portability constraints
 in [guestlib/README.md](guestlib/README.md). These scripts run in very old

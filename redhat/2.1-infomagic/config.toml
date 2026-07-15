@@ -1,0 +1,22 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "redhat-perl"
+
+[install.redhat]
+flow = "2.1"
+
+[download]
+cdrom = "infomagic/ldr/1995_11"
+
+[extract]
+source = "disc2.iso"
+boot_image = "images/1213/boot0015.img"
+extra_images = ["images/rescue.img", "images/ramdisk1.img", "images/ramdisk2.img"]
+truncate = ["boot0015.img"]
+
+[qemu]
+profile = "linux-1.2"
+
+[postinst]
+stages = ["x11"]

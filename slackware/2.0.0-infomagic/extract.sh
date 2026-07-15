@@ -1,5 +1,0 @@
-EXTRACT_SOURCE=disc1.iso
-EXTRACT_BOOT_IMAGE=slakinst/boot144/bare
-EXTRACT_ROOT_IMAGE=slakinst/root144/color144
-EXTRACT_PACKAGES=slakware
-extract_install_files

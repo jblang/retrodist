@@ -1,0 +1,10 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "walnut/slackware/2.3"
+
+[extract]
+source = "disc1.iso"
+boot_image = "bootdsks.144/idecd"
+root_image = "rootdsks.144/color144"
+

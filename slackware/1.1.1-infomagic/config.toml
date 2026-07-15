@@ -1,0 +1,296 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "prompt-sequence"
+
+[download]
+cdrom = "infomagic/ldr/1993_12"
+
+[[download.files]]
+path = "x_svga.tgz"
+url = "https://mirrors.slackware.com/slackware/slackware-1.1.2/x2/x_svga.tgz"
+
+[extract]
+source = "disc1.iso"
+boot_image = "sunsite/distributions/slackware/bootdisk/1_44meg/uniboot"
+package_source = "sunsite/distributions/slackware"
+
+[[extract.overlays]]
+source = "x_svga.tgz"
+destination = "fat/packages/x2/x_svga.tgz"
+
+[qemu]
+profile = "linux-1.0"
+
+[install.slackware]
+package_sets = "A AP D E F IV N TCL OI OOP X XAP XD XV Y"
+
+[install.network]
+hostname = "darkstar"
+domain = "retro.net"
+ip = "10.0.2.15"
+network = "10.0.2.0"
+gateway = "10.0.2.2"
+netmask = "255.255.255.0"
+broadcast = "10.0.2.255"
+nameserver = "10.0.2.3"
+
+[install.locale]
+timezone = "US/Central"
+
+[postinst]
+stages = ["tty", "x11"]
+
+[[install.steps]]
+action = "wait"
+transport = "vga"
+text = "${install.network.hostname} login:"
+match = "line"
+
+[[install.steps]]
+action = "type"
+text = "root\n"
+
+[[install.steps]]
+action = "serial-shell-start"
+
+[[install.steps]]
+action = "partition"
+
+[[install.steps]]
+action = "wait"
+transport = "serial"
+text = "#"
+match = "line"
+
+[[install.steps]]
+action = "console-echo"
+text = "Starting Slackware setup; package installation may take a while..."
+
+[[install.steps]]
+action = "serial-shell-send"
+command = "setup"
+wait = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to remap your keyboard?", "1 - yes", "2 - no", "Your choice (1/2)?"]
+answer = "2"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Do you wish to install this partition as your swapspace ([y]es, [n]o)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Do you want setup to use mkswap on your swap partitions ([y]es, [n]o)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to [a]dd more software, or [i]nstall from scratch?"]
+answer = "i"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["What filesystem do you have (or do you plan to use) on your root", "partition (/dev/hda2 ), [e]xt2fs or [x]iafs?"]
+answer = "e"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter [i] again to install from scratch, or [a] to add"]
+answer = "i"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to format this partition ([y]es, [n]o, [c]heck sectors too)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to set up some of these partitions to be visible", "from Linux ([y]es, [n]o)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Please enter the partition you would like to access from Linux, or", "type <q> to quit adding new partitions:"]
+answer = "/dev/hdb1"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Where would you like to mount /dev/hdb1?"]
+answer = "/retro"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Done adding partition /dev/hdb1."]
+answer = "q"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["1 -- Install from a hard drive partition."]
+answer = "1"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Please enter the partition where the Slackware sources can be", "found, or [p] to see a partition list:"]
+answer = "/dev/hdb1"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["What directory are the Slackware sources in?"]
+answer = "/packages"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["What type of filesystem does your Slackware source partition contain?"]
+answer = "1"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Which disk sets do you want to install?"]
+answer = "${install.slackware.package_sets}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Do you want to use PROMPT mode (y/n)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["It is recommended that you make a boot disk.", "Would you like to do this ([y]es, [n]o)?"]
+answer = "n"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to set up your modem ([y]es, [n]o)?"]
+answer = "n"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to set up your mouse ([y]es, [n]o)?"]
+answer = "n"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["LILO (Linux Loader) Installation:", "Which option would you like? (1/2/3/4):"]
+answer = "2"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to configure your network ([y]es, [n]o)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter hostname:"]
+answer = "${install.network.hostname}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter domain name for ${install.network.hostname}:"]
+answer = "${install.network.domain}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Do you plan to ONLY use loopback ([y]es, [n]o)?"]
+answer = "n"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter IP address for ${install.network.hostname} (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.ip}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter network address (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.network}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter gateway address (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.gateway}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter netmask (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.netmask}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Enter broadcast address (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.broadcast}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Name Server for domain ${install.network.domain} (aaa.bbb.ccc.ddd):"]
+answer = "${install.network.nameserver}"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to add \"selection -t none &\" to /etc/rc.d/rc.local so that", "selection will load at boot time ([y]es, [n]o)?"]
+answer = "n"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Would you like to configure your timezone ([y]es, [n]o)?"]
+answer = "y"
+regex = false
+
+[[install.steps]]
+action = "prompt"
+questions = ["Select one of these timezones:", "Timezone?"]
+answer = "${install.locale.timezone}"
+regex = false
+
+[[install.steps]]
+action = "wait"
+transport = "serial"
+text = "You may now reboot your computer by pressing control+alt+delete."
+match = "line"
+
+[[install.steps]]
+action = "set-boot"
+device = "c"
+
+[[install.steps]]
+action = "press"
+keys = ["ctrl-alt-delete"]
+
+[[install.steps]]
+action = "run-postinst"
+login = "${install.network.hostname} login:"
+shell = "${install.network.hostname}:~#"

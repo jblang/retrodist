@@ -1,0 +1,33 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "debian-dinstall"
+
+[install.boot]
+root_prompt = "VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER"
+
+[qemu]
+profile = "linux-2.0"
+
+[qemu.network]
+device = "ne2k_isa"
+
+[qemu.disk]
+size = "2G"
+
+[install.network]
+hostname = "buzz"
+net_module = "ne"
+net_module_args = "io=0x300 irq=9"
+
+[install.locale]
+keymap = ""
+
+[install.debian]
+configure_keyboard = true
+kernel_floppy = "boot.img"
+driver_floppy = false
+relogin = true
+
+[postinst]
+stages = ["tty"]

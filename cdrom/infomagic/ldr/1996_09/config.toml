@@ -1,0 +1,26 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk1.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk2.iso"
+
+[[download.files]]
+path = "disc3.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk3.iso"
+
+[[download.files]]
+path = "disc4.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk4.iso"
+
+[[download.files]]
+path = "disc5.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk5.iso"
+
+[[download.files]]
+path = "disc6.iso"
+url = "https://archive.org/download/InfoMagicSept96Disk2/InfoMagic_Sept96_disk6.iso"
+

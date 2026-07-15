@@ -1,0 +1,27 @@
+# Declarative configuration for the Python retro host.
+
+[install]
+driver = "redhat-unattended"
+
+[install.boot]
+command = "text"
+
+[install.completion]
+prompt = "Congratulations, installation is complete."
+reboot = true
+
+[download]
+cdrom = "infomagic/ldr/1999_12"
+
+[extract]
+source = "disc1.iso"
+boot_image = "images/boot.img"
+
+[qemu]
+profile = "linux-2.2"
+
+[postinst]
+stages = ["x11"]
+
+[postinst.x11]
+chipset = "clgd5446"

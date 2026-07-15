@@ -1,0 +1,10 @@
+# Declarative configuration for the Python retro host.
+
+[[download.files]]
+path = "disc1.iso"
+url = "https://archive.org/download/linux_developer-s-resource_Oct1994_2CDset/linux_developer-s-resource_Oct1994_1of2.iso"
+
+[[download.files]]
+path = "disc2.iso"
+url = "https://archive.org/download/linux_developer-s-resource_Oct1994_2CDset/linux_developer-s-resource_Oct1994_2of2.iso"
+

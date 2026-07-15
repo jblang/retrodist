@@ -1,0 +1,11 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+cdrom = "infomagic/ldr/1996_04"
+
+[extract]
+source = "disc1.iso"
+boot_image = "slackwar/boot144/idecd"
+root_image = "slackwar/rootdsks/color.gz"
+truncate = ["idecd"]
+

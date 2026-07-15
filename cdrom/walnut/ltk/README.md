@@ -2,6 +2,10 @@
 
 Walnut Creek CD-ROM released several Linux Toolkit CDs with Linux distros available at the time plus files from sunsite and tsx-11. I could only find one from 1994 and 3 from 1999 on archive.org. I am not sure if others were produced. The distros included on each edition are listed below.
 
+Each available toolkit has a `config.toml` download recipe. Run
+`retro download cdrom/walnut/ltk/EDITION` directly or reference it with
+`download.cdrom` from a distro config.
+
 ## Aug 1994
 
 - Debian 0.91

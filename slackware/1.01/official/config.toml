@@ -1,0 +1,9 @@
+# Declarative configuration for the Python retro host.
+
+[download]
+slackware_mirror = "1.01"
+
+[extract]
+boot_image = "slackware-1.01/a1/a1disk"
+package_source = "slackware-1.01"
+package_dest = "install"

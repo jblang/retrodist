@@ -20,7 +20,8 @@ This table summarizes the early Debian releases represented in this repo.
 
 ## Installation
 
-Run a scripted install when the selected variant includes `install.sh`:
+Run a scripted install when the selected variant's `config.toml` selects an
+installer driver:
 
 ```sh
 retro install debian/VERSION/VARIANT
@@ -49,22 +50,24 @@ interactive `fdisk` or `cfdisk`.
 
 `1.1` through `1.3` use a dialog-based `dinstall`. The guest's `dialog` binary
 is replaced with the serial adapter, so every installer screen is answered over
-the serial port. The shared driver is [dinstall.sh](dinstall.sh), which walks
-the main menu by matching its `Next` entry, so one menu tree covers all three
-releases and each `install.sh` only sets its own overrides. The host then
-scripts Debian's installed-system setup (root password, user account, and
-`dselect`) before running `postinst.sh`.
+the serial port. The shared Python driver is
+[`hostlib/installers/debian.py`](../hostlib/installers/debian.py). It
+walks the main menu by matching its `Next` entry, so one menu tree covers all
+three releases while each `config.toml` supplies only release-specific options.
+The host then scripts Debian's installed-system setup (root password, user
+account, and `dselect`) before running the configured post-install stages.
 
-`0.91`'s `dinstall` is a prompt-and-response shell script, so
-[0.91/infomagic/install.sh](0.91/infomagic/install.sh) answers it over the serial
-shell instead, replacing `tput` with a no-op first so the prompts arrive as
-plain lines. That `dinstall` installs no boot loader and no packages, so two
+`0.91`'s `dinstall` is a prompt-and-response shell script, so its declarative
+`prompt-sequence` in [config.toml](0.91/infomagic/config.toml) answers it over
+the serial shell, replacing `tput` with a no-op first so prompts arrive as plain
+lines. That `dinstall` installs no boot loader and no packages, so two
 standalone scripts in [../guestlib/deb091](../guestlib/deb091) fill the gaps.
 They take arguments rather than reading the install environment:
 
 - `lilo.sh ROOTDEV ROOTMOUNT`: runs `rdev` on the installed kernel, rewrites
-  `lilo.conf`, and installs LILO. Run from `install.sh` once `dinstall` exits.
+  `lilo.conf`, and installs LILO. The prompt sequence runs it once `dinstall`
+  exits.
 - `pkginst.sh INSTALL_D`: installs every `.deb` under `$INSTALL_D/packages` with
   `zcat | cpio`, runs `fixperms` when metadata is present, then runs the
   non-interactive `.inst` scripts from `/var/adm/dpkg/inst`. Run from
-  `postinst.sh`.
+  the custom post-install stage.
