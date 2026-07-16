@@ -9,15 +9,4 @@ boot_image = "bo/disks-i386/1997-05-30/resc1440.bin"
 root_image = "bo/disks-i386/1997-05-30/root.bin"
 extra_images = ["bo/disks-i386/1997-05-30/drv1440.bin", "bo/disks-i386/1997-05-30/base-*.bin"]
 fat_files = ["bo/disks-i386/1997-05-30/base1_3.tgz", "bo/disks-i386/1997-05-30/resc1440.bin", "bo/disks-i386/1997-05-30/drv1440.bin"]
-
-[[extract.image_extracts]]
-image = "drv1440.bin"
-members = ["MODULES.TGZ"]
-destination = "fat/drivers"
-lowercase = true
-
-[[extract.archive_extracts]]
-archive = "fat/drivers/modules.tgz"
-members = ["lib/modules/*/misc/serial.o"]
-destination = "fat"
-flatten = true
+custom_script = "extract.sh"

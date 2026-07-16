@@ -38,7 +38,7 @@ def validate(cls: type[Model], data: object, path: str) -> Model:
         if special := _special_validation_message(path, error):
             raise ConfigError(special) from exc
         raise ConfigError(
-            f"{_location(path, error['loc'])} {_validation_description(error)}"
+            f"{_location(path, error['loc'])} {_validation_description(error, path)}"
         ) from exc
 
 
@@ -62,7 +62,7 @@ def _special_validation_message(path: str, error: dict[str, object]) -> str | No
     return None
 
 
-def _validation_description(error: dict[str, object]) -> str:
+def _validation_description(error: dict[str, object], path: str) -> str:
     """Translate a Pydantic error type into configuration-oriented language."""
     message = str(error["msg"]).removeprefix("Value error, ")
     descriptions = {
@@ -70,7 +70,7 @@ def _validation_description(error: dict[str, object]) -> str:
         "dict_type": "must be a table",
         "float_type": "must be a number",
         "int_type": "must be an integer",
-        "list_type": _list_error_description(error["loc"]),
+        "list_type": _list_error_description(error["loc"], path),
         "literal_error": message,
         "model_type": "must be a table",
         "missing": "is required",
@@ -79,20 +79,21 @@ def _validation_description(error: dict[str, object]) -> str:
     return descriptions.get(str(error["type"]), message)
 
 
-def _list_error_description(location: object) -> str:
+def _list_error_description(location: object, path: str) -> str:
     """Describe the expected list shape using the failing field name."""
     assert isinstance(location, tuple)
     if location and location[-1] in {
         "decompress",
         "extra_images",
         "fat_files",
-        "members",
         "truncate",
     }:
         return "must be an array of strings"
+    if path == "extract" and location and location[-1] == "files":
+        return "must be an array of strings"
     return (
         "must be an array of tables"
-        if location and location[-1] == "files"
+        if path == "download" and location and location[-1] == "files"
         else "must be an array"
     )
 
@@ -237,24 +238,6 @@ class Overlay(ConfigModel):
     destination: str
 
 
-class ImageExtract(ConfigModel):
-    """Validate one disk-image extraction operation."""
-
-    image: str
-    members: list[str]
-    destination: str
-    lowercase: bool = False
-
-
-class ArchiveExtract(ConfigModel):
-    """Validate one tar archive extraction operation."""
-
-    archive: str
-    members: list[str]
-    destination: str
-    flatten: bool = False
-
-
 class ExtractionConfig(ConfigModel):
     """Configure the complete declarative media-staging plan."""
 
@@ -262,6 +245,7 @@ class ExtractionConfig(ConfigModel):
     boot_image: str | None = None
     root_image: str | None = None
     extra_images: list[str] = Field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
     fat_files: list[str] = Field(default_factory=list)
     package_source: str | None = None
     package_dest: str = "packages"
@@ -270,17 +254,7 @@ class ExtractionConfig(ConfigModel):
     boot_link: str | None = None
     root_link: str | None = None
     custom_script: str | None = None
-    custom_source: str | None = None
     overlays: list[Overlay] = Field(default_factory=list)
-    image_extracts: list[ImageExtract] = Field(default_factory=list)
-    archive_extracts: list[ArchiveExtract] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def custom_script_has_source(self) -> "ExtractionConfig":
-        """Require an extraction source when a custom script is configured."""
-        if self.custom_script and not self.custom_source:
-            raise ValueError("extract.custom_script requires extract.custom_source")
-        return self
 
 
 Scalar = str | int | bool

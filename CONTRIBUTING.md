@@ -86,9 +86,13 @@ guest library, and writes `qemu.d/.extracted`.
 
 The standard `[extract]` table supports:
 
-- `source`: an ISO, tar archive, directory, or downloaded source path.
-- `boot_image`, `root_image`, and `extra_images`: files staged at the top of
-  `qemu.d/`.
+- `source`: an ISO, tar, 7-Zip, or ZIP archive, directory, or downloaded
+  source path. Its file type selects the extraction library automatically.
+- `boot_image` and `root_image`: boot and root media staged at the top of
+  `qemu.d/` and linked to their conventional names.
+- `extra_images`: additional disk images or image glob patterns staged at the
+  top of `qemu.d/`.
+- `files`: non-image files or glob patterns staged at the top of `qemu.d`.
 - `fat_files`: files staged in `qemu.d/fat/`.
 - `package_source`: package directory tree within the extraction source.
 - `package_dest`: destination beneath `qemu.d/fat/`; defaults to `packages`.
@@ -96,10 +100,12 @@ The standard `[extract]` table supports:
 - `truncate`: staged floppy files or glob patterns to normalize to 1.44 MB.
 - `boot_link` and `root_link`: staged source names for `boot.img` and `root.img`.
 - `overlays`: downloaded files copied over paths in the staged tree.
-- `image_extracts`: selected files extracted from staged disk images.
-- `archive_extracts`: selected files extracted from staged tar archives.
-- `custom_script` and `custom_source`: exceptional preprocessing hook and the
-  file or directory it produces beneath the temporary directory.
+- `custom_script`: exceptional hook, run after selected source media is staged
+  and before declarative postprocessing.
+
+Source selectors are relative to `source`; absolute and parent-traversal paths
+are rejected. Custom scripts are resolved from the selected config directory
+and then its immediate parent, so variants may share a hook.
 
 Example:
 
@@ -116,12 +122,12 @@ boot_link = "bare.i"
 root_link = "color"
 ```
 
-Python reads tar archives directly and handles ordinary staging, overlays,
-nested image extraction, links, and postprocessing. Use `custom_script =
-"extract.sh"` only for archive reshaping or image conversion that Python cannot
-express, and set `custom_source` to the hook's output beneath `$TEMP_D`. Python
-then stages that output using the remaining declarative settings. The hook is a
-bounded action and must not contain extraction configuration.
+Python selects the declared files and package tree from ISO, tar, ZIP, and
+7-Zip sources, then runs a `custom_script = "extract.sh"` if configured, and
+finally applies overlays, links, and postprocessing. Use hooks only for media
+conversion that Python cannot express. Hooks run from `qemu.d/`, write final
+media there directly, and stop at the first failing command. A produced
+`disc1.iso` is linked automatically to `install.iso`.
 
 ## QEMU
 

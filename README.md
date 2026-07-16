@@ -44,8 +44,9 @@ starting QEMU.
 
 The host requires Python 3.11 or newer and uses Pydantic for strict
 configuration validation, `qemu.qmp` for QMP, and `pycdlib` for ISO access.
-QEMU, `mtools`, 7-Zip, and a few exceptional media conversion tools are
-external programs invoked by the host or custom hooks.
+QEMU, `mtools`, and a few exceptional media conversion tools are external
+programs invoked by the host or custom hooks. Python dependencies include
+`py7zr` for 7-Zip archives.
 Distro behavior is configured in logically sectioned `config.toml` files; see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the schema and extension workflow.
 

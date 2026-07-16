@@ -1,23 +1,23 @@
-# unzip files from source archive to correct directory
-unzip -q "$DOWNLOAD_D/slackware.zip" -d "$TEMP_D"
-mkdir -p "$TEMP_D/packages"
-for ZIP in "$TEMP_D"/*.ZIP; do
+# Arrange the ZIP files already extracted into qemu.d by the declarative source.
+shopt -s nullglob
+rm -rf fat/install
+mkdir -p fat/install
+ZIPS=(./*.ZIP)
+if [[ ${#ZIPS[@]} -eq 0 ]]; then
+  echo "No Slackware ZIP sets were staged" >&2
+  exit 1
+fi
+for ZIP in "${ZIPS[@]}"; do
   DISK=$(basename "$ZIP" .ZIP | sed 's/SK101//' | tr '[:upper:]' '[:lower:]')
-  unzip -L -q "$ZIP" -d "$TEMP_D/packages/$DISK"
-  rm "$ZIP"
-done
-
-# unzip files in A1 directory
-for ZIP in "$TEMP_D"/packages/a1/*.zip; do
-  unzip -L -q "$ZIP" -d "$TEMP_D/packages/a1"
+  unzip -L -q "$ZIP" -d "fat/install/$DISK"
   rm "$ZIP"
 done
 
 # Use IDE packages for the a2 set (a2s is SCSI)
-mv "$TEMP_D/packages/a2i" "$TEMP_D/packages/a2"
+mv fat/install/a2i fat/install/a2
 
 # clean up some files that got put into the wrong dirs
-for WRONGLABEL in "$TEMP_D"/packages/a*/diskx* "$TEMP_D"/packages/x*/diska*; do
+for WRONGLABEL in fat/install/a*/diskx* fat/install/x*/diska*; do
   WRONG_D=$(dirname "$WRONGLABEL")
   FILES=$(cut -d: -f1 "$WRONGLABEL" | sort -u)
   for FILE in $FILES; do
@@ -25,3 +25,7 @@ for WRONGLABEL in "$TEMP_D"/packages/a*/diskx* "$TEMP_D"/packages/x*/diska*; do
   done
   rm "$WRONGLABEL"
 done
+
+unzip -L -q fat/install/a1/a1disk.zip
+rm -f boot.img
+ln -s a1disk boot.img

@@ -5,8 +5,6 @@ path = "slackware.zip"
 url = "https://archive.org/compress/slackware-101/formats=ZIP&file=/slackware-101.zip"
 
 [extract]
+source = "slackware.zip"
+files = ["*.ZIP"]
 custom_script = "extract.sh"
-custom_source = "packages"
-boot_image = "a1/a1disk"
-package_source = "."
-package_dest = "install"

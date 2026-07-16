@@ -1,12 +1,19 @@
-unzip -q "$DOWNLOAD_D/slackware.zip" -d "$TEMP_D"
-mkdir -p "$TEMP_D/staged/packages"
-
-for IMG in "$TEMP_D"/[atx]*.img; do
+shopt -s nullglob
+rm -rf fat/install
+mkdir -p fat/install
+IMAGES=(./[atx]*.img)
+if [[ ${#IMAGES[@]} -eq 0 ]]; then
+  echo "No Slackware disk images were staged" >&2
+  exit 1
+fi
+for IMG in "${IMAGES[@]}"; do
   DISK=$(basename "$IMG" .img)
   if [[ "$DISK" != "a1" ]]; then
-    mkdir -p "$TEMP_D/staged/packages/$DISK"
-    7z x -y -o"$TEMP_D/staged/packages/$DISK" "$IMG" >/dev/null
+    mkdir -p "fat/install/$DISK"
+    mcopy -s -i "$IMG" '::*' "fat/install/$DISK"
+    rm "$IMG"
   fi
 done
 
-mv "$TEMP_D/a1.img" "$TEMP_D/staged/boot.img"
+rm -f slack101.img boot.img start
+ln -s a1.img boot.img

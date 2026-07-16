@@ -15,6 +15,9 @@ from unittest.mock import patch
 import re
 import sys
 import tarfile
+import zipfile
+
+import py7zr
 
 from hostlib.config import QemuConfig, RetroConfig, load_config, load_qemu_config
 from hostlib.context import Context
@@ -796,6 +799,99 @@ class MediaStagerTests(unittest.TestCase):
                 (context.qemu_dir / "fat/packages/a1/base.tgz").read_bytes(), b"package"
             )
 
+    def test_7z_source_stages_only_declared_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {
+                    "extract": {
+                        "source": "media.7z",
+                        "files": ["payload.txt"],
+                        "fat_files": ["driver.tgz"],
+                        "package_source": "release",
+                    }
+                },
+            )
+            config.download_dir.mkdir()
+            source = root / "payload.txt"
+            source.write_text("payload")
+            ignored = root / "ignored.txt"
+            ignored.write_text("ignored")
+            driver = root / "driver.tgz"
+            driver.write_text("driver")
+            package = root / "base.tgz"
+            package.write_text("package")
+            with py7zr.SevenZipFile(config.download_dir / "media.7z", "w") as archive:
+                archive.write(source, "payload.txt")
+                archive.write(ignored, "ignored.txt")
+                archive.write(driver, "driver.tgz")
+                archive.write(package, "release/a1/base.tgz")
+
+            MediaStager(context, config).extract()
+
+            self.assertEqual((context.qemu_dir / "payload.txt").read_text(), "payload")
+            self.assertFalse((context.qemu_dir / "ignored.txt").exists())
+            self.assertEqual((context.qemu_dir / "fat/driver.tgz").read_text(), "driver")
+            self.assertEqual(
+                (context.qemu_dir / "fat/packages/a1/base.tgz").read_text(), "package"
+            )
+
+    def test_source_media_is_staged_before_the_custom_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {
+                    "extract": {
+                        "source": "media",
+                        "boot_image": "boot.bin",
+                        "custom_script": "extract.sh",
+                    }
+                },
+            )
+            (config.download_dir / "media").mkdir(parents=True)
+            (config.download_dir / "media/boot.bin").write_bytes(b"boot")
+            (context.config / "extract.sh").write_text("test -f boot.bin\ntouch hook-ran\n")
+
+            MediaStager(context, config).extract()
+
+            self.assertTrue((context.qemu_dir / "hook-ran").is_file())
+            self.assertEqual((context.qemu_dir / "boot.img").readlink(), Path("boot.bin"))
+
+    def test_zip_source_is_extracted_before_the_custom_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {
+                    "extract": {
+                        "source": "media.zip",
+                        "files": ["payload.txt"],
+                        "custom_script": "extract.sh",
+                    }
+                },
+            )
+            config.download_dir.mkdir()
+            with zipfile.ZipFile(config.download_dir / "media.zip", "w") as archive:
+                archive.writestr("payload.txt", "payload")
+                archive.writestr("ignored.txt", "ignored")
+            (context.config / "extract.sh").write_text(
+                "test -f payload.txt\ntouch hook-ran\n"
+            )
+
+            MediaStager(context, config).extract()
+
+            self.assertEqual((context.qemu_dir / "payload.txt").read_text(), "payload")
+            self.assertTrue((context.qemu_dir / "hook-ran").is_file())
+            self.assertFalse((context.qemu_dir / "ignored.txt").exists())
+
     def test_custom_extraction_script_receives_project_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -803,10 +899,9 @@ class MediaStagerTests(unittest.TestCase):
             context, config = temporary_config(
                 root,
                 "distro/version",
-                {"extract": {"custom_script": "extract.sh", "custom_source": "source"}},
+                {"extract": {"custom_script": "extract.sh"}},
             )
             (context.config / "extract.sh").write_text("true\n")
-            (context.temporary / "source").mkdir()
             with patch(
                 "hostlib.media.subprocess.run", return_value=SimpleNamespace(returncode=0)
             ) as run:
@@ -814,26 +909,48 @@ class MediaStagerTests(unittest.TestCase):
             environment = run.call_args.kwargs["env"]
             self.assertEqual(environment["DISTRO_D"], str(context.config))
             self.assertEqual(environment["QEMU_D"], str(context.qemu_dir))
+            self.assertEqual(run.call_args.args[0][:4], ["bash", "-e", "-o", "pipefail"])
             self.assertEqual(run.call_args.args[0][-1], str(context.config / "extract.sh"))
 
-    def test_postprocessing_applies_overlay_and_nested_image_extractions(self) -> None:
+    def test_custom_extraction_script_stops_at_the_first_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {"extract": {"custom_script": "extract.sh"}},
+            )
+            (context.config / "extract.sh").write_text("false\ntouch should-not-run\n")
+
+            with self.assertRaisesRegex(CommandError, "Custom extraction failed"):
+                MediaStager(context, config).extract()
+
+            self.assertFalse((context.qemu_dir / "should-not-run").exists())
+            self.assertFalse((context.qemu_dir / ".extracted").exists())
+
+    def test_custom_extraction_script_can_stage_media_directly(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "guestlib").mkdir()
+            context, config = temporary_config(
+                root,
+                "distro/version",
+                {"extract": {"custom_script": "extract.sh"}},
+            )
+            (context.config / "extract.sh").write_text("touch disc1.iso\n")
+
+            MediaStager(context, config).extract()
+
+            self.assertEqual((context.qemu_dir / "install.iso").readlink(), Path("disc1.iso"))
+
+    def test_postprocessing_applies_overlays(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             context, config = temporary_config(root, "distro/version")
             context.qemu_dir.mkdir()
-            (context.qemu_dir / "driver.img").touch()
             config.download_dir.mkdir()
             (config.download_dir / "replacement.tgz").write_bytes(b"replacement")
-            modules = context.qemu_dir / "fat/drivers/MODULES.TGZ"
-
-            def extract_image(*_args, **_kwargs):
-                modules.parent.mkdir(parents=True, exist_ok=True)
-                with tarfile.open(modules, "w:gz") as archive:
-                    contents = b"serial module"
-                    member = tarfile.TarInfo("lib/modules/2.0/misc/serial.o")
-                    member.size = len(contents)
-                    archive.addfile(member, io.BytesIO(contents))
-                return SimpleNamespace(returncode=0)
 
             spec = Extraction(
                 overlays=[
@@ -842,39 +959,20 @@ class MediaStagerTests(unittest.TestCase):
                         "destination": "fat/packages/x2/x_svga.tgz",
                     }
                 ],
-                image_extracts=[
-                    {
-                        "image": "driver.img",
-                        "members": ["MODULES.TGZ"],
-                        "destination": "fat/drivers",
-                        "lowercase": True,
-                    }
-                ],
-                archive_extracts=[
-                    {
-                        "archive": "fat/drivers/modules.tgz",
-                        "members": ["lib/modules/*/misc/serial.o"],
-                        "destination": "fat",
-                        "flatten": True,
-                    }
-                ],
             )
-            with patch("hostlib.media.subprocess.run", side_effect=extract_image) as run:
-                MediaStager(context, config)._postprocess(spec)
+            MediaStager(context, config)._postprocess(spec)
 
             self.assertEqual(
                 (context.qemu_dir / "fat/packages/x2/x_svga.tgz").read_bytes(),
                 b"replacement",
             )
-            self.assertEqual((context.qemu_dir / "fat/serial.o").read_bytes(), b"serial module")
-            self.assertEqual(run.call_args.args[0][-1], "MODULES.TGZ")
 
     def test_extraction_and_postinstall_schema_errors_are_rejected(self) -> None:
         context = SimpleNamespace(name="test")
         for table, message in (
             ({"extra_images": "boot.img"}, "array of strings"),
+            ({"files": "README"}, "array of strings"),
             ({"package_dest": True}, "must be a string"),
-            ({"custom_script": "extract.sh"}, "requires extract.custom_source"),
             ({"unknown": True}, "Unknown extract"),
         ):
             with self.assertRaisesRegex(ConfigError, message):
@@ -897,6 +995,9 @@ class MediaStagerTests(unittest.TestCase):
             stager = MediaStager(context, SimpleNamespace())
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
                 stager._package_destination(Extraction(package_dest="../outside"))
+            for source in ("../outside", "/outside"):
+                with self.assertRaisesRegex(ConfigError, "escapes extraction source"):
+                    MediaStager._validate_source_path(source)
 
 
 class FdiskTests(unittest.TestCase):
@@ -1402,6 +1503,12 @@ class ManifestCoverageTests(unittest.TestCase):
                 "slackware/1.01/official+sls",
                 "slackware/1.0beta/official",
                 "slackware/3.6/linuxmall",
+                "debian/1.1/official",
+                "debian/1.1/infomagic",
+                "debian/1.2/official",
+                "debian/1.2/infomagic",
+                "debian/1.3/official",
+                "debian/1.3/infomagic",
             },
         )
 
@@ -1409,9 +1516,15 @@ class ManifestCoverageTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         for family in ("slackware", "redhat", "debian"):
             for script in (root / family).glob("**/extract.sh"):
-                context = Context.create(root, "extract", str(script.parent))
+                referenced = False
+                for config_path in (root / family).glob("**/config.toml"):
+                    context = Context.create(root, "extract", str(config_path.parent))
+                    custom_script = load_config(context).section("extract").get("custom_script")
+                    if custom_script and context.find(custom_script) == script:
+                        referenced = True
+                        break
                 self.assertTrue(
-                    load_config(context).section("extract"),
+                    referenced,
                     script.relative_to(root),
                 )
 
@@ -1419,11 +1532,12 @@ class ManifestCoverageTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         referenced = set()
         for path in root.glob("**/config.toml"):
-            data = tomllib.loads(path.read_text())
+            context = Context.create(root, "extract", str(path.parent))
+            config = load_config(context)
             for section in ("extract", "postinst"):
-                script = data.get(section, {}).get("custom_script")
+                script = config.section(section).get("custom_script")
                 if script:
-                    referenced.add((path.parent / script).resolve())
+                    referenced.add(context.find(script))
         scripts = {
             path.resolve()
             for family in ("slackware", "redhat", "debian", "cdrom")
@@ -1450,7 +1564,7 @@ class ManifestCoverageTests(unittest.TestCase):
                     path.relative_to(root),
                 )
 
-    def test_only_supported_declarative_archive_source_is_used(self) -> None:
+    def test_only_supported_non_iso_declarative_sources_are_used(self) -> None:
         root = Path(__file__).resolve().parent.parent
         archives = []
         for path in root.glob("**/config.toml"):
@@ -1458,7 +1572,16 @@ class ManifestCoverageTests(unittest.TestCase):
             source = extract.get("source", "")
             if source and not source.lower().endswith(".iso"):
                 archives.append(path.relative_to(root))
-        self.assertEqual(archives, [Path("slackware/1.0beta/official+sls/config.toml")])
+        archives.sort()
+        self.assertEqual(
+            archives,
+            [
+                Path("slackware/1.01/channel1/config.toml"),
+                Path("slackware/1.01/official+sls/config.toml"),
+                Path("slackware/1.0beta/official+sls/config.toml"),
+                Path("slackware/3.6/linuxmall/config.toml"),
+            ],
+        )
 
     def test_legacy_install_shell_manifests_are_removed(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1487,6 +1610,12 @@ class ManifestCoverageTests(unittest.TestCase):
             MediaStager._link("boot.img", boot)
             self.assertFalse(boot.is_symlink())
             self.assertEqual(boot.read_bytes(), b"boot image")
+
+    def test_canonical_media_link_rejects_a_missing_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "boot.img"
+            with self.assertRaisesRegex(ConfigError, "Link source not found: missing.img"):
+                MediaStager._link("missing.img", destination)
 
 
 class VgaTests(unittest.IsolatedAsyncioTestCase):

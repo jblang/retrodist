@@ -1,9 +1,12 @@
-cp -pR "$DOWNLOAD_D/slackware-pre-1.0-beta" "$TEMP_D/packages"
-mkdir -p "$TEMP_D/packages/a1"
-mv "$TEMP_D/packages/diska01" "$TEMP_D/packages/a1/a1disk"
-for DISK in "$TEMP_D"/packages/diska*; do
+rm -rf fat/install
+rm -f diska01 boot.img
+mkdir -p fat/install
+cp -pR "$DOWNLOAD_D/slackware-pre-1.0-beta/." fat/install/
+mv fat/install/diska01 .
+for DISK in fat/install/diska*; do
   NUM=$(basename "$DISK" | sed 's/diska0*//')
   if [[ -d "$DISK" ]]; then
-    mv "$DISK" "$TEMP_D/packages/a$NUM"
+    mv "$DISK" "fat/install/a$NUM"
   fi
 done
+ln -s diska01 boot.img

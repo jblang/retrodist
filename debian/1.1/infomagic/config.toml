@@ -9,15 +9,4 @@ boot_image = "buzz-updates/disks-i386/1996_7_14/boot1440.bin"
 root_image = "buzz-updates/disks-i386/1996_7_14/root.bin"
 extra_images = ["buzz-updates/disks-i386/1996_7_14/base14-*.bin"]
 fat_files = ["buzz-updates/disks-i386/1996_7_14/base1_1.tgz"]
-
-[[extract.image_extracts]]
-image = "boot.img"
-members = ["MODULES.TGZ"]
-destination = "fat/bootflop"
-lowercase = true
-
-[[extract.archive_extracts]]
-archive = "fat/bootflop/modules.tgz"
-members = ["lib/modules/*/misc/serial.o"]
-destination = "fat"
-flatten = true
+custom_script = "extract.sh"
