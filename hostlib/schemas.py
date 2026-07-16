@@ -10,7 +10,7 @@ from __future__ import annotations
 import platform
 from typing import Annotated, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .errors import ConfigError
 
@@ -35,45 +35,66 @@ def validate(cls: type[Model], data: object, path: str) -> Model:
             names = ", ".join(sorted(str(error["loc"][-1]) for error in extras))
             raise ConfigError(f"Unknown {path} setting(s): {names}") from exc
         error = errors[0]
-        location = _location(path, error["loc"])
-        message = str(error["msg"]).removeprefix("Value error, ")
-        if path == "download" and error["type"] == "missing" and error["loc"][-1] == "url":
-            number = int(error["loc"][-2]) + 1
-            raise ConfigError(f"Missing URL for download.files entry {number}") from exc
-        if path == "install" and error["type"] == "too_short":
-            raise ConfigError("prompt-sequence driver requires install.steps") from exc
-        if path == "install" and error["loc"] == ("driver",):
-            raise ConfigError("config.toml must set install.driver") from exc
-        if path == "install" and "keys" in error["loc"]:
-            number = int(error["loc"][1]) + 1
-            raise ConfigError(f"install.steps entry {number} keys must be strings") from exc
-        if path == "postinst" and error["type"] == "literal_error":
-            raise ConfigError(f"Unknown post-install stage(s): {error['input']}") from exc
-        if path == "install.redhat" and error["loc"] == ("flow",):
-            raise ConfigError("install.redhat.flow must be a string") from exc
-        descriptions = {
-            "bool_type": "must be a boolean",
-            "dict_type": "must be a table",
-            "float_type": "must be a number",
-            "int_type": "must be an integer",
-            "list_type": (
-                "must be an array of strings"
-                if error["loc"]
-                and error["loc"][-1]
-                in {"decompress", "extra_images", "fat_files", "members", "truncate"}
-                else (
-                    "must be an array of tables"
-                    if error["loc"] and error["loc"][-1] == "files"
-                    else "must be an array"
-                )
-            ),
-            "literal_error": message,
-            "model_type": "must be a table",
-            "missing": "is required",
-            "string_type": "must be a string",
-        }
-        description = descriptions.get(str(error["type"]), message)
-        raise ConfigError(f"{location} {description}") from exc
+        if special := _special_validation_message(path, error):
+            raise ConfigError(special) from exc
+        raise ConfigError(
+            f"{_location(path, error['loc'])} {_validation_description(error)}"
+        ) from exc
+
+
+def _special_validation_message(path: str, error: dict[str, object]) -> str | None:
+    """Return a tailored message for configuration errors needing extra context."""
+    location = error["loc"]
+    error_type = error["type"]
+    assert isinstance(location, tuple)
+    if path == "download" and error_type == "missing" and location[-1] == "url":
+        return f"Missing URL for download.files entry {int(location[-2]) + 1}"
+    if path == "install" and error_type == "too_short":
+        return "prompt-sequence driver requires install.steps"
+    if path == "install" and location == ("driver",):
+        return "config.toml must set install.driver"
+    if path == "install" and "keys" in location:
+        return f"install.steps entry {int(location[1]) + 1} keys must be strings"
+    if path == "postinst" and error_type == "literal_error":
+        return f"Unknown post-install stage(s): {error['input']}"
+    if path == "install.redhat" and location == ("flow",):
+        return "install.redhat.flow must be a string"
+    return None
+
+
+def _validation_description(error: dict[str, object]) -> str:
+    """Translate a Pydantic error type into configuration-oriented language."""
+    message = str(error["msg"]).removeprefix("Value error, ")
+    descriptions = {
+        "bool_type": "must be a boolean",
+        "dict_type": "must be a table",
+        "float_type": "must be a number",
+        "int_type": "must be an integer",
+        "list_type": _list_error_description(error["loc"]),
+        "literal_error": message,
+        "model_type": "must be a table",
+        "missing": "is required",
+        "string_type": "must be a string",
+    }
+    return descriptions.get(str(error["type"]), message)
+
+
+def _list_error_description(location: object) -> str:
+    """Describe the expected list shape using the failing field name."""
+    assert isinstance(location, tuple)
+    if location and location[-1] in {
+        "decompress",
+        "extra_images",
+        "fat_files",
+        "members",
+        "truncate",
+    }:
+        return "must be an array of strings"
+    return (
+        "must be an array of tables"
+        if location and location[-1] == "files"
+        else "must be an array"
+    )
 
 
 def _location(path: str, parts: tuple[object, ...]) -> str:
@@ -265,6 +286,47 @@ class ExtractionConfig(ConfigModel):
 Scalar = str | int | bool
 
 
+class NetworkConfig(ConfigModel):
+    """Describe static guest networking shared by installers and guestlib.
+
+    Defaults match QEMU user networking. ``domainname`` and ``ipaddr`` remain
+    accepted as compatibility spellings for the canonical ``domain`` and ``ip``
+    fields. This model describes guest configuration; ``QemuNetwork`` separately
+    controls emulated hardware and host port forwarding.
+    """
+
+    hostname: str = "localhost"
+    domain: str = Field(
+        default="retro.net",
+        validation_alias=AliasChoices("domain", "domainname"),
+    )
+    ip: str = Field(
+        default="10.0.2.15",
+        validation_alias=AliasChoices("ip", "ipaddr"),
+    )
+    netmask: str = "255.255.255.0"
+    network: str = "10.0.2.0"
+    broadcast: str = "10.0.2.255"
+    gateway: str = "10.0.2.2"
+    nameserver: str = "10.0.2.3"
+
+
+class PostinstNetworkConfig(NetworkConfig):
+    """Add guestlib compatibility controls to canonical static networking.
+
+    The renderer emits only fields explicitly present in ``[postinst.network]``
+    so omitted values continue to be supplied by the portable guest shell code.
+    """
+
+    ancient_route: int | bool | None = None
+    hostname_init_set: int | bool | None = None
+    gateway_hwaddr: str | None = None
+    nameserver_hwaddr: str | None = None
+    ifconfig_path: str | None = None
+    route_path: str | None = None
+    arp_path: str | None = None
+
+
 class PostinstConfig(ConfigModel):
     """Configure host-rendered post-installation behavior."""
 
@@ -276,7 +338,7 @@ class PostinstConfig(ConfigModel):
     log: str | None = None
     reboot: bool | None = None
     modules: dict[str, Scalar] = Field(default_factory=dict)
-    network: dict[str, Scalar] = Field(default_factory=dict)
+    network: PostinstNetworkConfig = Field(default_factory=PostinstNetworkConfig)
     tty: dict[str, Scalar] = Field(default_factory=dict)
     x11: dict[str, Scalar] = Field(default_factory=dict)
     custom: dict[str, Scalar] = Field(default_factory=dict)

@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import logging
 
+from pydantic import Field
+
 from ..dialog import Choice
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..schemas import ConfigModel
+from ..schemas import ConfigModel, NetworkConfig
 
 log = logging.getLogger(__name__)
 
@@ -38,14 +40,7 @@ class PkgtoolOptions(ConfigModel):
     install_mode: str | None = None
     tagfile_path: str | None = "/retro/tagfiles"
     package_sets: str = '"A" "AP" "N" "X" "XAP"'
-    hostname: str = "darkstar"
-    domain: str = "retro.net"
-    ip: str = "10.0.2.15"
-    network: str = "10.0.2.0"
-    broadcast: str = "10.0.2.255"
-    gateway: str = "10.0.2.2"
-    netmask: str = "255.255.255.0"
-    nameserver: str = "10.0.2.3"
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="darkstar"))
     timezone: str = "UTC"
     modem_speed: str = "38400"
     sendmail_mode: str = "SMTP"
@@ -136,9 +131,16 @@ class Pkgtool:
 
     def _target_and_source(self) -> None:
         """Configure the target filesystem and package source."""
-        o = self.o
-        if o.source_before_target:
+        if self.o.source_before_target:
             self._select_source()
+        self._select_target()
+        self._mount_fat_partition()
+        if not self.o.source_before_target:
+            self._select_source()
+
+    def _select_target(self) -> None:
+        """Select and format the configured Linux target partition."""
+        o = self.o
         self.d.answer_until(
             Choice("menu", "Select Linux installation partition:", o.linux_partition),
             Choice("msgbox", "Using this partition for Linux:", "ok"),
@@ -160,6 +162,10 @@ class Pkgtool:
                 terminal=True,
             ),
         )
+
+    def _mount_fat_partition(self) -> None:
+        """Add the staged FAT partition to the installed filesystem table."""
+        o = self.o
         self.d.answer_until(
             Choice("inputbox", "CHOOSE PARTITION", o.fat_partition),
             Choice("menu", "CHOOSE PARTITION", o.fat_partition),
@@ -171,11 +177,14 @@ class Pkgtool:
             Choice("inputbox", "CHOOSE PARTITION", "q"),
             Choice("yesno", "CONTINUE?", "yes", terminal=True),
         )
-        if not o.source_before_target:
-            self._select_source()
 
     def _select_source(self) -> None:
-        """Select the configured package-source menu entry."""
+        """Select CD-ROM, staged FAT packages, or a manually chosen source.
+
+        CD-ROM releases expose several alternative discovery dialogs, while a
+        FAT source uses the already mounted package directory. Unknown devices
+        deliberately fall back to manual selection before automation resumes.
+        """
         o = self.o
         if o.source == "/dev/hdc":
             self.d.answer_until(
@@ -234,81 +243,6 @@ class Pkgtool:
     def _configure(self) -> None:
         """Answer boot loader, network, time-zone, and service dialogs."""
         o = self.o
-
-        def lilo(title: str) -> None:
-            """Configure and install LILO."""
-            if o.simple_lilo:
-                self.d.answer(Choice("menu", title, "2"))
-                return
-            if title == "INSTALL LILO":
-                self.d.answer(Choice("menu", title, "expert"))
-                title = "EXPERT LILO INSTALLATION"
-            self.d.answer_until(
-                Choice("menu", title, "Begin"),
-                Choice("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
-                Choice(
-                    "menu",
-                    "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?",
-                    o.lilo_framebuffer,
-                ),
-                Choice("menu", "SELECT LILO TARGET LOCATION", "MBR"),
-                Choice("inputbox", "CONFIRM LOCATION TO INSTALL LILO", o.target_disk),
-                Choice("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
-                Choice("menu", title, "Linux"),
-                Choice("inputbox", "SELECT LINUX PARTITION", o.linux_partition),
-                Choice("inputbox", "SELECT PARTITION NAME", o.linux_partition_name),
-                Choice("menu", title, "Install", terminal=True),
-            )
-
-        def network(title: str) -> None:
-            """Configure the Slackware hostname and network mode."""
-            self.d.answer(Choice("yesno", title, "yes"))
-            self.d.answer_until(
-                Choice("msgbox", "NETWORK CONFIGURATION", ""),
-                Choice("inputbox", "ENTER HOSTNAME", o.hostname),
-                Choice("inputbox", r"ENTER DOMAINNAME( FOR .*)?", o.domain, regex=True),
-                Choice("yesno", "LOOPBACK ONLY?", "no"),
-                Choice("menu", r"SETUP IP (ADDRESS )?FOR .*", "static IP", regex=True),
-                Choice(
-                    "inputbox",
-                    r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)",
-                    o.ip,
-                    regex=True,
-                ),
-                Choice("inputbox", "ENTER NETWORK ADDRESS", o.network),
-                Choice("inputbox", "ENTER BROADCAST ADDRESS", o.broadcast),
-                Choice("inputbox", "ENTER GATEWAY ADDRESS", o.gateway),
-                Choice("inputbox", r"ENTER NETMASK( .*)?", o.netmask, regex=True),
-                Choice("yesno", "USE A NAMESERVER?", "yes"),
-                Choice("inputbox", "SELECT NAMESERVER", o.nameserver),
-                Choice("menu", "PROBE FOR NETWORK CARD?", "probe"),
-                Choice("msgbox", "CARD DETECTED", "ok"),
-                Choice("msgbox", "NETWORK SETUP COMPLETE", "ok", terminal=True),
-                Choice("yesno", "NETWORK SETUP COMPLETE", "yes", terminal=True),
-                Choice("inputmenu", "CONFIRM NETWORK SETUP", "", terminal=True),
-            )
-
-        def timezone(title: str) -> None:
-            """Select the configured time zone."""
-            self.d.answer(Choice("menu", title, o.timezone))
-            xwmconfig()
-
-        def sendmail(title: str) -> None:
-            """Select the configured sendmail mode."""
-            self.d.answer(Choice("menu", title, o.sendmail_mode))
-            xwmconfig()
-
-        def xwmconfig() -> None:
-            """Select the configured default window manager."""
-            if not o.xwmconfig:
-                return
-            try:
-                self.s.vga_wait("SELECT DEFAULT WINDOW MANAGER FOR X", timeout=1)
-            except TimeoutError:
-                return
-            self.s.kb_press("spc", "ret")
-            o.xwmconfig = False
-
         self.d.answer_until(
             Choice("yesno", "CONFIGURE YOUR SYSTEM?", "yes"),
             Choice("menu", "MAKE BOOTDISK", "continue"),
@@ -324,25 +258,93 @@ class Pkgtool:
             Choice("yesno", "FTAPE CONFIGURATION", "no"),
             Choice("menu", "SET YOUR MODEM SPEED", o.modem_speed),
             Choice("menu", "INSTALL LINUX KERNEL", "skip"),
-            Choice("menu", "INSTALL LILO", lilo),
-            Choice("menu", "LILO INSTALLATION", lilo),
-            Choice("yesno", "CONFIGURE NETWORK?", network),
+            Choice("menu", "INSTALL LILO", self._lilo),
+            Choice("menu", "LILO INSTALLATION", self._lilo),
+            Choice("yesno", "CONFIGURE NETWORK?", self._network),
             Choice("yesno", "GPM CONFIGURATION", "no"),
             Choice("yesno", "ENABLE HOTPLUG SUBSYSTEM AT BOOT?", "no"),
             Choice("yesno", "SELECTION 1.5 CONFIGURATION", "no"),
-            Choice("menu", "SENDMAIL CONFIGURATION", sendmail),
+            Choice("menu", "SENDMAIL CONFIGURATION", self._sendmail),
             Choice("menu", "HARDWARE CLOCK SET TO UTC?", "YES"),
-            Choice("menu", "TIMEZONE CONFIGURATION", timezone),
+            Choice("menu", "TIMEZONE CONFIGURATION", self._timezone),
             Choice("yesno", "WARNING: NO ROOT PASSWORD DETECTED", "no"),
             Choice("msgbox", "SETUP COMPLETE", "ok", terminal=True),
         )
 
+    def _lilo(self, title: str) -> None:
+        """Configure and install LILO for the selected Slackware release."""
+        o = self.o
+        if o.simple_lilo:
+            self.d.answer(Choice("menu", title, "2"))
+            return
+        if title == "INSTALL LILO":
+            self.d.answer(Choice("menu", title, "expert"))
+            title = "EXPERT LILO INSTALLATION"
+        self.d.answer_until(
+            Choice("menu", title, "Begin"),
+            Choice("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
+            Choice("menu", "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?", o.lilo_framebuffer),
+            Choice("menu", "SELECT LILO TARGET LOCATION", "MBR"),
+            Choice("inputbox", "CONFIRM LOCATION TO INSTALL LILO", o.target_disk),
+            Choice("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
+            Choice("menu", title, "Linux"),
+            Choice("inputbox", "SELECT LINUX PARTITION", o.linux_partition),
+            Choice("inputbox", "SELECT PARTITION NAME", o.linux_partition_name),
+            Choice("menu", title, "Install", terminal=True),
+        )
+
+    def _network(self, title: str) -> None:
+        """Configure the Slackware hostname and static network settings."""
+        n = self.o.network
+        self.d.answer(Choice("yesno", title, "yes"))
+        self.d.answer_until(
+            Choice("msgbox", "NETWORK CONFIGURATION", ""),
+            Choice("inputbox", "ENTER HOSTNAME", n.hostname),
+            Choice("inputbox", r"ENTER DOMAINNAME( FOR .*)?", n.domain, regex=True),
+            Choice("yesno", "LOOPBACK ONLY?", "no"),
+            Choice("menu", r"SETUP IP (ADDRESS )?FOR .*", "static IP", regex=True),
+            Choice("inputbox", r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)", n.ip, regex=True),
+            Choice("inputbox", "ENTER NETWORK ADDRESS", n.network),
+            Choice("inputbox", "ENTER BROADCAST ADDRESS", n.broadcast),
+            Choice("inputbox", "ENTER GATEWAY ADDRESS", n.gateway),
+            Choice("inputbox", r"ENTER NETMASK( .*)?", n.netmask, regex=True),
+            Choice("yesno", "USE A NAMESERVER?", "yes"),
+            Choice("inputbox", "SELECT NAMESERVER", n.nameserver),
+            Choice("menu", "PROBE FOR NETWORK CARD?", "probe"),
+            Choice("msgbox", "CARD DETECTED", "ok"),
+            Choice("msgbox", "NETWORK SETUP COMPLETE", "ok", terminal=True),
+            Choice("yesno", "NETWORK SETUP COMPLETE", "yes", terminal=True),
+            Choice("inputmenu", "CONFIRM NETWORK SETUP", "", terminal=True),
+        )
+
+    def _timezone(self, title: str) -> None:
+        """Select the configured time zone and optional window manager."""
+        self.d.answer(Choice("menu", title, self.o.timezone))
+        self._xwmconfig()
+
+    def _sendmail(self, title: str) -> None:
+        """Select the configured sendmail mode and optional window manager."""
+        self.d.answer(Choice("menu", title, self.o.sendmail_mode))
+        self._xwmconfig()
+
+    def _xwmconfig(self) -> None:
+        """Select the default window manager when its prompt is enabled."""
+        if not self.o.xwmconfig:
+            return
+        try:
+            self.s.vga_wait("SELECT DEFAULT WINDOW MANAGER FOR X", timeout=1)
+        except TimeoutError:
+            return
+        self.s.kb_press("spc", "ret")
+        self.o.xwmconfig = False
+
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
         o = self.o
-        self.s.vga_wait(f"{o.hostname} login:", match=Match.LINE)
+        hostname = o.network.hostname
+        self.s.vga_wait(f"{hostname} login:", match=Match.LINE)
         self.s.kb_type("root\n")
-        self.s.vga_wait(o.postinst_prompt or f"{o.hostname}:~#", match=Match.LINE)
+        self.s.vga_wait(o.postinst_prompt or f"{hostname}:~#", match=Match.LINE)
         self.s.kb_type(f"{o.fat_mount}/guestlib.d/postinst.sh\n")
 
 

@@ -16,6 +16,7 @@ from ..errors import ConfigError
 from ..fdisk import Fdisk
 from ..schemas import (
     ChangeFloppyStep,
+    ConfigModel,
     ConsoleEchoStep,
     InstallStep,
     PartitionStep,
@@ -32,10 +33,10 @@ from ..schemas import (
 )
 from ..session import InstallSession, Match
 from .debian import DinstallOptions, run_dinstall
-from .redhat import CInstallerOptions, run_c_installer, run_unattended
-from .redhat_early import PerlInstallerOptions, run_perl_installer
+from .redhat_c import CInstallerOptions, run_c_installer, run_unattended
+from .redhat_perl import PerlInstallerOptions, run_perl_installer
 from .slackware import PkgtoolOptions, run_pkgtool
-from .slackware_early import SysinstallOptions, run_sysinstall
+from .slackware_sysinstall import SysinstallOptions, run_sysinstall
 
 Driver = Callable[[InstallSession], None]
 StepHandler = Callable[[InstallSession, Any], None]
@@ -67,32 +68,63 @@ def validate_install_config(config: RetroConfig) -> Driver:
         raise ConfigError(f"Unknown install driver: {driver}") from exc
     _validate_driver_controls(config, driver)
     if options := DRIVER_OPTIONS.get(driver):
-        config.options(options)
-        known = set(options.model_fields) | DRIVER_CONTROL_FIELDS.get(driver, set())
-        unknown = set(config.install_values) - known
-        if unknown:
-            raise ConfigError(
-                f"Unknown install option(s) for {driver}: {', '.join(sorted(unknown))}"
-            )
+        _validate_driver_options(config, driver, options)
     elif driver == "redhat-unattended":
-        known = {
-            "command",
-            "login_prompt",
-            "postinst",
-            "prompt",
-            "reboot",
-            "root_password",
-            "shell_prompt",
-            "boot_device",
-        }
-        unknown = set(config.install_values) - known
-        if unknown:
-            raise ConfigError(
-                "Unknown install option(s) for redhat-unattended: " + ", ".join(sorted(unknown))
-            )
+        _validate_unattended_options(config)
     if driver == "prompt-sequence":
         config.prompt_sequence
     return entrypoint
+
+
+def _validate_driver_options(config: RetroConfig, driver: str, options: type[Any]) -> None:
+    """Validate a family driver's typed options and reject unknown leaves."""
+    config.options(options)
+    known = _option_leaf_fields(options) | DRIVER_CONTROL_FIELDS.get(driver, set())
+    _reject_unknown_options(config, driver, known)
+
+
+def _option_leaf_fields(options: type[ConfigModel]) -> set[str]:
+    """Return canonical and aliased leaves consumed by an option model.
+
+    Nested models contribute their own input names because unknown-setting
+    validation operates on ``RetroConfig.install_values``'s flattened view.
+    """
+    known: set[str] = set()
+    for name, field in options.model_fields.items():
+        annotation = field.annotation
+        if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
+            for nested_name, nested_field in annotation.model_fields.items():
+                known.add(nested_name)
+                known.update(
+                    alias
+                    for alias in getattr(nested_field.validation_alias, "choices", ())
+                    if isinstance(alias, str)
+                )
+        else:
+            known.add(name)
+    return known
+
+
+def _validate_unattended_options(config: RetroConfig) -> None:
+    """Reject leaves not consumed by the nested unattended schema."""
+    known = {
+        "command",
+        "login_prompt",
+        "postinst",
+        "prompt",
+        "reboot",
+        "root_password",
+        "shell_prompt",
+        "boot_device",
+    }
+    _reject_unknown_options(config, "redhat-unattended", known)
+
+
+def _reject_unknown_options(config: RetroConfig, driver: str, known: set[str]) -> None:
+    """Raise a driver-specific error for unconsumed install option leaves."""
+    unknown = set(config.install_values) - known
+    if unknown:
+        raise ConfigError(f"Unknown install option(s) for {driver}: {', '.join(sorted(unknown))}")
 
 
 def _validate_driver_controls(config: RetroConfig, driver: str) -> None:

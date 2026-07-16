@@ -100,32 +100,43 @@ class QemuRuntime:
         floppy, cdrom = self._startup_media()
         arguments: list[str] = []
         for name in ("fda", "fdb", "hda", "hdb", "hdc", "hdd"):
-            index = {"fda": 0, "fdb": 1, "hda": 0, "hdb": 1, "hdc": 2, "hdd": 3}[name]
-            interface = "floppy" if name.startswith("fd") else "ide"
-            image = self.directory / f"{name}.img"
-            iso = self.directory / f"{name}.iso"
-            if name == "fda" and floppy:
-                image = floppy
-            if name == "hdc" and cdrom:
-                image, iso = Path(), cdrom
-            options: str | None = None
-            if image.is_file():
-                format = "raw" if interface == "floppy" else self.config.disk.format
-                extra = (
-                    f",{self.config.disk.hda_options}"
-                    if name == "hda" and self.config.disk.hda_options
-                    else ""
-                )
-                options = f"if={interface},index={index},format={format},file={image.name}{extra}"
-            elif iso.is_file():
-                options = f"if={interface},index={index},format=raw,media=cdrom,file={iso.name}"
-            elif name == "hdb" and (self.directory / "fat").is_dir():
-                options = "if=ide,index=1,format=raw,file=fat:rw:fat"
-            elif (self.directory / name).is_dir():
-                options = f"if={interface},index={index},format=raw,file=fat:rw:{name}"
+            options = self._drive_options(name, floppy, cdrom)
             if options:
                 arguments += ["-drive", options]
         return arguments
+
+    def _drive_options(self, name: str, floppy: Path | None, cdrom: Path | None) -> str | None:
+        """Build options for one conventional floppy or IDE device.
+
+        Command-specific startup media overrides conventional filenames. Disk
+        images take precedence over ISOs, followed by the staged FAT directory
+        conventions used for writable guest exchange media.
+        """
+        indices = {"fda": 0, "fdb": 1, "hda": 0, "hdb": 1, "hdc": 2, "hdd": 3}
+        interface = "floppy" if name.startswith("fd") else "ide"
+        image: Path | None = floppy if name == "fda" and floppy else self.directory / f"{name}.img"
+        iso = cdrom if name == "hdc" and cdrom else self.directory / f"{name}.iso"
+        if name == "hdc" and cdrom:
+            image = None
+        if image is not None and image.is_file():
+            return self._image_drive_options(name, image, interface, indices[name])
+        if iso.is_file():
+            return f"if={interface},index={indices[name]},format=raw,media=cdrom,file={iso.name}"
+        if name == "hdb" and (self.directory / "fat").is_dir():
+            return "if=ide,index=1,format=raw,file=fat:rw:fat"
+        if (self.directory / name).is_dir():
+            return f"if={interface},index={indices[name]},format=raw,file=fat:rw:{name}"
+        return None
+
+    def _image_drive_options(self, name: str, image: Path, interface: str, index: int) -> str:
+        """Build options for a staged disk-image drive."""
+        image_format = "raw" if interface == "floppy" else self.config.disk.format
+        extra = (
+            f",{self.config.disk.hda_options}"
+            if name == "hda" and self.config.disk.hda_options
+            else ""
+        )
+        return f"if={interface},index={index},format={image_format},file={image.name}{extra}"
 
     def _forwards(self) -> list[tuple[int, int]]:
         """Resolve configured or automatically assigned host port forwards."""
@@ -180,45 +191,66 @@ class QemuRuntime:
             "-qmp",
             "unix:qmp.sock,server=on,wait=off",
         ]
-        for option, value in self._chardevs():
-            args += [option, value]
-        for option, value in (
-            ("-display", cfg.display.backend),
-            ("-accel", cfg.display.acceleration),
-            ("-vga", cfg.display.vga),
-        ):
-            if value:
-                args += [option, value]
-        if cfg.network.enabled and cfg.network.device:
-            forwards = self._forwards()
-            netdev = "user,id=internet" + "".join(
-                f",hostfwd=tcp:127.0.0.1:{host}-:{guest}" for host, guest in forwards
-            )
-            args += [
-                "-netdev",
-                netdev,
-                "-device",
-                f"{cfg.network.device},netdev=internet",
-            ]
-        if cfg.disk.floppy_a_type:
-            args += ["-global", f"isa-fdc.fdtypeA={cfg.disk.floppy_a_type}"]
-        if cfg.disk.floppy_b_type:
-            args += ["-global", f"isa-fdc.fdtypeB={cfg.disk.floppy_b_type}"]
+        args += self._device_arguments()
         args += self._drives()
-        floppy, cdrom = self._startup_media()
-        boot = cfg.boot_order or (
-            "order=a"
-            if self.context.command == "install" and floppy
-            else "order=d" if self.context.command == "install" and cdrom else None
-        )
+        boot = self._boot_order()
         if boot:
             args += ["-boot", boot]
         return args + cfg.extra
+
+    def _device_arguments(self) -> list[str]:
+        """Build character, display, network, and floppy-controller arguments."""
+        args = [value for pair in self._chardevs() for value in pair]
+        for option, value in self._display_options():
+            if value:
+                args += [option, value]
+        args += self._network_arguments()
+        for drive, value in (
+            ("A", self.config.disk.floppy_a_type),
+            ("B", self.config.disk.floppy_b_type),
+        ):
+            if value:
+                args += ["-global", f"isa-fdc.fdtype{drive}={value}"]
+        return args
+
+    def _display_options(self) -> tuple[tuple[str, str | None], ...]:
+        """Return optional display-related QEMU switches and values."""
+        display = self.config.display
+        return (
+            ("-display", display.backend),
+            ("-accel", display.acceleration),
+            ("-vga", display.vga),
+        )
+
+    def _network_arguments(self) -> list[str]:
+        """Build user-network and forwarding arguments when networking is enabled."""
+        network = self.config.network
+        if not (network.enabled and network.device):
+            return []
+        netdev = "user,id=internet" + "".join(
+            f",hostfwd=tcp:127.0.0.1:{host}-:{guest}" for host, guest in self._forwards()
+        )
+        return ["-netdev", netdev, "-device", f"{network.device},netdev=internet"]
+
+    def _boot_order(self) -> str | None:
+        """Resolve an explicit or install-media-derived QEMU boot order."""
+        floppy, cdrom = self._startup_media()
+        if self.config.boot_order:
+            return self.config.boot_order
+        if self.context.command != "install":
+            return None
+        return "order=a" if floppy else "order=d" if cdrom else None
 
     def _report_devices(self) -> None:
         """Log QMP, forwarding, disk, and character-device endpoints."""
         log.info("⚙️  QEMU endpoints:")
         log.info("    QMP:     %s", self.qmp_socket.name)
+        self._report_forwards()
+        self._report_drives()
+        self._report_chardevs()
+
+    def _report_forwards(self) -> None:
+        """Log configured guest TCP port forwarding endpoints."""
         forwards = (
             self._forwards() if self.config.network.enabled and self.config.network.device else []
         )
@@ -231,6 +263,9 @@ class QemuRuntime:
             for host, guest in ordered:
                 label = "SSH" if guest == 22 else "Telnet" if guest == 23 else "TCP"
                 log.info("    %-7s localhost:%s -> guest :%s", f"{label}:", host, guest)
+
+    def _report_drives(self) -> None:
+        """Log all conventional staged disk arguments."""
         log.info("💾 Guest disks:")
         drives = self._drives()
         if drives:
@@ -238,6 +273,9 @@ class QemuRuntime:
                 log.info("    %s %s", drives[index], drives[index + 1])
         else:
             log.info("    none")
+
+    def _report_chardevs(self) -> None:
+        """Log exported serial and parallel character-device endpoints."""
         log.info("⌨️  Guest character devices:")
         exported = [
             (option, value)

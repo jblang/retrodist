@@ -49,19 +49,25 @@ class Monitor:
             raise QmpUnavailable(
                 "qemu.qmp is required; install the Python project dependencies"
             ) from exc
+        deadline = asyncio.get_running_loop().time() + self.timeout
+        await self._connect_until(QMPClient, ConnectError, deadline)
+
+    async def _connect_until(
+        self, client_type: Any, connect_error: type[Exception], deadline: float
+    ) -> None:
+        """Retry QMP client connections until the monotonic deadline."""
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + self.timeout
         last_error: BaseException | None = None
         while loop.time() < deadline:
             if not self.socket.exists():
                 await asyncio.sleep(min(0.05, max(0, deadline - loop.time())))
                 continue
-            self._client = QMPClient("retro")
+            self._client = client_type("retro")
             try:
                 async with asyncio.timeout(deadline - loop.time()):
                     await self._client.connect(str(self.socket))
                 return
-            except ConnectError as exc:
+            except connect_error as exc:
                 last_error = exc
                 self._client = None
                 await asyncio.sleep(min(0.05, max(0, deadline - loop.time())))

@@ -11,10 +11,12 @@ from __future__ import annotations
 import re
 import shlex
 
+from pydantic import Field
+
 from ..dialog import Choice
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..schemas import ConfigModel
+from ..schemas import ConfigModel, NetworkConfig
 
 
 class DinstallOptions(ConfigModel):
@@ -29,7 +31,7 @@ class DinstallOptions(ConfigModel):
     swap_mb: int = 64
     fat_partition: str = "/dev/hdb1"
     fat_mount: str = "/retro"
-    hostname: str = "debian"
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="debian"))
     keymap: str = "us"
     configure_keyboard: bool = False
     kernel_floppy: str | None = None
@@ -41,13 +43,6 @@ class DinstallOptions(ConfigModel):
     root_password: str = "password1"
     user: str = "debian"
     user_password: str = "password1"
-    domain: str = "retro.net"
-    ip: str = "10.0.2.15"
-    netmask: str = "255.255.255.0"
-    network: str = "10.0.2.0"
-    broadcast: str = "10.0.2.255"
-    gateway: str = "10.0.2.2"
-    nameserver: str = "10.0.2.3"
 
 
 def run_dinstall(session: InstallSession) -> None:
@@ -269,17 +264,17 @@ class Dinstall:
 
     def _network(self, _: str) -> None:
         """Configure hostname, domain, and networking."""
-        o = self.o
+        n = self.o.network
         self._main()
         self.d.answer_until(
-            Choice("inputbox", "Please enter your Host name", o.hostname),
+            Choice("inputbox", "Please enter your Host name", n.hostname),
             Choice("yesno", "Use a Network?", "yes"),
-            Choice("inputbox", "Please enter your Domain name", o.domain),
+            Choice("inputbox", "Please enter your Domain name", n.domain),
             Choice("yesno", "Confirm", "yes"),
-            Choice("inputbox", "Please Enter IP Address", o.ip),
-            Choice("inputbox", "Please Enter Netmask", o.netmask),
-            Choice("inputbox", "Please Enter Network Address", o.network),
-            Choice("inputbox", "Please Enter Broadcast Address", o.broadcast),
+            Choice("inputbox", "Please Enter IP Address", n.ip),
+            Choice("inputbox", "Please Enter Netmask", n.netmask),
+            Choice("inputbox", "Please Enter Network Address", n.network),
+            Choice("inputbox", "Please Enter Broadcast Address", n.broadcast),
             Choice(
                 "menu",
                 "Choose Broadcast Address",
@@ -287,9 +282,9 @@ class Dinstall:
                 description=True,
             ),
             Choice("yesno", "Is there a Gateway?", "yes"),
-            Choice("inputbox", "Please Enter Gateway Address", o.gateway),
+            Choice("inputbox", "Please Enter Gateway Address", n.gateway),
             Choice("menu", "Locate DNS Server", "2"),
-            Choice("inputbox", "Please Enter Name Server Address", o.nameserver),
+            Choice("inputbox", "Please Enter Name Server Address", n.nameserver),
             Choice("yesno", "Please Confirm", "yes"),
             Choice("yesno", "Use Ethernet?", "yes", terminal=True),
             Choice("menu", "Choose network interface", "eth0", terminal=True),
@@ -306,6 +301,14 @@ class Dinstall:
     def _first_boot(self) -> None:
         """Complete first-boot package and account configuration."""
         o = self.o
+        self._create_accounts()
+        self._finish_finger_information()
+        self._enable_shadow_passwords()
+        self._quit_dselect()
+
+    def _create_accounts(self) -> None:
+        """Set the root password and create the configured ordinary user."""
+        o = self.o
         self.s.vga_wait("Changing password for root", match=Match.LINE)
         self.s.kb_type(f"{o.root_password}\n")
         self.s.kb_type(f"{o.root_password}\n")
@@ -314,6 +317,9 @@ class Dinstall:
         self.s.vga_wait(f"Changing password for {o.user}", match=Match.LINE)
         self.s.kb_type(f"{o.user_password}\n")
         self.s.kb_type(f"{o.user_password}\n")
+
+    def _finish_finger_information(self) -> None:
+        """Advance through optional finger fields and confirm the result."""
         while True:
             try:
                 self.s.vga_wait(
@@ -325,6 +331,9 @@ class Dinstall:
             except TimeoutError:
                 self.s.kb_press("ret")
         self.s.kb_type("y\n")
+
+    def _enable_shadow_passwords(self) -> None:
+        """Enable shadow passwords when offered and reach the next stage."""
         shadow = False
         while True:
             try:
@@ -343,6 +352,9 @@ class Dinstall:
                     self.s.kb_type("y\n")
                     shadow = True
         self.s.kb_press("ret")
+
+    def _quit_dselect(self) -> None:
+        """Wait for the first dselect menu and quit it without changes."""
         self.s.vga_wait(
             "Debian Linux `dselect' package handling frontend.",
             "6. [Q]uit        Quit dselect.",
@@ -354,9 +366,10 @@ class Dinstall:
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
         o = self.o
+        hostname = o.network.hostname
         self.s.vga_wait("Have fun!", match=Match.LINE)
         if o.relogin:
-            self.s.vga_wait(f"{o.hostname} login:", match=Match.LINE)
+            self.s.vga_wait(f"{hostname} login:", match=Match.LINE)
             self.s.kb_type("root\n")
             self.s.vga_wait("Password:", match=Match.LINE)
             self.s.kb_type(f"{o.root_password}\n")

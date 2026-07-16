@@ -12,7 +12,7 @@ import logging
 from pathlib import Path, PurePosixPath
 import re
 import sys
-from typing import TextIO
+from typing import Any, TextIO
 import urllib.parse
 
 import fsspec
@@ -224,43 +224,88 @@ class Downloader:
             if directory in visited:
                 continue
             visited.add(directory)
-            try:
-                entries = self.http.ls(directory, detail=True)
-            except Exception as exc:
-                raise OSError(f"Could not list HTTP directory {directory}") from exc
-            resolved = []
-            for entry in entries:
-                remote = str(entry.get("name", ""))
-                parsed = urllib.parse.urlparse(remote)
-                if parsed.query or parsed.fragment:
-                    continue
-                resolved.append((entry, remote, self._mirror_relative(root_url, root, remote)))
-            directory_paths = {
-                relative for entry, _, relative in resolved if entry.get("type") == "directory"
-            }
-            directories: list[str] = []
-            for entry, remote, relative in sorted(resolved, key=lambda item: item[1]):
-                if any(re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", part) for part in relative.parts):
-                    continue
-                if entry.get("type") == "directory":
-                    local = destination.joinpath(*relative.parts)
-                    if local.is_file():
-                        local.unlink()
-                    directories.append(remote)
-                    continue
-                if relative in directory_paths:
-                    continue
-                if not relative.parts or any(
-                    fnmatch.fnmatch(relative.name, item) for item in reject
-                ):
-                    continue
-                target = destination.joinpath(*relative.parts)
-                if target.is_file():
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                log.info("Downloading %s", target)
-                self._retrieve(remote, target)
+            entries = self._mirror_listing(directory)
+            resolved = self._resolve_mirror_entries(entries, root_url, root)
+            directories = self._mirror_entries(resolved, destination, reject)
             pending.extend(reversed(directories))
+
+    def _mirror_listing(self, directory: str) -> list[dict[str, Any]]:
+        """List one remote directory and add useful context to failures."""
+        try:
+            return self.http.ls(directory, detail=True)
+        except Exception as exc:
+            raise OSError(f"Could not list HTTP directory {directory}") from exc
+
+    def _resolve_mirror_entries(
+        self,
+        entries: list[dict[str, Any]],
+        root_url: urllib.parse.ParseResult,
+        root: PurePosixPath,
+    ) -> list[tuple[dict[str, Any], str, PurePosixPath]]:
+        """Resolve listing entries to safe paths and discard query links."""
+        resolved = []
+        for entry in entries:
+            remote = str(entry.get("name", ""))
+            parsed = urllib.parse.urlparse(remote)
+            if not (parsed.query or parsed.fragment):
+                resolved.append((entry, remote, self._mirror_relative(root_url, root, remote)))
+        return resolved
+
+    def _mirror_entries(
+        self,
+        entries: list[tuple[dict[str, Any], str, PurePosixPath]],
+        destination: Path,
+        reject: tuple[str, ...],
+    ) -> list[str]:
+        """Download files from one listing and return child directories."""
+        directory_paths = {
+            relative for entry, _, relative in entries if entry.get("type") == "directory"
+        }
+        directories: list[str] = []
+        for entry, remote, relative in sorted(entries, key=lambda item: item[1]):
+            if self._unsafe_mirror_entry(relative):
+                continue
+            if entry.get("type") == "directory":
+                self._queue_mirror_directory(destination, relative, remote, directories)
+            elif relative not in directory_paths and self._wanted_mirror_file(relative, reject):
+                self._download_mirror_file(destination, relative, remote)
+        return directories
+
+    @staticmethod
+    def _unsafe_mirror_entry(relative: PurePosixPath) -> bool:
+        """Return whether a mirror path contains a URI-like path component."""
+        return any(re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", part) for part in relative.parts)
+
+    @staticmethod
+    def _queue_mirror_directory(
+        destination: Path,
+        relative: PurePosixPath,
+        remote: str,
+        directories: list[str],
+    ) -> None:
+        """Replace a conflicting local file and queue a remote directory."""
+        local = destination.joinpath(*relative.parts)
+        if local.is_file():
+            local.unlink()
+        directories.append(remote)
+
+    @staticmethod
+    def _wanted_mirror_file(relative: PurePosixPath, reject: tuple[str, ...]) -> bool:
+        """Return whether a resolved mirror file passes basename filters."""
+        return bool(relative.parts) and not any(
+            fnmatch.fnmatch(relative.name, pattern) for pattern in reject
+        )
+
+    def _download_mirror_file(
+        self, destination: Path, relative: PurePosixPath, remote: str
+    ) -> None:
+        """Download one absent mirror file to its resolved local path."""
+        target = destination.joinpath(*relative.parts)
+        if target.is_file():
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        log.info("Downloading %s", target)
+        self._retrieve(remote, target)
 
     @staticmethod
     def _mirror_relative(

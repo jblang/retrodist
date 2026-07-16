@@ -1,4 +1,4 @@
-"""Automate pre-Pkgtool Slackware ``doinstall`` and ``syssetup`` releases.
+"""Automate Slackware ``doinstall`` and ``syssetup`` releases with Sysinstall.
 
 These installers are serial prompt streams rather than menus. The driver boots
 to a shell, partitions and formats the target, selects an install type from the
@@ -55,6 +55,13 @@ class Sysinstall:
 
     def install(self) -> None:
         """Run partitioning, Sysinstall, and system setup."""
+        self._prepare_disk()
+        self._run_doinstall()
+        self._finish_install()
+        self._first_boot()
+
+    def _prepare_disk(self) -> None:
+        """Log in, partition the target, and create its filesystems."""
         o = self.o
         self.s.vga_wait("darkstar login:", match=Match.LINE)
         self.s.kb_type("root\n")
@@ -67,6 +74,10 @@ class Sysinstall:
             f"mke2fs {o.linux_partition}",
         ):
             self.s.serial_shell_send(command)
+
+    def _run_doinstall(self) -> None:
+        """Start doinstall and answer source and package-selection prompts."""
+        o = self.o
         self.s.serial_console_echo(
             "Starting Slackware setup; package installation may take a while..."
         )
@@ -85,19 +96,31 @@ class Sysinstall:
             "Which option would you like? (1/2/3):",
             answer="2",
         )
+
+    def _finish_install(self) -> None:
+        """Write missing fstab entries and reboot from the installed disk."""
+        o = self.o
         self.s.serial.wait("Installation is complete.", line=True)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_send(f"echo '{o.swap_partition} none swap sw 0 0' >> /root/etc/fstab")
         self.s.serial_shell_send("echo 'none /proc proc defaults 0 0' >> /root/etc/fstab")
         self.s.set_boot("c")
         self.s.kb_press("ctrl-alt-delete")
+
+    def _first_boot(self) -> None:
+        """Log in after the reboot and launch staged post-install setup."""
         self.s.vga_wait("darkstar login:", match=Match.LINE)
         self.s.kb_type("root\n")
         self.s.vga_wait("darkstar:/#", match=Match.LINE)
         self.s.kb_type(f"{self.s.postinst_command}\n")
 
     def _packages(self) -> None:
-        """Answer package-set prompts until Sysinstall completes."""
+        """Answer package prompts and satisfy an optional boot-disk request.
+
+        Some releases require writable media during package selection. A blank
+        1.44 MiB image is created only when that prompt appears; modem detection
+        marks the end of this phase.
+        """
         choices = (
             r"^Install package ",
             r"^Insert the disk and press <return> :",

@@ -107,30 +107,31 @@ class ScreenObserver:
         sent twice against stale text.
         """
 
-        async def read() -> str:
-            """Read VGA text and append changes to screen history."""
-            text = await self._read()
-            if text != self.current:
-                self.history.append(Screen(monotonic(), text))
-            return text
+        text = await self._fresh_screen()
+        if timeout is None:
+            return await self._wait_for_predicate(predicate, text)
+        async with asyncio.timeout(timeout):
+            return await self._wait_for_predicate(predicate, text)
 
+    async def _fresh_screen(self) -> str:
+        """Wait past any invalidated VGA snapshot and return fresh text."""
         while True:
-            text = await read()
+            text = await self._read_screen()
             if self._stale is None or text != self._stale:
                 self._stale = None
-                break
+                return text
             await asyncio.sleep(min(self.interval, 0.01))
 
-        async def waiting() -> str:
-            """Poll until the predicate matches, respecting stale-screen invalidation."""
-            nonlocal text
-            while True:
-                if predicate(text):
-                    return text
-                await asyncio.sleep(self.interval)
-                text = await read()
+    async def _read_screen(self) -> str:
+        """Read VGA text and append changes to screen history."""
+        text = await self._read()
+        if text != self.current:
+            self.history.append(Screen(monotonic(), text))
+        return text
 
-        if timeout is None:
-            return await waiting()
-        async with asyncio.timeout(timeout):
-            return await waiting()
+    async def _wait_for_predicate(self, predicate: Callable[[str], bool], text: str) -> str:
+        """Poll fresh VGA screens until the caller's predicate matches."""
+        while not predicate(text):
+            await asyncio.sleep(self.interval)
+            text = await self._read_screen()
+        return text

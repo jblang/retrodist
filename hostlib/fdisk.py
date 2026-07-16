@@ -31,6 +31,16 @@ class Fdisk:
             command = f"[ -b {device} ] || mknod {device} b 3 0; {command}"
         self.session.serial_console_echo(f"Partitioning {device}; this may take a while...")
         self.session.serial_shell_send(command, wait=False)
+        self._delete_partitions()
+        self._create_partition(1, f"+{swap_mb}M")
+        self._create_partition(2)
+        self._set_type(1, "82")
+        self._set_type(2, "83")
+        self._prompt("Command (m for help):", "p")
+        self._prompt("Command (m for help):", "w")
+
+    def _delete_partitions(self) -> None:
+        """Delete the first two primary partitions when they already exist."""
         self._prompt("Command (m for help):", "d")
         deleted, _ = self.session.serial.wait_any(
             "Partition number (1-4):", "No partition is defined yet"
@@ -39,28 +49,22 @@ class Fdisk:
             self.session.serial.send("1")
             self._prompt("Command (m for help):", "d")
             self._prompt("Partition number (1-4):", "2")
+
+    def _create_partition(self, number: int, last: str | None = None) -> None:
+        """Create a primary partition using the offered cylinder range."""
         self._prompt("Command (m for help):", "n")
         self.session.serial.send("p")
-        self._prompt("Partition number (1-4):", "1")
+        self._prompt("Partition number (1-4):", str(number))
         first, _ = self._range("First cylinder")
         self.session.serial.send(str(first))
-        self._range("Last cylinder")
-        self.session.serial.send(f"+{swap_mb}M")
-        self._prompt("Command (m for help):", "n")
-        self.session.serial.send("p")
-        self._prompt("Partition number (1-4):", "2")
-        first, _ = self._range("First cylinder")
-        self.session.serial.send(str(first))
-        _, last = self._range("Last cylinder")
-        self.session.serial.send(str(last))
+        _, offered_last = self._range("Last cylinder")
+        self.session.serial.send(last or str(offered_last))
+
+    def _set_type(self, number: int, code: str) -> None:
+        """Assign an fdisk hexadecimal type code to a primary partition."""
         self._prompt("Command (m for help):", "t")
-        self._prompt("Partition number (1-4):", "1")
-        self._prompt("Hex code (type L to list codes):", "82")
-        self._prompt("Command (m for help):", "t")
-        self._prompt("Partition number (1-4):", "2")
-        self._prompt("Hex code (type L to list codes):", "83")
-        self._prompt("Command (m for help):", "p")
-        self._prompt("Command (m for help):", "w")
+        self._prompt("Partition number (1-4):", str(number))
+        self._prompt("Hex code (type L to list codes):", code)
 
     def _prompt(self, prompt: str, answer: str) -> None:
         """Wait for an fdisk prompt and send its answer."""

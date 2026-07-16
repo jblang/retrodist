@@ -1,4 +1,4 @@
-"""Automate Red Hat 1.x through 3.x Perl/dialog installers.
+"""Automate Red Hat 1.x through 3.x Perl/dialog installer drivers.
 
 These releases have distinct linear flows but reuse boot-disk swaps, fdisk,
 static networking, root formatting, X11 selection, and final boot-loader work.
@@ -7,8 +7,10 @@ The configured flow names the small release-specific composition.
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from ..fdisk import Fdisk
-from ..schemas import ConfigModel
+from ..schemas import ConfigModel, NetworkConfig
 from ..session import InstallSession, Match
 from ..errors import ConfigError
 
@@ -19,65 +21,23 @@ class PerlInstallerOptions(ConfigModel):
     target_disk: str = "/dev/hda"
     swap_mb: int = 64
     boot_command: str = ""
-    hostname: str = "redhat"
-    domain: str = "retro.net"
-    ip: str = "10.0.2.15"
-    netmask: str = "255.255.255.0"
-    network: str = "10.0.2.0"
-    broadcast: str = "10.0.2.255"
-    gateway: str = "10.0.2.2"
-    nameserver: str = "10.0.2.3"
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
 
 
 def run_perl_installer(session: InstallSession) -> None:
     """Run an early Red Hat Perl-installer installation."""
-    flow = session.config.redhat_flow.flow
     installer = PerlInstaller(session)
     installer.boot()
+    flow = session.config.redhat_flow.flow
     if flow == "1.1":
         installer.load_ramdisk("rootdisk.img")
         installer.step("Welcome to the Red Hat Commercial Linux installation program!", "ret")
         installer.step("Important Copyright Notice", "ret")
         installer.insert_boot_disk()
     elif flow == "2.1":
-        installer.load_two_ramdisks()
-        installer.step("Welcome to the Red Hat Linux installation program!", "ret")
-        installer.insert_boot_disk()
-        installer.step("Red Hat supports a number of different sources for installation.", "ret")
-        installer.step("Text based install", "t", "ret")
-        installer.partition("Do you need to partition your disks?")
-        installer.step("Do you want to use this as a swap partition?", "y", "ret", "ret", "ret")
-        session.vga_wait("Do you want to configure networking")
-        installer.configure_network(network_first=True)
-        installer.step("I think I've found the Red Hat CD-ROM", "y")
-        installer.format_root()
-        session.vga_wait("Select each series that you want to install.")
-        session.kb_repeat("down", 3)
-        session.kb_press("spc")
-        session.kb_repeat("down", 6)
-        for _ in range(4):
-            session.kb_press("spc", "down")
-        session.kb_press("spc")
-        session.kb_repeat("down", 3)
-        session.kb_press("spc")
-        session.kb_repeat("down", 3)
-        session.kb_press("spc", "down", "spc", "ret")
-        installer.step("Which type of video card you you have?", "s", "ret")
-        installer.finish("Is your system clock set to local time", blank_twice=True)
+        installer._flow_21()
     elif flow == "3.0.3":
-        installer.step("This script will walk you through each step of the installation.", "ret")
-        installer.step("Color Screen", "ret")
-        installer.step("Text based install", "ret")
-        installer.partition("Disk Partitions")
-        installer.step("Do you want to use this as a swap partition?", "y")
-        session.vga_wait("Do you want to configure ethernet TCP/IP networking")
-        installer.configure_network()
-        installer.format_root()
-        installer.step("Select each series that you want to install.", "ret")
-        installer.step("Which X server would you like to use?", "s", "ret")
-        installer.step("Would you like to select and unselect individual packages", "n")
-        installer.step("Package Installation is complete.", "ret")
-        installer.finish("How does your system clock store the time?")
+        installer._flow_303()
     else:
         raise ConfigError(f"Unknown Red Hat Perl installer flow: {flow}")
 
@@ -100,12 +60,59 @@ class PerlInstaller:
     @property
     def fqdn(self) -> str:
         """Return the configured fully qualified host name."""
-        return f"{self.o.hostname}.{self.o.domain}"
+        return f"{self.o.network.hostname}.{self.o.network.domain}"
 
     def step(self, screen: str, *keys: str) -> None:
         """Wait for a VGA prompt and type its answer."""
         self.s.vga_wait(screen)
         self.s.kb_press(*keys)
+
+    def _flow_21(self) -> None:
+        """Run the Red Hat 2.1 install and component-selection sequence."""
+        self.load_two_ramdisks()
+        self.step("Welcome to the Red Hat Linux installation program!", "ret")
+        self.insert_boot_disk()
+        self.step("Red Hat supports a number of different sources for installation.", "ret")
+        self.step("Text based install", "t", "ret")
+        self.partition("Do you need to partition your disks?")
+        self.step("Do you want to use this as a swap partition?", "y", "ret", "ret", "ret")
+        self.s.vga_wait("Do you want to configure networking")
+        self.configure_network(network_first=True)
+        self.step("I think I've found the Red Hat CD-ROM", "y")
+        self.format_root()
+        self._select_21_packages()
+        self.step("Which type of video card you you have?", "s", "ret")
+        self.finish("Is your system clock set to local time", blank_twice=True)
+
+    def _select_21_packages(self) -> None:
+        """Navigate the Red Hat 2.1 package-series checklist."""
+        self.s.vga_wait("Select each series that you want to install.")
+        self.s.kb_repeat("down", 3)
+        self.s.kb_press("spc")
+        self.s.kb_repeat("down", 6)
+        for _ in range(4):
+            self.s.kb_press("spc", "down")
+        self.s.kb_press("spc")
+        self.s.kb_repeat("down", 3)
+        self.s.kb_press("spc")
+        self.s.kb_repeat("down", 3)
+        self.s.kb_press("spc", "down", "spc", "ret")
+
+    def _flow_303(self) -> None:
+        """Run the Red Hat 3.0.3 installation sequence."""
+        self.step("This script will walk you through each step of the installation.", "ret")
+        self.step("Color Screen", "ret")
+        self.step("Text based install", "ret")
+        self.partition("Disk Partitions")
+        self.step("Do you want to use this as a swap partition?", "y")
+        self.s.vga_wait("Do you want to configure ethernet TCP/IP networking")
+        self.configure_network()
+        self.format_root()
+        self.step("Select each series that you want to install.", "ret")
+        self.step("Which X server would you like to use?", "s", "ret")
+        self.step("Would you like to select and unselect individual packages", "n")
+        self.step("Package Installation is complete.", "ret")
+        self.finish("How does your system clock store the time?")
 
     def boot(self) -> None:
         """Send the configured kernel command at the boot prompt."""
@@ -144,34 +151,38 @@ class PerlInstaller:
 
     def configure_network(self, *, network_first: bool = False) -> None:
         """Answer early Red Hat network configuration dialogs."""
-        o = self.o
+        n = self.o.network
         self.s.kb_press("y")
         fields = [
-            ("What hostname have you selected for this computer?", o.hostname, 0),
-            ("What domain name is this computer part of?", o.domain, 0),
+            ("What hostname have you selected for this computer?", n.hostname, 0),
+            ("What domain name is this computer part of?", n.domain, 0),
             (
                 "What is the fully qualified domain name (FQDN) of this computer?",
                 self.fqdn,
                 30,
             ),
-            ("What is the IP address of this computer?", o.ip, 0),
+            ("What is the IP address of this computer?", n.ip, 0),
         ]
         network_fields = [
-            ("What is the network address of this computer?", o.network, 15),
-            ("What is the netmask used by this computer?", o.netmask, 15),
+            ("What is the network address of this computer?", n.network, 15),
+            ("What is the netmask used by this computer?", n.netmask, 15),
         ]
         fields += network_fields if network_first else network_fields[::-1]
-        fields.append(("What is the broadcast address used by this computer?", o.broadcast, 15))
+        fields.append(("What is the broadcast address used by this computer?", n.broadcast, 15))
+        self._network_fields(fields)
+        self.step("Does this computer use a gateway?", "y")
+        self._replace("What is the IP address of the gateway used by this computer?", n.gateway)
+        self.step("Does this computer use a nameserver?", "y")
+        self._replace("What is the IP address of the nameserver?", n.nameserver)
+        self.step("Does this computer use another nameserver?", "n")
+        self.step("Is this correct?", "y")
+
+    def _network_fields(self, fields: list[tuple[str, str, int]]) -> None:
+        """Fill a sequence of early Red Hat network text fields."""
         for prompt, value, erase in fields:
             self.s.vga_wait(prompt)
             self.s.kb_repeat("backspace", erase)
             self.s.kb_type(f"{value}\n")
-        self.step("Does this computer use a gateway?", "y")
-        self._replace("What is the IP address of the gateway used by this computer?", o.gateway)
-        self.step("Does this computer use a nameserver?", "y")
-        self._replace("What is the IP address of the nameserver?", o.nameserver)
-        self.step("Does this computer use another nameserver?", "n")
-        self.step("Is this correct?", "y")
 
     def _replace(self, prompt: str, value: str) -> None:
         """Select replacement media files for the current release."""
@@ -217,4 +228,5 @@ class PerlInstaller:
         self.s.vga_wait("Be sure to remove the boot floppy from your floppy drive!")
         self.s.set_boot("c")
         self.s.kb_press("ret")
-        self.s.run_postinst(login=f"{self.fqdn} login:", shell=f"[root@{self.o.hostname} /root]#")
+        hostname = self.o.network.hostname
+        self.s.run_postinst(login=f"{self.fqdn} login:", shell=f"[root@{hostname} /root]#")

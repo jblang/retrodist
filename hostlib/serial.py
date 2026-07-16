@@ -161,31 +161,32 @@ class SerialConsole:
         Returns:
             The exact text matched in the serial buffer.
         """
-        if line:
-            pattern = re.compile(rf"(?m)^\s*{re.escape(expected.strip())}\s*$")
-        elif regex:
-            pattern = re.compile(expected, re.MULTILINE)
-        else:
-            pattern = re.compile(re.escape(expected))
-
-        async def waiting() -> str:
-            """Poll buffered serial input until the enclosing wait condition matches."""
-            while True:
-                start = self._offset
-                if match := pattern.search(self._buffer[start:]):
-                    matched_start = start + match.start()
-                    self._offset = self._line_end(start + match.end())
-                    self._emit_transcript(self._offset, matched_start)
-                    return match.group()
-                if self._failure:
-                    raise self._failure
-                async with self._changed:
-                    await self._changed.wait()
-
+        pattern = self._wait_pattern(expected, line=line, regex=regex)
         if timeout is None:
-            return await waiting()
+            return await self._wait_one(pattern)
         async with asyncio.timeout(timeout):
-            return await waiting()
+            return await self._wait_one(pattern)
+
+    @staticmethod
+    def _wait_pattern(expected: str, *, line: bool, regex: bool) -> re.Pattern[str]:
+        """Compile a literal, complete-line, or regular-expression wait pattern."""
+        if line:
+            return re.compile(rf"(?m)^\s*{re.escape(expected.strip())}\s*$")
+        return re.compile(expected if regex else re.escape(expected), re.MULTILINE)
+
+    async def _wait_one(self, pattern: re.Pattern[str]) -> str:
+        """Poll buffered serial input until one compiled pattern matches."""
+        while True:
+            start = self._offset
+            if match := pattern.search(self._buffer[start:]):
+                matched_start = start + match.start()
+                self._offset = self._line_end(start + match.end())
+                self._emit_transcript(self._offset, matched_start)
+                return match.group()
+            if self._failure:
+                raise self._failure
+            async with self._changed:
+                await self._changed.wait()
 
     async def wait_any(
         self,
@@ -203,33 +204,32 @@ class SerialConsole:
             re.compile(value if regex else re.escape(value), re.MULTILINE) for value in patterns
         )
 
-        async def waiting() -> tuple[int, str]:
-            """Poll buffered serial input until the enclosing wait condition matches."""
-            while True:
-                start = self._offset
-                remaining = self._buffer[start:]
-                matches = (
-                    (i, match)
-                    for i, pattern in enumerate(compiled)
-                    if (match := pattern.search(remaining))
-                )
-                try:
-                    index, match = min(matches, key=lambda item: item[1].start())
-                except ValueError:
-                    if self._failure:
-                        raise self._failure
-                    async with self._changed:
-                        await self._changed.wait()
-                    continue
-                matched_start = start + match.start()
-                self._offset = self._line_end(start + match.end())
-                self._emit_transcript(self._offset, matched_start)
-                return index, match.group()
-
         if timeout is None:
-            return await waiting()
+            return await self._wait_first(compiled)
         async with asyncio.timeout(timeout):
-            return await waiting()
+            return await self._wait_first(compiled)
+
+    async def _wait_first(self, patterns: tuple[re.Pattern[str], ...]) -> tuple[int, str]:
+        """Poll until the earliest match among several compiled patterns."""
+        while True:
+            start = self._offset
+            matches = (
+                (i, match)
+                for i, pattern in enumerate(patterns)
+                if (match := pattern.search(self._buffer[start:]))
+            )
+            try:
+                index, match = min(matches, key=lambda item: item[1].start())
+            except ValueError:
+                if self._failure:
+                    raise self._failure
+                async with self._changed:
+                    await self._changed.wait()
+                continue
+            matched_start = start + match.start()
+            self._offset = self._line_end(start + match.end())
+            self._emit_transcript(self._offset, matched_start)
+            return index, match.group()
 
     async def read_until(self, pattern: re.Pattern[str]) -> str:
         """Consume and return serial text through the next regex match."""

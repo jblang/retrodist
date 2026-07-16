@@ -1,4 +1,4 @@
-"""Automate Red Hat releases that use the full-screen C installer.
+"""Automate Red Hat releases that use the full-screen C installer driver.
 
 Red Hat 4.x and 5.x share broad phases but differ substantially in partition,
 component, mouse, and X11 screens. ``flow`` selects the bounded branch while
@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import time
 
+from pydantic import Field
+
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
 from ..errors import ConfigError
-from ..schemas import ConfigModel
+from ..schemas import ConfigModel, NetworkConfig
 
 
 class CInstallerOptions(ConfigModel):
@@ -45,66 +47,32 @@ class CInstallerOptions(ConfigModel):
     lilo_extra_f12: int = 0
     bootdisk_prompt: bool = False
     password: str = "password"
-    hostname: str = "redhat"
-    domain: str = "retro.net"
-    ip: str = "10.0.2.15"
-    netmask: str = "255.255.255.0"
-    network: str = "10.0.2.0"
-    broadcast: str = "10.0.2.255"
-    gateway: str = "10.0.2.2"
-    nameserver: str = "10.0.2.3"
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
 
 
 def run_c_installer(session: InstallSession) -> None:
     """Run a Red Hat C-installer installation with resolved options."""
     installer = CInstaller(session)
-    flow = installer.o.flow
     installer.start()
+    _run_c_flow(installer)
+    installer.network()
+    installer.finish()
+
+
+def _run_c_flow(installer: "CInstaller") -> None:
+    """Dispatch the release-specific middle phases of the C installer."""
+    flow = installer.o.flow
     if flow == "4x":
         installer.partition_4x()
         installer.components_40()
         installer.finish_components()
         installer.x11_4x()
     elif flow == "42":
-        installer.partition_4x()
-        session.vga_wait("Components to Install")
-        session.kb_press("spc")
-        session.kb_repeat("down", 2)
-        session.kb_press("spc", "down", "spc", "down", "spc")
-        session.kb_repeat("down", 9)
-        for _ in range(4):
-            session.kb_press("spc", "down")
-        session.kb_press("spc")
-        session.kb_repeat("down", 7)
-        session.kb_press("spc", "f12")
-        installer.finish_components()
-        installer.x11_4x()
+        installer._flow_42()
     elif flow in {"50", "51"}:
-        session.vga_wait("Which tool would you like to use?" if flow == "50" else "Disk Setup")
-        session.kb_press("tab", "ret")
-        session.vga_wait("Partition Disks")
-        installer.partition_helper()
-        installer.step("Partition Disks", "ret")
-        if flow == "50":
-            installer.step("Select Root Partition", "ret")
-            installer.step("Partition Disk", "f12")
-            installer.step("Active Swap Space", "f12")
-            installer.step("Format Partitions", "spc", "f12")
-        else:
-            installer.step("Current Disk Partitions", "down", "ret")
-            session.kb_type("/\n")
-            session.kb_press("f12")
-            installer.step("Active Swap Space", "f12")
-            installer.step("Partitions To Format", "spc", "f12")
-        installer.components_default()
-        installer.finish_components()
-        installer.step("Probing found a PS/2 mouse", "f12")
-        installer.step("Emulate Three Buttons" if flow == "50" else "Configure Mouse", "f12")
-        installer.x11_5x()
+        installer._flow_5x()
     else:
         raise ConfigError(f"Unknown Red Hat C installer flow: {flow}")
-    installer.network()
-    installer.finish()
 
 
 def run_unattended(session: InstallSession) -> None:
@@ -141,6 +109,51 @@ class CInstaller:
         """Wait for a screen heading and send the associated key sequence."""
         self.s.vga_wait(screen)
         self.s.kb_press(*keys)
+
+    def _flow_42(self) -> None:
+        """Run the Red Hat 4.2 component-selection variant."""
+        self.partition_4x()
+        self.s.vga_wait("Components to Install")
+        self.s.kb_press("spc")
+        self.s.kb_repeat("down", 2)
+        self.s.kb_press("spc", "down", "spc", "down", "spc")
+        self.s.kb_repeat("down", 9)
+        for _ in range(4):
+            self.s.kb_press("spc", "down")
+        self.s.kb_press("spc")
+        self.s.kb_repeat("down", 7)
+        self.s.kb_press("spc", "f12")
+        self.finish_components()
+        self.x11_4x()
+
+    def _flow_5x(self) -> None:
+        """Run the Red Hat 5.0 or 5.1 partition and X11 phases."""
+        flow = self.o.flow
+        self.s.vga_wait("Which tool would you like to use?" if flow == "50" else "Disk Setup")
+        self.s.kb_press("tab", "ret")
+        self.s.vga_wait("Partition Disks")
+        self.partition_helper()
+        self.step("Partition Disks", "ret")
+        self._partition_5x(flow)
+        self.components_default()
+        self.finish_components()
+        self.step("Probing found a PS/2 mouse", "f12")
+        self.step("Emulate Three Buttons" if flow == "50" else "Configure Mouse", "f12")
+        self.x11_5x()
+
+    def _partition_5x(self, flow: str) -> None:
+        """Complete release-specific root and format screens for Red Hat 5.x."""
+        if flow == "50":
+            self.step("Select Root Partition", "ret")
+            self.step("Partition Disk", "f12")
+            self.step("Active Swap Space", "f12")
+            self.step("Format Partitions", "spc", "f12")
+            return
+        self.step("Current Disk Partitions", "down", "ret")
+        self.s.kb_type("/\n")
+        self.s.kb_press("f12")
+        self.step("Active Swap Space", "f12")
+        self.step("Partitions To Format", "spc", "f12")
 
     def start(self) -> None:
         """Complete the initial language, media, and install-mode screens."""
@@ -235,26 +248,42 @@ class CInstaller:
     def network(self) -> None:
         """Configure Red Hat networking and resolver settings."""
         o = self.o
+        n = o.network
         self.step("Network Configuration", "f12")
         if o.flow == "51":
             self.step("Digital 21040 (Tulip)", "f12")
             self.step("Boot Protocol", "f12")
         self.s.vga_wait("Configure TCP/IP")
-        self.s.kb_type(f"{o.ip}\n")
-        for value in (o.netmask, o.network, o.broadcast):
+        self.s.kb_type(f"{n.ip}\n")
+        for value in (n.netmask, n.network, n.broadcast):
             self.s.kb_repeat("backspace", 15)
             self.s.kb_type(f"{value}\n")
         self.s.kb_press("f12")
         self.s.vga_wait("Configure Network")
-        self.s.kb_type(f"{o.domain}\n")
-        self.s.kb_type(f"{o.hostname}\n")
-        for value in (o.gateway, o.nameserver):
+        self.s.kb_type(f"{n.domain}\n")
+        self.s.kb_type(f"{n.hostname}\n")
+        for value in (n.gateway, n.nameserver):
             self.s.kb_repeat("backspace", 15)
             self.s.kb_type(f"{value}\n")
         self.s.kb_press("f12")
 
     def finish(self) -> None:
         """Complete installation and launch post-installation setup."""
+        o = self.o
+        hostname = o.network.hostname
+        self._finish_configuration()
+        self._install_lilo()
+        self.s.vga_wait("Congratulations, installation is complete.")
+        self.s.set_boot("c")
+        self.s.kb_press("ret")
+        self.s.run_postinst(
+            o.password,
+            login=f"{hostname} login:",
+            shell=f"[root@{hostname} /root]#",
+        )
+
+    def _finish_configuration(self) -> None:
+        """Answer final service, printer, account, and boot-disk screens."""
         o = self.o
         self.step(o.timezone_prompt, "f12")
         if o.keyboard_late:
@@ -271,16 +300,12 @@ class CInstaller:
         self.s.kb_press("f12")
         if o.bootdisk_prompt:
             self.step("Bootdisk", "tab", "ret")
+
+    def _install_lilo(self) -> None:
+        """Install LILO and name the selected bootable partition."""
+        o = self.o
         self.s.vga_wait("Lilo Installation")
         self.s.kb_press("f12", *("f12" for _ in range(o.lilo_extra_f12)))
         self.step("Bootable Partitions", "down", "ret")
         self.s.kb_repeat("backspace", 3)
         self.s.kb_press("ret", "f12")
-        self.s.vga_wait("Congratulations, installation is complete.")
-        self.s.set_boot("c")
-        self.s.kb_press("ret")
-        self.s.run_postinst(
-            o.password,
-            login=f"{o.hostname} login:",
-            shell=f"[root@{o.hostname} /root]#",
-        )

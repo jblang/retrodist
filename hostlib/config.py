@@ -195,42 +195,50 @@ class RetroConfig(ConfigModel):
 
     @cached_property
     def install_values(self) -> dict[str, Any]:
-        """Flatten unambiguous installer option leaves for driver models.
+        """Flatten unambiguous installer leaves for legacy option binding.
 
-        Logical grouping tables are discarded because drivers share flat
-        option models. Duplicate leaf names are rejected rather than
-        silently selecting one table's value.
+        This view supports scalar driver fields, prompt interpolation, and
+        unknown-setting checks. Nested ``ConfigModel`` fields are instead bound
+        from their original logical tables by ``options``. Duplicate leaf names
+        remain invalid because flattened consumers could not distinguish them.
 
         Raises:
             ConfigError: If two install tables define the same leaf name.
         """
         values: dict[str, Any] = {}
-        origins: dict[str, str] = {}
-
-        def collect(table: dict[str, Any], path: tuple[str, ...] = ()) -> None:
-            """Collect installer option leaves while detecting ambiguous names."""
-            for key, value in table.items():
-                if isinstance(value, dict):
-                    collect(value, (*path, key))
-                elif key not in {"driver", "steps"}:
-                    location = ".".join(("install", *path, key))
-                    if key in values:
-                        raise ConfigError(
-                            f"Ambiguous install option {key!r} in "
-                            f"{origins[key]} and {location}"
-                        )
-                    values[key] = value
-                    origins[key] = location
-
-        collect(self.section("install"))
+        self._collect_install_values(self.section("install"), values, {})
         return values
+
+    def _collect_install_values(
+        self,
+        table: dict[str, Any],
+        values: dict[str, Any],
+        origins: dict[str, str],
+        path: tuple[str, ...] = (),
+    ) -> None:
+        """Collect installer leaves recursively and reject ambiguous names."""
+        for key, value in table.items():
+            if isinstance(value, dict):
+                self._collect_install_values(value, values, origins, (*path, key))
+                continue
+            if key in {"driver", "steps"}:
+                continue
+            location = ".".join(("install", *path, key))
+            if key in values:
+                raise ConfigError(
+                    f"Ambiguous install option {key!r} in {origins[key]} and {location}"
+                )
+            values[key] = value
+            origins[key] = location
 
     def options(self, cls: type[T]) -> T:
         """Build an installer options model from matching TOML leaf keys.
 
-        Only fields declared by ``cls`` are copied. TOML ``false`` maps to
-        ``None`` for optional non-Boolean fields, allowing a prompt or feature
-        inherited from a parent config to be disabled declaratively.
+        Nested ``ConfigModel`` fields retain their corresponding logical table
+        and are overlaid on the option model's defaults. Other install tables
+        remain available through the legacy flattened leaf view. TOML ``false``
+        maps to ``None`` for optional non-Boolean fields, allowing an inherited
+        prompt or feature to be disabled declaratively.
 
         Args:
             cls: Installer option model to instantiate.
@@ -238,20 +246,63 @@ class RetroConfig(ConfigModel):
         Raises:
             ConfigError: If a matching TOML value has the wrong runtime type.
         """
-        fields = getattr(cls, "model_fields", {})
-        values: dict[str, Any] = {}
-        for key, value in self.install_values.items():
-            if key not in fields:
-                continue
-            annotation = fields[key].annotation
-            if value is False and _allows_none(annotation) and bool not in get_args(annotation):
-                value = None
-            values[key] = value
+        values = self._option_values(getattr(cls, "model_fields", {}))
         try:
             return cls.model_validate(values)
         except ValidationError as exc:
             key = str(exc.errors()[0]["loc"][0])
             raise ConfigError(f"Install option {key} has the wrong type") from exc
+
+    def _option_values(self, fields: dict[str, Any]) -> dict[str, Any]:
+        """Collect nested tables and compatible flattened leaves for an option model."""
+        values, nested = self._nested_option_values(fields)
+        for key, value in self.install_values.items():
+            if key not in fields or key in nested:
+                continue
+            annotation = fields[key].annotation
+            if value is False and _allows_none(annotation) and bool not in get_args(annotation):
+                value = None
+            values[key] = value
+        return values
+
+    def _nested_option_values(self, fields: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+        """Overlay logical install tables on defaults for nested option fields.
+
+        Values remain dictionaries here so the outer option model performs all
+        nested validation inside ``options``'s ``ConfigError`` boundary.
+        """
+        values: dict[str, Any] = {}
+        nested: set[str] = set()
+        for key, field in fields.items():
+            annotation = field.annotation
+            if not isinstance(annotation, type) or not issubclass(annotation, ConfigModel):
+                continue
+            nested.add(key)
+            default = field.get_default(call_default_factory=True)
+            base = default.model_dump() if isinstance(default, ConfigModel) else {}
+            table = self.section("install", key)
+            selected = self._nested_table_values(annotation, table)
+            values[key] = {**base, **selected}
+        return values, nested
+
+    @staticmethod
+    def _nested_table_values(model: type[ConfigModel], table: dict[str, Any]) -> dict[str, Any]:
+        """Normalize declared nested fields and reject conflicting aliases."""
+        selected: dict[str, Any] = {}
+        for name, field in model.model_fields.items():
+            aliases = getattr(field.validation_alias, "choices", ())
+            candidates = (name, *(alias for alias in aliases if isinstance(alias, str)))
+            present = list(
+                dict.fromkeys(candidate for candidate in candidates if candidate in table)
+            )
+            if len(present) > 1:
+                raise ConfigError(
+                    f"Install option {name!r} is set through multiple aliases: "
+                    f"{', '.join(present)}"
+                )
+            if present:
+                selected[name] = table[present[0]]
+        return selected
 
 
 def _allows_none(annotation: object) -> bool:

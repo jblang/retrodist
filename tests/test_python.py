@@ -19,7 +19,7 @@ import tarfile
 from hostlib.config import QemuConfig, RetroConfig, load_config, load_qemu_config
 from hostlib.context import Context
 from hostlib.errors import CommandError, ConfigError, RetroError
-from hostlib import cli, download, operations, qmp_cli, slackware
+from hostlib import cli, download, operations, qmp_cli, tagfiles
 from hostlib.fdisk import Fdisk
 from hostlib.keyboard import encode
 from hostlib.dialog import Choice, Dialog
@@ -27,7 +27,7 @@ from hostlib.session import InstallSession, Match
 from hostlib.serial import SerialConsole
 from hostlib.installers.slackware import Pkgtool, PkgtoolOptions, boot_pkgtool
 from hostlib.installers.debian import Dinstall, DinstallOptions
-from hostlib.installers.slackware_early import Sysinstall, SysinstallOptions
+from hostlib.installers.slackware_sysinstall import Sysinstall, SysinstallOptions
 from hostlib.installers import (
     DRIVERS,
     STEP_ACTIONS,
@@ -35,7 +35,7 @@ from hostlib.installers import (
     validate_install_config,
 )
 from hostlib import installers
-from hostlib.installers import redhat, redhat_early
+from hostlib.installers import redhat_c, redhat_perl
 from hostlib.vga import Screen, ScreenObserver, decode
 from hostlib.media import Extraction, MediaStager, toml_extraction
 from hostlib.qmp import Monitor
@@ -439,8 +439,8 @@ class QmpCliTests(unittest.IsolatedAsyncioTestCase):
 
 class SlackwareTagfileTests(unittest.TestCase):
     def test_package_names_remove_only_slackware_version_suffixes(self) -> None:
-        self.assertEqual(slackware._package_name("bash-1.14.7-i386-1.tgz"), "bash")
-        self.assertEqual(slackware._package_name("kernel.tgz"), "kernel")
+        self.assertEqual(tagfiles._package_name("bash-1.14.7-i386-1.tgz"), "bash")
+        self.assertEqual(tagfiles._package_name("kernel.tgz"), "kernel")
 
     def test_prepare_tagfiles_applies_exact_rules_over_series_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -452,7 +452,7 @@ class SlackwareTagfileTests(unittest.TestCase):
             packages.mkdir(parents=True)
             (packages / "bash-1.0-i386-1.tgz").touch()
             (packages / "ed-1.0-i386-1.tgz").touch()
-            slackware.prepare_tagfiles(context, qemu, context.config / "download.d")
+            tagfiles.prepare_tagfiles(context, qemu, context.config / "download.d")
             tagfile = packages / "tagfile"
             self.assertEqual(tagfile.read_text(), "bash:     ADD\ned:     SKP\n")
             self.assertEqual((qemu / "fat/disksets.txt").read_text(), "a\n")
@@ -465,7 +465,7 @@ class SlackwareTagfileTests(unittest.TestCase):
             source.mkdir(parents=True)
             (source / "tagfile").write_text("bash: ADD\ned: OPT\n")
             (source / "disk1").write_text("bash: Bourne Again Shell\n")
-            slackware.generate_default_tag(context, context.qemu_dir)
+            tagfiles.generate_default_tag(context, context.qemu_dir)
             generated = (context.config / "default.tag").read_text()
             self.assertIn("a    *            SKP", generated)
             self.assertIn("bash", generated)
@@ -534,14 +534,36 @@ class ConfigTests(unittest.TestCase):
             directory = root / "debian/1.1"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
+                '[install]\ndriver = "debian-dinstall"\n'
                 '[install.network]\nhostname = "buzz"\n'
+                'domainname = "example.test"\nipaddr = "192.0.2.15"\n'
                 "[install.debian]\ndriver_floppy = false\nrelogin = true\n"
             )
             context = Context.create(root, "install", str(directory))
-            options = load_config(context).options(DinstallOptions)
-            self.assertEqual(options.hostname, "buzz")
+            config = load_config(context)
+            options = config.options(DinstallOptions)
+            validate_install_config(config)
+            self.assertEqual(options.network.hostname, "buzz")
+            self.assertEqual(options.network.domain, "example.test")
+            self.assertEqual(options.network.ip, "192.0.2.15")
             self.assertIsNone(options.driver_floppy)
             self.assertTrue(options.relogin)
+
+    def test_nested_installer_option_errors_use_the_config_error_boundary(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"install": {"network": {"ip": 123}}},
+        )
+        with self.assertRaisesRegex(ConfigError, "Install option network has the wrong type"):
+            config.options(DinstallOptions)
+
+    def test_nested_installer_options_reject_conflicting_aliases(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"install": {"network": {"domain": "example.test", "domainname": "legacy.test"}}},
+        )
+        with self.assertRaisesRegex(ConfigError, "multiple aliases: domain, domainname"):
+            config.options(DinstallOptions)
 
     def test_postinstall_config_renders_logical_sections(self) -> None:
         settings = RetroConfig(
@@ -558,8 +580,37 @@ class ConfigTests(unittest.TestCase):
         rendered = MediaStager._render_postinst_config(settings)
         self.assertIn("POSTINST_STAGES='network tty'", rendered)
         self.assertIn("NET_HOSTNAME='retro'", rendered)
+        self.assertNotIn("NET_GATEWAY=", rendered)
         self.assertIn("TTY_BAUD='19200'", rendered)
         self.assertIn("POSTINST_REBOOT='true'", rendered)
+
+    def test_postinstall_network_uses_canonical_names_and_legacy_aliases(self) -> None:
+        settings = RetroConfig(
+            context=SimpleNamespace(),
+            data={
+                "postinst": {
+                    "stages": ["network"],
+                    "network": {
+                        "hostname": "retro",
+                        "domainname": "example.test",
+                        "ipaddr": "192.0.2.15",
+                    },
+                }
+            },
+        ).postinst
+        self.assertEqual(settings.network.domain, "example.test")
+        self.assertEqual(settings.network.ip, "192.0.2.15")
+        rendered = MediaStager._render_postinst_config(settings)
+        self.assertIn("NET_DOMAINNAME='example.test'", rendered)
+        self.assertIn("NET_IPADDR='192.0.2.15'", rendered)
+
+    def test_postinstall_network_rejects_unknown_settings(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"postinst": {"network": {"namesrever": "192.0.2.3"}}},
+        )
+        with self.assertRaisesRegex(ConfigError, "namesrever"):
+            config.postinst
 
 
 class QemuTests(unittest.TestCase):
@@ -1026,18 +1077,18 @@ class RedHatDriverTests(unittest.TestCase):
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
-        redhat.run_unattended(session)
+        redhat_c.run_unattended(session)
         self.assertEqual(session.vga_wait.call_args_list[0].args, ("boot:",))
         session.kb_type.assert_any_call("linux ks=floppy\n")
         session.set_boot.assert_called_once_with("c")
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
     def test_c_installer_composes_4x_phases_and_rejects_unknown_flow(self) -> None:
-        session = SimpleNamespace(options=lambda _: redhat.CInstallerOptions(flow="4x"))
+        session = SimpleNamespace(options=lambda _: redhat_c.CInstallerOptions(flow="4x"))
         installer = unittest.mock.Mock()
         installer.o.flow = "4x"
-        with patch.object(redhat, "CInstaller", return_value=installer):
-            redhat.run_c_installer(session)
+        with patch.object(redhat_c, "CInstaller", return_value=installer):
+            redhat_c.run_c_installer(session)
         for method in (
             installer.start,
             installer.partition_4x,
@@ -1049,9 +1100,9 @@ class RedHatDriverTests(unittest.TestCase):
         ):
             method.assert_called_once_with()
         installer.o.flow = "mystery"
-        with patch.object(redhat, "CInstaller", return_value=installer):
+        with patch.object(redhat_c, "CInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat C installer flow"):
-                redhat.run_c_installer(session)
+                redhat_c.run_c_installer(session)
 
     def test_early_redhat_flow_composes_release_specific_phases(self) -> None:
         session = SimpleNamespace(
@@ -1061,8 +1112,8 @@ class RedHatDriverTests(unittest.TestCase):
             )
         )
         installer = unittest.mock.Mock()
-        with patch.object(redhat_early, "PerlInstaller", return_value=installer):
-            redhat_early.run_perl_installer(session)
+        with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
+            redhat_perl.run_perl_installer(session)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
         installer.insert_boot_disk.assert_called_once_with()
@@ -1070,9 +1121,9 @@ class RedHatDriverTests(unittest.TestCase):
             context=SimpleNamespace(),
             data={"install": {"redhat": {"flow": "unknown"}}},
         )
-        with patch.object(redhat_early, "PerlInstaller", return_value=installer):
+        with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat Perl installer flow"):
-                redhat_early.run_perl_installer(session)
+                redhat_perl.run_perl_installer(session)
 
 
 class KeyboardTests(unittest.TestCase):
@@ -1257,6 +1308,18 @@ class ManifestCoverageTests(unittest.TestCase):
                 config = load_config(context)
                 if config.value("install", "driver"):
                     validate_install_config(config)
+                    validated.append(path)
+        self.assertEqual(len(validated), 61)
+
+    def test_every_postinstall_configuration_passes_schema_validation(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        validated = []
+        for family in ("debian", "redhat", "slackware"):
+            for path in (root / family).glob("**/config.toml"):
+                context = Context(root, path.parent, "extract", root / "temporary")
+                config = load_config(context)
+                if config.section("postinst"):
+                    config.postinst
                     validated.append(path)
         self.assertEqual(len(validated), 61)
 

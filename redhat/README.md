@@ -83,11 +83,11 @@ Release-specific prompts and flags are declared in each `config.toml`.
 The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
 
-- `redhat_early.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
+- `redhat_perl.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
   handles boot/root/ramdisk floppy handoffs and the common partitioning,
   networking, X11, LILO, and reboot prompts used by 2.1 and 3.0.3. Version-only
   package series and startup prompts stay in each release's TOML.
-- `redhat.py` covers the 4.0 through 5.1 C-based text installer era. Version
+- `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
   configs set prompt-order options and select common flow variants.
 - 5.2 uses the installer Kickstart support instead of driving every screen.
 - 6.1 currently boots the text installer from the CD-ROM media; Kickstart is

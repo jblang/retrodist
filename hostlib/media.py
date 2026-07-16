@@ -25,6 +25,7 @@ from .config import RetroConfig
 from .errors import CommandError, ConfigError
 from .schemas import (
     ArchiveExtract,
+    ConfigModel,
     ExtractionConfig,
     ImageExtract,
     Overlay,
@@ -232,47 +233,59 @@ class MediaStager:
 
     def _stage(self, spec: Extraction, source: Path | None = None) -> None:
         """Execute a standard declarative media-staging plan."""
-        if source is None:
-            source = Path(spec.source)
-            if not source.is_absolute():
-                source = (
-                    self.config.download_dir / source if spec.source else self.config.download_dir
-                )
+        source = self._extraction_source(spec, source)
         images = [item for item in [spec.boot_image, spec.root_image, *spec.extra_images] if item]
         if source.suffix.lower() == ".iso":
-            link_source: Path | str = source
-            if source.resolve().is_relative_to(self.context.temporary.resolve()):
-                staged_source = self.directory / source.name
-                shutil.move(source, staged_source)
-                source = staged_source
-                link_source = source.name
-            self._link(link_source, self.directory / "install.iso")
-            image = Iso(source)
-            try:
-                for item in images:
-                    image.extract_files(item, self.directory)
-                for item in spec.fat_files:
-                    image.extract_files(item, self.directory / "fat")
-                if spec.package_source:
-                    image.extract_tree(spec.package_source, self._package_destination(spec))
-            finally:
-                image.close()
+            self._stage_iso(source, spec, images)
         elif source.is_dir():
-            for item in images:
-                self._copy_matches(source, item, self.directory)
-            for item in spec.fat_files:
-                self._copy_matches(source, item, self.directory / "fat")
-            if spec.package_source:
-                shutil.copytree(
-                    self._safe_child(source, Path(spec.package_source)),
-                    self._package_destination(spec),
-                    dirs_exist_ok=True,
-                )
+            self._stage_directory(source, spec, images)
         elif tarfile.is_tarfile(source):
             self._stage_tar(source, spec, images)
         else:
             raise ConfigError(f"Unsupported extraction source: {source.name}")
         self._postprocess(spec)
+
+    def _extraction_source(self, spec: Extraction, source: Path | None) -> Path:
+        """Resolve an explicit or configured extraction source path."""
+        if source is not None:
+            return source
+        configured = Path(spec.source)
+        if configured.is_absolute():
+            return configured
+        return self.config.download_dir / configured if spec.source else self.config.download_dir
+
+    def _stage_iso(self, source: Path, spec: Extraction, images: list[str]) -> None:
+        """Stage selected boot, FAT, and package files from an ISO image."""
+        link_source: Path | str = source
+        if source.resolve().is_relative_to(self.context.temporary.resolve()):
+            staged_source = self.directory / source.name
+            shutil.move(source, staged_source)
+            source = staged_source
+            link_source = source.name
+        self._link(link_source, self.directory / "install.iso")
+        image = Iso(source)
+        try:
+            for item in images:
+                image.extract_files(item, self.directory)
+            for item in spec.fat_files:
+                image.extract_files(item, self.directory / "fat")
+            if spec.package_source:
+                image.extract_tree(spec.package_source, self._package_destination(spec))
+        finally:
+            image.close()
+
+    def _stage_directory(self, source: Path, spec: Extraction, images: list[str]) -> None:
+        """Stage selected files and packages from an extracted directory."""
+        for item in images:
+            self._copy_matches(source, item, self.directory)
+        for item in spec.fat_files:
+            self._copy_matches(source, item, self.directory / "fat")
+        if spec.package_source:
+            shutil.copytree(
+                self._safe_child(source, Path(spec.package_source)),
+                self._package_destination(spec),
+                dirs_exist_ok=True,
+            )
 
     def _stage_tar(self, source: Path, spec: Extraction, images: list[str]) -> None:
         """Stage selected files and a package tree from a tar archive."""
@@ -347,7 +360,11 @@ class MediaStager:
             shutil.copy2(match, destination / match.name)
 
     def _postprocess(self, spec: Extraction) -> None:
-        """Decompress and normalize staged floppy images."""
+        """Normalize staged media and apply declarative follow-up actions.
+
+        Compressed images are expanded before truncation and conventional boot
+        links are created before overlays or nested extraction actions run.
+        """
         for name in spec.decompress:
             for source in self.directory.glob(Path(name).name):
                 target = source.with_suffix("")
@@ -454,13 +471,29 @@ class MediaStager:
                 if postinst is None:
                     raise ConfigError(f"Custom post-install script not found: {script_name}")
                 shutil.copy2(postinst, distro / "postinst.sh")
-        from .slackware import prepare_tagfiles
+        from .tagfiles import prepare_tagfiles
 
         prepare_tagfiles(self.context, self.directory, self.config.download_dir)
 
     @staticmethod
     def _render_postinst_config(config: PostinstConfig) -> str:
         """Render post-install TOML values as portable shell assignments."""
+        variables = MediaStager._postinst_variables(config)
+        lines = ["# Generated from config.toml; do not edit."]
+        for name, value in variables.items():
+            if re.fullmatch(r"[A-Z][A-Z0-9_]*", name) is None:
+                raise ConfigError(f"Invalid generated post-install variable: {name}")
+            lines.append(f"{name}={MediaStager._shell_value(value)}")
+        return "\n".join(lines) + "\n"
+
+    @staticmethod
+    def _postinst_variables(config: PostinstConfig) -> dict[str, object]:
+        """Flatten post-install sections to their guestlib shell variables.
+
+        Sparse typed sections emit only explicitly configured fields, leaving
+        guestlib to supply its portable defaults. Canonical network ``domain``
+        and ``ip`` names map to the older shell API's spellings.
+        """
         variables: dict[str, object] = {"POSTINST_STAGES": " ".join(config.stages)}
         prefixes = {
             "modules": "MOD",
@@ -469,10 +502,19 @@ class MediaStager:
             "x11": "X11",
             "custom": "",
         }
-        aliases = {("x11", "mouse_device"): "X11_MOUSEDEV"}
+        aliases = {
+            ("network", "domain"): "NET_DOMAINNAME",
+            ("network", "ip"): "NET_IPADDR",
+            ("x11", "mouse_device"): "X11_MOUSEDEV",
+        }
         for section, prefix in prefixes.items():
             table = getattr(config, section)
-            for key, value in table.items():
+            items = (
+                table.model_dump(exclude_none=True, exclude_unset=True).items()
+                if isinstance(table, ConfigModel)
+                else table.items()
+            )
+            for key, value in items:
                 name = aliases.get((section, key))
                 if name is None:
                     name = f"{prefix}_{key}" if prefix else key
@@ -482,12 +524,11 @@ class MediaStager:
             value = getattr(config, key)
             if value is not None:
                 variables[f"POSTINST_{key.upper()}"] = value
-        lines = ["# Generated from config.toml; do not edit."]
-        for name, value in variables.items():
-            if re.fullmatch(r"[A-Z][A-Z0-9_]*", name) is None:
-                raise ConfigError(f"Invalid generated post-install variable: {name}")
-            if isinstance(value, bool):
-                value = "true" if value else "false"
-            quoted = "'" + str(value).replace("'", "'\\''") + "'"
-            lines.append(f"{name}={quoted}")
-        return "\n".join(lines) + "\n"
+        return variables
+
+    @staticmethod
+    def _shell_value(value: object) -> str:
+        """Quote one generated shell-assignment value without interpolation."""
+        if isinstance(value, bool):
+            value = "true" if value else "false"
+        return "'" + str(value).replace("'", "'\\''") + "'"

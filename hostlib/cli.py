@@ -22,7 +22,7 @@ from .media import MediaStager
 from .operations import package
 from .qemu import QemuRuntime
 from .session import run_install
-from .slackware import generate_default_tag
+from .tagfiles import generate_default_tag
 
 log = logging.getLogger(__name__)
 COMMANDS = (

@@ -249,7 +249,7 @@ enable = "ne io=0x300"
 
 [postinst.network]
 hostname = "darkstar"
-domainname = "retro.net"
+domain = "retro.net"
 
 [postinst.tty]
 dev = "ttyS0"
@@ -259,6 +259,11 @@ baud = 9600
 chipset = "clgd5434"
 mouse_device = "/dev/psaux"
 ```
+
+`[install.network]` and `[postinst.network]` use the same canonical static
+network names: `hostname`, `domain`, `ip`, `netmask`, `network`, `broadcast`,
+`gateway`, and `nameserver`. Post-install networking additionally accepts the
+guestlib compatibility controls documented in `guestlib/README.md`.
 
 Include `custom` in `stages` and set `custom_script = "postinst.sh"` only when
 the guest needs logic not expressible through the standard stages. Keep

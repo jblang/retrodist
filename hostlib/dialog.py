@@ -128,28 +128,39 @@ class Dialog:
         while pending:
             mark = self.serial.mark()
             screen = DialogScreen.parse(self.serial.read_until(self._response))
-            try:
-                choice = next(item for item in pending if item.matches(screen))
-            except StopIteration as exc:
-                expected = ", ".join(repr(item.title) for item in pending)
-                raise RuntimeError(
-                    f"Unexpected dialog {screen.widget} {screen.title!r}; expected {expected}"
-                ) from exc
-            if callable(choice.answer):
-                self.serial.rewind(mark)
-                choice.answer(screen.title)
-            elif choice.answer is None:
-                self.serial.rewind(mark)
-            else:
-                answer = choice.answer
-                if choice.description:
-                    matcher = (
-                        re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
-                    )
-                    answer = next(
-                        key for key, description in screen.items if matcher.search(description)
-                    )
-                self.serial.send(answer)
+            choice = self._matching_choice(screen, pending)
+            self._send_answer(choice, screen, mark)
             pending.remove(choice)
             if choice.terminal:
                 return
+
+    @staticmethod
+    def _matching_choice(screen: DialogScreen, pending: list[Choice]) -> Choice:
+        """Return the pending choice matching a screen or explain the mismatch."""
+        try:
+            return next(item for item in pending if item.matches(screen))
+        except StopIteration as exc:
+            expected = ", ".join(repr(item.title) for item in pending)
+            raise RuntimeError(
+                f"Unexpected dialog {screen.widget} {screen.title!r}; expected {expected}"
+            ) from exc
+
+    def _send_answer(self, choice: Choice, screen: DialogScreen, mark: int) -> None:
+        """Send a literal answer or return callback screens to their consumer."""
+        if callable(choice.answer):
+            self.serial.rewind(mark)
+            choice.answer(screen.title)
+        elif choice.answer is None:
+            self.serial.rewind(mark)
+        else:
+            self.serial.send(self._resolve_answer(choice, screen))
+
+    @staticmethod
+    def _resolve_answer(choice: Choice, screen: DialogScreen) -> str:
+        """Resolve a description-based choice to its corresponding item key."""
+        answer = choice.answer
+        assert isinstance(answer, str)
+        if not choice.description:
+            return answer
+        matcher = re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
+        return next(key for key, description in screen.items if matcher.search(description))

@@ -59,7 +59,8 @@ hostname = "darkstar"
 ```
 
 Python converts these keys to the uppercase variables used by the portable
-helpers. A custom distro `postinst.sh` receives any values from
+helpers; canonical `domain` and `ip` become `NET_DOMAINNAME` and `NET_IPADDR`.
+A custom distro `postinst.sh` receives any values from
 `[postinst.custom]` as uppercase variables and should perform only the
 exceptional action that standard stages cannot express. Keep ordinary helper
 configuration and stage ordering in TOML. Helper files must remain

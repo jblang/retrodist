@@ -62,33 +62,44 @@ async def _run(arguments: list[str] | None = None) -> None:
     args = _parser().parse_args(arguments)
     async with Monitor(_socket(args.socket), args.timeout) as monitor:
         if args.command == "dump-screen":
-            directory = _socket(args.socket).resolve().parent
-            with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
-                dump = Path(stream.name)
-            dump.unlink()
-            try:
-                await monitor.hmp(f"pmemsave {args.address:#x} {args.bytes} {dump}")
-                lines = decode(dump.read_bytes(), args.columns, args.rows).splitlines()
-                print(
-                    "\n".join(f"{i:6}\t{line}" for i, line in enumerate(lines, 1))
-                    if args.line_numbers
-                    else "\n".join(lines)
-                )
-            finally:
-                dump.unlink(missing_ok=True)
+            await _dump_screen(monitor, args)
         elif args.command == "send-key":
             await monitor.send_key(args.key)
         elif args.command in {"send-text", "send-stdin"}:
-            text = args.text if args.command == "send-text" else sys.stdin.read()
-            keys = encode(text)
-            if args.command == "send-text" and args.enter:
-                keys.append("ret")
-            for key in keys:
-                await monitor.send_key(key)
+            await _send_text(monitor, args)
         elif args.command == "change-image":
             await monitor.hmp(f"change {args.device} {args.image} raw")
         elif args.command == "eject-disk":
             await monitor.hmp(f"eject {args.device}")
+
+
+async def _dump_screen(monitor: Monitor, args: argparse.Namespace) -> None:
+    """Dump, decode, and print the guest's VGA text buffer."""
+    directory = _socket(args.socket).resolve().parent
+    with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+        dump = Path(stream.name)
+    dump.unlink()
+    try:
+        await monitor.hmp(f"pmemsave {args.address:#x} {args.bytes} {dump}")
+        lines = decode(dump.read_bytes(), args.columns, args.rows).splitlines()
+        output = (
+            "\n".join(f"{i:6}\t{line}" for i, line in enumerate(lines, 1))
+            if args.line_numbers
+            else "\n".join(lines)
+        )
+        print(output)
+    finally:
+        dump.unlink(missing_ok=True)
+
+
+async def _send_text(monitor: Monitor, args: argparse.Namespace) -> None:
+    """Encode command-line or standard-input text and send each guest key."""
+    text = args.text if args.command == "send-text" else sys.stdin.read()
+    keys = encode(text)
+    if args.command == "send-text" and args.enter:
+        keys.append("ret")
+    for key in keys:
+        await monitor.send_key(key)
 
 
 def main(arguments: list[str] | None = None) -> None:
