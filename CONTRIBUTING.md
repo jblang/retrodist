@@ -4,6 +4,7 @@ This guide is the main reference for adding and maintaining distro configs.
 The Python commands `retro` and `qmp` are the supported workflow, and
 configuration belongs in `config.toml`.
 
+For day-to-day commands and VM operation, see [USAGE.md](USAGE.md).
 For code that runs inside old guests, see [guestlib/README.md](guestlib/README.md).
 
 ## Add a Distro

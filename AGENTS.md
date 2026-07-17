@@ -9,7 +9,8 @@ distributions in QEMU, with scripted unattended installs where supported.
 
 ## Start Here
 
-- User-facing overview and commands: [README.md](README.md)
+- User-facing overview: [README.md](README.md)
+- Commands and VM operation: [USAGE.md](USAGE.md)
 - Adding or maintaining distro configs: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Python host implementation and API documentation: [`hostlib/`](hostlib)
 - In-guest installation runtime: [guestlib/README.md](guestlib/README.md)

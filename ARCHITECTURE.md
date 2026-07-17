@@ -75,6 +75,14 @@ There are three primary layers:
 QEMU is an execution boundary rather than a fourth source layer. It consumes
 the staged workspace and exposes control endpoints back to the host.
 
+## Host Requirements
+
+The host runtime requires Python 3.11 or newer. Pydantic validates distro
+configuration, `qemu.qmp` provides QMP transport, `pycdlib` reads ISO images,
+and `py7zr` handles 7-Zip archives. QEMU, `wget`, `mtools`, and a small number
+of exceptional media-conversion tools are external programs installed by
+`retro-prereq` and invoked by the host runtime or config hooks.
+
 ## Repository and State Model
 
 Source and generated state deliberately live together beneath a selected distro
