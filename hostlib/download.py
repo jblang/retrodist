@@ -2,40 +2,24 @@
 
 The downloader supports direct URL/path pairs, official Slackware mirrors,
 archived Debian release trees, and references to shared CD-ROM configs. It is
-idempotent at the file level and traverses HTTP directory indexes with fsspec.
+idempotent at the file level and uses wget to traverse HTTP directory indexes.
 """
 
 from __future__ import annotations
 
-import fnmatch
 import logging
+import os
 from pathlib import Path, PurePosixPath
 import re
-import sys
-from typing import Any, TextIO
+import subprocess
 import urllib.parse
-
-import fsspec
-from fsspec.callbacks import Callback
-from fsspec.spec import AbstractFileSystem
 
 from .context import Context
 from .config import RetroConfig, load_config
-from .errors import ConfigError
+from .errors import CommandError, ConfigError
 from .schemas import DownloadConfig
 
 log = logging.getLogger(__name__)
-
-
-def _size(value: int) -> str:
-    """Format a byte count compactly for transfer progress."""
-    amount = float(value)
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if amount < 1024 or unit == "GiB":
-            precision = 0 if unit == "B" or amount >= 100 else 1
-            return f"{amount:.{precision}f} {unit}"
-        amount /= 1024
-    raise AssertionError("unreachable")
 
 
 def _mirror_identifier(value: str, setting: str) -> str:
@@ -45,49 +29,59 @@ def _mirror_identifier(value: str, setting: str) -> str:
     return value
 
 
-class DownloadProgress(Callback):
-    """Render fsspec transfer progress on an interactive terminal."""
+class Wget:
+    """Run wget with the download behavior used by Retro."""
 
-    def __init__(self, label: str, stream: TextIO | None = None, width: int = 20) -> None:
-        """Initialize a progress bar for one destination filename."""
-        self.stream = stream or sys.stderr
-        self.width = width
-        example = f"Downloading : [{'#' * width}] {1:6.1%}  9999 GiB/9999 GiB"
-        label_width = max(1, 80 - len(example))
-        self.label = (
-            label if len(label) <= label_width else label[: max(0, label_width - 3)] + "..."
-        )
-        self.enabled = self.stream.isatty()
-        self.rendered = False
-        self.updates = 0
-        super().__init__()
+    MIRROR_SENTINEL = ".complete"
 
-    def call(self, hook_name: str | None = None, **kwargs: object) -> None:
-        """Update the bar after fsspec changes its byte counters."""
-        if not self.enabled:
+    @staticmethod
+    def _run(*arguments: str) -> None:
+        """Run wget and turn command failures into user-facing errors."""
+        command = ["wget", "--no-verbose", "--show-progress", *arguments]
+        try:
+            result = subprocess.run(command, check=False)
+        except FileNotFoundError as exc:
+            raise CommandError("wget is required to download media") from exc
+        if result.returncode:
+            raise CommandError(f"wget failed with status {result.returncode}")
+
+    def retrieve(self, url: str, target: Path) -> None:
+        """Download one URL to an exact destination filename."""
+        try:
+            self._run("--output-document", str(target), url)
+        except CommandError:
+            target.unlink(missing_ok=True)
+            raise
+
+    def mirror(
+        self,
+        url: str,
+        destination: Path,
+        reject: tuple[str, ...],
+    ) -> None:
+        """Recursively mirror one URL directly beneath ``destination``."""
+        marker = destination / self.MIRROR_SENTINEL
+        if marker.is_file():
+            log.info(
+                "Skipping completed download; remove %s to retry",
+                os.path.relpath(marker, Path.cwd()),
+            )
             return
-        self.updates += 1
-        downloaded = self.value
-        if self.size is not None and self.size > 0:
-            downloaded = min(downloaded, self.size)
-            fraction = downloaded / self.size
-            filled = round(self.width * fraction)
-            bar = "#" * filled + "-" * (self.width - filled)
-            status = f"[{bar}] {fraction:6.1%}  {_size(downloaded)}/{_size(self.size)}"
-        else:
-            position = self.updates % self.width
-            bar = "-" * position + ">" + "-" * (self.width - position - 1)
-            status = f"[{bar}]  {_size(downloaded)}"
-        self.stream.write(f"\rDownloading {self.label}: {status}")
-        self.stream.flush()
-        self.rendered = True
-
-    def close(self) -> None:
-        """Finish the terminal line if progress was displayed."""
-        if self.rendered:
-            self.stream.write("\n")
-            self.stream.flush()
-            self.rendered = False
+        path = urllib.parse.urlsplit(url).path.strip("/")
+        cut_dirs = len(path.split("/")) if path else 0
+        destination.mkdir(parents=True, exist_ok=True)
+        log.info("Downloading directory tree %s", url)
+        self._run(
+            "--recursive",
+            "--no-parent",
+            "--no-host-directories",
+            f"--cut-dirs={cut_dirs}",
+            f"--directory-prefix={destination}",
+            "--continue",
+            f"--reject={','.join(reject)}",
+            url,
+        )
+        marker.touch()
 
 
 class Downloader:
@@ -102,21 +96,14 @@ class Downloader:
         """Initialize a downloader for the selected distro configuration."""
         self.context = context
         self.config = config
-        self._http: AbstractFileSystem | None = None
-
-    @property
-    def http(self) -> AbstractFileSystem:
-        """Return the shared fsspec HTTP filesystem for this command."""
-        if self._http is None:
-            self._http = fsspec.filesystem("http", simple_links=False)
-        return self._http
+        self.wget = Wget()
 
     def run(self) -> None:
         """Download all media sources required by the selected config.
 
         Raises:
             ConfigError: If the schema or a CD-ROM reference is invalid.
-            OSError: If an HTTP listing or transfer fails.
+            CommandError: If wget is unavailable or a transfer fails.
         """
         download = self.config.download
         name = download.cdrom
@@ -192,13 +179,8 @@ class Downloader:
             self._mirror_tree(f"{root}/{name}/", target)
 
     def _retrieve(self, url: str, target: Path) -> None:
-        """Download one file while displaying terminal progress."""
-        with DownloadProgress(target.name) as progress:
-            try:
-                self.http.get_file(url, str(target), callback=progress)
-            except Exception as exc:
-                target.unlink(missing_ok=True)
-                raise OSError(f"Download failed for {url}") from exc
+        """Download one file with wget."""
+        self.wget.retrieve(url, target)
 
     def _mirror_tree(
         self,
@@ -207,121 +189,5 @@ class Downloader:
         *,
         reject: tuple[str, ...] = ("*index*",),
     ) -> None:
-        """Mirror one indexed HTTP directory into an exact local directory.
-
-        Rejected patterns match remote basenames. Paths returned by the server
-        must remain below ``url`` before they are mapped beneath ``destination``.
-        Directories are traversed incrementally so each file starts transferring
-        as soon as it is discovered.
-        """
-        log.info("Downloading directory tree %s", url)
-        root_url = urllib.parse.urlparse(url)
-        root = PurePosixPath(urllib.parse.unquote(root_url.path))
-        pending = [url]
-        visited: set[str] = set()
-        while pending:
-            directory = pending.pop()
-            if directory in visited:
-                continue
-            visited.add(directory)
-            entries = self._mirror_listing(directory)
-            resolved = self._resolve_mirror_entries(entries, root_url, root)
-            directories = self._mirror_entries(resolved, destination, reject)
-            pending.extend(reversed(directories))
-
-    def _mirror_listing(self, directory: str) -> list[dict[str, Any]]:
-        """List one remote directory and add useful context to failures."""
-        try:
-            return self.http.ls(directory, detail=True)
-        except Exception as exc:
-            raise OSError(f"Could not list HTTP directory {directory}") from exc
-
-    def _resolve_mirror_entries(
-        self,
-        entries: list[dict[str, Any]],
-        root_url: urllib.parse.ParseResult,
-        root: PurePosixPath,
-    ) -> list[tuple[dict[str, Any], str, PurePosixPath]]:
-        """Resolve listing entries to safe paths and discard query links."""
-        resolved = []
-        for entry in entries:
-            remote = str(entry.get("name", ""))
-            parsed = urllib.parse.urlparse(remote)
-            if not (parsed.query or parsed.fragment):
-                resolved.append((entry, remote, self._mirror_relative(root_url, root, remote)))
-        return resolved
-
-    def _mirror_entries(
-        self,
-        entries: list[tuple[dict[str, Any], str, PurePosixPath]],
-        destination: Path,
-        reject: tuple[str, ...],
-    ) -> list[str]:
-        """Download files from one listing and return child directories."""
-        directory_paths = {
-            relative for entry, _, relative in entries if entry.get("type") == "directory"
-        }
-        directories: list[str] = []
-        for entry, remote, relative in sorted(entries, key=lambda item: item[1]):
-            if self._unsafe_mirror_entry(relative):
-                continue
-            if entry.get("type") == "directory":
-                self._queue_mirror_directory(destination, relative, remote, directories)
-            elif relative not in directory_paths and self._wanted_mirror_file(relative, reject):
-                self._download_mirror_file(destination, relative, remote)
-        return directories
-
-    @staticmethod
-    def _unsafe_mirror_entry(relative: PurePosixPath) -> bool:
-        """Return whether a mirror path contains a URI-like path component."""
-        return any(re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", part) for part in relative.parts)
-
-    @staticmethod
-    def _queue_mirror_directory(
-        destination: Path,
-        relative: PurePosixPath,
-        remote: str,
-        directories: list[str],
-    ) -> None:
-        """Replace a conflicting local file and queue a remote directory."""
-        local = destination.joinpath(*relative.parts)
-        if local.is_file():
-            local.unlink()
-        directories.append(remote)
-
-    @staticmethod
-    def _wanted_mirror_file(relative: PurePosixPath, reject: tuple[str, ...]) -> bool:
-        """Return whether a resolved mirror file passes basename filters."""
-        return bool(relative.parts) and not any(
-            fnmatch.fnmatch(relative.name, pattern) for pattern in reject
-        )
-
-    def _download_mirror_file(
-        self, destination: Path, relative: PurePosixPath, remote: str
-    ) -> None:
-        """Download one absent mirror file to its resolved local path."""
-        target = destination.joinpath(*relative.parts)
-        if target.is_file():
-            return
-        target.parent.mkdir(parents=True, exist_ok=True)
-        log.info("Downloading %s", target)
-        self._retrieve(remote, target)
-
-    @staticmethod
-    def _mirror_relative(
-        root_url: urllib.parse.ParseResult,
-        root: PurePosixPath,
-        remote: str,
-    ) -> PurePosixPath:
-        """Map a remote mirror entry to a safe path below its declared root."""
-        remote_url = urllib.parse.urlparse(remote)
-        if (remote_url.scheme, remote_url.netloc) != (root_url.scheme, root_url.netloc):
-            raise ConfigError(f"Remote path escapes mirror root: {remote}")
-        path = PurePosixPath(urllib.parse.unquote(remote_url.path))
-        try:
-            relative = path.relative_to(root)
-        except ValueError as exc:
-            raise ConfigError(f"Remote path escapes mirror root: {remote}") from exc
-        if ".." in relative.parts:
-            raise ConfigError(f"Remote path escapes mirror root: {remote}")
-        return relative
+        """Mirror one indexed HTTP directory into an exact local directory."""
+        self.wget.mirror(url, destination, reject)

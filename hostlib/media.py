@@ -177,7 +177,7 @@ class MediaStager:
             if shell_script is None:
                 raise ConfigError(f"Custom extraction script not found: {spec.custom_script}")
         self.directory.mkdir(parents=True, exist_ok=True)
-        if spec.source:
+        if self._needs_staging(spec):
             self._stage(spec)
         if shell_script:
             self._run_shell_script(shell_script)
@@ -187,6 +187,26 @@ class MediaStager:
         self._stage_kickstart()
         self._stage_guestlib()
         marker.touch()
+
+    @staticmethod
+    def _needs_staging(spec: Extraction) -> bool:
+        """Return whether declarative extraction needs downloaded source media.
+
+        An omitted ``extract.source`` means the config's ``download.d``
+        directory. Mirror-backed configs use that default while selecting their
+        files and package tree with paths below it.
+        """
+        return any(
+            (
+                spec.source,
+                spec.boot_image,
+                spec.root_image,
+                spec.extra_images,
+                spec.files,
+                spec.fat_files,
+                spec.package_source,
+            )
+        )
 
     def _run_shell_script(self, script: Path) -> None:
         """Run an exceptional extraction script from the staged-media directory."""
@@ -335,6 +355,7 @@ class MediaStager:
                 self._safe_child(source, Path(spec.package_source)),
                 self._package_destination(spec),
                 dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(".complete"),
             )
 
     def _stage_tar(self, source: Path, spec: Extraction, files: list[str]) -> None:

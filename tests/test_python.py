@@ -4,6 +4,7 @@ import asyncio
 import ast
 import gzip
 import io
+import os
 from pathlib import Path
 import tempfile
 import tomllib
@@ -183,25 +184,28 @@ class DownloadTests(unittest.TestCase):
                 "distro/version",
                 {"download": {"files": [{"path": "nested/disk.img", "url": "https://x"}]}},
             )
-            filesystem = unittest.mock.Mock()
+            target = config.download_dir / "nested/disk.img"
 
-            def retrieve(_url, path, callback):
-                Path(path).write_bytes(b"media")
-                callback.set_size(5)
-                callback.relative_update(5)
+            def run(command, *, check):
+                self.assertFalse(check)
+                Path(command[command.index("--output-document") + 1]).write_bytes(b"media")
+                return SimpleNamespace(returncode=0)
 
-            filesystem.get_file.side_effect = retrieve
-            Download = download.Downloader(context, config)
-            Download._http = filesystem
-            Download.run()
-            Download.run()
+            with patch("hostlib.download.subprocess.run", side_effect=run) as wget:
+                Download = download.Downloader(context, config)
+                Download.run()
+                Download.run()
             self.assertEqual((config.download_dir / "nested/disk.img").read_bytes(), b"media")
-            self.assertEqual(
-                filesystem.get_file.call_args.args,
-                ("https://x", str(config.download_dir / "nested/disk.img")),
-            )
-            self.assertIsInstance(
-                filesystem.get_file.call_args.kwargs["callback"], download.DownloadProgress
+            wget.assert_called_once_with(
+                [
+                    "wget",
+                    "--no-verbose",
+                    "--show-progress",
+                    "--output-document",
+                    str(target),
+                    "https://x",
+                ],
+                check=False,
             )
 
     def test_download_rejects_unsafe_paths_and_invalid_entries(self) -> None:
@@ -230,39 +234,37 @@ class DownloadTests(unittest.TestCase):
             context, config = temporary_config(
                 root, "distro/version", {"download": {"cdrom": "shared"}}
             )
-            filesystem = unittest.mock.Mock()
-            filesystem.get_file.side_effect = lambda _url, path, callback: Path(path).write_bytes(
-                b"iso"
-            )
-            downloader = download.Downloader(context, config)
-            downloader._http = filesystem
-            downloader.run()
+
+            def run(command, *, check):
+                Path(command[command.index("--output-document") + 1]).write_bytes(b"iso")
+                return SimpleNamespace(returncode=0)
+
+            with patch("hostlib.download.subprocess.run", side_effect=run):
+                download.Downloader(context, config).run()
             linked = context.qemu_dir / "disc.iso"
             self.assertTrue(linked.is_symlink())
             self.assertEqual(linked.read_bytes(), b"iso")
 
-    def test_recursive_listing_failure_is_reported(self) -> None:
-        downloader = download.Downloader(SimpleNamespace(), SimpleNamespace())
-        downloader._http = unittest.mock.Mock()
-        downloader._http.ls.side_effect = RuntimeError("network failed")
-        with self.assertRaisesRegex(OSError, "Could not list HTTP directory"):
-            downloader._mirror_tree("https://x/tree/", Path("out"))
+    def test_failed_download_removes_partial_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "disk.img"
+            target.write_bytes(b"partial")
+            with (
+                patch(
+                    "hostlib.download.subprocess.run",
+                    return_value=SimpleNamespace(returncode=8),
+                ),
+                self.assertRaisesRegex(CommandError, "wget failed with status 8"),
+            ):
+                download.Wget().retrieve("https://x/disk.img", target)
+            self.assertFalse(target.exists())
 
-    def test_recursive_mirror_rejects_paths_outside_its_remote_root(self) -> None:
-        downloader = download.Downloader(SimpleNamespace(), SimpleNamespace())
-        downloader._http = unittest.mock.Mock()
-        for remote in (
-            "https://x/tree/../escape/",
-            "https://x/tree/%2e%2e/escape/",
-            "https://other/tree/escape/",
+    def test_missing_wget_is_reported(self) -> None:
+        with (
+            patch("hostlib.download.subprocess.run", side_effect=FileNotFoundError),
+            self.assertRaisesRegex(CommandError, "wget is required"),
         ):
-            with self.subTest(remote=remote):
-                downloader._http.reset_mock()
-                downloader._http.ls.return_value = [{"name": remote, "type": "directory"}]
-                with self.assertRaisesRegex(ConfigError, "escapes mirror root"):
-                    downloader._mirror_tree("https://x/tree/", Path("out"))
-                downloader._http.ls.assert_called_once_with("https://x/tree/", detail=True)
-                downloader._http.get_file.assert_not_called()
+            download.Wget().retrieve("https://x/disk.img", Path("disk.img"))
 
     def test_mirror_release_names_cannot_escape_the_download_directory(self) -> None:
         downloader = download.Downloader(SimpleNamespace(), SimpleNamespace())
@@ -271,105 +273,68 @@ class DownloadTests(unittest.TestCase):
                 with self.assertRaisesRegex(ConfigError, "unsafe release name"):
                     method("../escape", Path("download.d"))
 
-    def test_recursive_mirror_preserves_layout_filters_and_progress(self) -> None:
+    def test_recursive_mirror_wraps_wget_with_layout_and_filter_options(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "release"
+            with patch(
+                "hostlib.download.subprocess.run",
+                return_value=SimpleNamespace(returncode=0),
+            ) as wget:
+                download.Wget().mirror(
+                    "https://x/releases/tree/", destination, ("*.md5", "*index*")
+                )
+            self.assertTrue(destination.is_dir())
+            self.assertTrue((destination / download.Wget.MIRROR_SENTINEL).is_file())
+            wget.assert_called_once_with(
+                [
+                    "wget",
+                    "--no-verbose",
+                    "--show-progress",
+                    "--recursive",
+                    "--no-parent",
+                    "--no-host-directories",
+                    "--cut-dirs=2",
+                    f"--directory-prefix={destination}",
+                    "--continue",
+                    "--reject=*.md5,*index*",
+                    "https://x/releases/tree/",
+                ],
+                check=False,
+            )
+
+    def test_completed_recursive_mirror_is_not_downloaded_again(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             destination = Path(temporary) / "release"
             destination.mkdir()
-            (destination / "disk1").write_text("stale directory index")
-            filesystem = unittest.mock.Mock()
-            events = []
-
-            def listing(url, *, detail):
-                events.append(("list", url))
-                return {
-                    "https://x/tree/": [
-                        {"name": "https://x/tree/disk1", "type": "file"},
-                        {"name": "https://x/tree/disk1/", "type": "directory"},
-                        {"name": "https://x/tree/sub%20dir/", "type": "directory"},
-                    ],
-                    "https://x/tree/disk1/": [
-                        {"name": "https://x/tree/disk1/package.tgz", "type": "file"},
-                        {"name": "https://x/tree/disk1/package.md5", "type": "file"},
-                        {"name": "https://x/tree/disk1/?C=N;O=D", "type": "file"},
-                    ],
-                    "https://x/tree/sub%20dir/": [
-                        {"name": "https://x/tree/sub%20dir/readme.txt", "type": "file"},
-                        {
-                            "name": "https://x/tree/sub%20dir/MAILTO:cae@best.com",
-                            "type": "file",
-                        },
-                    ],
-                }[url]
-
-            def retrieve(url, path, callback):
-                events.append(("download", url))
-                Path(path).write_text("downloaded")
-
-            filesystem.ls.side_effect = listing
-            filesystem.get_file.side_effect = retrieve
-            downloader = download.Downloader(SimpleNamespace(), SimpleNamespace())
-            downloader._http = filesystem
-            downloader._mirror_tree("https://x/tree/", destination, reject=("*.md5",))
-            self.assertTrue((destination / "disk1/package.tgz").is_file())
-            self.assertFalse((destination / "disk1/package.md5").exists())
-            self.assertTrue((destination / "sub dir/readme.txt").is_file())
-            self.assertEqual(filesystem.get_file.call_count, 2)
-            self.assertNotIn(("download", "https://x/tree/disk1"), events)
-            self.assertNotIn(
-                ("download", "https://x/tree/sub%20dir/MAILTO:cae@best.com"),
-                events,
-            )
-            self.assertLess(
-                events.index(("download", "https://x/tree/disk1/package.tgz")),
-                events.index(("list", "https://x/tree/sub%20dir/")),
+            (destination / download.Wget.MIRROR_SENTINEL).touch()
+            with (
+                patch("hostlib.download.subprocess.run") as wget,
+                self.assertLogs(download.log, "INFO") as logs,
+            ):
+                download.Wget().mirror(
+                    "https://x/releases/tree/", destination, ("*index*",)
+                )
+            wget.assert_not_called()
+            self.assertEqual(
+                logs.output,
+                [
+                    "INFO:hostlib.download:Skipping completed download; remove "
+                    f"{os.path.relpath(destination / download.Wget.MIRROR_SENTINEL)} to retry",
+                ],
             )
 
-    def test_progress_bar_reports_known_and_unknown_transfer_sizes(self) -> None:
-        class Terminal(io.StringIO):
-            def isatty(self) -> bool:
-                return True
-
-        stream = Terminal()
-        progress = download.DownloadProgress("disk.img", stream=stream, width=10)
-        progress.set_size(1024)
-        progress.relative_update(512)
-        progress.relative_update(512)
-        progress.close()
-        output = stream.getvalue()
-        self.assertIn("[#####-----]  50.0%", output)
-        self.assertIn("[##########] 100.0%", output)
-        self.assertTrue(output.endswith("\n"))
-
-        stream = Terminal()
-        progress = download.DownloadProgress("disk.img", stream=stream, width=10)
-        progress.set_size(None)
-        progress.relative_update(2048)
-        progress.close()
-        self.assertIn("2.0 KiB", stream.getvalue())
-
-    def test_progress_bar_is_silent_when_output_is_redirected(self) -> None:
-        stream = io.StringIO()
-        progress = download.DownloadProgress("disk.img", stream=stream)
-        progress.set_size(2048)
-        progress.relative_update(1024)
-        progress.close()
-        self.assertEqual(stream.getvalue(), "")
-
-    def test_progress_bar_fits_in_80_columns_with_four_digit_sizes(self) -> None:
-        class Terminal(io.StringIO):
-            def isatty(self) -> bool:
-                return True
-
-        stream = Terminal()
-        size = 9999 * 1024**3
-        progress = download.DownloadProgress("a-very-long-installation-image-filename.iso", stream)
-        progress.set_size(size)
-        progress.relative_update(size)
-        progress.close()
-        line = stream.getvalue().split("\r")[-1].rstrip("\n")
-        self.assertEqual(len(line), 80)
-        self.assertIn("...", line)
-        self.assertTrue(line.endswith("9999 GiB/9999 GiB"))
+    def test_failed_recursive_mirror_is_not_marked_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "release"
+            with (
+                patch(
+                    "hostlib.download.subprocess.run",
+                    return_value=SimpleNamespace(returncode=8),
+                ),
+                self.assertRaisesRegex(CommandError, "wget failed with status 8"),
+            ):
+                download.Wget().mirror("https://x/releases/tree/", destination, ("*index*",))
+            self.assertFalse((destination / download.Wget.MIRROR_SENTINEL).exists())
 
 
 class OperationsTests(unittest.TestCase):
@@ -724,10 +689,9 @@ class MediaStagerTests(unittest.TestCase):
                 "distro/version",
                 {
                     "extract": {
-                        "source": "media",
-                        "boot_image": "boot.gz",
-                        "fat_files": ["README"],
-                        "package_source": "packages",
+                        "boot_image": "media/boot.gz",
+                        "fat_files": ["media/README"],
+                        "package_source": "media/packages",
                         "package_dest": "install",
                         "decompress": ["boot.gz"],
                         "truncate": ["boot"],
@@ -742,10 +706,12 @@ class MediaStagerTests(unittest.TestCase):
                 output.write(b"x" * (1600 * 1024))
             (source / "README").write_text("media")
             (source / "packages/a1/base.tgz").touch()
+            (source / "packages/.complete").touch()
             MediaStager(context, config).extract()
             self.assertEqual((context.qemu_dir / "boot").stat().st_size, 1440 * 1024)
             self.assertTrue((context.qemu_dir / "boot.img").is_symlink())
             self.assertTrue((context.qemu_dir / "fat/install/a1/base.tgz").is_file())
+            self.assertFalse((context.qemu_dir / "fat/install/.complete").exists())
             generated = context.qemu_dir / "fat/guestlib.d/distro/config.sh"
             self.assertIn("NET_HOSTNAME='retro'", generated.read_text())
             self.assertTrue((context.qemu_dir / ".extracted").exists())
@@ -882,9 +848,7 @@ class MediaStagerTests(unittest.TestCase):
             with zipfile.ZipFile(config.download_dir / "media.zip", "w") as archive:
                 archive.writestr("payload.txt", "payload")
                 archive.writestr("ignored.txt", "ignored")
-            (context.config / "extract.sh").write_text(
-                "test -f payload.txt\ntouch hook-ran\n"
-            )
+            (context.config / "extract.sh").write_text("test -f payload.txt\ntouch hook-ran\n")
 
             MediaStager(context, config).extract()
 

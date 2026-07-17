@@ -78,6 +78,8 @@ url = "https://archive.org/download/example/disc1.iso"
 
 Paths are relative and may include directories. Non-CD-ROM media is stored in
 the config's `download.d/`; CD-ROM-backed configs use linked media in `qemu.d/`.
+Successful recursive mirror downloads write `.complete` in the mirrored
+directory. Remove that file to retry the download.
 
 ## Extraction
 
