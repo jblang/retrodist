@@ -17,56 +17,73 @@ from .session import InstallSession
 class Fdisk:
     """Drive the classic interactive fdisk command interface.
 
-    ``partition`` deletes existing primary partitions 1 and 2 when present,
-    creates a fixed-size Linux swap partition, assigns the remainder to Linux,
-    sets type codes, prints the result, and writes the table.
+    ``partition_swap_root`` deletes existing primary partitions 1 and 2 when
+    present, creates a fixed-size Linux swap partition, assigns the remainder
+    to Linux, sets type codes, prints the result, and writes the table.
     """
 
     session: InstallSession
 
-    def partition(self, device: str = "/dev/hda", swap_mb: int = 64) -> None:
+    def partition_swap_root(
+        self, device: str = "/dev/hda", swap_mb: int = 64
+    ) -> None:
         """Create swap and root partitions with the guest's interactive fdisk."""
         command = f"fdisk {device}"
         if device == "/dev/hda":
             command = f"[ -b {device} ] || mknod {device} b 3 0; {command}"
         self.session.serial_console_echo(f"Partitioning {device}; this may take a while...")
         self.session.serial_shell_send(command, wait=False)
-        self._delete_partitions()
-        self._create_partition(1, f"+{swap_mb}M")
-        self._create_partition(2)
-        self._set_type(1, "82")
-        self._set_type(2, "83")
-        self._prompt("Command (m for help):", "p")
-        self._prompt("Command (m for help):", "w")
+        self._delete_swap_root()
+        self.create_partition(1, f"+{swap_mb}M")
+        self.create_partition(2)
+        self.set_type(1, "82")
+        self.set_type(2, "83")
+        self.print_table()
+        self.write_table()
 
-    def _delete_partitions(self) -> None:
+    def _delete_swap_root(self) -> None:
         """Delete the first two primary partitions when they already exist."""
-        self._prompt("Command (m for help):", "d")
-        deleted, _ = self.session.serial.wait_any(
-            "Partition number (1-4):", "No partition is defined yet"
-        )
-        if deleted == 0:
-            self.session.serial.send("1")
-            self._prompt("Command (m for help):", "d")
-            self._prompt("Partition number (1-4):", "2")
+        for number in (1, 2):
+            if not self.delete_partition(number):
+                break
 
-    def _create_partition(self, number: int, last: str | None = None) -> None:
+    def delete_partition(self, number: int) -> bool:
+        """Delete a primary partition, returning whether it was present."""
+        self._answer("Command (m for help):", "d")
+        _, match = self.session.serial.wait_any(
+            "Partition number (1-4):",
+            "No partition is defined yet",
+        )
+        if match == "No partition is defined yet":
+            return False
+        self.session.serial.send(str(number))
+        return True
+
+    def create_partition(self, number: int, last: str | None = None) -> None:
         """Create a primary partition using the offered cylinder range."""
-        self._prompt("Command (m for help):", "n")
+        self._answer("Command (m for help):", "n")
         self.session.serial.send("p")
-        self._prompt("Partition number (1-4):", str(number))
+        self._answer("Partition number (1-4):", str(number))
         first, _ = self._range("First cylinder")
         self.session.serial.send(str(first))
         _, offered_last = self._range("Last cylinder")
         self.session.serial.send(last or str(offered_last))
 
-    def _set_type(self, number: int, code: str) -> None:
+    def set_type(self, number: int, code: str) -> None:
         """Assign an fdisk hexadecimal type code to a primary partition."""
-        self._prompt("Command (m for help):", "t")
-        self._prompt("Partition number (1-4):", str(number))
-        self._prompt("Hex code (type L to list codes):", code)
+        self._answer("Command (m for help):", "t")
+        self._answer("Partition number (1-4):", str(number))
+        self._answer("Hex code (type L to list codes):", code)
 
-    def _prompt(self, prompt: str, answer: str) -> None:
+    def print_table(self) -> None:
+        """Print the current partition table."""
+        self._answer("Command (m for help):", "p")
+
+    def write_table(self) -> None:
+        """Write the partition table and exit fdisk."""
+        self._answer("Command (m for help):", "w")
+
+    def _answer(self, prompt: str, answer: str) -> None:
         """Wait for an fdisk prompt and send its answer."""
         self.session.serial.wait(prompt)
         self.session.serial.send(answer)

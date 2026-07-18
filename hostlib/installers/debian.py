@@ -101,7 +101,7 @@ class Dinstall:
             "chmod 755 /usr/bin/dialog",
         ):
             self.s.serial_shell_send(command)
-        Fdisk(self.s).partition(self.o.target_disk, self.o.swap_mb)
+        Fdisk(self.s).partition_swap_root(self.o.target_disk, self.o.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_press("alt-f1", "ret")

@@ -182,7 +182,7 @@ class CInstaller:
         """Run the early graphical partition helper workflow."""
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start(screen_prompt="bash#")
-        Fdisk(self.s).partition(self.o.target_disk, self.o.swap_mb)
+        Fdisk(self.s).partition_swap_root(self.o.target_disk, self.o.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit(screen_prompt="bash#")
         self.s.kb_press("alt-f1")

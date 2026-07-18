@@ -107,7 +107,7 @@ class Pkgtool:
             f"cp {o.fat_mount}/guestlib.d/dialog.sh /bin/dialog",
         ):
             self.s.serial_shell_send(command)
-        Fdisk(self.s).partition(o.target_disk, o.swap_mb)
+        Fdisk(self.s).partition_swap_root(o.target_disk, o.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_type("setup\n")

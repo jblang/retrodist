@@ -66,7 +66,7 @@ class Sysinstall:
         self.s.vga_wait("darkstar login:", match=Match.LINE)
         self.s.kb_type("root\n")
         self.s.serial_shell_start(screen_prompt="darkstar:/#")
-        Fdisk(self.s).partition(o.target_disk, o.swap_mb)
+        Fdisk(self.s).partition_swap_root(o.target_disk, o.swap_mb)
         self.s.serial.wait("#", line=True)
         for command in (
             f"mkswap {o.swap_partition} {o.swap_blocks}",

@@ -233,7 +233,7 @@ def _partition(session: InstallSession, step: PartitionStep) -> None:
     """Partition the configured target disk with the shared fdisk driver."""
     common = session.config.install_common
     swap_mb = step.swap_mb if step.swap_mb is not None else common.swap_mb
-    Fdisk(session).partition(
+    Fdisk(session).partition_swap_root(
         _expand(session, step.device or common.target_disk),
         swap_mb,
     )

@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from types import ModuleType
 import unittest
 from unittest.mock import AsyncMock
+from unittest.mock import call
 from unittest.mock import patch
 import re
 import sys
@@ -971,7 +972,26 @@ class FdiskTests(unittest.TestCase):
         driver = Fdisk(SimpleNamespace(serial=serial))
         self.assertEqual(driver._range("First cylinder"), (1, 520))
 
-    def test_partition_creates_swap_and_root_and_writes_table(self) -> None:
+    def test_delete_partition_returns_whether_the_partition_exists(self) -> None:
+        serial = unittest.mock.Mock()
+        driver = Fdisk(SimpleNamespace(serial=serial))
+        serial.wait_any.return_value = 0, "Partition number (1-4):"
+        self.assertTrue(driver.delete_partition(2))
+        self.assertEqual(serial.send.call_args_list, [call("d"), call("2")])
+
+        serial.reset_mock()
+        serial.wait_any.return_value = 1, "No partition is defined yet"
+        self.assertFalse(driver.delete_partition(2))
+        serial.send.assert_called_once_with("d")
+
+    def test_print_and_write_table_send_fdisk_commands(self) -> None:
+        serial = unittest.mock.Mock()
+        driver = Fdisk(SimpleNamespace(serial=serial))
+        driver.print_table()
+        driver.write_table()
+        self.assertEqual(serial.send.call_args_list, [call("p"), call("w")])
+
+    def test_partition_swap_root_creates_swap_and_root_and_writes_table(self) -> None:
         sent: list[str] = []
 
         class Serial:
@@ -992,7 +1012,7 @@ class FdiskTests(unittest.TestCase):
             serial_console_echo=unittest.mock.Mock(),
             serial_shell_send=unittest.mock.Mock(),
         )
-        Fdisk(session).partition(swap_mb=32)
+        Fdisk(session).partition_swap_root(swap_mb=32)
         session.serial_shell_send.assert_called_once_with(
             "[ -b /dev/hda ] || mknod /dev/hda b 3 0; fdisk /dev/hda", wait=False
         )
@@ -1090,7 +1110,7 @@ class InstallPlanTests(unittest.TestCase):
         session.kb_type.assert_called_once_with("retro\n")
         self.assertEqual(session.kb_press.call_count, 2)
         serial.prompt.assert_called_once_with("one", "two", answer="yes", regex=True)
-        fdisk.return_value.partition.assert_called_once_with("/dev/sda", 32)
+        fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/sda", 32)
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
     def test_installer_validation_rejects_bad_drivers_controls_and_steps(self) -> None:
