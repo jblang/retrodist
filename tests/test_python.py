@@ -894,7 +894,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((context.qemu_dir / "should-not-run").exists())
             self.assertFalse((context.qemu_dir / ".extracted").exists())
 
-    def test_custom_extraction_script_can_stage_media_directly(self) -> None:
+    def test_custom_extraction_script_preserves_staged_install_iso(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "guestlib").mkdir()
@@ -903,11 +903,12 @@ class MediaStagerTests(unittest.TestCase):
                 "distro/version",
                 {"extract": {"custom_script": "extract.sh"}},
             )
-            (context.config / "extract.sh").write_text("touch disc1.iso\n")
+            (context.config / "extract.sh").write_text("touch install.iso\n")
 
             MediaStager(context, config).extract()
 
-            self.assertEqual((context.qemu_dir / "install.iso").readlink(), Path("disc1.iso"))
+            self.assertTrue((context.qemu_dir / "install.iso").is_file())
+            self.assertFalse((context.qemu_dir / "install.iso").is_symlink())
 
     def test_postprocessing_applies_overlays(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

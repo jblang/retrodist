@@ -182,8 +182,13 @@ class MediaStager:
         if shell_script:
             self._run_shell_script(shell_script)
         self._postprocess(spec)
-        if shell_script and (self.directory / "disc1.iso").is_file():
-            self._link("disc1.iso", self.directory / "install.iso")
+        source = self._extraction_source(spec)
+        if (
+            shell_script
+            and not (self.directory / "install.iso").exists()
+            and source.suffix.lower() == ".iso"
+        ):
+            self._link(source, self.directory / "install.iso")
         self._stage_kickstart()
         self._stage_guestlib()
         marker.touch()

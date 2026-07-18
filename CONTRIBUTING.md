@@ -129,8 +129,9 @@ Python selects the declared files and package tree from ISO, tar, ZIP, and
 7-Zip sources, then runs a `custom_script = "extract.sh"` if configured, and
 finally applies overlays, links, and postprocessing. Use hooks only for media
 conversion that Python cannot express. Hooks run from `qemu.d/`, write final
-media there directly, and stop at the first failing command. A produced
-`disc1.iso` is linked automatically to `install.iso`.
+media there directly, and stop at the first failing command. A hook-produced
+`install.iso` is preserved; otherwise, ISO sources are linked from the
+configured extraction source.
 
 ## QEMU
 

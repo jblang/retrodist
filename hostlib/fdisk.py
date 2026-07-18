@@ -33,7 +33,7 @@ class Fdisk:
             command = f"[ -b {device} ] || mknod {device} b 3 0; {command}"
         self.session.serial_console_echo(f"Partitioning {device}; this may take a while...")
         self.session.serial_shell_send(command, wait=False)
-        self._delete_swap_root()
+        self._delete_swaproot()
         self.create_partition(1, f"+{swap_mb}M")
         self.create_partition(2)
         self.set_type(1, "82")
@@ -41,7 +41,7 @@ class Fdisk:
         self.print_table()
         self.write_table()
 
-    def _delete_swap_root(self) -> None:
+    def _delete_swaproot(self) -> None:
         """Delete the first two primary partitions when they already exist."""
         for number in (1, 2):
             if not self.delete_partition(number):
