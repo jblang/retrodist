@@ -210,6 +210,8 @@ class MediaStager:
                 spec.files,
                 spec.fat_files,
                 spec.package_source,
+                spec.package_sources,
+                spec.package_index,
             )
         )
 
@@ -261,13 +263,19 @@ class MediaStager:
         source = self._extraction_source(spec)
         files = [
             item
-            for item in [spec.boot_image, spec.root_image, *spec.extra_images, *spec.files]
+            for item in [
+                spec.boot_image,
+                spec.root_image,
+                *spec.extra_images,
+                *spec.files,
+                spec.package_index,
+            ]
             if item
         ]
         for path in [*files, *spec.fat_files]:
             self._validate_source_path(path)
-        if spec.package_source:
-            self._validate_source_path(spec.package_source)
+        for package_source in self._package_sources(spec):
+            self._validate_source_path(package_source)
         if source.suffix.lower() == ".iso":
             self._stage_iso(source, spec, files)
         elif source.is_dir():
@@ -320,11 +328,11 @@ class MediaStager:
             if not matches:
                 raise ConfigError(f"Archive path not found: {pattern}")
             selected.update(matches)
-        if spec.package_source:
-            prefix = spec.package_source.strip("/")
+        for package_source in MediaStager._package_sources(spec):
+            prefix = package_source.strip("/")
             matches = [name for name in names if name.strip("/").startswith(f"{prefix}/")]
             if not matches:
-                raise ConfigError(f"Archive path not found: {spec.package_source}")
+                raise ConfigError(f"Archive path not found: {package_source}")
             selected.update(matches)
         return sorted(selected)
 
@@ -344,8 +352,8 @@ class MediaStager:
                 image.extract_files(item, self.directory)
             for item in spec.fat_files:
                 image.extract_files(item, self.directory / "fat")
-            if spec.package_source:
-                image.extract_tree(spec.package_source, self._package_destination(spec))
+            for package_source in self._package_sources(spec):
+                image.extract_tree(package_source, self._package_destination(spec))
         finally:
             image.close()
 
@@ -355,9 +363,9 @@ class MediaStager:
             self._copy_matches(source, item, self.directory)
         for item in spec.fat_files:
             self._copy_matches(source, item, self.directory / "fat")
-        if spec.package_source:
+        for package_source in self._package_sources(spec):
             shutil.copytree(
-                self._safe_child(source, Path(spec.package_source)),
+                self._safe_child(source, Path(package_source)),
                 self._package_destination(spec),
                 dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns(".complete"),
@@ -373,13 +381,13 @@ class MediaStager:
                 self._extract_tar_matches(
                     archive, members, pattern, self.directory / "fat", flatten=True
                 )
-            if spec.package_source:
-                prefix = spec.package_source.strip("/")
+            for package_source in self._package_sources(spec):
+                prefix = package_source.strip("/")
                 selected = [
                     member for member in members if member.name.strip("/").startswith(f"{prefix}/")
                 ]
                 if not selected:
-                    raise ConfigError(f"Archive path not found: {spec.package_source}")
+                    raise ConfigError(f"Archive path not found: {package_source}")
                 destination = self._package_destination(spec)
                 for member in selected:
                     relative = Path(member.name.strip("/")).parts[len(Path(prefix).parts) :]
@@ -388,6 +396,11 @@ class MediaStager:
                     with archive.extractfile(member) as source_file, target.open("wb") as output:
                         assert source_file is not None
                         shutil.copyfileobj(source_file, output)
+
+    @staticmethod
+    def _package_sources(spec: Extraction) -> list[str]:
+        """Return the normalized singular or plural package-tree selectors."""
+        return spec.package_sources or ([spec.package_source] if spec.package_source else [])
 
     @staticmethod
     def _extract_tar_matches(
@@ -508,6 +521,21 @@ class MediaStager:
             distro = destination / "distro"
             distro.mkdir()
             (distro / "config.sh").write_text(self._render_postinst_config(postinst_config))
+            if "packages" in postinst_config.stages:
+                from .debian_packages import load_packages, render_installer, resolve_packages
+
+                package_index = self.config.extraction.package_index
+                if package_index is None:
+                    raise ConfigError(
+                        "The packages post-install stage requires extract.package_index"
+                    )
+                index_path = self.directory / PurePosixPath(package_index).name
+                if not index_path.is_file():
+                    raise ConfigError(f"Staged Debian package index not found: {index_path.name}")
+                selected = resolve_packages(load_packages(index_path), postinst_config.packages)
+                (distro / "packages.sh").write_text(
+                    render_installer(selected, postinst_config.packages)
+                )
             if "custom" in postinst_config.stages:
                 assert postinst_config.custom_script is not None
                 script_name = postinst_config.custom_script

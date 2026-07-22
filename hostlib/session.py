@@ -96,12 +96,23 @@ class Serial:
         )
 
     def wait_any(
-        self, *patterns: str, regex: bool = False, timeout: float | None = None
+        self, *patterns: str | re.Pattern[str], regex: bool = False, timeout: float | None = None
     ) -> tuple[int, str]:
         """Synchronously wait for any configured serial pattern."""
         return self._session._call(
             self._session._runtime.serial.wait_any(patterns, regex=regex, timeout=timeout)
         )
+
+    def answer_any(self, prompts: list[tuple[str, str, bool]]) -> None:
+        """Answer configured prompts in whichever order the guest presents them."""
+        pending = list(prompts)
+        while pending:
+            patterns: tuple[str | re.Pattern[str], ...] = tuple(
+                re.compile(expect) if regex else expect for expect, _, regex in pending
+            )
+            index, _ = self.wait_any(*patterns)
+            _, answer, _ = pending.pop(index)
+            self.send(answer)
 
     def read_until(self, pattern: re.Pattern[str]) -> str:
         """Consume serial input through a regular-expression match."""
@@ -154,9 +165,10 @@ class InstallSession:
         common = self.config.install_common
         mount = common.fat_mount
         partition = common.fat_partition
+        filesystem = common.fat_filesystem
         return (
             f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
-            f"mkdir -p {shlex.quote(mount)} && mount -t msdos "
+            f"mkdir -p {shlex.quote(mount)} && mount -t {shlex.quote(filesystem)} "
             f"{shlex.quote(partition)} {shlex.quote(mount)}; fi; "
             f"{shlex.quote(mount)}/guestlib.d/postinst.sh"
         )
@@ -249,7 +261,13 @@ class InstallSession:
         log.info("🥾 Set boot device to %s", disk)
         self._call(self._runtime.monitor.hmp(f"boot_set {disk}"))
 
-    def serial_shell_start(self, *, screen_prompt: str = "#", serial_prompt: str = "#") -> None:
+    def serial_shell_start(
+        self,
+        *,
+        screen_prompt: str = "#",
+        serial_prompt: str = "#",
+        screen_match: Match = Match.LINE,
+    ) -> None:
         """Redirect an interactive guest shell to the automation serial port.
 
         The launcher is typed at the visible console, creates ``/dev/ttyS3``
@@ -260,7 +278,7 @@ class InstallSession:
             f"[ -c {device} ] || mknod {device} c 4 67; "
             f"PS1={shlex.quote(serial_prompt + ' ')} sh -i <{device} >{device} 2>{device}"
         )
-        self.vga_wait(screen_prompt, match=Match.LINE)
+        self.vga_wait(screen_prompt, match=screen_match)
         self.kb_type(f"{launcher}\n")
         self.serial.wait(serial_prompt, line=True)
 
@@ -270,10 +288,12 @@ class InstallSession:
         if wait:
             self.serial.wait(prompt, line=True)
 
-    def serial_shell_exit(self, *, screen_prompt: str = "#") -> None:
+    def serial_shell_exit(
+        self, *, screen_prompt: str = "#", screen_match: Match = Match.LINE
+    ) -> None:
         """Exit the serial shell and wait for the visible console."""
         self.serial.send("exit")
-        self.vga_wait(screen_prompt, match=Match.LINE)
+        self.vga_wait(screen_prompt, match=screen_match)
 
     def serial_console_echo(self, message: str) -> None:
         """Write a message to the guest's visible console."""

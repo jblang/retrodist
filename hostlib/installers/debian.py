@@ -31,6 +31,7 @@ class DinstallOptions(ConfigModel):
     swap_mb: int = 64
     fat_partition: str = "/dev/hdb1"
     fat_mount: str = "/retro"
+    fat_filesystem: str = "msdos"
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="debian"))
     keymap: str = "us"
     configure_keyboard: bool = False
@@ -92,7 +93,8 @@ class Dinstall:
         self.s.vga_wait("#", match=Match.LINE)
         mount = shlex.quote(self.o.fat_mount)
         partition = shlex.quote(self.o.fat_partition)
-        self.s.kb_type(f"mkdir -p {mount}; mount -t msdos {partition} {mount}\n")
+        filesystem = shlex.quote(self.o.fat_filesystem)
+        self.s.kb_type(f"mkdir -p {mount}; mount -t {filesystem} {partition} {mount}\n")
         self.s.kb_type(f"[ ! -f {mount}/serial.o ] || insmod {mount}/serial.o\n")
         self.s.serial_shell_start()
         for command in (
@@ -374,4 +376,19 @@ class Dinstall:
             self.s.vga_wait("Password:", match=Match.LINE)
             self.s.kb_type(f"{o.root_password}\n")
         self.s.vga_wait(r"^[^\s]*# *$", match=Match.REGEX)
-        self.s.kb_type(f"{self.s.postinst_command}\n")
+        prompts = self.s.config.postinst.packages.prompts
+        if not prompts:
+            self.s.kb_type(f"{self.s.postinst_command}\n")
+            return
+        screen_prompt = r"^[^\s]*# *$"
+        self.s.serial_shell_start(
+            screen_prompt=screen_prompt,
+            serial_prompt="retro-postinst#",
+            screen_match=Match.REGEX,
+        )
+        self.s.serial_shell_send(self.s.postinst_command, wait=False)
+        self.s.serial.answer_any(
+            [(prompt.expect, prompt.answer, prompt.regex) for prompt in prompts]
+        )
+        self.s.serial.wait("Configuration complete!", line=True)
+        self.s.serial_shell_exit(screen_prompt=screen_prompt, screen_match=Match.REGEX)

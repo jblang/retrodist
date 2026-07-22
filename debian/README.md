@@ -57,6 +57,11 @@ three releases while each `config.toml` supplies only release-specific options.
 The host then scripts Debian's installed-system setup (root password, user
 account, and `dselect`) before running the configured post-install stages.
 
+The optional `packages` post-install stage installs declaratively selected
+priorities, per-section priorities, and named packages with their dependencies.
+See [CONTRIBUTING.md](../CONTRIBUTING.md#debian-package-selection) for index
+parsing and CD-ROM or VFAT package-media configuration.
+
 `0.91`'s `dinstall` is a prompt-and-response shell script, so its declarative
 `prompt-sequence` in [config.toml](0.91/infomagic/config.toml) answers it over
 the serial shell, replacing `tput` with a no-op first so prompts arrive as plain

@@ -86,6 +86,7 @@ def _list_error_description(location: object, path: str) -> str:
         "decompress",
         "extra_images",
         "fat_files",
+        "package_sources",
         "truncate",
     }:
         return "must be an array of strings"
@@ -248,6 +249,8 @@ class ExtractionConfig(ConfigModel):
     files: list[str] = Field(default_factory=list)
     fat_files: list[str] = Field(default_factory=list)
     package_source: str | None = None
+    package_sources: list[str] = Field(default_factory=list)
+    package_index: str | None = None
     package_dest: str = "packages"
     decompress: list[str] = Field(default_factory=list)
     truncate: list[str] = Field(default_factory=list)
@@ -255,6 +258,13 @@ class ExtractionConfig(ConfigModel):
     root_link: str | None = None
     custom_script: str | None = None
     overlays: list[Overlay] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def package_source_forms_do_not_conflict(self) -> "ExtractionConfig":
+        """Reject simultaneous use of the singular and plural package selectors."""
+        if self.package_source is not None and self.package_sources:
+            raise ValueError("extract.package_source and package_sources are mutually exclusive")
+        return self
 
 
 Scalar = str | int | bool
@@ -301,10 +311,39 @@ class PostinstNetworkConfig(NetworkConfig):
     arp_path: str | None = None
 
 
+class DebianPackageMountConfig(ConfigModel):
+    """Describe package media that the generated guest script must mount."""
+
+    device: str
+    point: str = "/cdrom"
+    filesystem: str = "iso9660"
+    options: str | None = None
+
+
+class DebianPackagePrompt(ConfigModel):
+    """Match one package-configurator question on the automation serial port."""
+
+    expect: str
+    answer: str
+    regex: bool = False
+
+
+class DebianPackagesConfig(ConfigModel):
+    """Select Debian packages and locate their guest installation media."""
+
+    root: str = "/retro/packages"
+    priorities: list[str] = Field(default_factory=list)
+    add: list[str] = Field(default_factory=list)
+    skip: list[str] = Field(default_factory=list)
+    sections: dict[str, list[str]] = Field(default_factory=dict)
+    prompts: list[DebianPackagePrompt] = Field(default_factory=list)
+    mount: DebianPackageMountConfig | None = None
+
+
 class PostinstConfig(ConfigModel):
     """Configure host-rendered post-installation behavior."""
 
-    stages: list[Literal["modules", "network", "tty", "x11", "custom"]] = Field(
+    stages: list[Literal["packages", "modules", "network", "tty", "x11", "custom"]] = Field(
         default_factory=list
     )
     custom_script: str | None = None
@@ -313,6 +352,7 @@ class PostinstConfig(ConfigModel):
     reboot: bool | None = None
     modules: dict[str, Scalar] = Field(default_factory=dict)
     network: PostinstNetworkConfig = Field(default_factory=PostinstNetworkConfig)
+    packages: DebianPackagesConfig = Field(default_factory=DebianPackagesConfig)
     tty: dict[str, Scalar] = Field(default_factory=dict)
     x11: dict[str, Scalar] = Field(default_factory=dict)
     custom: dict[str, Scalar] = Field(default_factory=dict)
@@ -395,6 +435,7 @@ class CommonInstallConfig(ConfigModel):
     swap_mb: int = 64
     fat_mount: str = "/retro"
     fat_partition: str = "/dev/hdb1"
+    fat_filesystem: str = "msdos"
 
 
 class InstallDriverConfig(ConfigModel):

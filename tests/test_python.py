@@ -6,6 +6,7 @@ import gzip
 import io
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import tomllib
 from types import SimpleNamespace
@@ -28,6 +29,12 @@ from hostlib import cli, download, operations, qmp_cli, tagfiles
 from hostlib.fdisk import Fdisk
 from hostlib.keyboard import encode
 from hostlib.dialog import Choice, Dialog
+from hostlib.debian_packages import (
+    DebianPackage,
+    load_packages,
+    render_installer,
+    resolve_packages,
+)
 from hostlib.session import InstallSession, Match
 from hostlib.serial import SerialConsole
 from hostlib.installers.slackware import Pkgtool, PkgtoolOptions, boot_pkgtool
@@ -43,6 +50,7 @@ from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
 from hostlib.vga import Screen, ScreenObserver, decode
 from hostlib.media import Extraction, MediaStager, toml_extraction
+from hostlib.schemas import DebianPackagesConfig
 from hostlib.qmp import Monitor
 from hostlib.qemu import QemuRuntime
 
@@ -273,6 +281,33 @@ class DownloadTests(unittest.TestCase):
             with self.subTest(method=method.__name__):
                 with self.assertRaisesRegex(ConfigError, "unsafe release name"):
                     method("../escape", Path("download.d"))
+
+    def test_debian_mirror_downloads_configured_long_filename_package_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            context, config = temporary_config(
+                root,
+                "debian/version",
+                {
+                    "download": {"debian_mirror": "buzz"},
+                    "extract": {"package_source": "buzz/main/binary-i386"},
+                },
+            )
+            downloader = download.Downloader(context, config)
+            with (
+                patch.object(downloader, "_retrieve"),
+                patch.object(downloader, "_mirror_tree") as mirror,
+            ):
+                downloader._debian("buzz", config.download_dir)
+            urls = [call.args[0] for call in mirror.call_args_list]
+            self.assertIn(
+                "https://archive.debian.org/debian/dists/buzz/main/binary-i386/",
+                urls,
+            )
+            self.assertNotIn(
+                "https://archive.debian.org/debian/dists/buzz/main/msdos-i386/",
+                urls,
+            )
 
     def test_recursive_mirror_wraps_wget_with_layout_and_filter_options(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -539,18 +574,20 @@ class ConfigTests(unittest.TestCase):
             context=SimpleNamespace(),
             data={
                 "postinst": {
-                    "stages": ["network", "tty"],
+                    "stages": ["network", "tty", "x11"],
                     "network": {"hostname": "retro"},
                     "tty": {"baud": 19200},
+                    "x11": {"mouse_device": "/dev/cua2"},
                     "reboot": True,
                 }
             },
         ).postinst
         rendered = MediaStager._render_postinst_config(settings)
-        self.assertIn("POSTINST_STAGES='network tty'", rendered)
+        self.assertIn("POSTINST_STAGES='network tty x11'", rendered)
         self.assertIn("NET_HOSTNAME='retro'", rendered)
         self.assertNotIn("NET_GATEWAY=", rendered)
         self.assertIn("TTY_BAUD='19200'", rendered)
+        self.assertIn("X11_MOUSEDEV='/dev/cua2'", rendered)
         self.assertIn("POSTINST_REBOOT='true'", rendered)
 
     def test_postinstall_network_uses_canonical_names_and_legacy_aliases(self) -> None:
@@ -608,6 +645,19 @@ class QemuTests(unittest.TestCase):
             runtime = self.runtime(Path(temporary), config)
             netdev = runtime.command()[runtime.command().index("-netdev") + 1]
             self.assertEqual(netdev, "user,id=internet")
+
+    def test_auxiliary_serial_backend_occupies_guest_ttys2(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = self.runtime(
+                Path(temporary), QemuConfig(serial={"auxiliary": "msmouse"})
+            )
+            serials = [
+                value
+                for option, value in runtime._chardevs()
+                if option == "-serial"
+            ]
+            self.assertEqual(serials[2], "msmouse")
+            self.assertIn("ttyS3.sock", serials[3])
 
     def test_device_report_includes_endpoints_disks_and_character_sockets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -679,6 +729,210 @@ class QemuLifecycleTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(create.await_args.args[0], config.system)
 
 
+class DebianPackageTests(unittest.TestCase):
+    def test_packages_parser_accepts_lowercase_fields_continuations_and_gzip(self) -> None:
+        """Debian's control format and compressed indexes retain every field."""
+        contents = (
+            "Package: demo\npriority: optional\nsection: utils\n"
+            "description: first line\n second line\nfilename: pool/demo_1.deb\n\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "Packages.gz"
+            with gzip.open(source, "wt") as output:
+                output.write(contents)
+            packages = load_packages(source)
+            self.assertEqual(packages[0].fields["description"], "first line\nsecond line")
+            self.assertEqual(packages[0].name, "demo")
+
+    def test_dependency_resolution_supports_versions_alternatives_and_providers(self) -> None:
+        """Dependencies precede selected users and virtual packages resolve to providers."""
+        packages = [
+            DebianPackage(
+                {
+                    "package": "lib",
+                    "priority": "required",
+                    "section": "base",
+                    "filename": "base/lib.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "mailer",
+                    "priority": "optional",
+                    "section": "mail",
+                    "provides": "mail-transport-agent",
+                    "filename": "mail/mailer.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "app",
+                    "priority": "optional",
+                    "section": "utils",
+                    "depends": "lib (>= 1), missing | mail-transport-agent",
+                    "filename": "utils/app.deb",
+                }
+            ),
+        ]
+        selected = resolve_packages(packages, DebianPackagesConfig(add=["app"]))
+        self.assertEqual([package.name for package in selected], ["lib", "mailer", "app"])
+
+    def test_skip_prevents_dependency_installation(self) -> None:
+        """Skipping a required dependency reports an unresolved selection."""
+        packages = [
+            DebianPackage(
+                {
+                    "package": "library",
+                    "priority": "optional",
+                    "section": "libs",
+                    "filename": "libs/library.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "application",
+                    "priority": "optional",
+                    "section": "utils",
+                    "depends": "library",
+                    "filename": "utils/application.deb",
+                }
+            ),
+        ]
+        with self.assertRaisesRegex(ConfigError, "Unresolved dependency"):
+            resolve_packages(packages, DebianPackagesConfig(add=["application"], skip=["library"]))
+
+    def test_global_and_per_section_priorities_are_combined(self) -> None:
+        """Section priorities override global priorities in their own section."""
+        packages = [
+            DebianPackage(
+                {
+                    "package": "base",
+                    "priority": "required",
+                    "section": "base",
+                    "filename": "base/base.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "editor",
+                    "priority": "optional",
+                    "section": "editors",
+                    "filename": "editors/editor.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "editor-extra",
+                    "priority": "extra",
+                    "section": "editors",
+                    "filename": "editors/editor-extra.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "game",
+                    "priority": "extra",
+                    "section": "games",
+                    "filename": "games/game.deb",
+                }
+            ),
+        ]
+        config = DebianPackagesConfig(
+            priorities=["required", "optional"],
+            sections={"EDITORS": ["extra"]},
+            add=["game"],
+        )
+        self.assertEqual(
+            {package.name for package in resolve_packages(packages, config)},
+            {"base", "editor-extra", "game"},
+        )
+
+    def test_skip_has_precedence_over_explicit_additions(self) -> None:
+        """A skipped package remains excluded even when it is explicitly added."""
+        packages = [
+            DebianPackage(
+                {
+                    "package": "base",
+                    "priority": "required",
+                    "section": "base",
+                    "filename": "base/base.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "editor",
+                    "priority": "optional",
+                    "section": "editors",
+                    "filename": "editors/editor.deb",
+                }
+            ),
+        ]
+        config = DebianPackagesConfig(
+            priorities=["required"],
+            sections={"editors": ["optional"]},
+            add=["editor"],
+            skip=["base", "editor"],
+        )
+        self.assertEqual(
+            [package.name for package in resolve_packages(packages, config)], []
+        )
+
+    def test_explicit_recommendation_can_precede_important_package(self) -> None:
+        """Known-broken packages can opt into a recommendation without resolving all of them."""
+        packages = [
+            DebianPackage(
+                {
+                    "package": "libc5-dev",
+                    "priority": "standard",
+                    "section": "devel",
+                    "filename": "devel/libc5-dev.deb",
+                }
+            ),
+            DebianPackage(
+                {
+                    "package": "perl",
+                    "priority": "important",
+                    "section": "devel",
+                    "recommends": "libc5-dev",
+                    "filename": "devel/perl.deb",
+                }
+            ),
+        ]
+        config = DebianPackagesConfig(priorities=["important"], add=["libc5-dev"])
+        self.assertEqual(
+            [package.name for package in resolve_packages(packages, config)],
+            ["libc5-dev", "perl"],
+        )
+
+    def test_installer_mounts_iso_and_uses_long_filenames(self) -> None:
+        """CD-backed scripts mount the device and derive paths from Filename basenames."""
+        package = DebianPackage(
+            {
+                "package": "demo",
+                "priority": "optional",
+                "section": "utils",
+                "filename": "Debian/binary-i386/utils/demo_1.2-3.deb",
+                "msdos-filename": "Debian/msdos-i386/utils/demo.deb",
+            }
+        )
+        config = DebianPackagesConfig.model_validate(
+            {
+                "root": "/cdrom/buzz-fixed/binary-i386",
+                "mount": {"device": "/dev/hdc", "point": "/cdrom"},
+            }
+        )
+        script = render_installer([package], config)
+        self.assertIn("mount -t 'iso9660' '/dev/hdc' '/cdrom'", script)
+        self.assertIn("dpkg --install", script)
+        self.assertIn("/cdrom/buzz-fixed/binary-i386/utils/demo_1.2-3.deb", script)
+        self.assertNotIn("demo.deb", script)
+        syntax = subprocess.run(
+            ["sh", "-n"], input=script, text=True, capture_output=True, check=False
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+
+
 class MediaStagerTests(unittest.TestCase):
     def test_directory_extraction_decompresses_links_and_stages_guestlib(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -693,12 +947,17 @@ class MediaStagerTests(unittest.TestCase):
                         "boot_image": "media/boot.gz",
                         "fat_files": ["media/README"],
                         "package_source": "media/packages",
+                        "package_index": "media/Packages.gz",
                         "package_dest": "install",
                         "decompress": ["boot.gz"],
                         "truncate": ["boot"],
                         "boot_link": "boot",
                     },
-                    "postinst": {"stages": ["network"], "network": {"hostname": "retro"}},
+                    "postinst": {
+                        "stages": ["packages", "network"],
+                        "packages": {"add": ["demo"]},
+                        "network": {"hostname": "retro"},
+                    },
                 },
             )
             source = config.download_dir / "media"
@@ -706,6 +965,11 @@ class MediaStagerTests(unittest.TestCase):
             with gzip.open(source / "boot.gz", "wb") as output:
                 output.write(b"x" * (1600 * 1024))
             (source / "README").write_text("media")
+            with gzip.open(source / "Packages.gz", "wt") as output:
+                output.write(
+                    "Package: demo\npriority: optional\nsection: utils\n"
+                    "filename: pool/utils/demo_1.deb\n\n"
+                )
             (source / "packages/a1/base.tgz").touch()
             (source / "packages/.complete").touch()
             MediaStager(context, config).extract()
@@ -715,6 +979,8 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((context.qemu_dir / "fat/install/.complete").exists())
             generated = context.qemu_dir / "fat/guestlib.d/distro/config.sh"
             self.assertIn("NET_HOSTNAME='retro'", generated.read_text())
+            installer = context.qemu_dir / "fat/guestlib.d/distro/packages.sh"
+            self.assertIn("/retro/packages/utils/demo_1.deb", installer.read_text())
             self.assertTrue((context.qemu_dir / ".extracted").exists())
 
     def test_existing_marker_refreshes_guestlib_without_reextracting(self) -> None:
@@ -1307,6 +1573,32 @@ class DinstallTests(unittest.TestCase):
         self.assertEqual(kernel_choices[3].answer, "/media/retro")
         self.assertEqual(kernel_choices[5].answer, "/media/retro")
 
+    def test_package_prompts_are_answered_over_the_automation_serial_port(self) -> None:
+        """Interactive package configuration stays on ttyS3 until postinst completes."""
+        packages = DebianPackagesConfig.model_validate(
+            {"prompts": [{"expect": "Configure package?", "answer": "yes"}]}
+        )
+        serial = unittest.mock.Mock()
+        session = SimpleNamespace(
+            config=SimpleNamespace(postinst=SimpleNamespace(packages=packages)),
+            postinst_command="/retro/guestlib.d/postinst.sh",
+            dialog=unittest.mock.Mock(),
+            serial=serial,
+            vga_wait=unittest.mock.Mock(),
+            kb_type=unittest.mock.Mock(),
+            serial_shell_start=unittest.mock.Mock(),
+            serial_shell_send=unittest.mock.Mock(),
+            serial_shell_exit=unittest.mock.Mock(),
+        )
+
+        Dinstall(session, DinstallOptions())._postinst()
+
+        session.serial_shell_start.assert_called_once()
+        session.serial_shell_send.assert_called_once_with(session.postinst_command, wait=False)
+        serial.answer_any.assert_called_once_with([("Configure package?", "yes", False)])
+        serial.wait.assert_called_once_with("Configuration complete!", line=True)
+        session.serial_shell_exit.assert_called_once()
+
 
 class PkgtoolPromptTests(unittest.TestCase):
     def test_boot_prompt_can_be_disabled_when_kernel_is_already_running(self) -> None:
@@ -1383,7 +1675,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.section("extract"):
                     toml_extraction(config)
                     validated.append(path)
-        self.assertEqual(len(validated), 50)
+        self.assertEqual(len(validated), 51)
 
     def test_every_install_configuration_passes_driver_validation(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1395,7 +1687,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.value("install", "driver"):
                     validate_install_config(config)
                     validated.append(path)
-        self.assertEqual(len(validated), 61)
+        self.assertEqual(len(validated), 62)
 
     def test_every_postinstall_configuration_passes_schema_validation(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1407,7 +1699,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.section("postinst"):
                     config.postinst
                     validated.append(path)
-        self.assertEqual(len(validated), 61)
+        self.assertEqual(len(validated), 62)
 
     def test_every_host_module_class_and_function_has_a_docstring(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1490,6 +1782,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 "slackware/3.6/linuxmall",
                 "debian/1.1/official",
                 "debian/1.1/infomagic",
+                "debian/1.1/oldfloss",
                 "debian/1.2/official",
                 "debian/1.2/infomagic",
                 "debian/1.3/official",
@@ -1561,6 +1854,7 @@ class ManifestCoverageTests(unittest.TestCase):
         self.assertEqual(
             archives,
             [
+                Path("debian/1.1/oldfloss/config.toml"),
                 Path("slackware/1.01/channel1/config.toml"),
                 Path("slackware/1.01/official+sls/config.toml"),
                 Path("slackware/1.0beta/official+sls/config.toml"),
@@ -1750,6 +2044,34 @@ class SerialTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(any("➡️  guest output" in line for line in transcript.output))
             self.assertTrue(any("✅ # " in line for line in transcript.output))
 
+    async def test_partial_serial_prompt_is_echoed_as_one_line(self) -> None:
+        """Unconfigured package questions remain visible without chunk splitting."""
+        console = SerialConsole(Path("unused.sock"))
+        console._buffer = "Question without newline? [No] "
+        with self.assertLogs("hostlib.serial", "INFO") as transcript:
+            console._flush_partial_echo()
+        self.assertTrue(any("➡️  Question without newline? [No]" in line for line in transcript.output))
+
+    async def test_completed_serial_lines_are_marked_while_they_arrive(self) -> None:
+        """An active waiter marks its matching line without delaying other output."""
+        console = SerialConsole(Path("unused.sock"))
+        console._echo_patterns = (re.compile("expected"),)
+        console._buffer = "ordinary line\nexpected prompt\n"
+        with self.assertLogs("hostlib.serial", "INFO") as transcript:
+            console._emit_transcript(len(console._buffer))
+        self.assertTrue(any("➡️  ordinary line" in line for line in transcript.output))
+        self.assertTrue(any("✅ expected prompt" in line for line in transcript.output))
+
+    async def test_rewind_does_not_replay_already_echoed_serial_output(self) -> None:
+        """Dialog callbacks may reread a screen without duplicating transcript lines."""
+        console = SerialConsole(Path("unused.sock"))
+        console._buffer = "dialog screen\n"
+        with self.assertLogs("hostlib.serial", "INFO") as transcript:
+            console._emit_transcript(len(console._buffer))
+            await console.rewind(0)
+            console._emit_transcript(len(console._buffer))
+        self.assertEqual(sum("dialog screen" in line for line in transcript.output), 1)
+
 
 class SessionTests(unittest.TestCase):
     def session(self, install=None):
@@ -1785,8 +2107,15 @@ class SessionTests(unittest.TestCase):
 
     def test_postinstall_command_uses_configured_fat_paths(self) -> None:
         session = self.session(
-            {"disk": {"fat_partition": "/dev/sdb1", "fat_mount": "/media/retro"}}
+            {
+                "disk": {
+                    "fat_partition": "/dev/sdb1",
+                    "fat_mount": "/media/retro",
+                    "fat_filesystem": "vfat",
+                }
+            }
         )
+        self.assertIn("mount -t vfat", session.postinst_command)
         self.assertIn("/dev/sdb1 /media/retro", session.postinst_command)
         self.assertIn("/media/retro/guestlib.d/postinst.sh", session.postinst_command)
 

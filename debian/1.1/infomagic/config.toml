@@ -9,4 +9,13 @@ boot_image = "buzz-updates/disks-i386/1996_7_14/boot1440.bin"
 root_image = "buzz-updates/disks-i386/1996_7_14/root.bin"
 extra_images = ["buzz-updates/disks-i386/1996_7_14/base14-*.bin"]
 fat_files = ["buzz-updates/disks-i386/1996_7_14/base1_1.tgz"]
+package_index = "buzz-fixed/binary-i386/Packages"
 custom_script = "extract.sh"
+
+[postinst.packages]
+root = "/cdrom/buzz-fixed/binary-i386"
+
+[postinst.packages.mount]
+device = "/dev/hdc"
+point = "/cdrom"
+filesystem = "iso9660"

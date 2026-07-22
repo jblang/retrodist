@@ -168,6 +168,17 @@ class Downloader:
         files, directories = assets.get(
             release, (["Contents-i386.gz"], ["binary-i386", "disks-i386"])
         )
+        package_sources = self.config.extraction.package_sources
+        if self.config.extraction.package_source:
+            package_sources = [self.config.extraction.package_source]
+        for source in package_sources:
+            name = PurePosixPath(source).name
+            if name.startswith("binary-"):
+                dos_name = "msdos-" + name.removeprefix("binary-")
+                if dos_name in directories:
+                    directories.remove(dos_name)
+            if name not in directories:
+                directories.append(name)
         base.mkdir(parents=True, exist_ok=True)
         for name in files:
             target = base / name

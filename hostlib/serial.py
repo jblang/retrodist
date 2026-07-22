@@ -39,6 +39,8 @@ class SerialConsole:
         self._buffer = ""
         self._offset = 0
         self._transcript_offset = 0
+        self._partial_echo: asyncio.TimerHandle | None = None
+        self._echo_patterns: tuple[re.Pattern[str], ...] = ()
         self._echoes: list[str] = []
         self._changed = asyncio.Condition()
         self._drain_task: asyncio.Task[None] | None = None
@@ -62,6 +64,9 @@ class SerialConsole:
 
     async def close(self) -> None:
         """Close serial streams, reader task, and transcript file."""
+        if self._partial_echo:
+            self._partial_echo.cancel()
+            self._partial_echo = None
         if self._writer:
             self._writer.close()
             await self._writer.wait_closed()
@@ -87,6 +92,8 @@ class SerialConsole:
                     self._buffer += text
                     complete = self._buffer.rfind("\n") + 1
                     self._emit_transcript(complete)
+                    if complete < len(self._buffer):
+                        self._schedule_partial_echo()
                     self._changed.notify_all()
         except asyncio.CancelledError:
             raise
@@ -115,11 +122,15 @@ class SerialConsole:
         log.info("⬅️  %s", text)
 
     def _emit_transcript(self, end: int, matched: int | None = None) -> None:
-        """Log newly consumed guest output and an optional matched prompt.
+        """Log newly received guest output, highlighting awaited prompt lines.
 
-        Ordinary guest lines use ``➡️`` and the line containing a successful
-        prompt match uses ``✅``. Echoed answers are suppressed because ``send``
-        already records host responses with ``⬅️``.
+        Complete serial lines are echoed as soon as they arrive. A line
+        matching a currently awaited prompt uses ``✅``; every other line uses
+        ``➡️``. An incomplete prompt line is briefly buffered to avoid logging
+        arbitrary serial read chunks, then echoed intact if it remains
+        unmatched. ``matched`` handles a prompt consumed by a wait.
+        Echoed answers are suppressed because ``send`` already records them
+        with ``⬅️``.
         """
         start = self._transcript_offset
         if end <= start:
@@ -132,10 +143,26 @@ class SerialConsole:
             if echo is not None:
                 del self._echoes[: echo + 1]
             else:
-                marker = "✅" if matched is not None and cursor <= matched < line_end else "➡️ "
+                is_match = matched is not None and cursor <= matched < line_end
+                is_match = is_match or any(
+                    pattern.search(self._buffer[cursor:line_end])
+                    for pattern in self._echo_patterns
+                )
+                marker = "✅" if is_match else "➡️ "
                 log.info("%s %s", marker, line)
             cursor = line_end
         self._transcript_offset = end
+
+    def _schedule_partial_echo(self) -> None:
+        """Debounce an unterminated prompt so serial chunks stay readable."""
+        if self._partial_echo:
+            self._partial_echo.cancel()
+        self._partial_echo = asyncio.get_running_loop().call_later(0.1, self._flush_partial_echo)
+
+    def _flush_partial_echo(self) -> None:
+        """Echo a stable unterminated prompt that has not matched a waiter."""
+        self._partial_echo = None
+        self._emit_transcript(len(self._buffer))
 
     def _line_end(self, matched_end: int) -> int:
         """Consume the complete serial line containing a matched prompt."""
@@ -161,6 +188,7 @@ class SerialConsole:
         Returns:
             The exact text matched in the serial buffer.
         """
+        log.info("⏳ %s", expected)
         pattern = self._wait_pattern(expected, line=line, regex=regex)
         if timeout is None:
             return await self._wait_one(pattern)
@@ -176,21 +204,29 @@ class SerialConsole:
 
     async def _wait_one(self, pattern: re.Pattern[str]) -> str:
         """Poll buffered serial input until one compiled pattern matches."""
-        while True:
-            start = self._offset
-            if match := pattern.search(self._buffer[start:]):
-                matched_start = start + match.start()
-                self._offset = self._line_end(start + match.end())
-                self._emit_transcript(self._offset, matched_start)
-                return match.group()
-            if self._failure:
-                raise self._failure
-            async with self._changed:
-                await self._changed.wait()
+        previous = self._echo_patterns
+        self._echo_patterns = (pattern,)
+        try:
+            while True:
+                start = self._offset
+                if match := pattern.search(self._buffer[start:]):
+                    matched_start = start + match.start()
+                    if self._partial_echo:
+                        self._partial_echo.cancel()
+                        self._partial_echo = None
+                    self._offset = self._line_end(start + match.end())
+                    self._emit_transcript(self._offset, matched_start)
+                    return match.group()
+                if self._failure:
+                    raise self._failure
+                async with self._changed:
+                    await self._changed.wait()
+        finally:
+            self._echo_patterns = previous
 
     async def wait_any(
         self,
-        patterns: tuple[str, ...],
+        patterns: tuple[str | re.Pattern[str], ...],
         *,
         regex: bool = False,
         timeout: float | None = None,
@@ -201,7 +237,10 @@ class SerialConsole:
             A pair containing the winning pattern index and matched text.
         """
         compiled = tuple(
-            re.compile(value if regex else re.escape(value), re.MULTILINE) for value in patterns
+            value
+            if isinstance(value, re.Pattern)
+            else re.compile(value if regex else re.escape(value), re.MULTILINE)
+            for value in patterns
         )
 
         if timeout is None:
@@ -211,48 +250,67 @@ class SerialConsole:
 
     async def _wait_first(self, patterns: tuple[re.Pattern[str], ...]) -> tuple[int, str]:
         """Poll until the earliest match among several compiled patterns."""
-        while True:
-            start = self._offset
-            matches = (
-                (i, match)
-                for i, pattern in enumerate(patterns)
-                if (match := pattern.search(self._buffer[start:]))
-            )
-            try:
-                index, match = min(matches, key=lambda item: item[1].start())
-            except ValueError:
+        previous = self._echo_patterns
+        self._echo_patterns = patterns
+        try:
+            while True:
+                start = self._offset
+                matches = (
+                    (i, match)
+                    for i, pattern in enumerate(patterns)
+                    if (match := pattern.search(self._buffer[start:]))
+                )
+                try:
+                    index, match = min(matches, key=lambda item: item[1].start())
+                except ValueError:
+                    if self._failure:
+                        raise self._failure
+                    async with self._changed:
+                        await self._changed.wait()
+                    continue
+                matched_start = start + match.start()
+                if self._partial_echo:
+                    self._partial_echo.cancel()
+                    self._partial_echo = None
+                self._offset = self._line_end(start + match.end())
+                self._emit_transcript(self._offset, matched_start)
+                return index, match.group()
+        finally:
+            self._echo_patterns = previous
+
+    async def read_until(self, pattern: re.Pattern[str]) -> str:
+        """Consume and return serial text through the next regex match."""
+        log.info("⏳ %s", pattern.pattern)
+        previous = self._echo_patterns
+        self._echo_patterns = (pattern,)
+        try:
+            while True:
+                start = self._offset
+                if match := pattern.search(self._buffer[start:]):
+                    matched_start = start + match.start()
+                    if self._partial_echo:
+                        self._partial_echo.cancel()
+                        self._partial_echo = None
+                    self._offset = start + match.end()
+                    self._emit_transcript(self._offset, matched_start)
+                    return self._buffer[start : self._offset]
                 if self._failure:
                     raise self._failure
                 async with self._changed:
                     await self._changed.wait()
-                continue
-            matched_start = start + match.start()
-            self._offset = self._line_end(start + match.end())
-            self._emit_transcript(self._offset, matched_start)
-            return index, match.group()
-
-    async def read_until(self, pattern: re.Pattern[str]) -> str:
-        """Consume and return serial text through the next regex match."""
-        while True:
-            start = self._offset
-            if match := pattern.search(self._buffer[start:]):
-                matched_start = start + match.start()
-                self._offset = start + match.end()
-                self._emit_transcript(self._offset, matched_start)
-                return self._buffer[start : self._offset]
-            if self._failure:
-                raise self._failure
-            async with self._changed:
-                await self._changed.wait()
+        finally:
+            self._echo_patterns = previous
 
     async def mark(self) -> int:
         """Return the current serial-consumption offset."""
         return self._offset
 
     async def rewind(self, offset: int) -> None:
-        """Restore the serial-consumption offset to an earlier mark."""
+        """Restore consumption without replaying already echoed serial output."""
         if not 0 <= offset <= len(self._buffer):
             raise ValueError("Invalid serial buffer offset")
+        # The transcript cursor intentionally remains monotonic: callbacks can
+        # re-read a dialog exchange without duplicating its guest output.
         self._offset = offset
 
     async def prompt(self, *questions: str, answer: str, regex: bool = False) -> None:

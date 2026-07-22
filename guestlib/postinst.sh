@@ -62,6 +62,13 @@ fi
 for POSTINST_STAGE in $POSTINST_STAGES; do
     # shellcheck disable=SC2119 # Declarative stages intentionally pass no arguments.
     case "$POSTINST_STAGE" in
+        packages)
+            if [ ! -f "$GUESTLIB_D/distro/packages.sh" ]; then
+                log ERROR "Package stage has no generated packages.sh; aborting."
+                exit 1
+            fi
+            . "$GUESTLIB_D/distro/packages.sh"
+            ;;
         modules) mod_config ;;
         network) net_config ;;
         tty) tty_config ;;

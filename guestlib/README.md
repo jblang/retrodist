@@ -27,8 +27,14 @@ distro's source `postinst.sh`. Host staging is implemented and documented in
 `postinst.sh` expects `/retro/guestlib.d` to be mounted and loads logging. Host
 staging writes `/retro/guestlib.d/distro/config.sh`; the runner sources that
 generated file and executes its `POSTINST_STAGES` in order. Supported
-stage names are `modules`, `network`, `tty`, `x11`, and `custom`. The `custom`
-stage sources the staged distro `postinst.sh` for exceptional guest logic.
+stage names are `packages`, `modules`, `network`, `tty`, `x11`, and `custom`.
+The `packages` stage sources the host-generated `distro/packages.sh`; the
+`custom` stage sources the staged distro `postinst.sh` for exceptional guest
+logic.
+
+For Debian package configuration prompts, the installer runs the post-install
+stage on its automation serial port. Configure ordered question matches and
+answers under `[[postinst.packages.prompts]]`; use an empty answer for Enter.
 
 The runner provides these lazy-loading public wrappers:
 

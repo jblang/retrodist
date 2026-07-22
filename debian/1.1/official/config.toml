@@ -8,4 +8,9 @@ boot_image = "buzz/main/disks-i386/1996_6_16/boot1440.bin"
 root_image = "buzz/main/disks-i386/1996_6_16/root.bin"
 extra_images = ["buzz/main/disks-i386/1996_6_16/base14-*.bin"]
 fat_files = ["buzz/main/disks-i386/1996_6_16/base1_1.tgz"]
+package_source = "buzz/main/binary-i386"
+package_index = "buzz/main/binary-i386/Packages"
 custom_script = "extract.sh"
+
+[install.debian]
+fat_filesystem = "vfat"
