@@ -246,7 +246,7 @@ x11_detect_mouse_defaults() {
         /dev/psaux | /dev/ps2aux)
             X11_MOUSETYPE="PS/2"
             ;;
-        /dev/cua*)
+        /dev/cua* | /dev/ttyS*)
             X11_MOUSETYPE="Microsoft"
             ;;
         *)

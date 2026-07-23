@@ -8,4 +8,12 @@ boot_image = "bo/main/disks-i386/current/resc1440.bin"
 root_image = "bo/main/disks-i386/current/root.bin"
 extra_images = ["bo/main/disks-i386/current/drv1440.bin", "bo/main/disks-i386/current/base-*.bin"]
 fat_files = ["bo/main/disks-i386/current/base1_3.tgz", "bo/main/disks-i386/current/resc1440.bin", "bo/main/disks-i386/current/drv1440.bin"]
+package_sources = ["bo/main/binary-i386", "bo/main/binary-all"]
+package_index = "bo/main/binary-i386/Packages.gz"
 custom_script = "extract.sh"
+
+[install.debian]
+fs_module = "vfat"
+
+[postinst]
+fat_filesystem = "vfat"

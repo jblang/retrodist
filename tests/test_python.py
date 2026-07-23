@@ -50,7 +50,7 @@ from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
 from hostlib.vga import Screen, ScreenObserver, decode
 from hostlib.media import Extraction, MediaStager, toml_extraction
-from hostlib.schemas import DebianPackagesConfig
+from hostlib.schemas import DebianPackagesConfig, PostinstConfig
 from hostlib.qmp import Monitor
 from hostlib.qemu import QemuRuntime
 
@@ -282,7 +282,7 @@ class DownloadTests(unittest.TestCase):
                 with self.assertRaisesRegex(ConfigError, "unsafe release name"):
                     method("../escape", Path("download.d"))
 
-    def test_debian_mirror_downloads_configured_long_filename_package_tree(self) -> None:
+    def test_debian_mirror_downloads_configured_long_filename_package_trees(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             context, config = temporary_config(
@@ -290,7 +290,12 @@ class DownloadTests(unittest.TestCase):
                 "debian/version",
                 {
                     "download": {"debian_mirror": "buzz"},
-                    "extract": {"package_source": "buzz/main/binary-i386"},
+                    "extract": {
+                        "package_sources": [
+                            "buzz/main/binary-i386",
+                            "buzz/main/binary-all",
+                        ]
+                    },
                 },
             )
             downloader = download.Downloader(context, config)
@@ -302,6 +307,10 @@ class DownloadTests(unittest.TestCase):
             urls = [call.args[0] for call in mirror.call_args_list]
             self.assertIn(
                 "https://archive.debian.org/debian/dists/buzz/main/binary-i386/",
+                urls,
+            )
+            self.assertIn(
+                "https://archive.debian.org/debian/dists/buzz/main/binary-all/",
                 urls,
             )
             self.assertNotIn(
@@ -577,7 +586,7 @@ class ConfigTests(unittest.TestCase):
                     "stages": ["network", "tty", "x11"],
                     "network": {"hostname": "retro"},
                     "tty": {"baud": 19200},
-                    "x11": {"mouse_device": "/dev/cua2"},
+                    "x11": {"mouse_device": "/dev/ttyS2"},
                     "reboot": True,
                 }
             },
@@ -587,7 +596,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("NET_HOSTNAME='retro'", rendered)
         self.assertNotIn("NET_GATEWAY=", rendered)
         self.assertIn("TTY_BAUD='19200'", rendered)
-        self.assertIn("X11_MOUSEDEV='/dev/cua2'", rendered)
+        self.assertIn("X11_MOUSEDEV='/dev/ttyS2'", rendered)
         self.assertIn("POSTINST_REBOOT='true'", rendered)
 
     def test_postinstall_network_uses_canonical_names_and_legacy_aliases(self) -> None:
@@ -878,15 +887,15 @@ class DebianPackageTests(unittest.TestCase):
             [package.name for package in resolve_packages(packages, config)], []
         )
 
-    def test_explicit_recommendation_can_precede_important_package(self) -> None:
-        """Known-broken packages can opt into a recommendation without resolving all of them."""
+    def test_explicit_packages_precede_priority_selections(self) -> None:
+        """Explicit prerequisites install before packages selected by priority."""
         packages = [
             DebianPackage(
                 {
-                    "package": "libc5-dev",
+                    "package": "zlib",
                     "priority": "standard",
                     "section": "devel",
-                    "filename": "devel/libc5-dev.deb",
+                    "filename": "devel/zlib.deb",
                 }
             ),
             DebianPackage(
@@ -894,15 +903,14 @@ class DebianPackageTests(unittest.TestCase):
                     "package": "perl",
                     "priority": "important",
                     "section": "devel",
-                    "recommends": "libc5-dev",
                     "filename": "devel/perl.deb",
                 }
             ),
         ]
-        config = DebianPackagesConfig(priorities=["important"], add=["libc5-dev"])
+        config = DebianPackagesConfig(priorities=["important"], add=["zlib"])
         self.assertEqual(
             [package.name for package in resolve_packages(packages, config)],
-            ["libc5-dev", "perl"],
+            ["zlib", "perl"],
         )
 
     def test_installer_mounts_iso_and_uses_long_filenames(self) -> None:
@@ -918,14 +926,15 @@ class DebianPackageTests(unittest.TestCase):
         )
         config = DebianPackagesConfig.model_validate(
             {
-                "root": "/cdrom/buzz-fixed/binary-i386",
+                "roots": ["/cdrom/buzz-fixed/binary-i386", "/cdrom/buzz/binary-i386"],
                 "mount": {"device": "/dev/hdc", "point": "/cdrom"},
             }
         )
         script = render_installer([package], config)
         self.assertIn("mount -t 'iso9660' '/dev/hdc' '/cdrom'", script)
         self.assertIn("dpkg --install", script)
-        self.assertIn("/cdrom/buzz-fixed/binary-i386/utils/demo_1.2-3.deb", script)
+        self.assertIn("'/cdrom/buzz-fixed/binary-i386' '/cdrom/buzz/binary-i386'", script)
+        self.assertIn("retro_dpkg_install 'utils' 'demo_1.2-3.deb'", script)
         self.assertNotIn("demo.deb", script)
         syntax = subprocess.run(
             ["sh", "-n"], input=script, text=True, capture_output=True, check=False
@@ -980,7 +989,9 @@ class MediaStagerTests(unittest.TestCase):
             generated = context.qemu_dir / "fat/guestlib.d/distro/config.sh"
             self.assertIn("NET_HOSTNAME='retro'", generated.read_text())
             installer = context.qemu_dir / "fat/guestlib.d/distro/packages.sh"
-            self.assertIn("/retro/packages/utils/demo_1.deb", installer.read_text())
+            self.assertIn(
+                "retro_dpkg_install 'utils' 'demo_1.deb'", installer.read_text()
+            )
             self.assertTrue((context.qemu_dir / ".extracted").exists())
 
     def test_existing_marker_refreshes_guestlib_without_reextracting(self) -> None:
@@ -1555,6 +1566,28 @@ class DialogTests(unittest.TestCase):
 
 
 class DinstallTests(unittest.TestCase):
+    def test_filesystem_module_is_selected_from_its_menu(self) -> None:
+        """Filesystem modules use the same Dinstall module workflow as network drivers."""
+        dialog = unittest.mock.Mock()
+        session = SimpleNamespace(
+            dialog=dialog,
+            vga_wait=unittest.mock.Mock(),
+            kb_press=unittest.mock.Mock(),
+        )
+        driver = Dinstall(session, DinstallOptions(fs_module="vfat"))
+
+        driver._modules("")
+
+        module_choices = dialog.answer_until.call_args.args
+        self.assertEqual(module_choices[0].answer, "fs")
+        self.assertEqual(module_choices[1].answer, "vfat")
+        self.assertEqual(module_choices[2].answer, "Install")
+        self.assertEqual(module_choices[3].answer, "")
+        session.vga_wait.assert_called_once_with(
+            "Please press ENTER when you are ready to continue.", match=Match.LINE
+        )
+        session.kb_press.assert_called_once_with("ret")
+
     def test_media_dialogs_use_the_configured_fat_mount(self) -> None:
         dialog = unittest.mock.Mock()
         session = SimpleNamespace(dialog=dialog)
@@ -1578,9 +1611,10 @@ class DinstallTests(unittest.TestCase):
         packages = DebianPackagesConfig.model_validate(
             {"prompts": [{"expect": "Configure package?", "answer": "yes"}]}
         )
+        postinst = PostinstConfig(stages=["packages"], packages=packages)
         serial = unittest.mock.Mock()
         session = SimpleNamespace(
-            config=SimpleNamespace(postinst=SimpleNamespace(packages=packages)),
+            config=SimpleNamespace(postinst=postinst),
             postinst_command="/retro/guestlib.d/postinst.sh",
             dialog=unittest.mock.Mock(),
             serial=serial,
@@ -1598,6 +1632,13 @@ class DinstallTests(unittest.TestCase):
         serial.answer_any.assert_called_once_with([("Configure package?", "yes", False)])
         serial.wait.assert_called_once_with("Configuration complete!", line=True)
         session.serial_shell_exit.assert_called_once()
+
+        session.config.postinst = PostinstConfig(
+            stages=["packages", "tty"], packages=packages
+        )
+        session.serial_shell_exit.reset_mock()
+        Dinstall(session, DinstallOptions())._postinst()
+        session.serial_shell_exit.assert_not_called()
 
 
 class PkgtoolPromptTests(unittest.TestCase):
@@ -2050,7 +2091,9 @@ class SerialTests(unittest.IsolatedAsyncioTestCase):
         console._buffer = "Question without newline? [No] "
         with self.assertLogs("hostlib.serial", "INFO") as transcript:
             console._flush_partial_echo()
-        self.assertTrue(any("➡️  Question without newline? [No]" in line for line in transcript.output))
+        self.assertTrue(
+            any("➡️  Question without newline? [No]" in line for line in transcript.output)
+        )
 
     async def test_completed_serial_lines_are_marked_while_they_arrive(self) -> None:
         """An active waiter marks its matching line without delaying other output."""
@@ -2074,7 +2117,7 @@ class SerialTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SessionTests(unittest.TestCase):
-    def session(self, install=None):
+    def session(self, install=None, postinst=None):
         runtime = SimpleNamespace(
             monitor=AsyncMock(),
             vga=SimpleNamespace(wait=AsyncMock(), invalidate=unittest.mock.Mock()),
@@ -2082,7 +2125,10 @@ class SessionTests(unittest.TestCase):
         session = InstallSession(
             runtime,
             None,
-            RetroConfig(context=SimpleNamespace(), data={"install": install or {}}),
+            RetroConfig(
+                context=SimpleNamespace(),
+                data={"install": install or {}, "postinst": postinst or {}},
+            ),
         )
         session._call = lambda coroutine: asyncio.run(coroutine)
         return session
@@ -2118,6 +2164,10 @@ class SessionTests(unittest.TestCase):
         self.assertIn("mount -t vfat", session.postinst_command)
         self.assertIn("/dev/sdb1 /media/retro", session.postinst_command)
         self.assertIn("/media/retro/guestlib.d/postinst.sh", session.postinst_command)
+
+    def test_postinstall_can_use_a_different_fat_filesystem(self) -> None:
+        session = self.session(postinst={"fat_filesystem": "vfat"})
+        self.assertIn("mount -t vfat", session.postinst_command)
 
 
 if __name__ == "__main__":

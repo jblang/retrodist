@@ -40,6 +40,7 @@ class DinstallOptions(ConfigModel):
     relogin: bool = False
     net_module: str | None = None
     net_module_args: str = ""
+    fs_module: str | None = None
     timezone: str = "Etc/UTC"
     root_password: str = "password1"
     user: str = "debian"
@@ -235,22 +236,24 @@ class Dinstall:
         """Select any configured kernel modules."""
         self._main()
         if self.o.net_module:
-            module = self.o.net_module
-            self.d.answer_until(
-                Choice("menu", "Select Category", "net"),
-                Choice("menu", r"Select (net )? ?modules", module, regex=True),
-                Choice("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
-                Choice(
-                    "inputbox",
-                    "Enter Command-Line Arguments",
-                    self.o.net_module_args,
-                    terminal=True,
-                ),
-            )
-            self.s.vga_wait("Please press ENTER when you are ready to continue.", match=Match.LINE)
-            self.s.kb_press("ret")
-            self.d.answer(Choice("menu", r"Select (net )? ?modules", "Exit", regex=True))
+            self._module("net", self.o.net_module, self.o.net_module_args)
+        if self.o.fs_module:
+            self._module("fs", self.o.fs_module, "")
         self.d.answer(Choice("menu", "Select Category", "Exit"))
+
+    def _module(self, category: str, module: str, arguments: str) -> None:
+        """Install one Dinstall module and return to its category menu."""
+        self.d.answer_until(
+            Choice("menu", "Select Category", category),
+            Choice("menu", rf"Select ({re.escape(category)} )? ?modules", module, regex=True),
+            Choice("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
+            Choice("inputbox", "Enter Command-Line Arguments", arguments, terminal=True),
+        )
+        self.s.vga_wait("Please press ENTER when you are ready to continue.", match=Match.LINE)
+        self.s.kb_press("ret")
+        self.d.answer(
+            Choice("menu", rf"Select ({re.escape(category)} )? ?modules", "Exit", regex=True)
+        )
 
     def _configure_base(self, _: str) -> None:
         """Configure the installed Debian base system."""
@@ -391,4 +394,5 @@ class Dinstall:
             [(prompt.expect, prompt.answer, prompt.regex) for prompt in prompts]
         )
         self.s.serial.wait("Configuration complete!", line=True)
-        self.s.serial_shell_exit(screen_prompt=screen_prompt, screen_match=Match.REGEX)
+        if not self.s.config.postinst.reboots:
+            self.s.serial_shell_exit(screen_prompt=screen_prompt, screen_match=Match.REGEX)

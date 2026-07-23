@@ -8,4 +8,6 @@ boot_image = "rex/main/disks-i386/current/resq1440.bin"
 root_image = "rex/main/disks-i386/current/root.bin"
 extra_images = ["rex/main/disks-i386/current/drv1440.bin", "rex/main/disks-i386/current/base14-*.bin"]
 fat_files = ["rex/main/disks-i386/current/base1_2.tgz"]
+package_sources = ["rex/main/binary-i386", "rex/main/binary-all"]
+package_index = "rex/main/binary-i386/Packages.gz"
 custom_script = "extract.sh"

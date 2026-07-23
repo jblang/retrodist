@@ -33,8 +33,9 @@ The `packages` stage sources the host-generated `distro/packages.sh`; the
 logic.
 
 For Debian package configuration prompts, the installer runs the post-install
-stage on its automation serial port. Configure ordered question matches and
-answers under `[[postinst.packages.prompts]]`; use an empty answer for Enter.
+stage on its automation serial port. Configure every question and answer under
+`[[postinst.packages.prompts]]`; questions may arrive in any order, and an
+empty answer submits Enter.
 
 The runner provides these lazy-loading public wrappers:
 
@@ -114,7 +115,8 @@ alone, and requires a commented stock serial getty line. It also updates
 Detects XFree86 4.x, 3.x SVGA, 1.x/2.x SVGA, or X386 monochrome servers and
 writes the corresponding `XF86Config` or `Xconfig`. Existing configuration is
 saved as `.orig`. `X11_MOUSEDEV` defaults through `/dev/psaux`, `/dev/ps2aux`,
-then `/dev/cua1`; `X11_MOUSETYPE` follows the selected device.
+then `/dev/cua1`; serial `/dev/cua*` and `/dev/ttyS*` devices use the
+Microsoft protocol automatically.
 
 For color configurations, `X11_DEPTHS` defaults to `16 8 32` and `X11_MODES`
 to `"1024x768" "800x600" "640x480"`. `X11_CHIPSET` defaults to `clgd5434`;

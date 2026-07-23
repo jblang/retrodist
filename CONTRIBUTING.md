@@ -284,15 +284,20 @@ across the archive; a named `sections` entry replaces that global priority list
 for its section. `add` names additional individual packages. `skip` has highest
 precedence and removes a package even if it was added explicitly or is needed
 as a dependency; package resolution fails if that leaves a dependency
-unavailable. The selectors form a union. `Depends` and `Pre-Depends` are added recursively; version constraints are
-ignored, alternatives choose the first available package, and virtual
-dependencies use an available `Provides` entry.
+unavailable. The selectors form a union. `Depends` and `Pre-Depends` are added
+recursively; version constraints are ignored, alternatives choose the first
+available package, and virtual dependencies use an available `Provides` entry.
+
+`roots` is an ordered list of package trees. Use it when a CD index mixes
+fixed and original archives; the generated guest installer uses the first tree
+containing the requested package.
 
 When package configuration is interactive, the Debian installer switches the
-post-install runner to its automation serial port. Add each expected question
-and response in order under `postinst.packages.prompts`; an empty answer
-submits Enter. For example, Smail's local-only configuration selects option 4
-and accepts the summary:
+post-install runner to its automation serial port. Add every expected question
+and response under `postinst.packages.prompts`; questions may arrive in any
+order, but all configured questions must appear. An empty answer submits Enter.
+For example, Smail's local-only configuration selects option 4 and accepts the
+summary:
 
 ```toml
 [[postinst.packages.prompts]]
@@ -304,7 +309,7 @@ expect = "Is this OK, or would you like to change the configuration?"
 answer = ""
 ```
 
-For an original CD-ROM, mount QEMU's `hdc` device and point `root` at the
+For an original CD-ROM, mount QEMU's `hdc` device and set `roots` to the
 archive's long-filename binary directory:
 
 ```toml
@@ -312,7 +317,7 @@ archive's long-filename binary directory:
 stages = ["packages", "tty"]
 
 [postinst.packages]
-root = "/cdrom/buzz-fixed/binary-i386"
+roots = ["/cdrom/buzz-fixed/binary-i386"]
 priorities = ["required", "important"]
 add = ["vim"]
 skip = ["ex"]
@@ -332,8 +337,8 @@ package_index = "buzz-fixed/binary-i386/Packages"
 Official mirror variants can instead stage `binary-i386` and `binary-all`
 with `extract.package_sources` into the QEMU VFAT share, preserving long
 filenames. Omit `postinst.packages.mount` and use
-`root = "/retro/packages"` in that case. Set
-`install.debian.fat_filesystem = "vfat"` so the guest mounts that share with
+`roots = ["/retro/packages"]` in that case. Set
+`postinst.fat_filesystem = "vfat"` so the guest mounts that share with
 long-filename support.
 
 `[install.network]` and `[postinst.network]` use the same canonical static

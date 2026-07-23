@@ -108,7 +108,8 @@ class Serial:
         pending = list(prompts)
         while pending:
             patterns: tuple[str | re.Pattern[str], ...] = tuple(
-                re.compile(expect) if regex else expect for expect, _, regex in pending
+                re.compile(expect, re.MULTILINE) if regex else expect
+                for expect, _, regex in pending
             )
             index, _ = self.wait_any(*patterns)
             _, answer, _ = pending.pop(index)
@@ -165,7 +166,7 @@ class InstallSession:
         common = self.config.install_common
         mount = common.fat_mount
         partition = common.fat_partition
-        filesystem = common.fat_filesystem
+        filesystem = self.config.postinst.fat_filesystem or common.fat_filesystem
         return (
             f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
             f"mkdir -p {shlex.quote(mount)} && mount -t {shlex.quote(filesystem)} "

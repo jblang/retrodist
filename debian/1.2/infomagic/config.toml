@@ -3,10 +3,33 @@
 [download]
 cdrom = "infomagic/ldr/1997_04"
 
+[[download.files]]
+# Rex's index references 3.2-1a.1, but the package is missing from the Infomagic
+# CD, so download the compatible historical archive as that indexed filename.
+path = "xlib6_3.2-1a.1.deb"
+url = "https://archive.debian.org/debian/dists/rex/main/binary-i386/x11/xlib6_3.2-1a.deb"
+
 [extract]
 source = "disc3.iso"
 boot_image = "rex-updates/disks-i386/1997-01-18/rsc1440.bin"
 root_image = "rex-updates/disks-i386/1997-01-18/root.bin"
 extra_images = ["rex-updates/disks-i386/1997-01-18/drv1440.bin", "rex-updates/disks-i386/1997-01-18/base14-*.bin"]
 fat_files = ["rex-updates/disks-i386/1997-01-18/base1_2.tgz"]
+package_index = "rex-fixed/binary-i386/Packages.gz"
 custom_script = "extract.sh"
+
+[[extract.overlays]]
+source = "xlib6_3.2-1a.1.deb"
+destination = "fat/packages/x11/xlib6_3.2-1a.1.deb"
+
+[postinst.packages]
+roots = [
+    "/cdrom/rex-fixed/binary-i386",
+    "/cdrom/rex-fixed/binary-all",
+    "/retro/packages",
+]
+
+[postinst.packages.mount]
+device = "/dev/hdc"
+point = "/cdrom"
+filesystem = "iso9660"

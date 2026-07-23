@@ -13,7 +13,7 @@ package_index = "buzz-fixed/binary-i386/Packages"
 custom_script = "extract.sh"
 
 [postinst.packages]
-root = "/cdrom/buzz-fixed/binary-i386"
+roots = ["/cdrom/buzz-fixed/binary-i386"]
 
 [postinst.packages.mount]
 device = "/dev/hdc"

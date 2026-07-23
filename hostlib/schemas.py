@@ -331,7 +331,7 @@ class DebianPackagePrompt(ConfigModel):
 class DebianPackagesConfig(ConfigModel):
     """Select Debian packages and locate their guest installation media."""
 
-    root: str = "/retro/packages"
+    roots: list[str] = Field(default_factory=lambda: ["/retro/packages"], min_length=1)
     priorities: list[str] = Field(default_factory=list)
     add: list[str] = Field(default_factory=list)
     skip: list[str] = Field(default_factory=list)
@@ -346,6 +346,7 @@ class PostinstConfig(ConfigModel):
     stages: list[Literal["packages", "modules", "network", "tty", "x11", "custom"]] = Field(
         default_factory=list
     )
+    fat_filesystem: str | None = None
     custom_script: str | None = None
     debug: bool | None = None
     log: str | None = None
@@ -358,11 +359,20 @@ class PostinstConfig(ConfigModel):
     custom: dict[str, Scalar] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def custom_stage_has_script(self) -> "PostinstConfig":
-        """Require a script whenever the custom post-install stage is enabled."""
+    def validate_stages(self) -> "PostinstConfig":
+        """Validate stage-specific post-install requirements."""
         if "custom" in self.stages and self.custom_script is None:
             raise ValueError("Custom post-install stage requires postinst.custom_script")
+        if self.packages.prompts and "packages" not in self.stages:
+            raise ValueError("Package prompts require the packages post-install stage")
         return self
+
+    @property
+    def reboots(self) -> bool:
+        """Return whether the configured guest runner finishes by rebooting."""
+        return self.reboot is True or bool(
+            {"modules", "network", "tty"}.intersection(self.stages)
+        )
 
 
 class DinstallBootConfig(ConfigModel):

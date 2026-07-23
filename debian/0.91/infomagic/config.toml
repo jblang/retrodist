@@ -51,7 +51,7 @@ custom_script = "postinst.sh"
 stages = ["custom", "tty", "x11"]
 
 [postinst.x11]
-mouse_device = "/dev/cua2"
+mouse_device = "/dev/ttyS2"
 
 [[install.steps]]
 action = "wait"

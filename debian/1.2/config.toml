@@ -3,18 +3,77 @@
 [install]
 driver = "debian-dinstall"
 
+[install.debian]
+fs_module = "vfat"
+
 [qemu]
 profile = "linux-2.0"
 
 [qemu.network]
 device = "pcnet"
 
+[qemu.serial]
+auxiliary = "msmouse"
+
 [install.network]
 hostname = "rex"
 
 [postinst]
 custom_script = "postinst.sh"
-stages = ["custom", "tty"]
+stages = ["packages", "x11", "custom"]
+fat_filesystem = "vfat"
+
+[postinst.packages]
+priorities = ["important"]
+add = [
+    "xbase",
+    "xserver-svga",
+    "xfntbase",
+    "xfntscl",
+    "xfntpex",
+    "xfntbig",
+    "xfnt100",
+    "xfnt75",
+    "m4",
+    "xpm4.7",
+    "fvwm",
+]
+
+[[postinst.packages.prompts]]
+expect = "Install a boot block using your current LILO configuration? [Yes]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Wipe out your old LILO configuration and make a new one? [No]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Would you like xdm to be started at boot time? (y/n) [y]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Do you want to make the SVGA X server the default? (y/n) [y]"
+answer = "y"
+
+[[postinst.packages.prompts]]
+expect = "Do you want to create the XFree86 configuration file? (y/n) [y]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Enter value (default=`1', `x' to restart):"
+answer = "4"
+
+[[postinst.packages.prompts]]
+expect = "Enter value (default=`debian', `x' to restart):"
+answer = ""
+
+[[postinst.packages.prompts]]
+expect = "Is this OK ?  Hit Return or type `y' to confirm it and install,"
+answer = "y"
+
+[[postinst.packages.prompts]]
+expect = "Send a test message now ?  (y/n)"
+answer = "n"
 
 [postinst.network]
 gateway_hwaddr = "52:55:0a:00:02:02"
@@ -23,3 +82,6 @@ nameserver_hwaddr = "52:55:0a:00:02:03"
 
 [postinst.custom]
 etc_initd_network = "/etc/init.d/network"
+
+[postinst.x11]
+mouse_device = "/dev/ttyS2"

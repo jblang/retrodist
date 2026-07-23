@@ -38,8 +38,10 @@ own instructions. When prompted to change disks, use `qmp change-image`.
 
 ## Version Notes
 
-- `0.91`: Installs a serial mouse on `/dev/cua2`, configured for X11.
+- `0.91`: Installs a serial mouse on `/dev/ttyS2`, configured for X11.
 - `1.1`: Uses a QEMU NE2000 ISA NIC, loaded as the `ne` module.
+- `1.1` through `1.3`: Install the configured X11 package set and use a serial
+  mouse on `/dev/ttyS2`.
 - `1.2` and `1.3`: Use the kernel's built-in PCnet driver for the default QEMU PCI NIC.
 
 ## Installer Automation

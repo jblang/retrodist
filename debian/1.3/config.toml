@@ -9,6 +9,9 @@ profile = "linux-2.0"
 [qemu.network]
 device = "pcnet"
 
+[qemu.serial]
+auxiliary = "msmouse"
+
 [install.network]
 hostname = "bo"
 
@@ -17,4 +20,64 @@ driver_floppy = false
 relogin = true
 
 [postinst]
-stages = ["tty"]
+stages = ["packages", "x11"]
+
+[postinst.packages]
+priorities = ["important"]
+add = [
+    "perl", # man-db's postinst uses Perl's Getopt::Long module without declaring it.
+    "xbase",
+    "xserver-svga",
+    "xfntbase",
+    "xfntscl",
+    "xfntpex",
+    "xfntbig",
+    "xfnt100",
+    "xfnt75",
+    "m4",
+    "xpm4.7",
+    "fvwm",
+]
+
+[[postinst.packages.prompts]]
+expect = "Install a boot block using your current LILO configuration? [Yes]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Wipe out your old LILO configuration and make a new one? [No]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Would you like xdm to be started at boot time? (y/n) [y]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "*** xdm (Y/I/N/O/Z) [default=N] ?"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Do you want to make the SVGA X server the default? (y/n) [Y]"
+answer = "y"
+
+[[postinst.packages.prompts]]
+expect = "Do you want to create the XFree86 configuration file? (y/n) [y]"
+answer = "n"
+
+[[postinst.packages.prompts]]
+expect = "Enter value (default=`1', `x' to restart):"
+answer = "4"
+
+[[postinst.packages.prompts]]
+expect = "Enter value (`x' to restart):"
+answer = "none"
+
+[[postinst.packages.prompts]]
+expect = "Is this OK ?  Hit Return or type `y' to confirm it and install,"
+answer = "y"
+
+[[postinst.packages.prompts]]
+expect = "Send a test message now ?  (y/n)"
+answer = "n"
+
+[postinst.x11]
+mouse_device = "/dev/ttyS2"

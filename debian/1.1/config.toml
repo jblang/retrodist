@@ -93,4 +93,4 @@ expect = "Send a test message now ?  (y/n)"
 answer = "n"
 
 [postinst.x11]
-mouse_device = "/dev/cua2"
+mouse_device = "/dev/ttyS2"
