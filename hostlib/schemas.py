@@ -397,28 +397,52 @@ InstallStep = Annotated[
 class PromptSequenceConfig(ConfigModel):
     """Configure a non-empty sequence of discriminated installer actions."""
 
+    default_action: Literal[
+        "wait",
+        "type",
+        "press",
+        "prompt",
+        "serial-shell-start",
+        "serial-shell-send",
+        "serial-send",
+        "serial-shell-exit",
+        "console-echo",
+        "partition",
+        "change-floppy",
+        "set-boot",
+        "run-postinst",
+    ] | None = None
     default_transport: Literal["vga", "serial"] | None = None
     steps: list[InstallStep] = Field(min_length=1)
 
     @model_validator(mode="before")
     @classmethod
-    def apply_default_transport(cls, data: object) -> object:
-        """Apply the configured transport to waits and prompts that omit one."""
+    def apply_defaults(cls, data: object) -> object:
+        """Apply configured action and transport defaults to installer steps."""
         if not isinstance(data, dict):
             return data
-        default = data.get("default_transport")
+        default_action = data.get("default_action")
+        default_transport = data.get("default_transport")
         steps = data.get("steps")
-        if default not in {"vga", "serial"} or not isinstance(steps, list):
+        if not isinstance(steps, list):
             return data
         resolved = dict(data)
-        resolved["steps"] = [
-            {**step, "transport": default}
-            if isinstance(step, dict)
-            and step.get("action") in {"wait", "prompt"}
-            and "transport" not in step
-            else step
-            for step in steps
-        ]
+        resolved_steps = []
+        for step in steps:
+            if not isinstance(step, dict):
+                resolved_steps.append(step)
+                continue
+            step = dict(step)
+            if default_action is not None and "action" not in step:
+                step["action"] = default_action
+            if (
+                default_transport in {"vga", "serial"}
+                and step.get("action") in {"wait", "prompt"}
+                and "transport" not in step
+            ):
+                step["transport"] = default_transport
+            resolved_steps.append(step)
+        resolved["steps"] = resolved_steps
         return resolved
 
 

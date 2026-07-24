@@ -1364,6 +1364,22 @@ class InstallPlanTests(unittest.TestCase):
         self.assertEqual(wait.transport, "vga")
         self.assertEqual(prompt.transport, "serial")
 
+    def test_prompt_sequence_applies_default_action_before_transport(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={
+                "install": {
+                    "driver": "prompt-sequence",
+                    "default_action": "prompt",
+                    "default_transport": "vga",
+                    "steps": [{"text": "Continue?", "answer": "y"}],
+                }
+            },
+        )
+        (prompt,) = config.prompt_sequence.steps
+        self.assertEqual(prompt.action, "prompt")
+        self.assertEqual(prompt.transport, "vga")
+
     def test_installer_validation_rejects_bad_drivers_controls_and_steps(self) -> None:
         cases = (
             ({"install": {}}, "must set install.driver"),
@@ -1897,21 +1913,29 @@ class ManifestCoverageTests(unittest.TestCase):
             if install.get("driver") != "prompt-sequence":
                 continue
             self.assertTrue(install.get("steps"), path.relative_to(root))
+            default_action = install.get("default_action")
             for step in install["steps"]:
-                self.assertIn(step.get("action"), STEP_ACTIONS, path.relative_to(root))
+                self.assertIn(
+                    step.get("action", default_action), STEP_ACTIONS, path.relative_to(root)
+                )
 
     def test_debian_091_uses_vga_prompt_questions(self) -> None:
         root = Path(__file__).resolve().parent.parent
         path = root / "debian/0.91/infomagic/config.toml"
         install = tomllib.loads(path.read_text())["install"]
-        prompts = [step for step in install["steps"] if step["action"] == "prompt"]
+        prompts = [
+            step
+            for step in install["steps"]
+            if step.get("action", install.get("default_action")) == "prompt"
+        ]
         lilo_steps = [
             step
             for step in install["steps"]
-            if step["action"] == "serial-shell-send"
+            if step.get("action") == "serial-shell-send"
             and isinstance(step["command"], list)
         ]
         self.assertEqual(install["default_transport"], "vga")
+        self.assertEqual(install["default_action"], "prompt")
         self.assertTrue(all("questions" in step and "text" not in step for step in prompts))
         self.assertTrue(any(len(step["questions"]) > 1 for step in prompts))
         self.assertEqual(len(lilo_steps), 1)

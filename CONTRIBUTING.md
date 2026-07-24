@@ -219,6 +219,7 @@ family driver:
 ```toml
 [install]
 driver = "prompt-sequence"
+default_action = "prompt"
 default_transport = "vga"
 
 [[install.steps]]
@@ -244,10 +245,13 @@ Supported actions are `wait`, `type`, `press`, `prompt`, `partition`,
 `change-floppy`, `set-boot`, `serial-send`, `serial-shell-start`,
 `serial-shell-send`, `serial-shell-exit`, `console-echo`, and `run-postinst`.
 Use `\n` for Enter and `\t` for Tab in typed text. `${install.table.key}`
-interpolates another install value. Set `install.default_transport` to `vga` or
-`serial` to choose the transport for `wait` and `prompt` steps that omit it.
-An explicit step-level `transport` overrides that default. Without a configured
-default, `wait` uses VGA and `prompt` uses serial for compatibility.
+interpolates another install value. Set `install.default_action` to any supported
+action (for example, `prompt`) to omit that action from steps using the default. An
+explicit step-level `action` overrides the default. Set
+`install.default_transport` to `vga` or `serial` to choose the transport for
+`wait` and `prompt` steps that omit it. An explicit step-level `transport`
+overrides that default. Without a configured default, `wait` uses VGA and
+`prompt` uses serial for compatibility.
 `serial-shell-send.command` may be one string or an array of strings; arrays
 run in order, waiting for the configured prompt after each command by default.
 

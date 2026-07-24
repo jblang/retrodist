@@ -16,6 +16,7 @@ auxiliary = "msmouse"
 
 [install]
 driver = "prompt-sequence"
+default_action = "prompt"
 default_transport = "vga"
 
 [install.disk]
@@ -86,74 +87,59 @@ action = "type"
 text = "dinstall\n"
 
 [[install.steps]]
-action = "prompt"
 questions = ["2   Initialize and activate your swap partition(s)"]
 answer = "2"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is the name of your swap partition"]
 answer = "${install.disk.swap_partition}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Would you like to check for bad blocks (y/n) [y]?"]
 answer = "n"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Press <RETURN> to continue..."]
 
 [[install.steps]]
-action = "prompt"
 questions = ["3   Format your Linux native partition(s) with mke2fs"]
 answer = "3"
 
 [[install.steps]]
-action = "prompt"
 questions = ["On which partition do you wish to create an ext2 filesystem?"]
 answer = "${install.disk.linux_partition}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Would you like to check for bad blocks (y/n) [y]?"]
 answer = "n"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Press <RETURN> to continue..."]
 
 [[install.steps]]
-action = "prompt"
 questions = ["5   Install the Debian Linux base system"]
 answer = "5"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Continue with the installation of the base system (y/n) [y]?"]
 answer = "y"
 
 [[install.steps]]
-action = "prompt"
 questions = ["(m)ount another filesystem, (u)nmount a mounted filesystem,", "or (c)ontinue with the installation:"]
 answer = "m"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Mount which filesystem (ex: /dev/hda3)? /dev/"]
 answer = "${install.disk.linux_partition}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Mount /dev/${install.disk.linux_partition} on which directory (ex: /usr)? /root/"]
 
 [[install.steps]]
-action = "prompt"
 questions = ["(m)ount another filesystem, (u)nmount a mounted filesystem,", "or (c)ontinue with the installation:"]
 answer = "c"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Please specify /dev/fd0 or /dev/fd1 [/dev/fd0]: /dev/"]
 answer = "fd0"
 
@@ -182,126 +168,101 @@ action = "press"
 keys = "ret"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which partition contains your root filesystem? /dev/"]
 answer = "${install.disk.linux_partition}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which partition is your swap partition (<RETURN> for none)? /dev/"]
 answer = "${install.disk.swap_partition}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is the unqualified hostname of your machine?"]
 answer = "${install.network.hostname}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is the local domainname without the leading `.'?"]
 answer = "${install.network.domain}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Your fully-qualified hostname is .* Correct \\(y/n\\)?"]
 answer = "y"
 regex = true
 
 [[install.steps]]
-action = "prompt"
 questions = ["Does your machine require additional networking setup (y/n)?"]
 answer = "y"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is the IP address of your machine?"]
 answer = "${install.network.ip}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is your netmask?"]
 answer = "${install.network.netmask}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is your network address?"]
 answer = "${install.network.network}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is your broadcast address (if you don't have one, type `none')?"]
 answer = "${install.network.broadcast}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is your gateway address?"]
 answer = "${install.network.gateway}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What is the address of your nameserver (if your machine is the name server,", "enter 127.0.0.1; if you don't have one, type `none')?"]
 answer = "${install.network.nameserver}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Is this correct (y/n)?"]
 answer = "y"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Do you have an ethernet connection (y/n)?"]
 answer = "y"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Is your system clock set to GMT?"]
 answer = "y"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Press <RETURN> for more..."]
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which timezone?"]
 answer = "${install.locale.timezone}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Load a non-US keymap at boot time (y/n)?"]
 answer = "n"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which port contains your modem (if you have one)?"]
 answer = "${install.debian.modem_port}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which type of mouse do you have (if you have one)?"]
 answer = "${install.debian.mouse_type}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Which port contains your mouse?"]
 answer = "${install.debian.mouse_port}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["What type of serial mouse do you have?"]
 answer = "${install.debian.mouse_protocol}"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Would you like to make a custom bootdisk before proceeding (y/n)?"]
 answer = "n"
 
 [[install.steps]]
-action = "prompt"
 questions = ["Press <RETURN> to continue..."]
 
 [[install.steps]]
-action = "prompt"
 questions = ["7   Return to the shell"]
 answer = "7"
 
