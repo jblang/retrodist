@@ -45,8 +45,7 @@ class ScreenObserver:
     """Read VGA memory on demand while a caller waits for a screen predicate.
 
     Recent distinct screens are retained with monotonic timestamps for future
-    diagnostics. ``start`` and ``close`` intentionally own no task; they keep a
-    common lifecycle interface with the serial transport.
+    diagnostics.
     """
 
     def __init__(
@@ -75,14 +74,6 @@ class ScreenObserver:
     def current(self) -> str:
         """Return the most recently observed VGA text."""
         return self.history[-1].text if self.history else ""
-
-    async def start(self) -> None:
-        """Start the observer; reads remain demand-driven."""
-        pass
-
-    async def close(self) -> None:
-        """Close the observer; no persistent task is owned."""
-        pass
 
     def invalidate(self) -> None:
         """Require the next wait to observe a screen change before matching."""

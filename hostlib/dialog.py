@@ -35,7 +35,7 @@ class SerialTransport(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class Choice:
+class Answer:
     """Describe one expected dialog exchange and its response.
 
     Titles and item constraints may be literal or regular expressions. When
@@ -50,7 +50,7 @@ class Choice:
     item: str | None = None
     item_regex: bool = False
     description: bool = False
-    terminal: bool = False
+    exit: bool = False
 
     def matches(self, screen: "DialogScreen") -> bool:
         """Return whether this choice matches a parsed dialog screen."""
@@ -110,11 +110,11 @@ class Dialog:
         """Initialize the driver over a synchronous serial transport."""
         self.serial = serial
 
-    def answer(self, choice: Choice) -> None:
+    def answer(self, choice: Answer) -> None:
         """Answer one expected dialog screen."""
         self.answer_until(choice)
 
-    def answer_until(self, *choices: Choice) -> None:
+    def answer_until(self, *choices: Answer) -> None:
         """Answer expected screens in any encountered order until all are handled.
 
         A callback or ``None`` answer rewinds the serial buffer to the start of
@@ -131,11 +131,11 @@ class Dialog:
             choice = self._matching_choice(screen, pending)
             self._send_answer(choice, screen, mark)
             pending.remove(choice)
-            if choice.terminal:
+            if choice.exit:
                 return
 
     @staticmethod
-    def _matching_choice(screen: DialogScreen, pending: list[Choice]) -> Choice:
+    def _matching_choice(screen: DialogScreen, pending: list[Answer]) -> Answer:
         """Return the pending choice matching a screen or explain the mismatch."""
         try:
             return next(item for item in pending if item.matches(screen))
@@ -145,7 +145,7 @@ class Dialog:
                 f"Unexpected dialog {screen.widget} {screen.title!r}; expected {expected}"
             ) from exc
 
-    def _send_answer(self, choice: Choice, screen: DialogScreen, mark: int) -> None:
+    def _send_answer(self, choice: Answer, screen: DialogScreen, mark: int) -> None:
         """Send a literal answer or return callback screens to their consumer."""
         if callable(choice.answer):
             self.serial.rewind(mark)
@@ -156,7 +156,7 @@ class Dialog:
             self.serial.send(self._resolve_answer(choice, screen))
 
     @staticmethod
-    def _resolve_answer(choice: Choice, screen: DialogScreen) -> str:
+    def _resolve_answer(choice: Answer, screen: DialogScreen) -> str:
         """Resolve a description-based choice to its corresponding item key."""
         answer = choice.answer
         assert isinstance(answer, str)

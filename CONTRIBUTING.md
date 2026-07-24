@@ -191,10 +191,11 @@ Set `install.driver` to one of:
 - `redhat-unattended`
 - `prompt-sequence`
 
-Family-driver options are grouped into logical tables such as `install.boot`,
+Family-driver settings are grouped into logical tables such as `install.boot`,
 `install.disk`, `install.network`, `install.locale`, and an installer-family
-table. Leaf names map to the selected driver's option dataclass. See the
-existing configs and `hostlib/installers/` for supported fields.
+table. Pydantic validates the complete driver-discriminated configuration, and
+family drivers consume those typed sections directly. See the existing configs,
+`hostlib/schemas.py`, and `hostlib/installers/` for supported fields.
 
 Example Slackware boot configuration:
 

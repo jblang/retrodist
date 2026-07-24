@@ -135,7 +135,7 @@ class Downloader:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             log.info("Downloading %s", filename)
-            self._retrieve(url, target)
+            self.wget.retrieve(url, target)
         if mirror := download.slackware_mirror:
             self._slackware(mirror, destination)
         if mirror := download.debian_mirror:
@@ -145,10 +145,10 @@ class Downloader:
         """Mirror the requested Slackware release tree."""
         version = _mirror_identifier(version, "slackware_mirror")
         target = destination / f"slackware-{version}"
-        self._mirror_tree(
+        self.wget.mirror(
             f"http://mirrors.slackware.com/slackware/slackware-{version}/",
             target,
-            reject=("*.md5*", "*.meta4", "*.sha*", "*mirror*", "*index*"),
+            ("*.md5*", "*.meta4", "*.sha*", "*mirror*", "*index*"),
         )
 
     def _debian(self, release: str, destination: Path) -> None:
@@ -184,21 +184,7 @@ class Downloader:
             target = base / name
             if not target.is_file():
                 log.info("Downloading %s", target.relative_to(destination))
-                self._retrieve(f"{root}/{name}", target)
+                self.wget.retrieve(f"{root}/{name}", target)
         for name in directories:
             target = base / name
-            self._mirror_tree(f"{root}/{name}/", target)
-
-    def _retrieve(self, url: str, target: Path) -> None:
-        """Download one file with wget."""
-        self.wget.retrieve(url, target)
-
-    def _mirror_tree(
-        self,
-        url: str,
-        destination: Path,
-        *,
-        reject: tuple[str, ...] = ("*index*",),
-    ) -> None:
-        """Mirror one indexed HTTP directory into an exact local directory."""
-        self.wget.mirror(url, destination, reject)
+            self.wget.mirror(f"{root}/{name}/", target, ("*index*",))

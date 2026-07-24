@@ -122,8 +122,7 @@ def _install_iso(qemu_dir: Path, download_dir: Path) -> Path | None:
 def _iso_packages(iso_path: Path, fat: Path) -> list[tuple[Path, str, str]]:
     """Inventory Slackware packages directly from an install ISO."""
     packages = []
-    image = Iso(iso_path.resolve())
-    try:
+    with Iso(iso_path.resolve()) as image:
         for key, (_, directory) in image.paths.items():
             parts = Path(key).parts
             if directory or len(parts) < 3 or parts[1] not in {"slakware", "slackware"}:
@@ -135,8 +134,6 @@ def _iso_packages(iso_path: Path, fat: Path) -> list[tuple[Path, str, str]]:
             packages.append(
                 (fat / "tagfiles" / disk / "tagfile", series, _package_name(parts[-1]))
             )
-    finally:
-        image.close()
     return packages
 
 
@@ -214,8 +211,7 @@ def _extract_default_tags(iso_path: Path, tagroot: Path) -> None:
     """Extract and normalize tag metadata from an install ISO."""
     if not iso_path.exists():
         return
-    image = Iso(iso_path.resolve())
-    try:
+    with Iso(iso_path.resolve()) as image:
         for key, (actual, directory) in image.paths.items():
             parts = Path(key).parts
             if directory or len(parts) < 4 or parts[1] not in {"slakware", "slackware"}:
@@ -226,8 +222,6 @@ def _extract_default_tags(iso_path: Path, tagroot: Path) -> None:
             first = re.sub(r"\d+$", "1", parts[-2])
             target = tagroot / first / ("tagfile" if name == "tagfile.org" else name)
             image.extract_file(actual, target)
-    finally:
-        image.close()
 
 
 def _default_tag_rows(tagroot: Path) -> list[str]:

@@ -140,8 +140,15 @@ per-command temporary directory. File lookup checks the selected directory and
 then its immediate parent. Configuration loading follows the same two-level
 rule: the child replaces inherited scalars and arrays, while nested tables are
 merged recursively. Pydantic models validate each logical section when its
-owning subsystem consumes it; unknown fields are rejected. QEMU profiles supply
+owning subsystem consumes it; installer configuration is selected through a
+driver-discriminated model and unknown fields are rejected. QEMU profiles supply
 era-appropriate defaults before explicit overrides are used.
+
+Schema implementation is grouped by concern: `schema_base.py` owns strict model
+defaults and user-facing validation errors, `qemu_schemas.py` owns emulator
+configuration, and `media_schemas.py` owns download, extraction, network, and
+post-install models. `schemas.py` contains installer models and re-exports the
+other schema names as the stable import surface.
 
 ## Command Orchestration
 
@@ -170,7 +177,7 @@ sequenceDiagram
     CLI->>Config: load parent and selected TOML
     Config-->>CLI: resolved RetroConfig
     opt install command
-        CLI->>Install: validate selected driver and options
+        CLI->>Install: validate selected driver configuration
         Install-->>CLI: validated entry point
     end
     CLI->>Download: materialize declared sources
@@ -238,12 +245,15 @@ configuration.
 Reusable family drivers live in `hostlib/installers/`. The bounded
 `prompt-sequence` driver handles exceptional linear flows using a validated
 registry of actions. Both use the synchronous `InstallSession` API, so driver
-code reads like the installer procedure it represents.
+code reads like the installer procedure it represents. Family drivers consume
+the typed `disk`, `network`, `locale`, `prompts`, and family-specific sections
+of the selected install model directly.
 
-The live transports are asynchronous. `run_install` owns them on the main event
-loop and runs the synchronous driver in a worker thread. Calls through
-`InstallSession` are submitted back to the owning event loop. This keeps QMP and
-serial input responsive while a driver performs blocking waits.
+The live transports are asynchronous. `run_install` owns the serial transport
+on the main event loop, instantiates the demand-driven VGA observer, and runs
+the synchronous driver in a worker thread. Calls through `InstallSession` are
+submitted back to the owning event loop. This keeps QMP and serial input
+responsive while a driver performs blocking waits.
 
 ```mermaid
 %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 28, "rankSpacing": 46}}}%%

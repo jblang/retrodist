@@ -203,26 +203,8 @@ class SerialConsole:
         return re.compile(expected if regex else re.escape(expected), re.MULTILINE)
 
     async def _wait_one(self, pattern: re.Pattern[str]) -> str:
-        """Poll buffered serial input until one compiled pattern matches."""
-        previous = self._echo_patterns
-        self._echo_patterns = (pattern,)
-        try:
-            while True:
-                start = self._offset
-                if match := pattern.search(self._buffer[start:]):
-                    matched_start = start + match.start()
-                    if self._partial_echo:
-                        self._partial_echo.cancel()
-                        self._partial_echo = None
-                    self._offset = self._line_end(start + match.end())
-                    self._emit_transcript(self._offset, matched_start)
-                    return match.group()
-                if self._failure:
-                    raise self._failure
-                async with self._changed:
-                    await self._changed.wait()
-        finally:
-            self._echo_patterns = previous
+        """Wait for one compiled pattern through the shared matcher."""
+        return (await self._wait_first((pattern,)))[1]
 
     async def wait_any(
         self,
@@ -248,8 +230,10 @@ class SerialConsole:
         async with asyncio.timeout(timeout):
             return await self._wait_first(compiled)
 
-    async def _wait_first(self, patterns: tuple[re.Pattern[str], ...]) -> tuple[int, str]:
-        """Poll until the earliest match among several compiled patterns."""
+    async def _wait_first(
+        self, patterns: tuple[re.Pattern[str], ...], *, consume_line: bool = True
+    ) -> tuple[int, str]:
+        """Wait for the earliest pattern and advance past its match or line."""
         previous = self._echo_patterns
         self._echo_patterns = patterns
         try:
@@ -272,7 +256,8 @@ class SerialConsole:
                 if self._partial_echo:
                     self._partial_echo.cancel()
                     self._partial_echo = None
-                self._offset = self._line_end(start + match.end())
+                matched_end = start + match.end()
+                self._offset = self._line_end(matched_end) if consume_line else matched_end
                 self._emit_transcript(self._offset, matched_start)
                 return index, match.group()
         finally:
@@ -281,25 +266,9 @@ class SerialConsole:
     async def read_until(self, pattern: re.Pattern[str]) -> str:
         """Consume and return serial text through the next regex match."""
         log.info("⏳ %s", pattern.pattern)
-        previous = self._echo_patterns
-        self._echo_patterns = (pattern,)
-        try:
-            while True:
-                start = self._offset
-                if match := pattern.search(self._buffer[start:]):
-                    matched_start = start + match.start()
-                    if self._partial_echo:
-                        self._partial_echo.cancel()
-                        self._partial_echo = None
-                    self._offset = start + match.end()
-                    self._emit_transcript(self._offset, matched_start)
-                    return self._buffer[start : self._offset]
-                if self._failure:
-                    raise self._failure
-                async with self._changed:
-                    await self._changed.wait()
-        finally:
-            self._echo_patterns = previous
+        start = self._offset
+        await self._wait_first((pattern,), consume_line=False)
+        return self._buffer[start : self._offset]
 
     async def mark(self) -> int:
         """Return the current serial-consumption offset."""

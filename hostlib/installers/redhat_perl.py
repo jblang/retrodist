@@ -7,28 +7,19 @@ The configured flow names the small release-specific composition.
 
 from __future__ import annotations
 
-from pydantic import Field
-
 from ..fdisk import Fdisk
-from ..schemas import ConfigModel, NetworkConfig
+from ..schemas import PerlInstallConfig
 from ..session import InstallSession, Match
 from ..errors import ConfigError
-
-
-class PerlInstallerOptions(ConfigModel):
-    """Configure early Red Hat Perl-installer automation."""
-
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    boot_command: str = ""
-    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
 
 
 def run_perl_installer(session: InstallSession) -> None:
     """Run an early Red Hat Perl-installer installation."""
     installer = PerlInstaller(session)
     installer.boot()
-    flow = session.config.redhat_flow.flow
+    config = session.config.install
+    assert isinstance(config, PerlInstallConfig)
+    flow = config.redhat.flow
     if flow == "1.1":
         installer.load_ramdisk("rootdisk.img")
         installer.step("Welcome to the Red Hat Commercial Linux installation program!", "ret")
@@ -50,17 +41,19 @@ class PerlInstaller:
     prompt sequences that otherwise obscure the release flow.
     """
 
-    def __init__(
-        self, session: InstallSession, options: PerlInstallerOptions | None = None
-    ) -> None:
-        """Initialize the Perl-installer driver for one Red Hat release."""
+    def __init__(self, session: InstallSession, config: PerlInstallConfig | None = None) -> None:
+        """Initialize the Perl-installer driver with typed release configuration."""
         self.s = session
-        self.o = options if options is not None else session.options(PerlInstallerOptions)
+        config = config or session.config.install
+        assert isinstance(config, PerlInstallConfig)
+        self.disk = config.disk
+        self.prompts = config.prompts
+        self.network = config.network
 
     @property
     def fqdn(self) -> str:
         """Return the configured fully qualified host name."""
-        return f"{self.o.network.hostname}.{self.o.network.domain}"
+        return f"{self.network.hostname}.{self.network.domain}"
 
     def step(self, screen: str, *keys: str) -> None:
         """Wait for a VGA prompt and type its answer."""
@@ -117,7 +110,7 @@ class PerlInstaller:
     def boot(self) -> None:
         """Send the configured kernel command at the boot prompt."""
         self.s.vga_wait("boot:", match=Match.LINE)
-        self.s.kb_type(f"{self.o.boot_command}\n")
+        self.s.kb_type(f"{self.prompts.boot_command}\n")
 
     def load_ramdisk(self, image: str) -> None:
         """Insert and load one ramdisk image."""
@@ -143,7 +136,7 @@ class PerlInstaller:
         self.s.vga_wait(prompt)
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start()
-        Fdisk(self.s).partition_swap_root(self.o.target_disk, self.o.swap_mb)
+        Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_press("alt-f1")
@@ -151,7 +144,7 @@ class PerlInstaller:
 
     def configure_network(self, *, network_first: bool = False) -> None:
         """Answer early Red Hat network configuration dialogs."""
-        n = self.o.network
+        n = self.network
         self.s.kb_press("y")
         fields = [
             ("What hostname have you selected for this computer?", n.hostname, 0),
@@ -228,5 +221,5 @@ class PerlInstaller:
         self.s.vga_wait("Be sure to remove the boot floppy from your floppy drive!")
         self.s.set_boot("c")
         self.s.kb_press("ret")
-        hostname = self.o.network.hostname
+        hostname = self.network.hostname
         self.s.run_postinst(login=f"{self.fqdn} login:", shell=f"[root@{hostname} /root]#")

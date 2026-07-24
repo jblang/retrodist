@@ -96,14 +96,13 @@ class QemuRuntime:
             raise CommandError("Could not create hda.img")
 
     def _drives(self) -> list[str]:
-        """Build QEMU drive arguments from staged conventional media."""
+        """Build QEMU drive option strings from staged conventional media."""
         floppy, cdrom = self._startup_media()
-        arguments: list[str] = []
-        for name in ("fda", "fdb", "hda", "hdb", "hdc", "hdd"):
-            options = self._drive_options(name, floppy, cdrom)
-            if options:
-                arguments += ["-drive", options]
-        return arguments
+        return [
+            options
+            for name in ("fda", "fdb", "hda", "hdb", "hdc", "hdd")
+            if (options := self._drive_options(name, floppy, cdrom))
+        ]
 
     def _drive_options(self, name: str, floppy: Path | None, cdrom: Path | None) -> str | None:
         """Build options for one conventional floppy or IDE device.
@@ -192,7 +191,8 @@ class QemuRuntime:
             "unix:qmp.sock,server=on,wait=off",
         ]
         args += self._device_arguments()
-        args += self._drives()
+        for drive in self._drives():
+            args += ["-drive", drive]
         boot = self._boot_order()
         if boot:
             args += ["-boot", boot]
@@ -201,7 +201,12 @@ class QemuRuntime:
     def _device_arguments(self) -> list[str]:
         """Build character, display, network, and floppy-controller arguments."""
         args = [value for pair in self._chardevs() for value in pair]
-        for option, value in self._display_options():
+        display = self.config.display
+        for option, value in (
+            ("-display", display.backend),
+            ("-accel", display.acceleration),
+            ("-vga", display.vga),
+        ):
             if value:
                 args += [option, value]
         args += self._network_arguments()
@@ -212,15 +217,6 @@ class QemuRuntime:
             if value:
                 args += ["-global", f"isa-fdc.fdtype{drive}={value}"]
         return args
-
-    def _display_options(self) -> tuple[tuple[str, str | None], ...]:
-        """Return optional display-related QEMU switches and values."""
-        display = self.config.display
-        return (
-            ("-display", display.backend),
-            ("-accel", display.acceleration),
-            ("-vga", display.vga),
-        )
 
     def _network_arguments(self) -> list[str]:
         """Build user-network and forwarding arguments when networking is enabled."""
@@ -269,8 +265,8 @@ class QemuRuntime:
         log.info("💾 Guest disks:")
         drives = self._drives()
         if drives:
-            for index in range(0, len(drives), 2):
-                log.info("    %s %s", drives[index], drives[index + 1])
+            for drive in drives:
+                log.info("    -drive %s", drive)
         else:
             log.info("    none")
 

@@ -67,11 +67,6 @@ class Context:
         return self.config / "qemu.d"
 
     @property
-    def extract_dir(self) -> Path:
-        """Return the directory used for staged extraction output."""
-        return self.qemu_dir
-
-    @property
     def tagfile_dir(self) -> Path:
         """Return the directory containing generated Slackware tagsets."""
         return self.config / "tagfile.d"

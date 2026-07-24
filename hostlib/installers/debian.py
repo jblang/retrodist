@@ -11,45 +11,17 @@ from __future__ import annotations
 import re
 import shlex
 
-from pydantic import Field
-
-from ..dialog import Choice
+from ..dialog import Answer
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..schemas import ConfigModel, NetworkConfig
-
-
-class DinstallOptions(ConfigModel):
-    """Configure Debian Dinstall automation.
-
-    Options cover target media, optional kernel and driver floppies, keyboard
-    and module choices, first-boot accounts, timezone, and the static network
-    values expected by these early installers.
-    """
-
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    fat_partition: str = "/dev/hdb1"
-    fat_mount: str = "/retro"
-    fat_filesystem: str = "msdos"
-    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="debian"))
-    keymap: str = "us"
-    configure_keyboard: bool = False
-    kernel_floppy: str | None = None
-    driver_floppy: str | None = "drv1440.bin"
-    relogin: bool = False
-    net_module: str | None = None
-    net_module_args: str = ""
-    fs_module: str | None = None
-    timezone: str = "Etc/UTC"
-    root_password: str = "password1"
-    user: str = "debian"
-    user_password: str = "password1"
+from ..schemas import DinstallInstallConfig
 
 
 def run_dinstall(session: InstallSession) -> None:
-    """Run a Debian Dinstall installation with resolved options."""
-    boot = session.config.dinstall_boot
+    """Run a Debian Dinstall installation with validated configuration."""
+    config = session.config.install
+    assert isinstance(config, DinstallInstallConfig)
+    boot = config.boot
     session.vga_wait(boot.prompt, match=Match.LINE)
     session.kb_type(boot.command + "\n")
     if boot.root_prompt:
@@ -69,10 +41,17 @@ class Dinstall:
 
     menu = r"Debian (GNU/)?Linux( [0-9.]+)? Installation Main Menu"
 
-    def __init__(self, session: InstallSession, options: DinstallOptions | None = None) -> None:
-        """Initialize the Dinstall driver with resolved release options."""
+    def __init__(
+        self, session: InstallSession, config: DinstallInstallConfig | None = None
+    ) -> None:
+        """Initialize the Dinstall driver with typed release configuration."""
         self.s = session
-        self.o = options if options is not None else session.options(DinstallOptions)
+        config = config or session.config.install
+        assert isinstance(config, DinstallInstallConfig)
+        self.disk = config.disk
+        self.locale = config.locale
+        self.network = config.network
+        self.settings = config.debian
         self.d = session.dialog
 
     def install(self) -> None:
@@ -81,7 +60,7 @@ class Dinstall:
         self._dispatch()
         self._step(r"Reboot [Tt]he System")
         self.s.set_boot("c")
-        self.d.answer(Choice("yesno", "Reboot the system?", "yes"))
+        self.d.answer(Answer("yesno", "Reboot the system?", "yes"))
         self._first_boot()
         self._postinst()
 
@@ -92,9 +71,9 @@ class Dinstall:
         self.s.vga_wait("Please press Enter to activate this console.", match=Match.LINE)
         self.s.kb_press("ret")
         self.s.vga_wait("#", match=Match.LINE)
-        mount = shlex.quote(self.o.fat_mount)
-        partition = shlex.quote(self.o.fat_partition)
-        filesystem = shlex.quote(self.o.fat_filesystem)
+        mount = shlex.quote(self.disk.fat_mount)
+        partition = shlex.quote(self.disk.fat_partition)
+        filesystem = shlex.quote(self.settings.fat_filesystem or self.disk.fat_filesystem)
         self.s.kb_type(f"mkdir -p {mount}; mount -t {filesystem} {partition} {mount}\n")
         self.s.kb_type(f"[ ! -f {mount}/serial.o ] || insmod {mount}/serial.o\n")
         self.s.serial_shell_start()
@@ -104,27 +83,27 @@ class Dinstall:
             "chmod 755 /usr/bin/dialog",
         ):
             self.s.serial_shell_send(command)
-        Fdisk(self.s).partition_swap_root(self.o.target_disk, self.o.swap_mb)
+        Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_press("alt-f1", "ret")
 
     def _main(self, answer: str = "Next") -> None:
         """Complete Dinstall's main installation menu."""
-        self.d.answer(Choice("menu", self.menu, answer, regex=True))
+        self.d.answer(Answer("menu", self.menu, answer, regex=True))
 
     def _step(self, item: str) -> None:
         """Select one Dinstall menu step by label."""
         self.d.answer_until(
-            Choice("textbox", "Release Notes", "ok"),
-            Choice(
+            Answer("textbox", "Release Notes", "ok"),
+            Answer(
                 "menu",
                 self.menu,
                 item,
                 regex=True,
                 description=True,
                 item_regex=True,
-                terminal=True,
+                exit=True,
             ),
         )
 
@@ -142,16 +121,16 @@ class Dinstall:
             (r"Next :: Configure the Network", self._network),
             (r"Next :: Make Linux Bootable Directly From Hard Disk", self._lilo),
         )
-        choices = [Choice("textbox", "Release Notes", "ok")]
+        choices = [Answer("textbox", "Release Notes", "ok")]
         choices += [
-            Choice(
+            Answer(
                 "menu",
                 self.menu,
                 handler,
                 regex=True,
                 item=item,
                 item_regex=True,
-                terminal=i == len(handlers) - 1,
+                exit=i == len(handlers) - 1,
             )
             for i, (item, handler) in enumerate(handlers)
         ]
@@ -160,152 +139,151 @@ class Dinstall:
     def _keyboard(self, _: str) -> None:
         """Select the configured keyboard layout."""
         self._main()
-        self.d.answer(Choice("menu", "Select Keyboard", self.o.keymap))
+        self.d.answer(Answer("menu", "Select Keyboard", self.locale.keymap))
 
     def _swap(self, _: str) -> None:
         """Create and initialize the swap partition."""
         self._main()
         self.d.answer_until(
-            Choice("menu", r"Select (Disk|Swap) Partition", "/dev/hda1", regex=True),
-            Choice("yesno", "Scan for Bad Blocks?", "no"),
-            Choice("yesno", "Are You Sure?", "yes", terminal=True),
+            Answer("menu", r"Select (Disk|Swap) Partition", "/dev/hda1", regex=True),
+            Answer("yesno", "Scan for Bad Blocks?", "no"),
+            Answer("yesno", "Are You Sure?", "yes", exit=True),
         )
 
     def _root(self, _: str) -> None:
         """Create, format, and mount the root partition."""
         self._main()
         self.d.answer_until(
-            Choice("menu", r"Select (Disk )?Partition", "/dev/hda2", regex=True),
-            Choice("yesno", "Scan for Bad Blocks?", "no"),
-            Choice("yesno", "Are You Sure?", "yes"),
-            Choice("yesno", "Mount as the Root Filesystem?", "yes", terminal=True),
+            Answer("menu", r"Select (Disk )?Partition", "/dev/hda2", regex=True),
+            Answer("yesno", "Scan for Bad Blocks?", "no"),
+            Answer("yesno", "Are You Sure?", "yes"),
+            Answer("yesno", "Mount as the Root Filesystem?", "yes", exit=True),
         )
 
     def _base(self, _: str) -> None:
         """Install the Debian base system."""
         self._main()
         self.d.answer_until(
-            Choice(
+            Answer(
                 "menu",
                 "Select Installation Medium",
                 "already mounted filesystem",
                 description=True,
             ),
-            Choice("inputbox", "Choose Debian directory", self.o.fat_mount),
-            Choice("menu", "Select Base Archive file", "manually", description=True),
-            Choice("inputbox", "Enter the Base Archive directory", self.o.fat_mount),
-            Choice("menu", self.menu, None, regex=True, terminal=True),
+            Answer("inputbox", "Choose Debian directory", self.disk.fat_mount),
+            Answer("menu", "Select Base Archive file", "manually", description=True),
+            Answer("inputbox", "Enter the Base Archive directory", self.disk.fat_mount),
+            Answer("menu", self.menu, None, regex=True, exit=True),
         )
 
     def _kernel(self, _: str) -> None:
         """Install or configure the boot kernel."""
         self._main()
-        if self.o.kernel_floppy:
-            self.s.change_floppy(self.o.kernel_floppy)
+        if self.settings.kernel_floppy:
+            self.s.change_floppy(self.settings.kernel_floppy)
         self.d.answer_until(
-            Choice("menu", "Select Disk Drive", "/dev/fd0"),
-            Choice("msgbox", "Please Insert Disk", "ok", terminal=True),
-            Choice(
+            Answer("menu", "Select Disk Drive", "/dev/fd0"),
+            Answer("msgbox", "Please Insert Disk", "ok", exit=True),
+            Answer(
                 "menu",
                 "Select Installation Medium",
                 "already mounted filesystem",
                 description=True,
             ),
-            Choice("inputbox", "Choose Debian directory", self.o.fat_mount),
-            Choice("menu", "Select Base Archive file", "manually", description=True),
-            Choice(
+            Answer("inputbox", "Choose Debian directory", self.disk.fat_mount),
+            Answer("menu", "Select Base Archive file", "manually", description=True),
+            Answer(
                 "inputbox",
                 "Enter the Base Archive directory",
-                self.o.fat_mount,
-                terminal=True,
+                self.disk.fat_mount,
+                exit=True,
             ),
         )
 
     def _drivers(self, _: str) -> None:
         """Install optional driver disks."""
         self._main()
-        if not self.o.driver_floppy:
+        if not self.settings.driver_floppy:
             return
-        self.s.change_floppy(self.o.driver_floppy)
+        self.s.change_floppy(self.settings.driver_floppy)
         self.d.answer_until(
-            Choice("menu", "Select Disk Drive", "/dev/fd0"),
-            Choice("msgbox", "Please Insert Disk", "ok", terminal=True),
+            Answer("menu", "Select Disk Drive", "/dev/fd0"),
+            Answer("msgbox", "Please Insert Disk", "ok", exit=True),
         )
 
     def _modules(self, _: str) -> None:
         """Select any configured kernel modules."""
         self._main()
-        if self.o.net_module:
-            self._module("net", self.o.net_module, self.o.net_module_args)
-        if self.o.fs_module:
-            self._module("fs", self.o.fs_module, "")
-        self.d.answer(Choice("menu", "Select Category", "Exit"))
+        if self.network.net_module:
+            self._module("net", self.network.net_module, self.network.net_module_args)
+        if self.settings.fs_module:
+            self._module("fs", self.settings.fs_module, "")
+        self.d.answer(Answer("menu", "Select Category", "Exit"))
 
     def _module(self, category: str, module: str, arguments: str) -> None:
         """Install one Dinstall module and return to its category menu."""
         self.d.answer_until(
-            Choice("menu", "Select Category", category),
-            Choice("menu", rf"Select ({re.escape(category)} )? ?modules", module, regex=True),
-            Choice("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
-            Choice("inputbox", "Enter Command-Line Arguments", arguments, terminal=True),
+            Answer("menu", "Select Category", category),
+            Answer("menu", rf"Select ({re.escape(category)} )? ?modules", module, regex=True),
+            Answer("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
+            Answer("inputbox", "Enter Command-Line Arguments", arguments, exit=True),
         )
         self.s.vga_wait("Please press ENTER when you are ready to continue.", match=Match.LINE)
         self.s.kb_press("ret")
         self.d.answer(
-            Choice("menu", rf"Select ({re.escape(category)} )? ?modules", "Exit", regex=True)
+            Answer("menu", rf"Select ({re.escape(category)} )? ?modules", "Exit", regex=True)
         )
 
     def _configure_base(self, _: str) -> None:
         """Configure the installed Debian base system."""
         self._main()
-        if self.o.configure_keyboard:
+        if self.settings.configure_keyboard:
             self.s.serial.wait("TITLE: Keyboard Setup", line=True)
             self.s.serial.wait("TYPE: yesno", line=True)
             self.s.serial.prompt("RESPONSE:", answer="yes")
         self.s.vga_wait("Which?", match=Match.LINE)
-        self.s.kb_type(f"{self.o.timezone}\n")
+        self.s.kb_type(f"{self.locale.timezone}\n")
         self.s.vga_wait(r"Is your system clock set to GMT( \(y/n\) \[y\])?[?]", match=Match.REGEX)
         self.s.kb_type("y\n")
 
     def _network(self, _: str) -> None:
         """Configure hostname, domain, and networking."""
-        n = self.o.network
+        n = self.network
         self._main()
         self.d.answer_until(
-            Choice("inputbox", "Please enter your Host name", n.hostname),
-            Choice("yesno", "Use a Network?", "yes"),
-            Choice("inputbox", "Please enter your Domain name", n.domain),
-            Choice("yesno", "Confirm", "yes"),
-            Choice("inputbox", "Please Enter IP Address", n.ip),
-            Choice("inputbox", "Please Enter Netmask", n.netmask),
-            Choice("inputbox", "Please Enter Network Address", n.network),
-            Choice("inputbox", "Please Enter Broadcast Address", n.broadcast),
-            Choice(
+            Answer("inputbox", "Please enter your Host name", n.hostname),
+            Answer("yesno", "Use a Network?", "yes"),
+            Answer("inputbox", "Please enter your Domain name", n.domain),
+            Answer("yesno", "Confirm", "yes"),
+            Answer("inputbox", "Please Enter IP Address", n.ip),
+            Answer("inputbox", "Please Enter Netmask", n.netmask),
+            Answer("inputbox", "Please Enter Network Address", n.network),
+            Answer("inputbox", "Please Enter Broadcast Address", n.broadcast),
+            Answer(
                 "menu",
                 "Choose Broadcast Address",
                 "Last bits set to one",
                 description=True,
             ),
-            Choice("yesno", "Is there a Gateway?", "yes"),
-            Choice("inputbox", "Please Enter Gateway Address", n.gateway),
-            Choice("menu", "Locate DNS Server", "2"),
-            Choice("inputbox", "Please Enter Name Server Address", n.nameserver),
-            Choice("yesno", "Please Confirm", "yes"),
-            Choice("yesno", "Use Ethernet?", "yes", terminal=True),
-            Choice("menu", "Choose network interface", "eth0", terminal=True),
+            Answer("yesno", "Is there a Gateway?", "yes"),
+            Answer("inputbox", "Please Enter Gateway Address", n.gateway),
+            Answer("menu", "Locate DNS Server", "2"),
+            Answer("inputbox", "Please Enter Name Server Address", n.nameserver),
+            Answer("yesno", "Please Confirm", "yes"),
+            Answer("yesno", "Use Ethernet?", "yes", exit=True),
+            Answer("menu", "Choose network interface", "eth0", exit=True),
         )
 
     def _lilo(self, _: str) -> None:
         """Install and configure the LILO boot loader."""
         self._main()
         self.d.answer_until(
-            Choice("yesno", "Create Master Boot Record?", "yes"),
-            Choice("yesno", "Make Linux the Default Boot Partition?", "yes", terminal=True),
+            Answer("yesno", "Create Master Boot Record?", "yes"),
+            Answer("yesno", "Make Linux the Default Boot Partition?", "yes", exit=True),
         )
 
     def _first_boot(self) -> None:
         """Complete first-boot package and account configuration."""
-        o = self.o
         self._create_accounts()
         self._finish_finger_information()
         self._enable_shadow_passwords()
@@ -313,7 +291,7 @@ class Dinstall:
 
     def _create_accounts(self) -> None:
         """Set the root password and create the configured ordinary user."""
-        o = self.o
+        o = self.settings
         self.s.vga_wait("Changing password for root", match=Match.LINE)
         self.s.kb_type(f"{o.root_password}\n")
         self.s.kb_type(f"{o.root_password}\n")
@@ -370,8 +348,8 @@ class Dinstall:
 
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
-        o = self.o
-        hostname = o.network.hostname
+        o = self.settings
+        hostname = self.network.hostname
         self.s.vga_wait("Have fun!", match=Match.LINE)
         if o.relogin:
             self.s.vga_wait(f"{hostname} login:", match=Match.LINE)

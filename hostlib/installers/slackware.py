@@ -10,49 +10,19 @@ from __future__ import annotations
 
 import logging
 
-from pydantic import Field
-
-from ..dialog import Choice
+from ..dialog import Answer
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
-from ..schemas import ConfigModel, NetworkConfig
+from ..schemas import PkgtoolInstallConfig
 
 log = logging.getLogger(__name__)
 
 
-class PkgtoolOptions(ConfigModel):
-    """Configure Slackware Pkgtool automation.
-
-    Options describe target and source media, tagfile/package selection,
-    release-specific dialog presence, boot-loader choices, network identity,
-    timezone, mail mode, and post-install prompt behavior.
-    """
-
-    setup_hostname: str = "slackware"
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    fat_partition: str = "/dev/hdb1"
-    fat_mount: str = "/retro"
-    source: str = "/dev/hdc"
-    linux_partition: str = "/dev/hda2"
-    linux_partition_name: str = "linux"
-    lilo_framebuffer: str = "standard"
-    install_mode: str | None = None
-    tagfile_path: str | None = "/retro/tagfiles"
-    package_sets: str = '"A" "AP" "N" "X" "XAP"'
-    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="darkstar"))
-    timezone: str = "UTC"
-    modem_speed: str = "38400"
-    sendmail_mode: str = "SMTP"
-    postinst_prompt: str | None = None
-    xwmconfig: bool = False
-    source_before_target: bool = False
-    simple_lilo: bool = False
-
-
 def run_pkgtool(session: InstallSession) -> None:
-    """Run a Slackware Pkgtool installation with resolved options."""
-    boot = session.config.pkgtool_boot
+    """Run a Slackware Pkgtool installation with validated configuration."""
+    config = session.config.install
+    assert isinstance(config, PkgtoolInstallConfig)
+    boot = config.boot
     boot_pkgtool(
         session,
         boot_prompt=boot.boot_prompt or None,
@@ -71,20 +41,28 @@ class Pkgtool:
     unordered choice set to tolerate release-dependent omissions.
     """
 
-    def __init__(self, session: InstallSession, options: PkgtoolOptions | None = None) -> None:
-        """Initialize the Pkgtool driver with resolved release options."""
+    def __init__(
+        self, session: InstallSession, config: PkgtoolInstallConfig | None = None
+    ) -> None:
+        """Initialize the Pkgtool driver with typed release configuration."""
         self.s = session
-        self.o = options if options is not None else session.options(PkgtoolOptions)
+        config = config or session.config.install
+        assert isinstance(config, PkgtoolInstallConfig)
+        self.disk = config.disk
+        self.locale = config.locale
+        self.network = config.network
+        self.prompts = config.prompts
+        self.settings = config.slackware
         self.d = session.dialog
 
     def install(self) -> None:
         """Run the complete Slackware setup workflow."""
-        self.s.vga_wait(f"{self.o.setup_hostname} login:", match=Match.LINE)
+        self.s.vga_wait(f"{self.settings.setup_hostname} login:", match=Match.LINE)
         self.s.kb_type("root\n")
         self._prepare()
-        if self.o.install_mode:
+        if self.settings.install_mode:
             self._setup_step("QUICK")
-            self.d.answer(Choice("menu", "CHANGE INSTALL MODE", self.o.install_mode))
+            self.d.answer(Answer("menu", "CHANGE INSTALL MODE", self.settings.install_mode))
         self._setup_step("ADDSWAP")
         self._swap()
         self._target_and_source()
@@ -98,7 +76,7 @@ class Pkgtool:
 
     def _prepare(self) -> None:
         """Boot install media, partition the disk, and start setup."""
-        o = self.o
+        o = self.disk
         self.s.serial_shell_start()
         for command in (
             f"mkdir -p {o.fat_mount}",
@@ -115,67 +93,67 @@ class Pkgtool:
     def _setup_step(self, answer: str) -> None:
         """Select one item from the Slackware setup menu."""
         self.d.answer(
-            Choice("menu", r"Slackware(96)? Linux Setup \(version .*\)", answer, regex=True)
+            Answer("menu", r"Slackware(96)? Linux Setup \(version .*\)", answer, regex=True)
         )
 
     def _swap(self) -> None:
         """Configure the target swap partition."""
         self.d.answer_until(
-            Choice("yesno", "SWAP SPACE DETECTED", "yes"),
-            Choice("msgbox", "MKSWAP WARNING", "ok"),
-            Choice("yesno", "USE MKSWAP?", "yes"),
-            Choice("yesno", "ACTIVATE SWAP SPACE?", "yes"),
-            Choice("msgbox", "SWAP SPACE CONFIGURED", "ok"),
-            Choice("yesno", "CONTINUE WITH INSTALLATION?", "yes", terminal=True),
+            Answer("yesno", "SWAP SPACE DETECTED", "yes"),
+            Answer("msgbox", "MKSWAP WARNING", "ok"),
+            Answer("yesno", "USE MKSWAP?", "yes"),
+            Answer("yesno", "ACTIVATE SWAP SPACE?", "yes"),
+            Answer("msgbox", "SWAP SPACE CONFIGURED", "ok"),
+            Answer("yesno", "CONTINUE WITH INSTALLATION?", "yes", exit=True),
         )
 
     def _target_and_source(self) -> None:
         """Configure the target filesystem and package source."""
-        if self.o.source_before_target:
+        if self.settings.source_before_target:
             self._select_source()
         self._select_target()
         self._mount_fat_partition()
-        if not self.o.source_before_target:
+        if not self.settings.source_before_target:
             self._select_source()
 
     def _select_target(self) -> None:
         """Select and format the configured Linux target partition."""
-        o = self.o
+        o = self.disk
         self.d.answer_until(
-            Choice("menu", "Select Linux installation partition:", o.linux_partition),
-            Choice("msgbox", "Using this partition for Linux:", "ok"),
-            Choice(
+            Answer("menu", "Select Linux installation partition:", o.linux_partition),
+            Answer("msgbox", "Using this partition for Linux:", "ok"),
+            Answer(
                 "menu",
                 r"(CHOOSE LINUX FILESYSTEM|SELECT FILESYSTEM FOR .*)",
                 "ext2",
                 regex=True,
             ),
-            Choice("menu", r"FORMAT PARTITION( .*)?", "Format", regex=True),
-            Choice("menu", r"SELECT INODE DENSITY( .*)?", "4096", regex=True),
-            Choice("msgbox", "DONE ADDING LINUX PARTITIONS TO /etc/fstab", "ok"),
-            Choice("yesno", "DOS AND OS/2 PARTITION SETUP", "yes", terminal=True),
-            Choice(
+            Answer("menu", r"FORMAT PARTITION( .*)?", "Format", regex=True),
+            Answer("menu", r"SELECT INODE DENSITY( .*)?", "4096", regex=True),
+            Answer("msgbox", "DONE ADDING LINUX PARTITIONS TO /etc/fstab", "ok"),
+            Answer("yesno", "DOS AND OS/2 PARTITION SETUP", "yes", exit=True),
+            Answer(
                 "yesno",
                 r"FAT/FAT32(/HPFS)? PARTITIONS DETECTED",
                 "yes",
                 regex=True,
-                terminal=True,
+                exit=True,
             ),
         )
 
     def _mount_fat_partition(self) -> None:
         """Add the staged FAT partition to the installed filesystem table."""
-        o = self.o
+        o = self.disk
         self.d.answer_until(
-            Choice("inputbox", "CHOOSE PARTITION", o.fat_partition),
-            Choice("menu", "CHOOSE PARTITION", o.fat_partition),
-            Choice("menu", "SELECT PARTITION TO ADD TO /etc/fstab", o.fat_partition),
-            Choice("inputbox", "SELECT MOUNT POINT", o.fat_mount),
-            Choice("inputbox", r"PICK MOUNT POINT FOR .*", o.fat_mount, regex=True),
-            Choice("msgbox", "CURRENT DOS/HPFS PARTITION STATUS", "ok"),
-            Choice("msgbox", r"DONE ADDING FAT/FAT32(/HPFS)? PARTITIONS", "ok", regex=True),
-            Choice("inputbox", "CHOOSE PARTITION", "q"),
-            Choice("yesno", "CONTINUE?", "yes", terminal=True),
+            Answer("inputbox", "CHOOSE PARTITION", o.fat_partition),
+            Answer("menu", "CHOOSE PARTITION", o.fat_partition),
+            Answer("menu", "SELECT PARTITION TO ADD TO /etc/fstab", o.fat_partition),
+            Answer("inputbox", "SELECT MOUNT POINT", o.fat_mount),
+            Answer("inputbox", r"PICK MOUNT POINT FOR .*", o.fat_mount, regex=True),
+            Answer("msgbox", "CURRENT DOS/HPFS PARTITION STATUS", "ok"),
+            Answer("msgbox", r"DONE ADDING FAT/FAT32(/HPFS)? PARTITIONS", "ok", regex=True),
+            Answer("inputbox", "CHOOSE PARTITION", "q"),
+            Answer("yesno", "CONTINUE?", "yes", exit=True),
         )
 
     def _select_source(self) -> None:
@@ -185,167 +163,166 @@ class Pkgtool:
         FAT source uses the already mounted package directory. Unknown devices
         deliberately fall back to manual selection before automation resumes.
         """
-        o = self.o
-        if o.source == "/dev/hdc":
+        source = self.settings.source
+        if source == "/dev/hdc":
             self.d.answer_until(
-                Choice("menu", "SOURCE MEDIA SELECTION", "CD-ROM", description=True),
-                Choice(
+                Answer("menu", "SOURCE MEDIA SELECTION", "CD-ROM", description=True),
+                Answer(
                     "menu",
                     "Install from the Slackware CD-ROM",
                     r"(IDE.*CD drives|ATAPI/IDE CD drives)",
                     description=True,
                     item_regex=True,
                 ),
-                Choice("menu", "SCAN FOR CD-ROM DRIVE?", "manual"),
-                Choice("menu", "SELECT IDE DEVICE", o.source),
-                Choice("menu", "MANUAL CD-ROM DEVICE SELECTION", o.source),
-                Choice("yesno", r"USING CD-ROM DRIVE:.*", "no", regex=True),
-                Choice("menu", "Pick your installation method", "slakware"),
-                Choice("menu", "CHOOSE INSTALLATION TYPE", "slakware"),
-                Choice("yesno", "CONTINUE?", "yes", terminal=True),
+                Answer("menu", "SCAN FOR CD-ROM DRIVE?", "manual"),
+                Answer("menu", "SELECT IDE DEVICE", source),
+                Answer("menu", "MANUAL CD-ROM DEVICE SELECTION", source),
+                Answer("yesno", r"USING CD-ROM DRIVE:.*", "no", regex=True),
+                Answer("menu", "Pick your installation method", "slakware"),
+                Answer("menu", "CHOOSE INSTALLATION TYPE", "slakware"),
+                Answer("yesno", "CONTINUE?", "yes", exit=True),
             )
-        elif o.source == o.fat_partition:
-            self.d.answer(Choice("menu", "SOURCE MEDIA SELECTION", "4"))
+        elif source == self.disk.fat_partition:
+            self.d.answer(Answer("menu", "SOURCE MEDIA SELECTION", "4"))
             self.d.answer(
-                Choice(
+                Answer(
                     "inputbox",
                     "INSTALL FROM THE CURRENT FILESYSTEM",
-                    f"{o.fat_mount}/packages",
+                    f"{self.disk.fat_mount}/packages",
                 )
             )
-            self.d.answer(Choice("yesno", "CONTINUE?", "yes"))
+            self.d.answer(Answer("yesno", "CONTINUE?", "yes"))
         else:
             log.warning("Manual package source selection required; automation will resume")
-            self.d.answer(Choice("yesno", "CONTINUE?", "yes"))
+            self.d.answer(Answer("yesno", "CONTINUE?", "yes"))
 
     def _sets(self) -> None:
         """Select package series and start package installation."""
-        mode = "custom path" if self.o.tagfile_path else "default tagfiles"
+        mode = "custom path" if self.settings.tagfile_path else "default tagfiles"
         self.d.answer_until(
-            Choice(
+            Answer(
                 "checklist",
                 r"(PACKAGE |SOFTWARE )?SERIES SELECTION",
-                self.o.package_sets,
+                self.settings.package_sets,
                 regex=True,
             ),
-            Choice("yesno", "CONTINUE?", "yes"),
-            Choice("menu", "SELECT PROMPTING MODE", mode, description=True, terminal=True),
+            Answer("yesno", "CONTINUE?", "yes"),
+            Answer("menu", "SELECT PROMPTING MODE", mode, description=True, exit=True),
         )
-        if self.o.tagfile_path:
+        if self.settings.tagfile_path:
             self.d.answer(
-                Choice(
+                Answer(
                     "inputbox",
                     "PROVIDE A CUSTOM PATH TO YOUR TAGFILES",
-                    self.o.tagfile_path,
+                    self.settings.tagfile_path,
                 )
             )
 
     def _configure(self) -> None:
         """Answer boot loader, network, time-zone, and service dialogs."""
-        o = self.o
+        o = self.settings
         self.d.answer_until(
-            Choice("yesno", "CONFIGURE YOUR SYSTEM?", "yes"),
-            Choice("menu", "MAKE BOOTDISK", "continue"),
-            Choice("yesno", "MAKE BOOT DISK?", "no"),
-            Choice("msgbox", "SKIPPED BOOT DISK CREATION", "ok"),
-            Choice("yesno", "MODEM CONFIGURATION", "no"),
-            Choice("menu", "MODEM CONFIGURATION", "no modem"),
-            Choice("yesno", "MOUSE CONFIGURATION", "no"),
-            Choice("menu", "MOUSE CONFIGURATION", "ps2"),
-            Choice("yesno", "CONFIGURE CD-ROM?", "no"),
-            Choice("yesno", "SCREEN FONT CONFIGURATION", "no"),
-            Choice("yesno", "CONSOLE FONT CONFIGURATION", "no"),
-            Choice("yesno", "FTAPE CONFIGURATION", "no"),
-            Choice("menu", "SET YOUR MODEM SPEED", o.modem_speed),
-            Choice("menu", "INSTALL LINUX KERNEL", "skip"),
-            Choice("menu", "INSTALL LILO", self._lilo),
-            Choice("menu", "LILO INSTALLATION", self._lilo),
-            Choice("yesno", "CONFIGURE NETWORK?", self._network),
-            Choice("yesno", "GPM CONFIGURATION", "no"),
-            Choice("yesno", "ENABLE HOTPLUG SUBSYSTEM AT BOOT?", "no"),
-            Choice("yesno", "SELECTION 1.5 CONFIGURATION", "no"),
-            Choice("menu", "SENDMAIL CONFIGURATION", self._sendmail),
-            Choice("menu", "HARDWARE CLOCK SET TO UTC?", "YES"),
-            Choice("menu", "TIMEZONE CONFIGURATION", self._timezone),
-            Choice("yesno", "WARNING: NO ROOT PASSWORD DETECTED", "no"),
-            Choice("msgbox", "SETUP COMPLETE", "ok", terminal=True),
+            Answer("yesno", "CONFIGURE YOUR SYSTEM?", "yes"),
+            Answer("menu", "MAKE BOOTDISK", "continue"),
+            Answer("yesno", "MAKE BOOT DISK?", "no"),
+            Answer("msgbox", "SKIPPED BOOT DISK CREATION", "ok"),
+            Answer("yesno", "MODEM CONFIGURATION", "no"),
+            Answer("menu", "MODEM CONFIGURATION", "no modem"),
+            Answer("yesno", "MOUSE CONFIGURATION", "no"),
+            Answer("menu", "MOUSE CONFIGURATION", "ps2"),
+            Answer("yesno", "CONFIGURE CD-ROM?", "no"),
+            Answer("yesno", "SCREEN FONT CONFIGURATION", "no"),
+            Answer("yesno", "CONSOLE FONT CONFIGURATION", "no"),
+            Answer("yesno", "FTAPE CONFIGURATION", "no"),
+            Answer("menu", "SET YOUR MODEM SPEED", o.modem_speed),
+            Answer("menu", "INSTALL LINUX KERNEL", "skip"),
+            Answer("menu", "INSTALL LILO", self._lilo),
+            Answer("menu", "LILO INSTALLATION", self._lilo),
+            Answer("yesno", "CONFIGURE NETWORK?", self._network),
+            Answer("yesno", "GPM CONFIGURATION", "no"),
+            Answer("yesno", "ENABLE HOTPLUG SUBSYSTEM AT BOOT?", "no"),
+            Answer("yesno", "SELECTION 1.5 CONFIGURATION", "no"),
+            Answer("menu", "SENDMAIL CONFIGURATION", self._sendmail),
+            Answer("menu", "HARDWARE CLOCK SET TO UTC?", "YES"),
+            Answer("menu", "TIMEZONE CONFIGURATION", self._timezone),
+            Answer("yesno", "WARNING: NO ROOT PASSWORD DETECTED", "no"),
+            Answer("msgbox", "SETUP COMPLETE", "ok", exit=True),
         )
 
     def _lilo(self, title: str) -> None:
         """Configure and install LILO for the selected Slackware release."""
-        o = self.o
+        o = self.settings
         if o.simple_lilo:
-            self.d.answer(Choice("menu", title, "2"))
+            self.d.answer(Answer("menu", title, "2"))
             return
         if title == "INSTALL LILO":
-            self.d.answer(Choice("menu", title, "expert"))
+            self.d.answer(Answer("menu", title, "expert"))
             title = "EXPERT LILO INSTALLATION"
         self.d.answer_until(
-            Choice("menu", title, "Begin"),
-            Choice("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
-            Choice("menu", "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?", o.lilo_framebuffer),
-            Choice("menu", "SELECT LILO TARGET LOCATION", "MBR"),
-            Choice("inputbox", "CONFIRM LOCATION TO INSTALL LILO", o.target_disk),
-            Choice("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
-            Choice("menu", title, "Linux"),
-            Choice("inputbox", "SELECT LINUX PARTITION", o.linux_partition),
-            Choice("inputbox", "SELECT PARTITION NAME", o.linux_partition_name),
-            Choice("menu", title, "Install", terminal=True),
+            Answer("menu", title, "Begin"),
+            Answer("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
+            Answer("menu", "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?", o.lilo_framebuffer),
+            Answer("menu", "SELECT LILO TARGET LOCATION", "MBR"),
+            Answer("inputbox", "CONFIRM LOCATION TO INSTALL LILO", self.disk.target_disk),
+            Answer("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
+            Answer("menu", title, "Linux"),
+            Answer("inputbox", "SELECT LINUX PARTITION", self.disk.linux_partition),
+            Answer("inputbox", "SELECT PARTITION NAME", self.disk.linux_partition_name),
+            Answer("menu", title, "Install", exit=True),
         )
 
     def _network(self, title: str) -> None:
         """Configure the Slackware hostname and static network settings."""
-        n = self.o.network
-        self.d.answer(Choice("yesno", title, "yes"))
+        n = self.network
+        self.d.answer(Answer("yesno", title, "yes"))
         self.d.answer_until(
-            Choice("msgbox", "NETWORK CONFIGURATION", ""),
-            Choice("inputbox", "ENTER HOSTNAME", n.hostname),
-            Choice("inputbox", r"ENTER DOMAINNAME( FOR .*)?", n.domain, regex=True),
-            Choice("yesno", "LOOPBACK ONLY?", "no"),
-            Choice("menu", r"SETUP IP (ADDRESS )?FOR .*", "static IP", regex=True),
-            Choice("inputbox", r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)", n.ip, regex=True),
-            Choice("inputbox", "ENTER NETWORK ADDRESS", n.network),
-            Choice("inputbox", "ENTER BROADCAST ADDRESS", n.broadcast),
-            Choice("inputbox", "ENTER GATEWAY ADDRESS", n.gateway),
-            Choice("inputbox", r"ENTER NETMASK( .*)?", n.netmask, regex=True),
-            Choice("yesno", "USE A NAMESERVER?", "yes"),
-            Choice("inputbox", "SELECT NAMESERVER", n.nameserver),
-            Choice("menu", "PROBE FOR NETWORK CARD?", "probe"),
-            Choice("msgbox", "CARD DETECTED", "ok"),
-            Choice("msgbox", "NETWORK SETUP COMPLETE", "ok", terminal=True),
-            Choice("yesno", "NETWORK SETUP COMPLETE", "yes", terminal=True),
-            Choice("inputmenu", "CONFIRM NETWORK SETUP", "", terminal=True),
+            Answer("msgbox", "NETWORK CONFIGURATION", ""),
+            Answer("inputbox", "ENTER HOSTNAME", n.hostname),
+            Answer("inputbox", r"ENTER DOMAINNAME( FOR .*)?", n.domain, regex=True),
+            Answer("yesno", "LOOPBACK ONLY?", "no"),
+            Answer("menu", r"SETUP IP (ADDRESS )?FOR .*", "static IP", regex=True),
+            Answer("inputbox", r"ENTER (LOCAL IP ADDRESS|IP ADDRESS FOR .*)", n.ip, regex=True),
+            Answer("inputbox", "ENTER NETWORK ADDRESS", n.network),
+            Answer("inputbox", "ENTER BROADCAST ADDRESS", n.broadcast),
+            Answer("inputbox", "ENTER GATEWAY ADDRESS", n.gateway),
+            Answer("inputbox", r"ENTER NETMASK( .*)?", n.netmask, regex=True),
+            Answer("yesno", "USE A NAMESERVER?", "yes"),
+            Answer("inputbox", "SELECT NAMESERVER", n.nameserver),
+            Answer("menu", "PROBE FOR NETWORK CARD?", "probe"),
+            Answer("msgbox", "CARD DETECTED", "ok"),
+            Answer("msgbox", "NETWORK SETUP COMPLETE", "ok", exit=True),
+            Answer("yesno", "NETWORK SETUP COMPLETE", "yes", exit=True),
+            Answer("inputmenu", "CONFIRM NETWORK SETUP", "", exit=True),
         )
 
     def _timezone(self, title: str) -> None:
         """Select the configured time zone and optional window manager."""
-        self.d.answer(Choice("menu", title, self.o.timezone))
+        self.d.answer(Answer("menu", title, self.locale.timezone))
         self._xwmconfig()
 
     def _sendmail(self, title: str) -> None:
         """Select the configured sendmail mode and optional window manager."""
-        self.d.answer(Choice("menu", title, self.o.sendmail_mode))
+        self.d.answer(Answer("menu", title, self.settings.sendmail_mode))
         self._xwmconfig()
 
     def _xwmconfig(self) -> None:
         """Select the default window manager when its prompt is enabled."""
-        if not self.o.xwmconfig:
+        if not self.settings.xwmconfig:
             return
         try:
             self.s.vga_wait("SELECT DEFAULT WINDOW MANAGER FOR X", timeout=1)
         except TimeoutError:
             return
         self.s.kb_press("spc", "ret")
-        self.o.xwmconfig = False
+        self.settings.xwmconfig = False
 
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
-        o = self.o
-        hostname = o.network.hostname
+        hostname = self.network.hostname
         self.s.vga_wait(f"{hostname} login:", match=Match.LINE)
         self.s.kb_type("root\n")
-        self.s.vga_wait(o.postinst_prompt or f"{hostname}:~#", match=Match.LINE)
-        self.s.kb_type(f"{o.fat_mount}/guestlib.d/postinst.sh\n")
+        self.s.vga_wait(self.prompts.postinst_prompt or f"{hostname}:~#", match=Match.LINE)
+        self.s.kb_type(f"{self.disk.fat_mount}/guestlib.d/postinst.sh\n")
 
 
 def boot_pkgtool(
@@ -356,7 +333,7 @@ def boot_pkgtool(
     root_image: str = "root.img",
     continuation_prompt: str | None = None,
     keyboard_prompt: bool = False,
-    options: PkgtoolOptions | None = None,
+    config: PkgtoolInstallConfig | None = None,
 ) -> None:
     """Boot Slackware install media and prepare the Pkgtool session."""
     if boot_prompt:
@@ -372,4 +349,4 @@ def boot_pkgtool(
     if keyboard_prompt:
         session.vga_wait("Enter 1 to select a keyboard map:", match=Match.LINE)
         session.kb_type("\n")
-    Pkgtool(session, options).install()
+    Pkgtool(session, config).install()

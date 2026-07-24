@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import tarfile
+from typing import BinaryIO, Callable
 import zipfile
 
 import py7zr
@@ -32,22 +33,6 @@ from .schemas import (
     Overlay,
     PostinstConfig,
 )
-
-Extraction = ExtractionConfig
-
-
-def toml_extraction(config: RetroConfig) -> Extraction:
-    """Build and validate a standard extraction plan from TOML.
-
-    Selected source media is staged before a custom script; declarative
-    postprocessing follows it. Unknown keys and incorrectly typed fields are
-    rejected before media is modified.
-
-    Raises:
-        ConfigError: If ``[extract]`` does not match the supported schema.
-    """
-    return config.extraction
-
 
 class Iso:
     """Provide case-tolerant access through an ISO's richest namespace.
@@ -94,6 +79,14 @@ class Iso:
     def close(self) -> None:
         """Close the ISO image and its backing stream."""
         self.image.close()
+
+    def __enter__(self) -> "Iso":
+        """Return this open ISO image."""
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        """Close the ISO image when its context ends."""
+        self.close()
 
     def extract_file(self, source: str, destination: Path) -> None:
         """Extract one file from the ISO namespace.
@@ -155,7 +148,7 @@ class MediaStager:
         """Initialize staging for the selected distro configuration."""
         self.context = context
         self.config = config
-        self.directory = context.extract_dir
+        self.directory = context.qemu_dir
 
     def extract(self) -> None:
         """Stage the selected config unless its extraction marker is current.
@@ -170,7 +163,7 @@ class MediaStager:
             return
         if not self.config.section("extract"):
             raise ConfigError(f"No [extract] configuration for {self.context.name}")
-        spec = toml_extraction(self.config)
+        spec = self.config.extraction
         shell_script: Path | None = None
         if spec.custom_script:
             shell_script = self.context.find(spec.custom_script)
@@ -194,7 +187,7 @@ class MediaStager:
         marker.touch()
 
     @staticmethod
-    def _needs_staging(spec: Extraction) -> bool:
+    def _needs_staging(spec: ExtractionConfig) -> bool:
         """Return whether declarative extraction needs downloaded source media.
 
         An omitted ``extract.source`` means the config's ``download.d``
@@ -258,7 +251,7 @@ class MediaStager:
         if result.returncode:
             raise CommandError(f"Could not stage {source} in {boot}")
 
-    def _stage(self, spec: Extraction) -> None:
+    def _stage(self, spec: ExtractionConfig) -> None:
         """Stage selected source media before a custom extraction hook."""
         source = self._extraction_source(spec)
         files = [
@@ -280,46 +273,67 @@ class MediaStager:
             self._stage_iso(source, spec, files)
         elif source.is_dir():
             self._stage_directory(source, spec, files)
-        elif tarfile.is_tarfile(source):
-            self._stage_tar(source, spec, files)
-        elif source.suffix.lower() == ".7z":
-            self._stage_7z(source, spec, files)
-        elif zipfile.is_zipfile(source):
-            self._stage_zip(source, spec, files)
+        elif (
+            tarfile.is_tarfile(source)
+            or source.suffix.lower() == ".7z"
+            or zipfile.is_zipfile(source)
+        ):
+            self._stage_archive(source, spec, files)
         else:
             raise ConfigError(f"Unsupported extraction source: {source.name}")
 
-    def _stage_7z(self, source: Path, spec: Extraction, files: list[str]) -> None:
-        """Select declared files from a 7-Zip source."""
-        with py7zr.SevenZipFile(source, "r") as archive:
-            names = [entry.filename for entry in archive.list() if entry.is_file]
-            selected = self._selected_archive_members(names, spec, files)
-            temporary = self.context.temporary / "7z"
-            shutil.rmtree(temporary, ignore_errors=True)
-            temporary.mkdir()
-            for name in selected:
-                self._safe_child(temporary, Path(name))
-            archive.extract(path=temporary, targets=selected)
+    def _stage_archive(
+        self, source: Path, spec: ExtractionConfig, files: list[str]
+    ) -> None:
+        """Extract selected regular archive members, then use directory staging."""
+        temporary = self.context.temporary / "archive"
+        shutil.rmtree(temporary, ignore_errors=True)
+        temporary.mkdir()
+        if tarfile.is_tarfile(source):
+            with tarfile.open(source) as archive:
+                members = {
+                    member.name: member
+                    for member in archive.getmembers()
+                    if member.isfile()
+                }
+                selected = self._selected_archive_members(list(members), spec, files)
+                self._extract_members(
+                    selected,
+                    temporary,
+                    lambda name: archive.extractfile(members[name]),
+                )
+        elif source.suffix.lower() == ".7z":
+            with py7zr.SevenZipFile(source, "r") as archive:
+                names = [entry.filename for entry in archive.list() if entry.is_file]
+                selected = self._selected_archive_members(names, spec, files)
+                for name in selected:
+                    self._safe_child(temporary, Path(name))
+                archive.extract(path=temporary, targets=selected)
+        else:
+            with zipfile.ZipFile(source) as archive:
+                names = [entry.filename for entry in archive.infolist() if not entry.is_dir()]
+                selected = self._selected_archive_members(names, spec, files)
+                self._extract_members(selected, temporary, archive.open)
         self._stage_directory(temporary, spec, files)
 
-    def _stage_zip(self, source: Path, spec: Extraction, files: list[str]) -> None:
-        """Select declared files from a ZIP source."""
-        with zipfile.ZipFile(source) as archive:
-            names = [entry.filename for entry in archive.infolist() if not entry.is_dir()]
-            selected = self._selected_archive_members(names, spec, files)
-            temporary = self.context.temporary / "zip"
-            shutil.rmtree(temporary, ignore_errors=True)
-            temporary.mkdir()
-            for name in selected:
-                target = self._safe_child(temporary, Path(name))
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with archive.open(name) as source_file, target.open("wb") as output:
-                    shutil.copyfileobj(source_file, output)
-        self._stage_directory(temporary, spec, files)
+    def _extract_members(
+        self,
+        names: list[str],
+        destination: Path,
+        open_member: Callable[[str], BinaryIO | None],
+    ) -> None:
+        """Copy selected streaming archive members beneath a safe destination."""
+        for name in names:
+            target = self._safe_child(destination, Path(name))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source_file = open_member(name)
+            assert source_file is not None
+            with source_file, target.open("wb") as output:
+                shutil.copyfileobj(source_file, output)
 
     @staticmethod
     def _selected_archive_members(
-        names: list[str], spec: Extraction, files: list[str]
+        names: list[str], spec: ExtractionConfig, files: list[str]
     ) -> list[str]:
         """Select regular archive members required by declarative staging."""
         selected: set[str] = set()
@@ -336,28 +350,29 @@ class MediaStager:
             selected.update(matches)
         return sorted(selected)
 
-    def _extraction_source(self, spec: Extraction) -> Path:
+    def _extraction_source(self, spec: ExtractionConfig) -> Path:
         """Resolve the configured extraction source path."""
         configured = Path(spec.source)
         if configured.is_absolute():
             return configured
         return self.config.download_dir / configured
 
-    def _stage_iso(self, source: Path, spec: Extraction, files: list[str]) -> None:
+    def _stage_iso(
+        self, source: Path, spec: ExtractionConfig, files: list[str]
+    ) -> None:
         """Stage selected files and a package tree from an ISO image."""
         self._link(source, self.directory / "install.iso")
-        image = Iso(source)
-        try:
+        with Iso(source) as image:
             for item in files:
                 image.extract_files(item, self.directory)
             for item in spec.fat_files:
                 image.extract_files(item, self.directory / "fat")
             for package_source in self._package_sources(spec):
                 image.extract_tree(package_source, self._package_destination(spec))
-        finally:
-            image.close()
 
-    def _stage_directory(self, source: Path, spec: Extraction, files: list[str]) -> None:
+    def _stage_directory(
+        self, source: Path, spec: ExtractionConfig, files: list[str]
+    ) -> None:
         """Stage selected files and packages from an extracted directory."""
         for item in files:
             self._copy_matches(source, item, self.directory)
@@ -371,57 +386,10 @@ class MediaStager:
                 ignore=shutil.ignore_patterns(".complete"),
             )
 
-    def _stage_tar(self, source: Path, spec: Extraction, files: list[str]) -> None:
-        """Stage selected files and a package tree from a tar archive."""
-        with tarfile.open(source) as archive:
-            members = [member for member in archive.getmembers() if member.isfile()]
-            for pattern in files:
-                self._extract_tar_matches(archive, members, pattern, self.directory, flatten=True)
-            for pattern in spec.fat_files:
-                self._extract_tar_matches(
-                    archive, members, pattern, self.directory / "fat", flatten=True
-                )
-            for package_source in self._package_sources(spec):
-                prefix = package_source.strip("/")
-                selected = [
-                    member for member in members if member.name.strip("/").startswith(f"{prefix}/")
-                ]
-                if not selected:
-                    raise ConfigError(f"Archive path not found: {package_source}")
-                destination = self._package_destination(spec)
-                for member in selected:
-                    relative = Path(member.name.strip("/")).parts[len(Path(prefix).parts) :]
-                    target = self._safe_child(destination, Path(*relative))
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    with archive.extractfile(member) as source_file, target.open("wb") as output:
-                        assert source_file is not None
-                        shutil.copyfileobj(source_file, output)
-
     @staticmethod
-    def _package_sources(spec: Extraction) -> list[str]:
+    def _package_sources(spec: ExtractionConfig) -> list[str]:
         """Return the normalized singular or plural package-tree selectors."""
         return spec.package_sources or ([spec.package_source] if spec.package_source else [])
-
-    @staticmethod
-    def _extract_tar_matches(
-        archive: tarfile.TarFile,
-        members: list[tarfile.TarInfo],
-        pattern: str,
-        destination: Path,
-        *,
-        flatten: bool,
-    ) -> None:
-        """Extract matching regular tar members without trusting archive paths."""
-        matches = [member for member in members if fnmatch.fnmatch(member.name, pattern)]
-        if not matches:
-            raise ConfigError(f"Archive path not found: {pattern}")
-        for member in matches:
-            relative = Path(member.name).name if flatten else member.name
-            target = MediaStager._safe_child(destination, Path(relative))
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with archive.extractfile(member) as source_file, target.open("wb") as output:
-                assert source_file is not None
-                shutil.copyfileobj(source_file, output)
 
     @staticmethod
     def _safe_child(directory: Path, relative: Path) -> Path:
@@ -431,7 +399,7 @@ class MediaStager:
             raise ConfigError(f"Archive path escapes destination: {relative}")
         return target
 
-    def _package_destination(self, spec: Extraction) -> Path:
+    def _package_destination(self, spec: ExtractionConfig) -> Path:
         """Resolve the configured package destination beneath the FAT tree."""
         return self._safe_child(self.directory / "fat", Path(spec.package_dest))
 
@@ -452,7 +420,7 @@ class MediaStager:
         if path.is_absolute() or ".." in path.parts or path == Path("."):
             raise ConfigError(f"Source path escapes extraction source: {value}")
 
-    def _postprocess(self, spec: Extraction) -> None:
+    def _postprocess(self, spec: ExtractionConfig) -> None:
         """Normalize staged media and apply declarative follow-up actions.
 
         Compressed images are expanded before truncation and conventional boot

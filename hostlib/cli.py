@@ -72,26 +72,27 @@ class Application:
             case "download":
                 Downloader(self.context, self.config).run()
             case "extract":
-                Downloader(self.context, self.config).run()
-                MediaStager(self.context, self.config).extract()
+                self._prepare_media()
             case "reset":
                 self.reset()
             case "tagfile":
-                Downloader(self.context, self.config).run()
-                MediaStager(self.context, self.config).extract()
+                self._prepare_media()
                 generate_default_tag(self.context, self.context.qemu_dir)
             case "package":
-                Downloader(self.context, self.config).run()
-                MediaStager(self.context, self.config).extract()
+                self._prepare_media()
                 package(self.context, self.config)
+
+    def _prepare_media(self) -> None:
+        """Download and stage all media required by later operations."""
+        Downloader(self.context, self.config).run()
+        MediaStager(self.context, self.config).extract()
 
     def boot(self, *, install: bool) -> None:
         """Stage media and start QEMU for a boot or automated install."""
         qemu_config = load_qemu_config(self.config)
         if install:
             validate_install_config(self.config)
-        Downloader(self.context, self.config).run()
-        MediaStager(self.context, self.config).extract()
+        self._prepare_media()
         asyncio.run(self._run_vm(qemu_config, install=install))
 
     async def _run_vm(self, qemu_config: QemuConfig, *, install: bool) -> None:

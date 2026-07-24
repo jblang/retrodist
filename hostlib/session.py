@@ -39,8 +39,7 @@ class _InstallRuntime:
     """Own the asynchronous transports hidden behind ``InstallSession``.
 
     The QMP monitor is supplied by the QEMU lifecycle. This object adds the VGA
-    observer and dedicated ``ttyS3`` automation console and closes them as a
-    unit when installation ends or fails.
+    observer and owns the dedicated ``ttyS3`` automation console.
     """
 
     def __init__(self, monitor: Monitor, qemu_dir: Path) -> None:
@@ -50,13 +49,11 @@ class _InstallRuntime:
         self.serial = SerialConsole(qemu_dir / "ttyS3.sock")
 
     async def start(self) -> None:
-        """Start VGA observation and the automation serial console."""
-        await self.vga.start()
+        """Start the automation serial console."""
         await self.serial.start()
 
     async def close(self) -> None:
-        """Close VGA and serial transports."""
-        await self.vga.close()
+        """Close the automation serial console."""
         await self.serial.close()
 
 
@@ -152,16 +149,12 @@ class InstallSession:
         self.serial = Serial(self)
         self.dialog = Dialog(self.serial)
 
-    def options(self, cls: type[T]) -> T:
-        """Build the requested installer options from resolved TOML values."""
-        return self.config.options(cls)
-
     @property
     def postinst_command(self) -> str:
         """Return the guest command that mounts FAT media and runs post-installation.
 
-        The mount device and path come from installer options so distributions
-        with nonstandard disk layouts use the same global guest runner.
+        The mount device and path come from the install disk section so
+        distributions with nonstandard layouts use the same global guest runner.
         """
         common = self.config.install_common
         mount = common.fat_mount

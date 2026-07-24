@@ -8,24 +8,13 @@ staged package layout, answers package prompts, and performs system setup.
 from __future__ import annotations
 
 from ..fdisk import Fdisk
-from ..schemas import ConfigModel
+from ..schemas import SysinstallInstallConfig
 from ..session import InstallSession, Match
 
 
 def run_sysinstall(session: InstallSession) -> None:
     """Run an early Slackware Sysinstall installation."""
     Sysinstall(session).install()
-
-
-class SysinstallOptions(ConfigModel):
-    """Configure early Slackware Sysinstall automation."""
-
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    swap_partition: str = "/dev/hda1"
-    swap_blocks: int = 64000
-    linux_partition: str = "/dev/hda2"
-    fat_partition: str = "/dev/hdb1"
 
 
 class Sysinstall:
@@ -35,10 +24,14 @@ class Sysinstall:
     retaining a single ordered installation workflow.
     """
 
-    def __init__(self, session: InstallSession, options: SysinstallOptions | None = None) -> None:
-        """Initialize the Sysinstall driver with resolved release options."""
+    def __init__(
+        self, session: InstallSession, config: SysinstallInstallConfig | None = None
+    ) -> None:
+        """Initialize the Sysinstall driver with typed release configuration."""
         self.s = session
-        self.o = options if options is not None else session.options(SysinstallOptions)
+        config = config or session.config.install
+        assert isinstance(config, SysinstallInstallConfig)
+        self.disk = config.disk
 
     def _prompt(self, *questions: str, answer: str, regex: bool = False) -> None:
         """Wait for a Sysinstall question and type its answer."""
@@ -62,7 +55,7 @@ class Sysinstall:
 
     def _prepare_disk(self) -> None:
         """Log in, partition the target, and create its filesystems."""
-        o = self.o
+        o = self.disk
         self.s.vga_wait("darkstar login:", match=Match.LINE)
         self.s.kb_type("root\n")
         self.s.serial_shell_start(screen_prompt="darkstar:/#")
@@ -77,7 +70,7 @@ class Sysinstall:
 
     def _run_doinstall(self) -> None:
         """Start doinstall and answer source and package-selection prompts."""
-        o = self.o
+        o = self.disk
         self.s.serial_console_echo(
             "Starting Slackware setup; package installation may take a while..."
         )
@@ -99,7 +92,7 @@ class Sysinstall:
 
     def _finish_install(self) -> None:
         """Write missing fstab entries and reboot from the installed disk."""
-        o = self.o
+        o = self.disk
         self.s.serial.wait("Installation is complete.", line=True)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_send(f"echo '{o.swap_partition} none swap sw 0 0' >> /root/etc/fstab")

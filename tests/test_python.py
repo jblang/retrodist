@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ast
+from contextlib import contextmanager
 import gzip
 import io
 import os
@@ -28,7 +29,7 @@ from hostlib.errors import CommandError, ConfigError, RetroError
 from hostlib import cli, download, operations, qmp_cli, tagfiles
 from hostlib.fdisk import Fdisk
 from hostlib.keyboard import encode
-from hostlib.dialog import Choice, Dialog
+from hostlib.dialog import Answer, Dialog
 from hostlib.debian_packages import (
     DebianPackage,
     load_packages,
@@ -37,9 +38,9 @@ from hostlib.debian_packages import (
 )
 from hostlib.session import InstallSession, Match
 from hostlib.serial import SerialConsole
-from hostlib.installers.slackware import Pkgtool, PkgtoolOptions, boot_pkgtool
-from hostlib.installers.debian import Dinstall, DinstallOptions
-from hostlib.installers.slackware_sysinstall import Sysinstall, SysinstallOptions
+from hostlib.installers.slackware import Pkgtool, boot_pkgtool
+from hostlib.installers.debian import Dinstall
+from hostlib.installers.slackware_sysinstall import Sysinstall
 from hostlib.installers import (
     DRIVERS,
     STEP_ACTIONS,
@@ -49,16 +50,31 @@ from hostlib.installers import (
 from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
 from hostlib.vga import Screen, ScreenObserver, decode
-from hostlib.media import Extraction, MediaStager, toml_extraction
-from hostlib.schemas import DebianPackagesConfig, PostinstConfig
+from hostlib.media import MediaStager
+from hostlib.schemas import (
+    DebianPackagesConfig,
+    DinstallInstallConfig,
+    ExtractionConfig,
+    PkgtoolInstallConfig,
+    PostinstConfig,
+    SysinstallInstallConfig,
+)
 from hostlib.qmp import Monitor
 from hostlib.qemu import QemuRuntime
+
+
+@contextmanager
+def temporary_root():
+    """Yield a temporary repository root as a path."""
+    with tempfile.TemporaryDirectory() as directory:
+        yield Path(directory)
 
 
 def temporary_config(
     root: Path, name: str, data: dict | None = None
 ) -> tuple[Context, RetroConfig]:
     """Create a minimal config and context beneath a temporary repository."""
+    (root / "guestlib").mkdir(exist_ok=True)
     directory = root / name
     directory.mkdir(parents=True)
     context = Context(root, directory, "boot", root / "temporary")
@@ -66,10 +82,41 @@ def temporary_config(
     return context, RetroConfig(context=context, data=data or {})
 
 
+def dinstall_config(**values: object) -> DinstallInstallConfig:
+    return DinstallInstallConfig.model_validate({"driver": "debian-dinstall", **values})
+
+
+def pkgtool_config(**values: object) -> PkgtoolInstallConfig:
+    return PkgtoolInstallConfig.model_validate({"driver": "slackware-pkgtool", **values})
+
+
+def sysinstall_config(**values: object) -> SysinstallInstallConfig:
+    return SysinstallInstallConfig.model_validate({"driver": "slackware-sysinstall", **values})
+
+
+def package(
+    name: str,
+    *,
+    priority: str = "optional",
+    section: str = "base",
+    filename: str | None = None,
+    **fields: str,
+) -> DebianPackage:
+    """Build a compact Debian package record for dependency tests."""
+    return DebianPackage(
+        {
+            "package": name,
+            "priority": priority,
+            "section": section,
+            "filename": filename or f"{section}/{name}.deb",
+            **fields,
+        }
+    )
+
+
 class ContextTests(unittest.TestCase):
     def test_find_prefers_selected_config_then_parent(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             config = root / "distro" / "version"
             config.mkdir(parents=True)
             (config.parent / "shared").write_text("parent")
@@ -134,8 +181,7 @@ class CliTests(unittest.TestCase):
         run.assert_called_once()
 
     def test_reset_requires_an_affirmative_answer(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, config = temporary_config(root, "distro/version")
             context.qemu_dir.mkdir()
             with patch("builtins.input", return_value="no"):
@@ -146,11 +192,11 @@ class CliTests(unittest.TestCase):
             self.assertFalse(context.qemu_dir.exists())
 
     def test_run_main_always_removes_the_context_temporary_directory(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            scratch = Path(temporary) / "command-temp"
+        with temporary_root() as root:
+            scratch = root / "command-temp"
             scratch.mkdir()
             context = SimpleNamespace(
-                command="help", name="test", temporary=scratch, config=Path(temporary)
+                command="help", name="test", temporary=scratch, config=root
             )
             with (
                 patch.object(cli.Context, "create", return_value=context),
@@ -186,8 +232,7 @@ class CliTests(unittest.TestCase):
 
 class DownloadTests(unittest.TestCase):
     def test_direct_download_creates_nested_path_and_skips_existing_file(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -233,8 +278,7 @@ class DownloadTests(unittest.TestCase):
                     config.download
 
     def test_cdrom_download_links_shared_iso_into_selected_qemu_state(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             shared = root / "cdrom/shared"
             shared.mkdir(parents=True)
             (shared / "config.toml").write_text(
@@ -255,8 +299,8 @@ class DownloadTests(unittest.TestCase):
             self.assertEqual(linked.read_bytes(), b"iso")
 
     def test_failed_download_removes_partial_file(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            target = Path(temporary) / "disk.img"
+        with temporary_root() as root:
+            target = root / "disk.img"
             target.write_bytes(b"partial")
             with (
                 patch(
@@ -283,8 +327,7 @@ class DownloadTests(unittest.TestCase):
                     method("../escape", Path("download.d"))
 
     def test_debian_mirror_downloads_configured_long_filename_package_trees(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "debian/version",
@@ -300,8 +343,8 @@ class DownloadTests(unittest.TestCase):
             )
             downloader = download.Downloader(context, config)
             with (
-                patch.object(downloader, "_retrieve"),
-                patch.object(downloader, "_mirror_tree") as mirror,
+                patch.object(downloader.wget, "retrieve"),
+                patch.object(downloader.wget, "mirror") as mirror,
             ):
                 downloader._debian("buzz", config.download_dir)
             urls = [call.args[0] for call in mirror.call_args_list]
@@ -319,8 +362,8 @@ class DownloadTests(unittest.TestCase):
             )
 
     def test_recursive_mirror_wraps_wget_with_layout_and_filter_options(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            destination = Path(temporary) / "release"
+        with temporary_root() as root:
+            destination = root / "release"
             with patch(
                 "hostlib.download.subprocess.run",
                 return_value=SimpleNamespace(returncode=0),
@@ -348,8 +391,8 @@ class DownloadTests(unittest.TestCase):
             )
 
     def test_completed_recursive_mirror_is_not_downloaded_again(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            destination = Path(temporary) / "release"
+        with temporary_root() as root:
+            destination = root / "release"
             destination.mkdir()
             (destination / download.Wget.MIRROR_SENTINEL).touch()
             with (
@@ -369,8 +412,8 @@ class DownloadTests(unittest.TestCase):
             )
 
     def test_failed_recursive_mirror_is_not_marked_complete(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            destination = Path(temporary) / "release"
+        with temporary_root() as root:
+            destination = root / "release"
             with (
                 patch(
                     "hostlib.download.subprocess.run",
@@ -384,8 +427,7 @@ class DownloadTests(unittest.TestCase):
 
 class OperationsTests(unittest.TestCase):
     def test_package_writes_both_launchers_and_archive(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, config = temporary_config(
                 root, "distro/version", {"qemu": {"profile": "default"}}
             )
@@ -404,8 +446,7 @@ class OperationsTests(unittest.TestCase):
 
 class QmpCliTests(unittest.IsolatedAsyncioTestCase):
     async def test_socket_resolution_and_control_commands(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             explicit = root / "custom.sock"
             self.assertEqual(qmp_cli._socket(explicit), explicit)
             monitor = AsyncMock()
@@ -456,8 +497,7 @@ class SlackwareTagfileTests(unittest.TestCase):
         self.assertEqual(tagfiles._package_name("kernel.tgz"), "kernel")
 
     def test_prepare_tagfiles_applies_exact_rules_over_series_defaults(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, _ = temporary_config(root, "slackware/3.0/walnut")
             (context.config / "full.tag").write_text("a * SKP\na bash ADD\n")
             qemu = context.qemu_dir
@@ -471,8 +511,7 @@ class SlackwareTagfileTests(unittest.TestCase):
             self.assertEqual((qemu / "fat/disksets.txt").read_text(), "a\n")
 
     def test_generate_default_tag_combines_installer_tags_and_descriptions(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, _ = temporary_config(root, "slackware/3.0/walnut")
             source = context.qemu_dir / "fat/install/a1"
             source.mkdir(parents=True)
@@ -493,8 +532,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.display.vga, "cirrus")
 
     def test_toml_inherits_parent_tables_and_replaces_arrays(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             parent = root / "slackware/3.0"
             child = parent / "walnut"
             child.mkdir(parents=True)
@@ -513,8 +551,7 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(config.value("postinst", "stages"), ["tty"])
 
     def test_toml_qemu_and_extraction_models(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             directory = root / "distro/version"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
@@ -525,7 +562,7 @@ class ConfigTests(unittest.TestCase):
             )
             context = Context.create(root, "boot", str(directory))
             qemu = load_qemu_config(load_config(context))
-            extraction = toml_extraction(load_config(context))
+            extraction = load_config(context).extraction
             self.assertEqual(qemu.ram, "32M")
             self.assertEqual(qemu.network.device, "pcnet")
             self.assertEqual(extraction.source, "disc1.iso")
@@ -542,8 +579,7 @@ class ConfigTests(unittest.TestCase):
             load_qemu_config(config)
 
     def test_installer_options_are_collected_from_logical_tables(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             directory = root / "debian/1.1"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
@@ -554,29 +590,36 @@ class ConfigTests(unittest.TestCase):
             )
             context = Context.create(root, "install", str(directory))
             config = load_config(context)
-            options = config.options(DinstallOptions)
+            install = config.install
             validate_install_config(config)
-            self.assertEqual(options.network.hostname, "buzz")
-            self.assertEqual(options.network.domain, "example.test")
-            self.assertEqual(options.network.ip, "192.0.2.15")
-            self.assertIsNone(options.driver_floppy)
-            self.assertTrue(options.relogin)
+            self.assertIsInstance(install, DinstallInstallConfig)
+            assert isinstance(install, DinstallInstallConfig)
+            self.assertEqual(install.network.hostname, "buzz")
+            self.assertEqual(install.network.domain, "example.test")
+            self.assertEqual(install.network.ip, "192.0.2.15")
+            self.assertFalse(install.debian.driver_floppy)
+            self.assertTrue(install.debian.relogin)
 
     def test_nested_installer_option_errors_use_the_config_error_boundary(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
-            data={"install": {"network": {"ip": 123}}},
+            data={"install": {"driver": "debian-dinstall", "network": {"ip": 123}}},
         )
-        with self.assertRaisesRegex(ConfigError, "Install option network has the wrong type"):
-            config.options(DinstallOptions)
+        with self.assertRaisesRegex(ConfigError, "install.network.ip must be a string"):
+            _ = config.install
 
     def test_nested_installer_options_reject_conflicting_aliases(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
-            data={"install": {"network": {"domain": "example.test", "domainname": "legacy.test"}}},
+            data={
+                "install": {
+                    "driver": "debian-dinstall",
+                    "network": {"domain": "example.test", "domainname": "legacy.test"},
+                }
+            },
         )
         with self.assertRaisesRegex(ConfigError, "multiple aliases: domain, domainname"):
-            config.options(DinstallOptions)
+            _ = config.install
 
     def test_postinstall_config_renders_logical_sections(self) -> None:
         settings = RetroConfig(
@@ -637,8 +680,8 @@ class QemuTests(unittest.TestCase):
         return QemuRuntime(Context(root, directory, "boot", root / "temporary"), qemu)
 
     def test_default_forwards_use_the_documented_port_ranges(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            runtime = self.runtime(Path(temporary))
+        with temporary_root() as root:
+            runtime = self.runtime(root)
             with patch("hostlib.qemu.available_port", side_effect=[2200, 2300]) as port:
                 command = runtime.command()
                 runtime.command()
@@ -649,16 +692,16 @@ class QemuTests(unittest.TestCase):
             self.assertEqual([call.args[0] for call in port.call_args_list], [2200, 2300])
 
     def test_explicit_empty_forward_list_disables_port_forwards(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
+        with temporary_root() as root:
             config = QemuConfig(network={"forwards": []})
-            runtime = self.runtime(Path(temporary), config)
+            runtime = self.runtime(root, config)
             netdev = runtime.command()[runtime.command().index("-netdev") + 1]
             self.assertEqual(netdev, "user,id=internet")
 
     def test_auxiliary_serial_backend_occupies_guest_ttys2(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
+        with temporary_root() as root:
             runtime = self.runtime(
-                Path(temporary), QemuConfig(serial={"auxiliary": "msmouse"})
+                root, QemuConfig(serial={"auxiliary": "msmouse"})
             )
             serials = [
                 value
@@ -669,8 +712,8 @@ class QemuTests(unittest.TestCase):
             self.assertIn("ttyS3.sock", serials[3])
 
     def test_device_report_includes_endpoints_disks_and_character_sockets(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            runtime = self.runtime(Path(temporary), QemuConfig(network={"forwards": [[2200, 22]]}))
+        with temporary_root() as root:
+            runtime = self.runtime(root, QemuConfig(network={"forwards": [[2200, 22]]}))
             with self.assertLogs("hostlib.qemu", "INFO") as report:
                 runtime._report_devices()
 
@@ -685,8 +728,7 @@ class QemuTests(unittest.TestCase):
             self.assertIn("unix:ttyS3.sock", text)
 
     def test_ensure_disk_requires_boot_media_and_reports_qemu_img_failure(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             runtime = self.runtime(root)
             (runtime.directory / "boot.img").unlink()
             with self.assertRaisesRegex(CommandError, "No bootable devices"):
@@ -697,8 +739,7 @@ class QemuTests(unittest.TestCase):
                     runtime.ensure_disk()
 
     def test_drives_include_floppy_cdrom_fat_and_disk_options(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             config = QemuConfig(disk={"hda_options": "cache=writeback"})
             runtime = self.runtime(root, config)
             (runtime.directory / "hda.img").touch()
@@ -714,8 +755,7 @@ class QemuTests(unittest.TestCase):
 
 class QemuLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_start_removes_stale_sockets_and_uses_qemu_directory(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             directory = root / "distro/qemu.d"
             directory.mkdir(parents=True)
             (directory / "boot.img").touch()
@@ -745,8 +785,7 @@ class DebianPackageTests(unittest.TestCase):
             "Package: demo\npriority: optional\nsection: utils\n"
             "description: first line\n second line\nfilename: pool/demo_1.deb\n\n"
         )
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             source = root / "Packages.gz"
             with gzip.open(source, "wt") as output:
                 output.write(contents)
@@ -757,32 +796,9 @@ class DebianPackageTests(unittest.TestCase):
     def test_dependency_resolution_supports_versions_alternatives_and_providers(self) -> None:
         """Dependencies precede selected users and virtual packages resolve to providers."""
         packages = [
-            DebianPackage(
-                {
-                    "package": "lib",
-                    "priority": "required",
-                    "section": "base",
-                    "filename": "base/lib.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "mailer",
-                    "priority": "optional",
-                    "section": "mail",
-                    "provides": "mail-transport-agent",
-                    "filename": "mail/mailer.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "app",
-                    "priority": "optional",
-                    "section": "utils",
-                    "depends": "lib (>= 1), missing | mail-transport-agent",
-                    "filename": "utils/app.deb",
-                }
-            ),
+            package("lib", priority="required"),
+            package("mailer", section="mail", provides="mail-transport-agent"),
+            package("app", section="utils", depends="lib (>= 1), missing | mail-transport-agent"),
         ]
         selected = resolve_packages(packages, DebianPackagesConfig(add=["app"]))
         self.assertEqual([package.name for package in selected], ["lib", "mailer", "app"])
@@ -790,23 +806,8 @@ class DebianPackageTests(unittest.TestCase):
     def test_skip_prevents_dependency_installation(self) -> None:
         """Skipping a required dependency reports an unresolved selection."""
         packages = [
-            DebianPackage(
-                {
-                    "package": "library",
-                    "priority": "optional",
-                    "section": "libs",
-                    "filename": "libs/library.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "application",
-                    "priority": "optional",
-                    "section": "utils",
-                    "depends": "library",
-                    "filename": "utils/application.deb",
-                }
-            ),
+            package("library", section="libs"),
+            package("application", section="utils", depends="library"),
         ]
         with self.assertRaisesRegex(ConfigError, "Unresolved dependency"):
             resolve_packages(packages, DebianPackagesConfig(add=["application"], skip=["library"]))
@@ -814,38 +815,10 @@ class DebianPackageTests(unittest.TestCase):
     def test_global_and_per_section_priorities_are_combined(self) -> None:
         """Section priorities override global priorities in their own section."""
         packages = [
-            DebianPackage(
-                {
-                    "package": "base",
-                    "priority": "required",
-                    "section": "base",
-                    "filename": "base/base.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "editor",
-                    "priority": "optional",
-                    "section": "editors",
-                    "filename": "editors/editor.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "editor-extra",
-                    "priority": "extra",
-                    "section": "editors",
-                    "filename": "editors/editor-extra.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "game",
-                    "priority": "extra",
-                    "section": "games",
-                    "filename": "games/game.deb",
-                }
-            ),
+            package("base", priority="required"),
+            package("editor", section="editors"),
+            package("editor-extra", priority="extra", section="editors"),
+            package("game", priority="extra", section="games"),
         ]
         config = DebianPackagesConfig(
             priorities=["required", "optional"],
@@ -860,22 +833,8 @@ class DebianPackageTests(unittest.TestCase):
     def test_skip_has_precedence_over_explicit_additions(self) -> None:
         """A skipped package remains excluded even when it is explicitly added."""
         packages = [
-            DebianPackage(
-                {
-                    "package": "base",
-                    "priority": "required",
-                    "section": "base",
-                    "filename": "base/base.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "editor",
-                    "priority": "optional",
-                    "section": "editors",
-                    "filename": "editors/editor.deb",
-                }
-            ),
+            package("base", priority="required"),
+            package("editor", section="editors"),
         ]
         config = DebianPackagesConfig(
             priorities=["required"],
@@ -890,22 +849,8 @@ class DebianPackageTests(unittest.TestCase):
     def test_explicit_packages_precede_priority_selections(self) -> None:
         """Explicit prerequisites install before packages selected by priority."""
         packages = [
-            DebianPackage(
-                {
-                    "package": "zlib",
-                    "priority": "standard",
-                    "section": "devel",
-                    "filename": "devel/zlib.deb",
-                }
-            ),
-            DebianPackage(
-                {
-                    "package": "perl",
-                    "priority": "important",
-                    "section": "devel",
-                    "filename": "devel/perl.deb",
-                }
-            ),
+            package("zlib", priority="standard", section="devel"),
+            package("perl", priority="important", section="devel"),
         ]
         config = DebianPackagesConfig(priorities=["important"], add=["zlib"])
         self.assertEqual(
@@ -915,14 +860,11 @@ class DebianPackageTests(unittest.TestCase):
 
     def test_installer_mounts_iso_and_uses_long_filenames(self) -> None:
         """CD-backed scripts mount the device and derive paths from Filename basenames."""
-        package = DebianPackage(
-            {
-                "package": "demo",
-                "priority": "optional",
-                "section": "utils",
-                "filename": "Debian/binary-i386/utils/demo_1.2-3.deb",
-                "msdos-filename": "Debian/msdos-i386/utils/demo.deb",
-            }
+        selected = package(
+            "demo",
+            section="utils",
+            filename="Debian/binary-i386/utils/demo_1.2-3.deb",
+            **{"msdos-filename": "Debian/msdos-i386/utils/demo.deb"},
         )
         config = DebianPackagesConfig.model_validate(
             {
@@ -930,7 +872,7 @@ class DebianPackageTests(unittest.TestCase):
                 "mount": {"device": "/dev/hdc", "point": "/cdrom"},
             }
         )
-        script = render_installer([package], config)
+        script = render_installer([selected], config)
         self.assertIn("mount -t 'iso9660' '/dev/hdc' '/cdrom'", script)
         self.assertIn("dpkg --install", script)
         self.assertIn("'/cdrom/buzz-fixed/binary-i386' '/cdrom/buzz/binary-i386'", script)
@@ -944,8 +886,7 @@ class DebianPackageTests(unittest.TestCase):
 
 class MediaStagerTests(unittest.TestCase):
     def test_directory_extraction_decompresses_links_and_stages_guestlib(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             (root / "guestlib").mkdir()
             (root / "guestlib/postinst.sh").write_text("#!/bin/sh\n")
             context, config = temporary_config(
@@ -995,8 +936,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertTrue((context.qemu_dir / ".extracted").exists())
 
     def test_existing_marker_refreshes_guestlib_without_reextracting(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             (root / "guestlib").mkdir()
             (root / "guestlib/current").write_text("new")
             context, config = temporary_config(root, "distro/version", {"extract": {}})
@@ -1010,9 +950,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertEqual((old / "current").read_text(), "new")
 
     def test_tar_extraction_stages_declared_images_and_package_tree(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1044,9 +982,7 @@ class MediaStagerTests(unittest.TestCase):
             )
 
     def test_7z_source_stages_only_declared_files(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1084,9 +1020,7 @@ class MediaStagerTests(unittest.TestCase):
             )
 
     def test_source_media_is_staged_before_the_custom_hook(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1108,9 +1042,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertEqual((context.qemu_dir / "boot.img").readlink(), Path("boot.bin"))
 
     def test_zip_source_is_extracted_before_the_custom_hook(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1135,9 +1067,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((context.qemu_dir / "ignored.txt").exists())
 
     def test_custom_extraction_script_receives_project_environment(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1155,9 +1085,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertEqual(run.call_args.args[0][-1], str(context.config / "extract.sh"))
 
     def test_custom_extraction_script_stops_at_the_first_failure(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1172,9 +1100,7 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((context.qemu_dir / ".extracted").exists())
 
     def test_custom_extraction_script_preserves_staged_install_iso(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "guestlib").mkdir()
+        with temporary_root() as root:
             context, config = temporary_config(
                 root,
                 "distro/version",
@@ -1188,14 +1114,13 @@ class MediaStagerTests(unittest.TestCase):
             self.assertFalse((context.qemu_dir / "install.iso").is_symlink())
 
     def test_postprocessing_applies_overlays(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             context, config = temporary_config(root, "distro/version")
             context.qemu_dir.mkdir()
             config.download_dir.mkdir()
             (config.download_dir / "replacement.tgz").write_bytes(b"replacement")
 
-            spec = Extraction(
+            spec = ExtractionConfig(
                 overlays=[
                     {
                         "source": "replacement.tgz",
@@ -1219,7 +1144,7 @@ class MediaStagerTests(unittest.TestCase):
             ({"unknown": True}, "Unknown extract"),
         ):
             with self.assertRaisesRegex(ConfigError, message):
-                toml_extraction(RetroConfig(context=context, data={"extract": table}))
+                _ = RetroConfig(context=context, data={"extract": table}).extraction
         for table, message in (
             ({"stages": ["mystery"]}, "Unknown post-install"),
             ({"stages": ["custom"]}, "requires postinst.custom_script"),
@@ -1229,15 +1154,15 @@ class MediaStagerTests(unittest.TestCase):
                 RetroConfig(context=context, data={"postinst": table}).postinst
 
     def test_extraction_paths_cannot_escape_their_destination(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            directory = Path(temporary) / "staging"
+        with temporary_root() as root:
+            directory = root / "staging"
             directory.mkdir()
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
                 MediaStager._safe_child(directory, Path("../outside"))
-            context = SimpleNamespace(extract_dir=directory)
+            context = SimpleNamespace(qemu_dir=directory)
             stager = MediaStager(context, SimpleNamespace())
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
-                stager._package_destination(Extraction(package_dest="../outside"))
+                stager._package_destination(ExtractionConfig(package_dest="../outside"))
             for source in ("../outside", "/outside"):
                 with self.assertRaisesRegex(ConfigError, "escapes extraction source"):
                     MediaStager._validate_source_path(source)
@@ -1300,8 +1225,7 @@ class FdiskTests(unittest.TestCase):
 
 class InstallPlanTests(unittest.TestCase):
     def test_prompt_sequence_interpolates_config_and_types_embedded_enter(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with temporary_root() as root:
             directory = root / "distro/version"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
@@ -1475,6 +1399,7 @@ class RedHatDriverTests(unittest.TestCase):
             context=SimpleNamespace(),
             data={
                 "install": {
+                    "driver": "redhat-unattended",
                     "accounts": {"root_password": "secret"},
                     "prompts": {"login_prompt": "login:", "shell_prompt": "#"},
                     "boot": {"prompt": "boot:", "command": "linux ks=floppy"},
@@ -1496,9 +1421,9 @@ class RedHatDriverTests(unittest.TestCase):
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
     def test_c_installer_composes_4x_phases_and_rejects_unknown_flow(self) -> None:
-        session = SimpleNamespace(options=lambda _: redhat_c.CInstallerOptions(flow="4x"))
+        session = SimpleNamespace()
         installer = unittest.mock.Mock()
-        installer.o.flow = "4x"
+        installer.settings.flow = "4x"
         with patch.object(redhat_c, "CInstaller", return_value=installer):
             redhat_c.run_c_installer(session)
         for method in (
@@ -1511,7 +1436,7 @@ class RedHatDriverTests(unittest.TestCase):
             installer.finish,
         ):
             method.assert_called_once_with()
-        installer.o.flow = "mystery"
+        installer.settings.flow = "mystery"
         with patch.object(redhat_c, "CInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat C installer flow"):
                 redhat_c.run_c_installer(session)
@@ -1520,7 +1445,7 @@ class RedHatDriverTests(unittest.TestCase):
         session = SimpleNamespace(
             config=RetroConfig(
                 context=SimpleNamespace(),
-                data={"install": {"redhat": {"flow": "1.1"}}},
+                data={"install": {"driver": "redhat-perl", "redhat": {"flow": "1.1"}}},
             )
         )
         installer = unittest.mock.Mock()
@@ -1531,7 +1456,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.insert_boot_disk.assert_called_once_with()
         session.config = RetroConfig(
             context=SimpleNamespace(),
-            data={"install": {"redhat": {"flow": "unknown"}}},
+            data={"install": {"driver": "redhat-perl", "redhat": {"flow": "unknown"}}},
         )
         with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat Perl installer flow"):
@@ -1578,9 +1503,9 @@ class DialogTests(unittest.TestCase):
         dialog = Dialog(serial)
 
         def handler(_: str) -> None:
-            dialog.answer(Choice("menu", "Main", "Next"))
+            dialog.answer(Answer("menu", "Main", "Next"))
 
-        dialog.answer(Choice("menu", "Main", handler, item="Next :: Install"))
+        dialog.answer(Answer("menu", "Main", handler, item="Next :: Install"))
         self.assertEqual(serial.answers, ["Next"])
 
     def test_pkgtool_callback_consumes_rewound_trigger_screen(self) -> None:
@@ -1593,7 +1518,7 @@ class DialogTests(unittest.TestCase):
             + screen("SETUP COMPLETE", "msgbox")
         )
         dialog = Dialog(serial)
-        Pkgtool(SimpleNamespace(dialog=dialog), PkgtoolOptions())._configure()
+        Pkgtool(SimpleNamespace(dialog=dialog), pkgtool_config())._configure()
         self.assertEqual(serial.answers, ["yes", "ok", "ok"])
 
     def test_none_answer_leaves_lookahead_for_outer_dispatch(self) -> None:
@@ -1604,12 +1529,12 @@ class DialogTests(unittest.TestCase):
         dialog = Dialog(serial)
 
         def install_base(_: str) -> None:
-            dialog.answer(Choice("menu", "Main", "Next", item="Install Base"))
-            dialog.answer(Choice("menu", "Main", None, terminal=True))
+            dialog.answer(Answer("menu", "Main", "Next", item="Install Base"))
+            dialog.answer(Answer("menu", "Main", None, exit=True))
 
         dialog.answer_until(
-            Choice("menu", "Main", install_base, item="Install Base"),
-            Choice("menu", "Main", "Next", item="Install Kernel", terminal=True),
+            Answer("menu", "Main", install_base, item="Install Base"),
+            Answer("menu", "Main", "Next", item="Install Kernel", exit=True),
         )
         self.assertEqual(serial.answers, ["Next", "Next"])
 
@@ -1623,7 +1548,7 @@ class DinstallTests(unittest.TestCase):
             vga_wait=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
         )
-        driver = Dinstall(session, DinstallOptions(fs_module="vfat"))
+        driver = Dinstall(session, dinstall_config(debian={"fs_module": "vfat"}))
 
         driver._modules("")
 
@@ -1642,7 +1567,10 @@ class DinstallTests(unittest.TestCase):
         session = SimpleNamespace(dialog=dialog)
         driver = Dinstall(
             session,
-            DinstallOptions(fat_mount="/media/retro", kernel_floppy=None),
+            dinstall_config(
+                disk={"fat_mount": "/media/retro"},
+                debian={"kernel_floppy": None},
+            ),
         )
 
         driver._base("")
@@ -1674,7 +1602,7 @@ class DinstallTests(unittest.TestCase):
             serial_shell_exit=unittest.mock.Mock(),
         )
 
-        Dinstall(session, DinstallOptions())._postinst()
+        Dinstall(session, dinstall_config())._postinst()
 
         session.serial_shell_start.assert_called_once()
         session.serial_shell_send.assert_called_once_with(session.postinst_command, wait=False)
@@ -1686,7 +1614,7 @@ class DinstallTests(unittest.TestCase):
             stages=["packages", "tty"], packages=packages
         )
         session.serial_shell_exit.reset_mock()
-        Dinstall(session, DinstallOptions())._postinst()
+        Dinstall(session, dinstall_config())._postinst()
         session.serial_shell_exit.assert_not_called()
 
 
@@ -1704,7 +1632,7 @@ class PkgtoolPromptTests(unittest.TestCase):
                 session,
                 boot_prompt=None,
                 root_prompt="insert root disk",
-                options=PkgtoolOptions(),
+                config=pkgtool_config(),
             )
 
         session.vga_wait.assert_called_once_with("insert root disk", match=Match.LINE)
@@ -1723,7 +1651,7 @@ class PkgtoolPromptTests(unittest.TestCase):
                 session,
                 root_prompt="insert root disk",
                 continuation_prompt="VFS: Insert root floppy and press ENTER",
-                options=PkgtoolOptions(),
+                config=pkgtool_config(),
             )
 
         session.change_floppy.assert_called_once_with("root.img")
@@ -1736,19 +1664,19 @@ class PkgtoolPromptTests(unittest.TestCase):
 
 class SysinstallTests(unittest.TestCase):
     def test_bootdisk_prompt_creates_a_1440k_floppy(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
+        with temporary_root() as root:
             serial = SimpleNamespace(
                 wait_any=unittest.mock.Mock(side_effect=[(1, ""), (2, "")]),
                 send=unittest.mock.Mock(),
             )
             session = SimpleNamespace(
-                qemu_dir=Path(temporary),
+                qemu_dir=root,
                 serial=serial,
                 change_floppy=unittest.mock.Mock(),
             )
-            Sysinstall(session, SysinstallOptions())._packages()
+            Sysinstall(session, sysinstall_config())._packages()
 
-            image = Path(temporary) / "bootdisk.img"
+            image = root / "bootdisk.img"
             self.assertEqual(image.stat().st_size, 1440 * 1024)
             session.change_floppy.assert_called_once_with("bootdisk.img")
             serial.send.assert_any_call("")
@@ -1763,7 +1691,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 context = Context(root, path.parent, "extract", root / "temporary")
                 config = load_config(context)
                 if config.section("extract"):
-                    toml_extraction(config)
+                    _ = config.extraction
                     validated.append(path)
         self.assertEqual(len(validated), 51)
 
@@ -2005,16 +1933,16 @@ class ManifestCoverageTests(unittest.TestCase):
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
 
     def test_canonical_media_link_preserves_already_named_image(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            boot = Path(temporary) / "boot.img"
+        with temporary_root() as root:
+            boot = root / "boot.img"
             boot.write_bytes(b"boot image")
             MediaStager._link("boot.img", boot)
             self.assertFalse(boot.is_symlink())
             self.assertEqual(boot.read_bytes(), b"boot image")
 
     def test_canonical_media_link_rejects_a_missing_source(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            destination = Path(temporary) / "boot.img"
+        with temporary_root() as root:
+            destination = root / "boot.img"
             with self.assertRaisesRegex(ConfigError, "Link source not found: missing.img"):
                 MediaStager._link("missing.img", destination)
 
@@ -2032,21 +1960,19 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_observer_polls_only_while_waiting(self) -> None:
         monitor = AsyncMock()
-        with tempfile.TemporaryDirectory() as temporary:
-            observer = ScreenObserver(monitor, Path(temporary), interval=0.001)
+        with temporary_root() as root:
+            observer = ScreenObserver(monitor, root, interval=0.001)
             observer._read = AsyncMock(side_effect=["boot:", "boot:", "login:"])
-            await observer.start()
             self.assertEqual(observer._read.await_count, 0)
             screen = await observer.wait(lambda value: "login:" in value, 1)
-            await observer.close()
         self.assertEqual(screen, "login:")
         self.assertEqual(observer._read.await_count, 3)
         self.assertEqual([item.text for item in observer.history], ["boot:", "login:"])
 
     async def test_wait_ignores_pre_return_screen_before_starting_timeout(self) -> None:
         monitor = AsyncMock()
-        with tempfile.TemporaryDirectory() as temporary:
-            observer = ScreenObserver(monitor, Path(temporary), interval=0.01)
+        with temporary_root() as root:
+            observer = ScreenObserver(monitor, root, interval=0.01)
             observer.history.append(Screen(0, "Full Name []:"))
             observer.invalidate()
             observer._read = AsyncMock(
@@ -2117,8 +2043,8 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         qmp.ConnectError = ConnectError
         qmp.QMPClient = Client
         qemu.qmp = qmp
-        with tempfile.TemporaryDirectory() as temporary:
-            socket = Path(temporary) / "qmp.sock"
+        with temporary_root() as root:
+            socket = root / "qmp.sock"
             socket.touch()
             with patch.dict(sys.modules, {"qemu": qemu, "qemu.qmp": qmp}):
                 monitor = Monitor(socket, timeout=1)
@@ -2150,8 +2076,8 @@ class SerialTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(console._offset, 4)
 
     async def test_serial_output_is_transcribed_and_persisted(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            directory = Path(temporary)
+        with temporary_root() as root:
+            directory = root
             socket = directory / "ttyS3.sock"
             console = SerialConsole(socket)
             console._reader = asyncio.StreamReader()

@@ -10,48 +10,14 @@ from __future__ import annotations
 
 import time
 
-from pydantic import Field
-
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
 from ..errors import ConfigError
-from ..schemas import ConfigModel, NetworkConfig
-
-
-class CInstallerOptions(ConfigModel):
-    """Configure Red Hat C-installer automation.
-
-    Prompt flags describe screens present in particular releases; flow and
-    navigation offsets handle larger layout changes. Remaining fields supply
-    boot, account, and static network answers.
-    """
-
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    fat_mount: str = "/retro"
-    boot_prompt: str = "boot:"
-    boot_command: str = ""
-    boot_sleep: float = 0
-    color_prompt: bool = True
-    language_prompt: bool = False
-    keyboard_early: bool = False
-    keyboard_after_packages: bool = False
-    keyboard_late: bool = False
-    pcmcia_prompt: bool = True
-    cdrom_type_prompt: bool = True
-    insert_cd_prompt: str = "Insert your Red Hat CD into your CD drive"
-    flow: str = "4x"
-    x_card_down: int = 66
-    monitor_key: str = "ret"
-    timezone_prompt: str = "Configure Timezone"
-    lilo_extra_f12: int = 0
-    bootdisk_prompt: bool = False
-    password: str = "password"
-    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
+from ..schemas import CInstallConfig, UnattendedInstallConfig
 
 
 def run_c_installer(session: InstallSession) -> None:
-    """Run a Red Hat C-installer installation with resolved options."""
+    """Run a Red Hat C-installer installation with validated configuration."""
     installer = CInstaller(session)
     installer.start()
     _run_c_flow(installer)
@@ -61,7 +27,7 @@ def run_c_installer(session: InstallSession) -> None:
 
 def _run_c_flow(installer: "CInstaller") -> None:
     """Dispatch the release-specific middle phases of the C installer."""
-    flow = installer.o.flow
+    flow = installer.settings.flow
     if flow == "4x":
         installer.partition_4x()
         installer.components_40()
@@ -77,7 +43,8 @@ def _run_c_flow(installer: "CInstaller") -> None:
 
 def run_unattended(session: InstallSession) -> None:
     """Wait for an unattended Red Hat install and complete post-install setup."""
-    settings = session.config.unattended_install
+    settings = session.config.install
+    assert isinstance(settings, UnattendedInstallConfig)
     session.vga_wait(settings.boot.prompt, match=Match.LINE)
     session.kb_type(settings.boot.command + "\n")
     session.vga_wait(settings.completion.prompt)
@@ -100,10 +67,15 @@ class CInstaller:
     the guestlib dialog protocol.
     """
 
-    def __init__(self, session: InstallSession, options: CInstallerOptions | None = None) -> None:
-        """Initialize the C-installer driver for one Red Hat release."""
+    def __init__(self, session: InstallSession, config: CInstallConfig | None = None) -> None:
+        """Initialize the C-installer driver with typed release configuration."""
         self.s = session
-        self.o = options if options is not None else session.options(CInstallerOptions)
+        config = config or session.config.install
+        assert isinstance(config, CInstallConfig)
+        self.disk = config.disk
+        self.prompts = config.prompts
+        self.network_config = config.network
+        self.settings = config.redhat
 
     def step(self, screen: str, *keys: str) -> None:
         """Wait for a screen heading and send the associated key sequence."""
@@ -128,7 +100,7 @@ class CInstaller:
 
     def _flow_5x(self) -> None:
         """Run the Red Hat 5.0 or 5.1 partition and X11 phases."""
-        flow = self.o.flow
+        flow = self.settings.flow
         self.s.vga_wait("Which tool would you like to use?" if flow == "50" else "Disk Setup")
         self.s.kb_press("tab", "ret")
         self.s.vga_wait("Partition Disks")
@@ -157,11 +129,11 @@ class CInstaller:
 
     def start(self) -> None:
         """Complete the initial language, media, and install-mode screens."""
-        o = self.o
-        self.s.vga_wait(o.boot_prompt, match=Match.LINE)
-        self.s.kb_type(f"{o.boot_command}\n")
-        if o.boot_sleep:
-            time.sleep(o.boot_sleep)
+        o = self.settings
+        self.s.vga_wait(self.prompts.boot_prompt, match=Match.LINE)
+        self.s.kb_type(f"{self.prompts.boot_command}\n")
+        if self.prompts.boot_sleep:
+            time.sleep(self.prompts.boot_sleep)
         if o.color_prompt:
             self.step("Are you using a color monitor?", "f12")
         self.step("Welcome to Red Hat Linux!", "f12")
@@ -182,7 +154,7 @@ class CInstaller:
         """Run the early graphical partition helper workflow."""
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start(screen_prompt="bash#")
-        Fdisk(self.s).partition_swap_root(self.o.target_disk, self.o.swap_mb)
+        Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
         self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit(screen_prompt="bash#")
         self.s.kb_press("alt-f1")
@@ -196,7 +168,7 @@ class CInstaller:
         self.step("Select Root Partition", "f12")
         self.step("You may now mount other partitions within your filesystem.", "down", "ret")
         self.s.vga_wait("Edit Mount Point")
-        self.s.kb_type(f"{self.o.fat_mount}\n")
+        self.s.kb_type(f"{self.disk.fat_mount}\n")
         self.s.kb_press("f12")
         self.step("Format Partitions", "spc", "f12")
 
@@ -218,16 +190,16 @@ class CInstaller:
     def finish_components(self) -> None:
         """Finish component selection and begin package installation."""
         self.step("Install log", "f12")
-        if self.o.keyboard_after_packages:
+        if self.settings.keyboard_after_packages:
             self.step("Configure Keyboard", "f12")
 
     def x11_4x(self) -> None:
         """Configure X11 screens used by Red Hat 4.x."""
         self.step("Configure Mouse", "down", "down", "f12")
         self.s.vga_wait("Choose A Card")
-        self.s.kb_repeat("down", self.o.x_card_down)
+        self.s.kb_repeat("down", self.settings.x_card_down)
         self.s.kb_press("f12")
-        self.step("Monitor Setup", "down", self.o.monitor_key)
+        self.step("Monitor Setup", "down", self.settings.monitor_key)
         self.s.vga_wait("Video Memory")
         self.s.kb_repeat("down", 4)
         self.s.kb_press("f12")
@@ -247,8 +219,8 @@ class CInstaller:
 
     def network(self) -> None:
         """Configure Red Hat networking and resolver settings."""
-        o = self.o
-        n = o.network
+        o = self.settings
+        n = self.network_config
         self.step("Network Configuration", "f12")
         if o.flow == "51":
             self.step("Digital 21040 (Tulip)", "f12")
@@ -269,8 +241,8 @@ class CInstaller:
 
     def finish(self) -> None:
         """Complete installation and launch post-installation setup."""
-        o = self.o
-        hostname = o.network.hostname
+        o = self.settings
+        hostname = self.network_config.hostname
         self._finish_configuration()
         self._install_lilo()
         self.s.vga_wait("Congratulations, installation is complete.")
@@ -284,7 +256,7 @@ class CInstaller:
 
     def _finish_configuration(self) -> None:
         """Answer final service, printer, account, and boot-disk screens."""
-        o = self.o
+        o = self.settings
         self.step(o.timezone_prompt, "f12")
         if o.keyboard_late:
             self.step("Configure Keyboard", "f12")
@@ -303,7 +275,7 @@ class CInstaller:
 
     def _install_lilo(self) -> None:
         """Install LILO and name the selected bootable partition."""
-        o = self.o
+        o = self.settings
         self.s.vga_wait("Lilo Installation")
         self.s.kb_press("f12", *("f12" for _ in range(o.lilo_extra_f12)))
         self.step("Bootable Partitions", "down", "ret")

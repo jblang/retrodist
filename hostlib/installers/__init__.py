@@ -16,9 +16,7 @@ from ..errors import ConfigError
 from ..fdisk import Fdisk
 from ..schemas import (
     ChangeFloppyStep,
-    ConfigModel,
     ConsoleEchoStep,
-    InstallStep,
     PartitionStep,
     PressStep,
     PromptStep,
@@ -32,11 +30,11 @@ from ..schemas import (
     WaitStep,
 )
 from ..session import InstallSession, Match
-from .debian import DinstallOptions, run_dinstall
-from .redhat_c import CInstallerOptions, run_c_installer, run_unattended
-from .redhat_perl import PerlInstallerOptions, run_perl_installer
-from .slackware import PkgtoolOptions, run_pkgtool
-from .slackware_sysinstall import SysinstallOptions, run_sysinstall
+from .debian import run_dinstall
+from .redhat_c import run_c_installer, run_unattended
+from .redhat_perl import run_perl_installer
+from .slackware import run_pkgtool
+from .slackware_sysinstall import run_sysinstall
 
 Driver = Callable[[InstallSession], None]
 StepHandler = Callable[[InstallSession, Any], None]
@@ -59,84 +57,14 @@ def validate_install_config(config: RetroConfig) -> Driver:
     prompt-sequence action before QEMU starts.
 
     Raises:
-        ConfigError: If the driver, options, or declarative steps are invalid.
+        ConfigError: If the driver configuration or declarative steps are invalid.
     """
-    driver = config.install_driver.driver
+    driver = config.install.driver
     try:
         entrypoint = DRIVERS[driver]
     except KeyError as exc:
         raise ConfigError(f"Unknown install driver: {driver}") from exc
-    _validate_driver_controls(config, driver)
-    if options := DRIVER_OPTIONS.get(driver):
-        _validate_driver_options(config, driver, options)
-    elif driver == "redhat-unattended":
-        _validate_unattended_options(config)
-    if driver == "prompt-sequence":
-        config.prompt_sequence
     return entrypoint
-
-
-def _validate_driver_options(config: RetroConfig, driver: str, options: type[Any]) -> None:
-    """Validate a family driver's typed options and reject unknown leaves."""
-    config.options(options)
-    known = _option_leaf_fields(options) | DRIVER_CONTROL_FIELDS.get(driver, set())
-    _reject_unknown_options(config, driver, known)
-
-
-def _option_leaf_fields(options: type[ConfigModel]) -> set[str]:
-    """Return canonical and aliased leaves consumed by an option model.
-
-    Nested models contribute their own input names because unknown-setting
-    validation operates on ``RetroConfig.install_values``'s flattened view.
-    """
-    known: set[str] = set()
-    for name, field in options.model_fields.items():
-        annotation = field.annotation
-        if isinstance(annotation, type) and issubclass(annotation, ConfigModel):
-            for nested_name, nested_field in annotation.model_fields.items():
-                known.add(nested_name)
-                known.update(
-                    alias
-                    for alias in getattr(nested_field.validation_alias, "choices", ())
-                    if isinstance(alias, str)
-                )
-        else:
-            known.add(name)
-    return known
-
-
-def _validate_unattended_options(config: RetroConfig) -> None:
-    """Reject leaves not consumed by the nested unattended schema."""
-    known = {
-        "command",
-        "login_prompt",
-        "postinst",
-        "prompt",
-        "reboot",
-        "root_password",
-        "shell_prompt",
-        "boot_device",
-    }
-    _reject_unknown_options(config, "redhat-unattended", known)
-
-
-def _reject_unknown_options(config: RetroConfig, driver: str, known: set[str]) -> None:
-    """Raise a driver-specific error for unconsumed install option leaves."""
-    unknown = set(config.install_values) - known
-    if unknown:
-        raise ConfigError(f"Unknown install option(s) for {driver}: {', '.join(sorted(unknown))}")
-
-
-def _validate_driver_controls(config: RetroConfig, driver: str) -> None:
-    """Validate options accepted by a family installer driver."""
-    if driver == "debian-dinstall":
-        config.dinstall_boot
-    elif driver == "slackware-pkgtool":
-        config.pkgtool_boot
-    if driver == "redhat-unattended":
-        config.unattended_install
-    if driver == "redhat-perl":
-        config.redhat_flow
 
 
 def _prompt_sequence(session: InstallSession) -> None:
@@ -146,19 +74,13 @@ def _prompt_sequence(session: InstallSession) -> None:
     before each action, allowing steps to reuse logically grouped settings.
     """
     for step in session.config.prompt_sequence.steps:
-        _run_step(session, step)
-
-
-def _run_step(session: InstallSession, step: InstallStep) -> None:
-    """Dispatch one declarative installer action."""
-    handler = STEP_HANDLERS[step.action]
-    handler(session, step)
+        STEP_HANDLERS[step.action](session, step)
 
 
 def _wait(session: InstallSession, step: WaitStep) -> None:
     """Wait for expected input."""
     text = _expand(session, step.text)
-    match = _match(step.match)
+    match = Match(step.match)
     if step.transport == "vga":
         session.vga_wait(text, match=match, timeout=step.timeout)
     else:
@@ -277,14 +199,6 @@ def _expand(session: InstallSession, value: str) -> str:
     return re.sub(r"\$\{([a-zA-Z0-9_.]+)\}", replace, value)
 
 
-def _match(value: str) -> Match:
-    """Convert a declarative match name to a Match mode."""
-    try:
-        return Match(value)
-    except ValueError as exc:
-        raise ConfigError(f"Unknown match mode: {value}") from exc
-
-
 STEP_HANDLERS: dict[str, StepHandler] = {
     "change-floppy": _change_floppy,
     "console-echo": _console_echo,
@@ -311,22 +225,4 @@ DRIVERS: dict[str, Driver] = {
     "redhat-unattended": run_unattended,
     "slackware-pkgtool": run_pkgtool,
     "slackware-sysinstall": run_sysinstall,
-}
-DRIVER_OPTIONS = {
-    "debian-dinstall": DinstallOptions,
-    "redhat-c": CInstallerOptions,
-    "redhat-perl": PerlInstallerOptions,
-    "slackware-pkgtool": PkgtoolOptions,
-    "slackware-sysinstall": SysinstallOptions,
-}
-DRIVER_CONTROL_FIELDS = {
-    "debian-dinstall": {"prompt", "command", "root_prompt", "root_image"},
-    "redhat-perl": {"flow"},
-    "slackware-pkgtool": {
-        "boot_prompt",
-        "root_prompt",
-        "root_image",
-        "keyboard_prompt",
-        "continuation_prompt",
-    },
 }
