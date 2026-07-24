@@ -20,7 +20,7 @@ done < <(find debian redhat slackware -name extract.sh -not -path '*/qemu.d/*' -
 # POSIX guest fragments: run on legacy guest shells, so accept patterns that are
 # intentional there (word splitting, expr math, -a/-o tests, $? checks, legacy
 # egrep/fgrep, echo -n, ls iteration over controlled package dirs, etc.).
-GUESTLIB_SCRIPTS=(guestlib/*.sh guestlib/config/*.sh guestlib/deb091/*.sh)
+GUESTLIB_SCRIPTS=(guestlib/*.sh guestlib/config/*.sh)
 while IFS= read -r file; do
     GUESTLIB_SCRIPTS+=("$file")
 done < <(find debian redhat slackware -name postinst.sh -not -path '*/qemu.d/*' -not -path '*/download.d/*' -print)

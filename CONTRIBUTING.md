@@ -218,10 +218,10 @@ family driver:
 ```toml
 [install]
 driver = "prompt-sequence"
+default_transport = "vga"
 
 [[install.steps]]
 action = "wait"
-transport = "vga"
 text = "boot:"
 match = "line"
 
@@ -232,13 +232,23 @@ text = "ramdisk root=/dev/fd0\n"
 [[install.steps]]
 action = "change-floppy"
 image = "root.img"
+
+[[install.steps]]
+action = "prompt"
+questions = ["Continue with installation?", "Select (y/n):"]
+answer = "y"
 ```
 
 Supported actions are `wait`, `type`, `press`, `prompt`, `partition`,
 `change-floppy`, `set-boot`, `serial-send`, `serial-shell-start`,
 `serial-shell-send`, `serial-shell-exit`, `console-echo`, and `run-postinst`.
 Use `\n` for Enter and `\t` for Tab in typed text. `${install.table.key}`
-interpolates another install value.
+interpolates another install value. Set `install.default_transport` to `vga` or
+`serial` to choose the transport for `wait` and `prompt` steps that omit it.
+An explicit step-level `transport` overrides that default. Without a configured
+default, `wait` uses VGA and `prompt` uses serial for compatibility.
+`serial-shell-send.command` may be one string or an array of strings; arrays
+run in order, waiting for the configured prompt after each command by default.
 
 Keep screen sequences and branching in `hostlib/installers/`. Only truly
 exceptional linear sequences belong in distro TOML. Per-distro Python install

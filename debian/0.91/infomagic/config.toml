@@ -1,8 +1,3 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "prompt-sequence"
-
 [download]
 cdrom = "infomagic/ldr/1994_06"
 
@@ -18,6 +13,10 @@ profile = "linux-0.99"
 
 [qemu.serial]
 auxiliary = "msmouse"
+
+[install]
+driver = "prompt-sequence"
+default_transport = "vga"
 
 [install.disk]
 target_disk = "/dev/hda"
@@ -55,7 +54,6 @@ mouse_device = "/dev/ttyS2"
 
 [[install.steps]]
 action = "wait"
-transport = "vga"
 text = "boot:"
 match = "line"
 
@@ -65,16 +63,11 @@ text = "\n"
 
 [[install.steps]]
 action = "wait"
-transport = "vga"
 text = "#"
 match = "line"
 
 [[install.steps]]
 action = "serial-shell-start"
-
-[[install.steps]]
-action = "serial-shell-send"
-command = "for p in /bin/tput /usr/bin/tput /usr/local/bin/tput; do if [ -f $p ]; then mv $p $p.real; echo exit 0 >$p; chmod 755 $p; fi; done"
 
 [[install.steps]]
 action = "partition"
@@ -86,155 +79,127 @@ text = "#"
 match = "line"
 
 [[install.steps]]
-action = "console-echo"
-text = "Starting Debian setup; base installation may take a while..."
+action = "serial-shell-exit"
 
 [[install.steps]]
-action = "serial-shell-send"
-command = "dinstall"
-wait = false
+action = "type"
+text = "dinstall\n"
 
 [[install.steps]]
 action = "prompt"
-questions = ["Please select one:"]
+questions = ["2   Initialize and activate your swap partition(s)"]
 answer = "2"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is the name of your swap partition"]
 answer = "${install.disk.swap_partition}"
-regex = true
 
 [[install.steps]]
 action = "prompt"
 questions = ["Would you like to check for bad blocks (y/n) [y]?"]
 answer = "n"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Press <RETURN> to continue..."]
-answer = ""
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["Please select one:"]
+questions = ["3   Format your Linux native partition(s) with mke2fs"]
 answer = "3"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["On which partition do you wish to create an ext2 filesystem?"]
 answer = "${install.disk.linux_partition}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Would you like to check for bad blocks (y/n) [y]?"]
 answer = "n"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Press <RETURN> to continue..."]
-answer = ""
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["Please select one:"]
+questions = ["5   Install the Debian Linux base system"]
 answer = "5"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Continue with the installation of the base system (y/n) [y]?"]
 answer = "y"
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["or (c)ontinue with the installation:"]
+questions = ["(m)ount another filesystem, (u)nmount a mounted filesystem,", "or (c)ontinue with the installation:"]
 answer = "m"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Mount which filesystem (ex: /dev/hda3)? /dev/"]
 answer = "${install.disk.linux_partition}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Mount /dev/${install.disk.linux_partition} on which directory (ex: /usr)? /root/"]
-answer = ""
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["or (c)ontinue with the installation:"]
+questions = ["(m)ount another filesystem, (u)nmount a mounted filesystem,", "or (c)ontinue with the installation:"]
 answer = "c"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Please specify /dev/fd0 or /dev/fd1 [/dev/fd0]: /dev/"]
-answer = ""
-regex = false
+answer = "fd0"
 
 [[install.steps]]
 action = "wait"
-transport = "serial"
 text = "Please insert basedisk #1 into /dev/fd0 and press <RETURN>:"
-match = "line"
 
 [[install.steps]]
 action = "change-floppy"
 image = "basedsk1"
 
 [[install.steps]]
-action = "serial-send"
-text = ""
+action = "press"
+keys = "ret"
 
 [[install.steps]]
 action = "wait"
-transport = "serial"
 text = "Please insert basedisk #2 into /dev/fd0 and press <RETURN>:"
-match = "line"
 
 [[install.steps]]
 action = "change-floppy"
 image = "basedsk2"
 
 [[install.steps]]
-action = "serial-send"
-text = ""
+action = "press"
+keys = "ret"
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which partition contains your root filesystem? /dev/"]
 answer = "${install.disk.linux_partition}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which partition is your swap partition (<RETURN> for none)? /dev/"]
 answer = "${install.disk.swap_partition}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is the unqualified hostname of your machine?"]
 answer = "${install.network.hostname}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["What is the local domainname"]
+questions = ["What is the local domainname without the leading `.'?"]
 answer = "${install.network.domain}"
-regex = true
 
 [[install.steps]]
 action = "prompt"
@@ -246,152 +211,129 @@ regex = true
 action = "prompt"
 questions = ["Does your machine require additional networking setup (y/n)?"]
 answer = "y"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is the IP address of your machine?"]
 answer = "${install.network.ip}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is your netmask?"]
 answer = "${install.network.netmask}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is your network address?"]
 answer = "${install.network.network}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["What is your broadcast address"]
+questions = ["What is your broadcast address (if you don't have one, type `none')?"]
 answer = "${install.network.broadcast}"
-regex = true
 
 [[install.steps]]
 action = "prompt"
 questions = ["What is your gateway address?"]
 answer = "${install.network.gateway}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["What is the address of your nameserver"]
+questions = ["What is the address of your nameserver (if your machine is the name server,", "enter 127.0.0.1; if you don't have one, type `none')?"]
 answer = "${install.network.nameserver}"
-regex = true
 
 [[install.steps]]
 action = "prompt"
 questions = ["Is this correct (y/n)?"]
 answer = "y"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Do you have an ethernet connection (y/n)?"]
 answer = "y"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Is your system clock set to GMT?"]
 answer = "y"
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["Press <RETURN> for more"]
-answer = ""
-regex = true
+questions = ["Press <RETURN> for more..."]
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which timezone?"]
 answer = "${install.locale.timezone}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Load a non-US keymap at boot time (y/n)?"]
 answer = "n"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which port contains your modem (if you have one)?"]
 answer = "${install.debian.modem_port}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which type of mouse do you have (if you have one)?"]
 answer = "${install.debian.mouse_type}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Which port contains your mouse?"]
 answer = "${install.debian.mouse_port}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["What type of serial mouse do you have?"]
 answer = "${install.debian.mouse_protocol}"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Would you like to make a custom bootdisk before proceeding (y/n)?"]
 answer = "n"
-regex = false
 
 [[install.steps]]
 action = "prompt"
 questions = ["Press <RETURN> to continue..."]
-answer = ""
-regex = false
 
 [[install.steps]]
 action = "prompt"
-questions = ["Please select one:"]
+questions = ["7   Return to the shell"]
 answer = "7"
-regex = false
 
 [[install.steps]]
 action = "wait"
-transport = "serial"
 text = "#"
 match = "line"
 
 [[install.steps]]
-action = "serial-shell-send"
-command = "mkdir -p ${install.disk.fat_mount} && mount -t msdos ${install.disk.fat_partition} ${install.disk.fat_mount}"
+action = "serial-shell-start"
 
 [[install.steps]]
 action = "serial-shell-send"
-command = "sh ${install.disk.fat_mount}/guestlib.d/deb091/lilo.sh /dev/${install.disk.linux_partition} /root"
+command = [
+    '/root/usr/sbin/rdev /root/vmlinuz /dev/${install.disk.linux_partition}',
+    '/root/usr/sbin/rdev -R /root/vmlinuz 1',
+    '/root/usr/sbin/rdev -v /root/vmlinuz -1',
+    'sed "s|/dev/hda3|/dev/${install.disk.linux_partition}|g" /root/etc/lilo.conf | sed "s|read-only|#read-only|g" | sed "s|delay=20|#delay=20|g" >/root/tmp/lilo.conf',
+    'mv /root/tmp/lilo.conf /root/etc/lilo.conf',
+    '/root/sbin/lilo -r /root -C /etc/lilo.conf',
+]
 
 [[install.steps]]
-action = "serial-shell-send"
-command = "umount ${install.disk.fat_mount}"
+action = "serial-shell-exit"
 
 [[install.steps]]
 action = "set-boot"
 device = "c"
 
 [[install.steps]]
-action = "console-echo"
-text = "Rebooting..."
-
-[[install.steps]]
-action = "serial-shell-send"
-command = "reboot"
-wait = false
+action = "type"
+text = "reboot\n"
 
 [[install.steps]]
 action = "run-postinst"

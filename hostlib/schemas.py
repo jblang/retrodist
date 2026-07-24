@@ -484,9 +484,10 @@ class PressStep(Step):
 
 
 class PromptStep(Step):
-    """Validate a serial prompt-and-answer action."""
+    """Validate a VGA or serial prompt-and-answer action."""
 
     action: Literal["prompt"]
+    transport: Literal["vga", "serial"] = "serial"
     questions: str | list[str] | None = None
     text: str | None = None
     answer: str = ""
@@ -509,10 +510,10 @@ class SerialShellStartStep(Step):
 
 
 class SerialShellSendStep(Step):
-    """Validate an interactive serial-shell command action."""
+    """Validate one or more interactive serial-shell commands."""
 
     action: Literal["serial-shell-send"]
-    command: str
+    command: str | list[str]
     wait: bool = True
     prompt: str = "#"
 
@@ -590,4 +591,26 @@ InstallStep = Annotated[
 class PromptSequenceConfig(ConfigModel):
     """Configure a non-empty sequence of discriminated installer actions."""
 
+    default_transport: Literal["vga", "serial"] | None = None
     steps: list[InstallStep] = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_default_transport(cls, data: object) -> object:
+        """Apply the configured transport to waits and prompts that omit one."""
+        if not isinstance(data, dict):
+            return data
+        default = data.get("default_transport")
+        steps = data.get("steps")
+        if default not in {"vga", "serial"} or not isinstance(steps, list):
+            return data
+        resolved = dict(data)
+        resolved["steps"] = [
+            {**step, "transport": default}
+            if isinstance(step, dict)
+            and step.get("action") in {"wait", "prompt"}
+            and "transport" not in step
+            else step
+            for step in steps
+        ]
+        return resolved

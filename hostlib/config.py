@@ -162,7 +162,10 @@ class RetroConfig(ConfigModel):
         """Return the typed declarative installer action sequence."""
         return validate(
             PromptSequenceConfig,
-            {"steps": self.value("install", "steps")},
+            {
+                "default_transport": self.value("install", "default_transport"),
+                "steps": self.value("install", "steps"),
+            },
             "install",
         )
 

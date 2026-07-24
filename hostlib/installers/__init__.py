@@ -185,16 +185,19 @@ def _press(session: InstallSession, step: PressStep) -> None:
 
 
 def _prompt(session: InstallSession, step: PromptStep) -> None:
-    """Answer one or more configured serial prompts."""
+    """Answer one or more configured VGA or serial prompts."""
     questions = step.questions if step.questions is not None else step.text
     assert questions is not None
     if isinstance(questions, str):
         questions = [questions]
-    session.serial.prompt(
-        *(_expand(session, question) for question in questions),
-        answer=_expand(session, step.answer),
-        regex=step.regex,
-    )
+    expanded = [_expand(session, question) for question in questions]
+    answer = _expand(session, step.answer)
+    if step.transport == "vga":
+        match = Match.REGEX if step.regex else Match.TEXT
+        session.vga_wait(*expanded, match=match)
+        session.kb_type(f"{answer}\n")
+    else:
+        session.serial.prompt(*expanded, answer=answer, regex=step.regex)
 
 
 def _serial_shell_start(session: InstallSession, step: SerialShellStartStep) -> None:
@@ -206,12 +209,14 @@ def _serial_shell_start(session: InstallSession, step: SerialShellStartStep) -> 
 
 
 def _serial_shell_send(session: InstallSession, step: SerialShellSendStep) -> None:
-    """Run one command in the active serial shell."""
-    session.serial_shell_send(
-        _expand(session, step.command),
-        wait=step.wait,
-        prompt=step.prompt,
-    )
+    """Run configured commands in order in the active serial shell."""
+    commands = [step.command] if isinstance(step.command, str) else step.command
+    for command in commands:
+        session.serial_shell_send(
+            _expand(session, command),
+            wait=step.wait,
+            prompt=step.prompt,
+        )
 
 
 def _serial_send(session: InstallSession, step: SerialSendStep) -> None:

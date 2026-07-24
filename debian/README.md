@@ -64,17 +64,13 @@ priorities, per-section priorities, and named packages with their dependencies.
 See [CONTRIBUTING.md](../CONTRIBUTING.md#debian-package-selection) for index
 parsing and CD-ROM or VFAT package-media configuration.
 
-`0.91`'s `dinstall` is a prompt-and-response shell script, so its declarative
-`prompt-sequence` in [config.toml](0.91/infomagic/config.toml) answers it over
-the serial shell, replacing `tput` with a no-op first so prompts arrive as plain
-lines. That `dinstall` installs no boot loader and no packages, so two
-standalone scripts in [../guestlib/deb091](../guestlib/deb091) fill the gaps.
-They take arguments rather than reading the install environment:
-
-- `lilo.sh ROOTDEV ROOTMOUNT`: runs `rdev` on the installed kernel, rewrites
-  `lilo.conf`, and installs LILO. The prompt sequence runs it once `dinstall`
-  exits.
-- `pkginst.sh INSTALL_D`: installs every `.deb` under `$INSTALL_D/packages` with
-  `zcat | cpio`, runs `fixperms` when metadata is present, then runs the
-  non-interactive `.inst` scripts from `/var/adm/dpkg/inst`. Run from
-  the custom post-install stage.
+`0.91`'s `dinstall` is a prompt-and-response shell script. Its declarative
+`prompt-sequence` in [config.toml](0.91/infomagic/config.toml) matches the stock
+VGA screens and types answers through QMP, leaving `tput` and the visible
+installer display intact. Only the shared partitioning step uses the automation
+serial port while `dinstall` is active. That `dinstall` installs no boot loader
+and no packages, so the prompt sequence runs the LILO commands in a serial shell
+after installation. The variant's custom
+[postinst.sh](0.91/infomagic/postinst.sh) installs every `.deb` under
+`/retro/packages` with `zcat | cpio`, runs `fixperms` when metadata is present,
+then runs the non-interactive `.inst` scripts from `/var/adm/dpkg/inst`.

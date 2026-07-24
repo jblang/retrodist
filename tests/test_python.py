@@ -1341,13 +1341,30 @@ class InstallPlanTests(unittest.TestCase):
 
     def test_prompt_sequence_executes_every_supported_action(self) -> None:
         steps = [
-            {"action": "wait", "transport": "vga", "text": "Ready", "match": "line"},
+            {"action": "wait", "text": "Ready", "match": "line"},
             {"action": "wait", "transport": "serial", "text": "login:", "match": "regex"},
             {"action": "type", "text": "${install.network.hostname}\n"},
             {"action": "press", "keys": ["tab", "ret"], "repeat": 2},
-            {"action": "prompt", "questions": ["one", "two"], "answer": "yes", "regex": True},
+            {
+                "action": "prompt",
+                "transport": "serial",
+                "questions": ["one", "two"],
+                "answer": "yes",
+                "regex": True,
+            },
+            {
+                "action": "prompt",
+                "questions": ["screen one", "screen two"],
+                "answer": "ok",
+                "regex": True,
+            },
             {"action": "serial-shell-start", "screen_prompt": "$", "serial_prompt": "#"},
             {"action": "serial-shell-send", "command": "setup", "wait": False, "prompt": "$"},
+            {
+                "action": "serial-shell-send",
+                "command": ['echo "${install.network.hostname}"', "echo done"],
+                "prompt": "$",
+            },
             {"action": "serial-send", "text": "raw"},
             {"action": "serial-shell-exit", "screen_prompt": "done"},
             {"action": "console-echo", "text": "Installing"},
@@ -1361,6 +1378,7 @@ class InstallPlanTests(unittest.TestCase):
             data={
                 "install": {
                     "driver": "prompt-sequence",
+                    "default_transport": "vga",
                     "network": {"hostname": "retro"},
                     "steps": steps,
                 }
@@ -1383,13 +1401,44 @@ class InstallPlanTests(unittest.TestCase):
         )
         with patch.object(installers, "Fdisk") as fdisk:
             run_configured_install(session)
-        session.vga_wait.assert_called_once_with("Ready", match=Match.LINE, timeout=None)
+        self.assertEqual(
+            session.vga_wait.call_args_list,
+            [
+                call("Ready", match=Match.LINE, timeout=None),
+                call("screen one", "screen two", match=Match.REGEX),
+            ],
+        )
         serial.wait.assert_called_once_with("login:", line=False, regex=True, timeout=None)
-        session.kb_type.assert_called_once_with("retro\n")
+        self.assertEqual(session.kb_type.call_args_list, [call("retro\n"), call("ok\n")])
         self.assertEqual(session.kb_press.call_count, 2)
         serial.prompt.assert_called_once_with("one", "two", answer="yes", regex=True)
+        self.assertEqual(
+            session.serial_shell_send.call_args_list,
+            [
+                call("setup", wait=False, prompt="$"),
+                call('echo "retro"', wait=True, prompt="$"),
+                call("echo done", wait=True, prompt="$"),
+            ],
+        )
         fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/sda", 32)
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
+
+    def test_prompt_sequence_preserves_transport_defaults_without_override(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={
+                "install": {
+                    "driver": "prompt-sequence",
+                    "steps": [
+                        {"action": "wait", "text": "screen"},
+                        {"action": "prompt", "text": "serial", "answer": "yes"},
+                    ],
+                }
+            },
+        )
+        wait, prompt = config.prompt_sequence.steps
+        self.assertEqual(wait.transport, "vga")
+        self.assertEqual(prompt.transport, "serial")
 
     def test_installer_validation_rejects_bad_drivers_controls_and_steps(self) -> None:
         cases = (
@@ -1922,6 +1971,38 @@ class ManifestCoverageTests(unittest.TestCase):
             self.assertTrue(install.get("steps"), path.relative_to(root))
             for step in install["steps"]:
                 self.assertIn(step.get("action"), STEP_ACTIONS, path.relative_to(root))
+
+    def test_debian_091_uses_vga_prompt_questions(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        path = root / "debian/0.91/infomagic/config.toml"
+        install = tomllib.loads(path.read_text())["install"]
+        prompts = [step for step in install["steps"] if step["action"] == "prompt"]
+        lilo_steps = [
+            step
+            for step in install["steps"]
+            if step["action"] == "serial-shell-send"
+            and isinstance(step["command"], list)
+        ]
+        self.assertEqual(install["default_transport"], "vga")
+        self.assertTrue(all("questions" in step and "text" not in step for step in prompts))
+        self.assertTrue(any(len(step["questions"]) > 1 for step in prompts))
+        self.assertEqual(len(lilo_steps), 1)
+        self.assertFalse((root / "guestlib/deb091/lilo.sh").exists())
+        self.assertFalse((root / "guestlib/deb091/pkginst.sh").exists())
+        self.assertIn(
+            'find "$INSTALL_D/packages" -iname',
+            (root / "debian/0.91/infomagic/postinst.sh").read_text(),
+        )
+        syntax = subprocess.run(
+            ["sh", "-n"],
+            input="\n".join(lilo_steps[0]["command"]).replace(
+                "${install.disk.linux_partition}", "hda2"
+            ),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
 
     def test_canonical_media_link_preserves_already_named_image(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
