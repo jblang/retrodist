@@ -219,9 +219,11 @@ class SerialConsole:
             A pair containing the winning pattern index and matched text.
         """
         compiled = tuple(
-            value
-            if isinstance(value, re.Pattern)
-            else re.compile(value if regex else re.escape(value), re.MULTILINE)
+            (
+                value
+                if isinstance(value, re.Pattern)
+                else re.compile(value if regex else re.escape(value), re.MULTILINE)
+            )
             for value in patterns
         )
 

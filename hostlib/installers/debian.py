@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import shlex
 
-from ..dialog import Answer
+from ..dialog import AnswerTitle
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match
 from ..schemas import DinstallInstallConfig
@@ -60,7 +60,7 @@ class Dinstall:
         self._dispatch()
         self._step(r"Reboot [Tt]he System")
         self.s.set_boot("c")
-        self.d.answer(Answer("yesno", "Reboot the system?", "yes"))
+        self.d.answer(AnswerTitle("yesno", "Reboot the system?", "yes"))
         self._first_boot()
         self._postinst()
 
@@ -90,13 +90,13 @@ class Dinstall:
 
     def _main(self, answer: str = "Next") -> None:
         """Complete Dinstall's main installation menu."""
-        self.d.answer(Answer("menu", self.menu, answer, regex=True))
+        self.d.answer(AnswerTitle("menu", self.menu, answer, regex=True))
 
     def _step(self, item: str) -> None:
         """Select one Dinstall menu step by label."""
         self.d.answer_until(
-            Answer("textbox", "Release Notes", "ok"),
-            Answer(
+            AnswerTitle("textbox", "Release Notes", "ok"),
+            AnswerTitle(
                 "menu",
                 self.menu,
                 item,
@@ -121,9 +121,9 @@ class Dinstall:
             (r"Next :: Configure the Network", self._network),
             (r"Next :: Make Linux Bootable Directly From Hard Disk", self._lilo),
         )
-        choices = [Answer("textbox", "Release Notes", "ok")]
+        choices = [AnswerTitle("textbox", "Release Notes", "ok")]
         choices += [
-            Answer(
+            AnswerTitle(
                 "menu",
                 self.menu,
                 handler,
@@ -139,41 +139,41 @@ class Dinstall:
     def _keyboard(self, _: str) -> None:
         """Select the configured keyboard layout."""
         self._main()
-        self.d.answer(Answer("menu", "Select Keyboard", self.locale.keymap))
+        self.d.answer(AnswerTitle("menu", "Select Keyboard", self.locale.keymap))
 
     def _swap(self, _: str) -> None:
         """Create and initialize the swap partition."""
         self._main()
         self.d.answer_until(
-            Answer("menu", r"Select (Disk|Swap) Partition", "/dev/hda1", regex=True),
-            Answer("yesno", "Scan for Bad Blocks?", "no"),
-            Answer("yesno", "Are You Sure?", "yes", exit=True),
+            AnswerTitle("menu", r"Select (Disk|Swap) Partition", "/dev/hda1", regex=True),
+            AnswerTitle("yesno", "Scan for Bad Blocks?", "no"),
+            AnswerTitle("yesno", "Are You Sure?", "yes", exit=True),
         )
 
     def _root(self, _: str) -> None:
         """Create, format, and mount the root partition."""
         self._main()
         self.d.answer_until(
-            Answer("menu", r"Select (Disk )?Partition", "/dev/hda2", regex=True),
-            Answer("yesno", "Scan for Bad Blocks?", "no"),
-            Answer("yesno", "Are You Sure?", "yes"),
-            Answer("yesno", "Mount as the Root Filesystem?", "yes", exit=True),
+            AnswerTitle("menu", r"Select (Disk )?Partition", "/dev/hda2", regex=True),
+            AnswerTitle("yesno", "Scan for Bad Blocks?", "no"),
+            AnswerTitle("yesno", "Are You Sure?", "yes"),
+            AnswerTitle("yesno", "Mount as the Root Filesystem?", "yes", exit=True),
         )
 
     def _base(self, _: str) -> None:
         """Install the Debian base system."""
         self._main()
         self.d.answer_until(
-            Answer(
+            AnswerTitle(
                 "menu",
                 "Select Installation Medium",
                 "already mounted filesystem",
                 description=True,
             ),
-            Answer("inputbox", "Choose Debian directory", self.disk.fat_mount),
-            Answer("menu", "Select Base Archive file", "manually", description=True),
-            Answer("inputbox", "Enter the Base Archive directory", self.disk.fat_mount),
-            Answer("menu", self.menu, None, regex=True, exit=True),
+            AnswerTitle("inputbox", "Choose Debian directory", self.disk.fat_mount),
+            AnswerTitle("menu", "Select Base Archive file", "manually", description=True),
+            AnswerTitle("inputbox", "Enter the Base Archive directory", self.disk.fat_mount),
+            AnswerTitle("menu", self.menu, None, regex=True, exit=True),
         )
 
     def _kernel(self, _: str) -> None:
@@ -182,17 +182,17 @@ class Dinstall:
         if self.settings.kernel_floppy:
             self.s.change_floppy(self.settings.kernel_floppy)
         self.d.answer_until(
-            Answer("menu", "Select Disk Drive", "/dev/fd0"),
-            Answer("msgbox", "Please Insert Disk", "ok", exit=True),
-            Answer(
+            AnswerTitle("menu", "Select Disk Drive", "/dev/fd0"),
+            AnswerTitle("msgbox", "Please Insert Disk", "ok", exit=True),
+            AnswerTitle(
                 "menu",
                 "Select Installation Medium",
                 "already mounted filesystem",
                 description=True,
             ),
-            Answer("inputbox", "Choose Debian directory", self.disk.fat_mount),
-            Answer("menu", "Select Base Archive file", "manually", description=True),
-            Answer(
+            AnswerTitle("inputbox", "Choose Debian directory", self.disk.fat_mount),
+            AnswerTitle("menu", "Select Base Archive file", "manually", description=True),
+            AnswerTitle(
                 "inputbox",
                 "Enter the Base Archive directory",
                 self.disk.fat_mount,
@@ -207,8 +207,8 @@ class Dinstall:
             return
         self.s.change_floppy(self.settings.driver_floppy)
         self.d.answer_until(
-            Answer("menu", "Select Disk Drive", "/dev/fd0"),
-            Answer("msgbox", "Please Insert Disk", "ok", exit=True),
+            AnswerTitle("menu", "Select Disk Drive", "/dev/fd0"),
+            AnswerTitle("msgbox", "Please Insert Disk", "ok", exit=True),
         )
 
     def _modules(self, _: str) -> None:
@@ -218,20 +218,20 @@ class Dinstall:
             self._module("net", self.network.net_module, self.network.net_module_args)
         if self.settings.fs_module:
             self._module("fs", self.settings.fs_module, "")
-        self.d.answer(Answer("menu", "Select Category", "Exit"))
+        self.d.answer(AnswerTitle("menu", "Select Category", "Exit"))
 
     def _module(self, category: str, module: str, arguments: str) -> None:
         """Install one Dinstall module and return to its category menu."""
         self.d.answer_until(
-            Answer("menu", "Select Category", category),
-            Answer("menu", rf"Select ({re.escape(category)} )? ?modules", module, regex=True),
-            Answer("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
-            Answer("inputbox", "Enter Command-Line Arguments", arguments, exit=True),
+            AnswerTitle("menu", "Select Category", category),
+            AnswerTitle("menu", rf"Select ({re.escape(category)} )? ?modules", module, regex=True),
+            AnswerTitle("menu", rf"Module {re.escape(module)} [-+]", "Install", regex=True),
+            AnswerTitle("inputbox", "Enter Command-Line Arguments", arguments, exit=True),
         )
         self.s.vga_wait("Please press ENTER when you are ready to continue.", match=Match.LINE)
         self.s.kb_press("ret")
         self.d.answer(
-            Answer("menu", rf"Select ({re.escape(category)} )? ?modules", "Exit", regex=True)
+            AnswerTitle("menu", rf"Select ({re.escape(category)} )? ?modules", "Exit", regex=True)
         )
 
     def _configure_base(self, _: str) -> None:
@@ -251,35 +251,35 @@ class Dinstall:
         n = self.network
         self._main()
         self.d.answer_until(
-            Answer("inputbox", "Please enter your Host name", n.hostname),
-            Answer("yesno", "Use a Network?", "yes"),
-            Answer("inputbox", "Please enter your Domain name", n.domain),
-            Answer("yesno", "Confirm", "yes"),
-            Answer("inputbox", "Please Enter IP Address", n.ip),
-            Answer("inputbox", "Please Enter Netmask", n.netmask),
-            Answer("inputbox", "Please Enter Network Address", n.network),
-            Answer("inputbox", "Please Enter Broadcast Address", n.broadcast),
-            Answer(
+            AnswerTitle("inputbox", "Please enter your Host name", n.hostname),
+            AnswerTitle("yesno", "Use a Network?", "yes"),
+            AnswerTitle("inputbox", "Please enter your Domain name", n.domain),
+            AnswerTitle("yesno", "Confirm", "yes"),
+            AnswerTitle("inputbox", "Please Enter IP Address", n.ip),
+            AnswerTitle("inputbox", "Please Enter Netmask", n.netmask),
+            AnswerTitle("inputbox", "Please Enter Network Address", n.network),
+            AnswerTitle("inputbox", "Please Enter Broadcast Address", n.broadcast),
+            AnswerTitle(
                 "menu",
                 "Choose Broadcast Address",
                 "Last bits set to one",
                 description=True,
             ),
-            Answer("yesno", "Is there a Gateway?", "yes"),
-            Answer("inputbox", "Please Enter Gateway Address", n.gateway),
-            Answer("menu", "Locate DNS Server", "2"),
-            Answer("inputbox", "Please Enter Name Server Address", n.nameserver),
-            Answer("yesno", "Please Confirm", "yes"),
-            Answer("yesno", "Use Ethernet?", "yes", exit=True),
-            Answer("menu", "Choose network interface", "eth0", exit=True),
+            AnswerTitle("yesno", "Is there a Gateway?", "yes"),
+            AnswerTitle("inputbox", "Please Enter Gateway Address", n.gateway),
+            AnswerTitle("menu", "Locate DNS Server", "2"),
+            AnswerTitle("inputbox", "Please Enter Name Server Address", n.nameserver),
+            AnswerTitle("yesno", "Please Confirm", "yes"),
+            AnswerTitle("yesno", "Use Ethernet?", "yes", exit=True),
+            AnswerTitle("menu", "Choose network interface", "eth0", exit=True),
         )
 
     def _lilo(self, _: str) -> None:
         """Install and configure the LILO boot loader."""
         self._main()
         self.d.answer_until(
-            Answer("yesno", "Create Master Boot Record?", "yes"),
-            Answer("yesno", "Make Linux the Default Boot Partition?", "yes", exit=True),
+            AnswerTitle("yesno", "Create Master Boot Record?", "yes"),
+            AnswerTitle("yesno", "Make Linux the Default Boot Partition?", "yes", exit=True),
         )
 
     def _first_boot(self) -> None:

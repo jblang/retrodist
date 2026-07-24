@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import re
 from typing import Callable, Protocol
 
-Answer = str | Callable[[str], None] | None
+DialogResponse = str | Callable[[str], None] | None
 
 
 class SerialTransport(Protocol):
@@ -34,30 +34,33 @@ class SerialTransport(Protocol):
         ...
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Answer:
     """Describe one expected dialog exchange and its response.
 
-    Titles and item constraints may be literal or regular expressions. When
-    ``description`` is true, the configured answer selects an item's display
-    text and is translated back to the tag expected by ``dialog``.
+    Literal titles are matched case-insensitively. Titles, prompt text, and item
+    constraints may instead use regular expressions. When ``description`` is
+    true, the configured answer selects an item's display text and is
+    translated back to the tag expected by ``dialog``.
     """
 
     widget: str
     title: str
-    answer: Answer
+    text: str | None = None
+    answer: DialogResponse
     regex: bool = False
     item: str | None = None
     item_regex: bool = False
     description: bool = False
     exit: bool = False
+    text_regex: bool = False
 
     def matches(self, screen: "DialogScreen") -> bool:
         """Return whether this choice matches a parsed dialog screen."""
         title_matches = (
             re.search(self.title, screen.title) is not None
             if self.regex
-            else self.title == screen.title
+            else self.title.casefold() == screen.title.casefold()
         )
         type_matches = (
             self.widget == "any"
@@ -66,10 +69,71 @@ class Answer:
         )
         if not (title_matches and type_matches):
             return False
+        if self.text is not None:
+            text = "\n".join(screen.text)
+            if self.text_regex:
+                if re.search(self.text, text) is None:
+                    return False
+            elif self.text not in text:
+                return False
         if self.item is None:
             return True
         matcher = re.compile(self.item) if self.item_regex else re.compile(re.escape(self.item))
         return any(matcher.search(f"{key} :: {description}") for key, description in screen.items)
+
+
+def AnswerTitle(
+    widget: str,
+    title: str,
+    answer: DialogResponse,
+    /,
+    *,
+    regex: bool = False,
+    item: str | None = None,
+    item_regex: bool = False,
+    description: bool = False,
+    exit: bool = False,
+) -> Answer:
+    """Build an answer matched by widget type and title."""
+    return Answer(
+        widget=widget,
+        title=title,
+        answer=answer,
+        regex=regex,
+        item=item,
+        item_regex=item_regex,
+        description=description,
+        exit=exit,
+    )
+
+
+def AnswerText(
+    widget: str,
+    title: str,
+    text: str,
+    answer: DialogResponse,
+    /,
+    *,
+    regex: bool = False,
+    text_regex: bool = False,
+    item: str | None = None,
+    item_regex: bool = False,
+    description: bool = False,
+    exit: bool = False,
+) -> Answer:
+    """Build an answer additionally matched by prompt text."""
+    return Answer(
+        widget=widget,
+        title=title,
+        text=text,
+        answer=answer,
+        regex=regex,
+        text_regex=text_regex,
+        item=item,
+        item_regex=item_regex,
+        description=description,
+        exit=exit,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,21 +143,30 @@ class DialogScreen:
     title: str
     widget: str
     items: tuple[tuple[str, str], ...]
+    text: tuple[str, ...] = ()
 
     @classmethod
     def parse(cls, text: str) -> "DialogScreen":
         """Parse title, widget type, and items from a dialog protocol exchange."""
         fields: dict[str, str] = {}
         items: list[tuple[str, str]] = []
+        prompt_text: list[str] = []
         for line in text.replace("\r", "").splitlines():
             if line.startswith("TITLE: "):
                 fields["title"] = line.removeprefix("TITLE: ")
             elif line.startswith("TYPE: "):
                 fields["widget"] = line.removeprefix("TYPE: ")
+            elif line.startswith("TEXT: "):
+                prompt_text.append(line.removeprefix("TEXT: "))
             elif line.startswith("ITEM: "):
                 key, _, description = line.removeprefix("ITEM: ").partition(" :: ")
                 items.append((key, description))
-        return cls(fields.get("title", ""), fields.get("widget", "any"), tuple(items))
+        return cls(
+            fields.get("title", ""),
+            fields.get("widget", "any"),
+            tuple(items),
+            tuple(prompt_text),
+        )
 
 
 class Dialog:

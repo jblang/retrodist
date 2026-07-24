@@ -18,8 +18,5 @@ truncate = ["boot0015.img"]
 [qemu]
 profile = "linux-1.2"
 
-[install.prompts]
-boot_command = "linux root=/dev/hdc"
-
 [postinst]
 stages = ["x11"]

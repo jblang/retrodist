@@ -281,9 +281,13 @@ if [ "$OUTPUT_FD" = 1 ]; then
     PROMPT_FD=2
 fi
 
-if [ "$widget" = "--infobox" ] && [ "$SERIAL_INFOBOXES" != 1 ]; then
-    SERIAL_MUTED=1
-fi
+case "$widget" in
+    --infobox | --gauge)
+        if [ "$SERIAL_INFOBOXES" != 1 ]; then
+            SERIAL_MUTED=1
+        fi
+        ;;
+esac
 
 if [ -n "$SAVED_LINES" ]; then
     prompt "$SAVED_LINES"

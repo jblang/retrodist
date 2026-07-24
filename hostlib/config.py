@@ -115,9 +115,7 @@ class RetroConfig(ConfigModel):
         install = self.install
         disk = getattr(install, "disk", None)
         source = (
-            disk.model_dump()
-            if isinstance(disk, ConfigModel)
-            else self.section("install", "disk")
+            disk.model_dump() if isinstance(disk, ConfigModel) else self.section("install", "disk")
         )
         if isinstance(install, DinstallInstallConfig) and install.debian.fat_filesystem:
             source["fat_filesystem"] = install.debian.fat_filesystem
@@ -163,6 +161,7 @@ class RetroConfig(ConfigModel):
                 return default
             value = value[part]
         return value
+
 
 def load_config(context: Context) -> RetroConfig:
     """Resolve the selected config with values inherited from its parent.

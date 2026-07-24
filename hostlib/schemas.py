@@ -397,21 +397,24 @@ InstallStep = Annotated[
 class PromptSequenceConfig(ConfigModel):
     """Configure a non-empty sequence of discriminated installer actions."""
 
-    default_action: Literal[
-        "wait",
-        "type",
-        "press",
-        "prompt",
-        "serial-shell-start",
-        "serial-shell-send",
-        "serial-send",
-        "serial-shell-exit",
-        "console-echo",
-        "partition",
-        "change-floppy",
-        "set-boot",
-        "run-postinst",
-    ] | None = None
+    default_action: (
+        Literal[
+            "wait",
+            "type",
+            "press",
+            "prompt",
+            "serial-shell-start",
+            "serial-shell-send",
+            "serial-send",
+            "serial-shell-exit",
+            "console-echo",
+            "partition",
+            "change-floppy",
+            "set-boot",
+            "run-postinst",
+        ]
+        | None
+    ) = None
     default_transport: Literal["vga", "serial"] | None = None
     steps: list[InstallStep] = Field(min_length=1)
 

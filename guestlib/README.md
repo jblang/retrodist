@@ -140,12 +140,12 @@ divider, and `die MESSAGE...` logs an error then exits.
 
 `dialog.sh` is a plain-text replacement for
 [dialog(1)](https://linux.die.net/man/1/dialog), whose interface appears in the
-Debian, Slackware, and early Red Hat installers. The current Debian and
-Slackware automation replaces the real binary with this executable, turning
-each curses screen into a labeled text exchange on the control serial port.
-The Python `Dialog` driver consumes that exchange and sends the answer expected
-by the original installer. Its protocol contract is documented in
-[`hostlib/dialog.py`](../hostlib/dialog.py).
+Debian, Slackware, and early Red Hat installers. Their automation replaces an
+installer's real binary with this executable, turning widgets that use the stub
+into labeled text exchanges on the control serial port. Other screens may
+remain VGA-driven. The Python `Dialog` driver consumes each exchange and sends
+the answer expected by the original installer. Its protocol contract is
+documented in [`hostlib/dialog.py`](../hostlib/dialog.py).
 
 For example, a menu exchange is:
 
@@ -166,8 +166,8 @@ The labels are a wire protocol, not just diagnostic output. The adapter emits
 metadata, `ITEM:` lines, and `RESPONSE:` where input is required. Preserve
 their spelling and ordering, including `ITEM: tag :: description` and empty
 `TEXT:` lines. The Python Dialog matcher finds `TITLE:` and `TYPE:` in stream
-order, may inspect `ITEM:` lines to distinguish similar menus or select by
-description, and waits for `RESPONSE:` before answering.
+order, may inspect `TEXT:` and `ITEM:` lines to distinguish similar widgets or
+select an item by description, and waits for `RESPONSE:` before answering.
 
 Answers must use the value expected by `dialog`: an item tag for menus, text
 for input boxes, and a button word such as `yes`, `no`, `ok`, `cancel`, or
@@ -185,15 +185,16 @@ Supported widgets are `msgbox`, `infobox`, `yesno`, `inputbox`, `passwordbox`,
 `menu`, `inputmenu`, `checklist`, `radiolist`, `textbox`, and `gauge`. The
 adapter handles titles, output-fd selection, checklist output, defaults, labels,
 positioning, and the cosmetic options used by supported installers. Other long
-options are emitted as `OPTION:` metadata and ignored. Gauges emit changed
-message text while discarding percentage and `XXX` control lines.
+options are emitted as `OPTION:` metadata and ignored. When enabled for serial,
+gauges emit changed message text while discarding percentage and `XXX` control
+lines.
 
 `SERIAL` selects the duplex control device and defaults to `/dev/ttyS3`. When
 the device is writable, the adapter reads answers from it, writes prompts to
 it, and mirrors the exchange to the console. Otherwise it reads stdin and
-writes prompts only to the console. Infoboxes are omitted from serial by
-default because they require no answer; set `SERIAL_INFOBOXES=1` to include
-them in the host transcript.
+writes prompts only to the console. Infoboxes and gauges are omitted from
+serial by default because they require no answer; set `SERIAL_INFOBOXES=1` to
+include them in the host transcript.
 
 Some installers must move an already-running real dialog aside before copying
 the adapter into place. On its first invocation, after that process has exited,

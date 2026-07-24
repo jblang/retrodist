@@ -126,7 +126,11 @@ def resolve_packages(
         )
         for alternatives in _dependency_groups(dependencies):
             candidate = next(
-                (by_name[name] for name in alternatives if name in by_name and name not in skipped),
+                (
+                    by_name[name]
+                    for name in alternatives
+                    if name in by_name and name not in skipped
+                ),
                 None,
             )
             if candidate is None:
@@ -154,9 +158,7 @@ def resolve_packages(
     return ordered
 
 
-def render_installer(
-    packages: list[DebianPackage], selection: DebianPackagesConfig
-) -> str:
+def render_installer(packages: list[DebianPackage], selection: DebianPackagesConfig) -> str:
     """Render a portable shell script containing dependency-ordered dpkg commands."""
     lines = [
         "#!/bin/sh",
@@ -166,18 +168,15 @@ def render_installer(
         "    retro_dpkg_section=$1",
         "    retro_dpkg_file=$2",
         "    for retro_dpkg_root in "
-        + " ".join(
-            _shell_word(root.rstrip("/"))
-            for root in dict.fromkeys(selection.roots)
-        ),
+        + " ".join(_shell_word(root.rstrip("/")) for root in dict.fromkeys(selection.roots)),
         "    do",
         "        retro_dpkg_path=$retro_dpkg_root/$retro_dpkg_section/$retro_dpkg_file",
-        "        if [ -f \"$retro_dpkg_path\" ]; then",
-        "            dpkg --install \"$retro_dpkg_path\"",
+        '        if [ -f "$retro_dpkg_path" ]; then',
+        '            dpkg --install "$retro_dpkg_path"',
         "            return $?",
         "        fi",
         "    done",
-        "    echo \"Package archive not found: $retro_dpkg_section/$retro_dpkg_file\" >&2",
+        '    echo "Package archive not found: $retro_dpkg_section/$retro_dpkg_file" >&2',
         "    return 1",
         "}",
     ]

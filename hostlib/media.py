@@ -34,6 +34,7 @@ from .schemas import (
     PostinstConfig,
 )
 
+
 class Iso:
     """Provide case-tolerant access through an ISO's richest namespace.
 
@@ -282,9 +283,7 @@ class MediaStager:
         else:
             raise ConfigError(f"Unsupported extraction source: {source.name}")
 
-    def _stage_archive(
-        self, source: Path, spec: ExtractionConfig, files: list[str]
-    ) -> None:
+    def _stage_archive(self, source: Path, spec: ExtractionConfig, files: list[str]) -> None:
         """Extract selected regular archive members, then use directory staging."""
         temporary = self.context.temporary / "archive"
         shutil.rmtree(temporary, ignore_errors=True)
@@ -292,9 +291,7 @@ class MediaStager:
         if tarfile.is_tarfile(source):
             with tarfile.open(source) as archive:
                 members = {
-                    member.name: member
-                    for member in archive.getmembers()
-                    if member.isfile()
+                    member.name: member for member in archive.getmembers() if member.isfile()
                 }
                 selected = self._selected_archive_members(list(members), spec, files)
                 self._extract_members(
@@ -357,9 +354,7 @@ class MediaStager:
             return configured
         return self.config.download_dir / configured
 
-    def _stage_iso(
-        self, source: Path, spec: ExtractionConfig, files: list[str]
-    ) -> None:
+    def _stage_iso(self, source: Path, spec: ExtractionConfig, files: list[str]) -> None:
         """Stage selected files and a package tree from an ISO image."""
         self._link(source, self.directory / "install.iso")
         with Iso(source) as image:
@@ -370,9 +365,7 @@ class MediaStager:
             for package_source in self._package_sources(spec):
                 image.extract_tree(package_source, self._package_destination(spec))
 
-    def _stage_directory(
-        self, source: Path, spec: ExtractionConfig, files: list[str]
-    ) -> None:
+    def _stage_directory(self, source: Path, spec: ExtractionConfig, files: list[str]) -> None:
         """Stage selected files and packages from an extracted directory."""
         for item in files:
             self._copy_matches(source, item, self.directory)

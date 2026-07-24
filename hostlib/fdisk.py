@@ -24,9 +24,7 @@ class Fdisk:
 
     session: InstallSession
 
-    def partition_swap_root(
-        self, device: str = "/dev/hda", swap_mb: int = 64
-    ) -> None:
+    def partition_swap_root(self, device: str = "/dev/hda", swap_mb: int = 64) -> None:
         """Create swap and root partitions with the guest's interactive fdisk."""
         command = f"fdisk {device}"
         if device == "/dev/hda":

@@ -29,7 +29,7 @@ from hostlib.errors import CommandError, ConfigError, RetroError
 from hostlib import cli, download, operations, qmp_cli, tagfiles
 from hostlib.fdisk import Fdisk
 from hostlib.keyboard import encode
-from hostlib.dialog import Answer, Dialog
+from hostlib.dialog import Answer, AnswerText, AnswerTitle, Dialog
 from hostlib.debian_packages import (
     DebianPackage,
     load_packages,
@@ -195,9 +195,7 @@ class CliTests(unittest.TestCase):
         with temporary_root() as root:
             scratch = root / "command-temp"
             scratch.mkdir()
-            context = SimpleNamespace(
-                command="help", name="test", temporary=scratch, config=root
-            )
+            context = SimpleNamespace(command="help", name="test", temporary=scratch, config=root)
             with (
                 patch.object(cli.Context, "create", return_value=context),
                 patch.object(cli, "load_config", return_value=SimpleNamespace()),
@@ -399,9 +397,7 @@ class DownloadTests(unittest.TestCase):
                 patch("hostlib.download.subprocess.run") as wget,
                 self.assertLogs(download.log, "INFO") as logs,
             ):
-                download.Wget().mirror(
-                    "https://x/releases/tree/", destination, ("*index*",)
-                )
+                download.Wget().mirror("https://x/releases/tree/", destination, ("*index*",))
             wget.assert_not_called()
             self.assertEqual(
                 logs.output,
@@ -700,14 +696,8 @@ class QemuTests(unittest.TestCase):
 
     def test_auxiliary_serial_backend_occupies_guest_ttys2(self) -> None:
         with temporary_root() as root:
-            runtime = self.runtime(
-                root, QemuConfig(serial={"auxiliary": "msmouse"})
-            )
-            serials = [
-                value
-                for option, value in runtime._chardevs()
-                if option == "-serial"
-            ]
+            runtime = self.runtime(root, QemuConfig(serial={"auxiliary": "msmouse"}))
+            serials = [value for option, value in runtime._chardevs() if option == "-serial"]
             self.assertEqual(serials[2], "msmouse")
             self.assertIn("ttyS3.sock", serials[3])
 
@@ -842,9 +832,7 @@ class DebianPackageTests(unittest.TestCase):
             add=["editor"],
             skip=["base", "editor"],
         )
-        self.assertEqual(
-            [package.name for package in resolve_packages(packages, config)], []
-        )
+        self.assertEqual([package.name for package in resolve_packages(packages, config)], [])
 
     def test_explicit_packages_precede_priority_selections(self) -> None:
         """Explicit prerequisites install before packages selected by priority."""
@@ -930,9 +918,7 @@ class MediaStagerTests(unittest.TestCase):
             generated = context.qemu_dir / "fat/guestlib.d/distro/config.sh"
             self.assertIn("NET_HOSTNAME='retro'", generated.read_text())
             installer = context.qemu_dir / "fat/guestlib.d/distro/packages.sh"
-            self.assertIn(
-                "retro_dpkg_install 'utils' 'demo_1.deb'", installer.read_text()
-            )
+            self.assertIn("retro_dpkg_install 'utils' 'demo_1.deb'", installer.read_text())
             self.assertTrue((context.qemu_dir / ".extracted").exists())
 
     def test_existing_marker_refreshes_guestlib_without_reextracting(self) -> None:
@@ -1410,6 +1396,41 @@ class InstallPlanTests(unittest.TestCase):
 
 
 class RedHatDriverTests(unittest.TestCase):
+    def test_redhat_303_loads_ramdisks_before_first_dialog(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.load_two_ramdisks = unittest.mock.Mock()
+        installer.prepare_dialog = unittest.mock.Mock()
+        installer.insert_boot_disk = unittest.mock.Mock()
+        installer._choose_text_cdrom = unittest.mock.Mock()
+        installer.partition = unittest.mock.Mock()
+        installer.dismiss_swap_error = unittest.mock.Mock()
+        installer.configure_network = unittest.mock.Mock()
+        installer.format_root = unittest.mock.Mock()
+        installer._finish = unittest.mock.Mock()
+        installer.dialog = unittest.mock.Mock()
+
+        installer.flow_303()
+
+        installer.load_two_ramdisks.assert_called_once_with()
+        installer.prepare_dialog.assert_called_once_with(
+            "This script will walk you through each step of the installation."
+        )
+        answers = [call.args[0] for call in installer.dialog.answer.call_args_list]
+        self.assertEqual(
+            [(answer.widget, answer.title, answer.answer) for answer in answers],
+            [
+                ("yesno", "Color Screen", "yes"),
+                ("yesno", "Add Swap", "yes"),
+                ("yesno", "Success", "yes"),
+                ("checklist", "Select Series", ""),
+                ("menu", "X Configuration", "SVGA"),
+                ("yesno", "Select Packages", "no"),
+                ("msgbox", "Package Installation", "ok"),
+            ],
+        )
+        installer.dismiss_swap_error.assert_not_called()
+        installer._finish.assert_called_once_with(x_vga=True)
+
     def test_unattended_flow_boots_reboots_and_runs_postinstall(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
@@ -1465,10 +1486,14 @@ class RedHatDriverTests(unittest.TestCase):
             )
         )
         installer = unittest.mock.Mock()
+        installer.settings.flow = "1.1"
         with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
             redhat_perl.run_perl_installer(session)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
+        installer.prepare_dialog.assert_called_once_with(
+            "Welcome to the Red Hat Commercial Linux installation program!"
+        )
         installer.insert_boot_disk.assert_called_once_with()
         session.config = RetroConfig(
             context=SimpleNamespace(),
@@ -1477,6 +1502,50 @@ class RedHatDriverTests(unittest.TestCase):
         with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
             with self.assertRaisesRegex(ConfigError, "Unknown Red Hat Perl installer flow"):
                 redhat_perl.run_perl_installer(session)
+
+    def test_early_redhat_x_configuration_uses_detected_cirrus_path(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.dialog = unittest.mock.Mock()
+
+        installer._configure_x()
+
+        choices = [item.args[0] for item in installer.dialog.answer.call_args_list]
+        self.assertEqual(choices[0].answer, "yes")
+        self.assertEqual([choice.answer for choice in choices[1:4]], ["yes", "yes", "yes"])
+        self.assertEqual(choices[4].title, "Monitor Specs")
+        self.assertEqual(choices[4].answer, "Generic Monitor")
+        self.assertEqual(choices[5].widget, "checklist")
+        self.assertEqual(choices[6].answer, "640x480   60Hz      Non-Interlaced")
+        self.assertEqual(choices[7].answer, "no")
+        self.assertEqual(choices[8].answer, "")
+        self.assertEqual(choices[9].answer, "Two")
+
+    def test_redhat_303_x_configuration_uses_installed_dialog_on_vga(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.s = unittest.mock.Mock()
+
+        installer._configure_x_vga()
+
+        prompts = [call.args[0] for call in installer.s.vga_wait.call_args_list]
+        self.assertEqual(
+            prompts,
+            [
+                "Do you want to autoprobe?",
+                "Your chipset appears to be:",
+                "Kb of memory.",
+                "Your card appears to have the following clocks:",
+                "Please choose a monitor.",
+                "Select the modes you wish to include in XF86Config.",
+                "Choose primary video mode.",
+                "Do you have such a card?",
+                "There are a large number of configuration options",
+                "How many buttons are on your mouse?",
+            ],
+        )
+        self.assertEqual(
+            installer.s.kb_press.call_args_list[4].args,
+            ("g", "g", "ret"),
+        )
 
 
 class KeyboardTests(unittest.TestCase):
@@ -1514,14 +1583,22 @@ class _DialogSerial:
 
 
 class DialogTests(unittest.TestCase):
+    def test_answer_requires_keyword_arguments(self) -> None:
+        with self.assertRaises(TypeError):
+            Answer("menu", "Main", "Next")  # type: ignore[call-arg]
+
+        answer = Answer(widget="menu", title="Main", text="Prompt", answer="Next")
+
+        self.assertEqual(answer.answer, "Next")
+
     def test_callback_rewinds_the_screen_for_nested_handler(self) -> None:
         serial = _DialogSerial("TITLE: Main\nTYPE: menu\nITEM: Next :: Install\nRESPONSE:\n")
         dialog = Dialog(serial)
 
         def handler(_: str) -> None:
-            dialog.answer(Answer("menu", "Main", "Next"))
+            dialog.answer(AnswerTitle("menu", "Main", "Next"))
 
-        dialog.answer(Answer("menu", "Main", handler, item="Next :: Install"))
+        dialog.answer(AnswerTitle("menu", "Main", handler, item="Next :: Install"))
         self.assertEqual(serial.answers, ["Next"])
 
     def test_pkgtool_callback_consumes_rewound_trigger_screen(self) -> None:
@@ -1545,14 +1622,35 @@ class DialogTests(unittest.TestCase):
         dialog = Dialog(serial)
 
         def install_base(_: str) -> None:
-            dialog.answer(Answer("menu", "Main", "Next", item="Install Base"))
-            dialog.answer(Answer("menu", "Main", None, exit=True))
+            dialog.answer(AnswerTitle("menu", "Main", "Next", item="Install Base"))
+            dialog.answer(AnswerTitle("menu", "Main", None, exit=True))
 
         dialog.answer_until(
-            Answer("menu", "Main", install_base, item="Install Base"),
-            Answer("menu", "Main", "Next", item="Install Kernel", exit=True),
+            AnswerTitle("menu", "Main", install_base, item="Install Base"),
+            AnswerTitle("menu", "Main", "Next", item="Install Kernel", exit=True),
         )
         self.assertEqual(serial.answers, ["Next", "Next"])
+
+    def test_answer_can_match_inputbox_prompt_text(self) -> None:
+        serial = _DialogSerial(
+            "TITLE: Network Configuration\n"
+            "TYPE: inputbox\n"
+            "TEXT: What hostname have you selected?\n"
+            "RESPONSE:\n"
+        )
+        dialog = Dialog(serial)
+
+        dialog.answer(AnswerText("inputbox", "Network Configuration", "What hostname", "retro"))
+
+        self.assertEqual(serial.answers, ["retro"])
+
+    def test_literal_titles_are_case_insensitive(self) -> None:
+        serial = _DialogSerial("TITLE: X configuration\nTYPE: menu\nRESPONSE:\n")
+        dialog = Dialog(serial)
+
+        dialog.answer(AnswerTitle("menu", "X Configuration", ""))
+
+        self.assertEqual(serial.answers, [""])
 
 
 class DinstallTests(unittest.TestCase):
@@ -1626,9 +1724,7 @@ class DinstallTests(unittest.TestCase):
         serial.wait.assert_called_once_with("Configuration complete!", line=True)
         session.serial_shell_exit.assert_called_once()
 
-        session.config.postinst = PostinstConfig(
-            stages=["packages", "tty"], packages=packages
-        )
+        session.config.postinst = PostinstConfig(stages=["packages", "tty"], packages=packages)
         session.serial_shell_exit.reset_mock()
         Dinstall(session, dinstall_config())._postinst()
         session.serial_shell_exit.assert_not_called()
@@ -1709,7 +1805,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.section("extract"):
                     _ = config.extraction
                     validated.append(path)
-        self.assertEqual(len(validated), 51)
+        self.assertEqual(len(validated), 50)
 
     def test_every_install_configuration_passes_driver_validation(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1721,7 +1817,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.value("install", "driver"):
                     validate_install_config(config)
                     validated.append(path)
-        self.assertEqual(len(validated), 62)
+        self.assertEqual(len(validated), 61)
 
     def test_every_postinstall_configuration_passes_schema_validation(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1733,7 +1829,7 @@ class ManifestCoverageTests(unittest.TestCase):
                 if config.section("postinst"):
                     config.postinst
                     validated.append(path)
-        self.assertEqual(len(validated), 62)
+        self.assertEqual(len(validated), 61)
 
     def test_every_host_module_class_and_function_has_a_docstring(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -1816,7 +1912,6 @@ class ManifestCoverageTests(unittest.TestCase):
                 "slackware/3.6/linuxmall",
                 "debian/1.1/official",
                 "debian/1.1/infomagic",
-                "debian/1.1/oldfloss",
                 "debian/1.2/official",
                 "debian/1.2/infomagic",
                 "debian/1.3/official",
@@ -1888,7 +1983,6 @@ class ManifestCoverageTests(unittest.TestCase):
         self.assertEqual(
             archives,
             [
-                Path("debian/1.1/oldfloss/config.toml"),
                 Path("slackware/1.01/channel1/config.toml"),
                 Path("slackware/1.01/official+sls/config.toml"),
                 Path("slackware/1.0beta/official+sls/config.toml"),
@@ -1931,8 +2025,7 @@ class ManifestCoverageTests(unittest.TestCase):
         lilo_steps = [
             step
             for step in install["steps"]
-            if step.get("action") == "serial-shell-send"
-            and isinstance(step["command"], list)
+            if step.get("action") == "serial-shell-send" and isinstance(step["command"], list)
         ]
         self.assertEqual(install["default_transport"], "vga")
         self.assertEqual(install["default_action"], "prompt")

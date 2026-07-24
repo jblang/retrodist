@@ -166,6 +166,4 @@ class PostinstConfig(ConfigModel):
     @property
     def reboots(self) -> bool:
         """Return whether the configured guest runner finishes by rebooting."""
-        return self.reboot is True or bool(
-            {"modules", "network", "tty"}.intersection(self.stages)
-        )
+        return self.reboot is True or bool({"modules", "network", "tty"}.intersection(self.stages))

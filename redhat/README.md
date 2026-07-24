@@ -84,9 +84,11 @@ The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
 
 - `redhat_perl.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
-  handles boot/root/ramdisk floppy handoffs and the common partitioning,
-  networking, X11, LILO, and reboot prompts used by 2.1 and 3.0.3. Version-only
-  package series and startup prompts stay in each release's TOML.
+  replaces the installer's `dialog` executable with the serial adapter at its
+  first widget, then matches structured widget titles, items, and prompt text.
+  It uses Perl to rename the original binary because these root disks do not
+  include `mv`. Screens that do not use the dialog stub remain VGA-driven.
+  Version-only package series and startup prompts stay in each release's TOML.
 - `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
   configs set prompt-order options and select common flow variants.
 - 5.2 uses the installer Kickstart support instead of driving every screen.
