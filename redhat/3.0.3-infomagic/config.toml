@@ -5,6 +5,41 @@ driver = "redhat-perl"
 
 [install.redhat]
 flow = "3.0.3"
+package_series = [
+    "Applications",
+    # "DOS Compatibility",
+    "Development",
+    # "Development Libraries",
+    "Documentation",
+    # "Emacs",
+    "Games",
+    # "Mail",
+    "Multimedia Programs",
+    # "Network Admin",
+    "Networking",
+    # "Networking Servers",
+    # "Other Programming Languages",
+    # "Other Shells",
+    # "Printing",
+    # "Serial Communications",
+    # "Tcl-Tk Extensions",
+    # "TeX",
+    "X Applications",
+    "X Development",
+    "X Games",
+    "X Windows",
+    # "XView",
+    # "a.out compatitibility",
+    # "Other",
+]
+root_password = "password"
+# user = "redhat"
+# user_home = true
+
+[install.locale]
+hardware_clock = "utc"
+timezone = "UTC"
+keymap = "us.map"
 
 [download]
 cdrom = "infomagic/ldr/1996_09"

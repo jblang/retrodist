@@ -1388,6 +1388,19 @@ class InstallPlanTests(unittest.TestCase):
                 {"install": {"driver": "redhat-perl", "redhat": {}}},
                 "install.redhat.flow must be a string",
             ),
+            (
+                {"install": {"driver": "redhat-perl", "redhat": {"flow": "2.1"}}},
+                "install.redhat.package_series is required",
+            ),
+            (
+                {
+                    "install": {
+                        "driver": "redhat-perl",
+                        "redhat": {"flow": "unknown", "package_series": []},
+                    }
+                },
+                "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3",
+            ),
         )
         for data, message in cases:
             with self.subTest(message=message):
@@ -1396,7 +1409,7 @@ class InstallPlanTests(unittest.TestCase):
 
 
 class RedHatDriverTests(unittest.TestCase):
-    def test_redhat_303_loads_ramdisks_before_first_dialog(self) -> None:
+    def test_redhat_perl_combines_common_flow_and_dispatches_optional_dialogs(self) -> None:
         installer = object.__new__(redhat_perl.PerlInstaller)
         installer.load_two_ramdisks = unittest.mock.Mock()
         installer.prepare_dialog = unittest.mock.Mock()
@@ -1408,27 +1421,47 @@ class RedHatDriverTests(unittest.TestCase):
         installer.format_root = unittest.mock.Mock()
         installer._finish = unittest.mock.Mock()
         installer.dialog = unittest.mock.Mock()
+        installer.settings = SimpleNamespace(
+            flow="3.0.3",
+            package_series=["Networking", "X Windows"],
+        )
 
-        installer.flow_303()
+        installer.install("first dialog", x_vga=True)
 
         installer.load_two_ramdisks.assert_called_once_with()
-        installer.prepare_dialog.assert_called_once_with(
-            "This script will walk you through each step of the installation."
+        installer.prepare_dialog.assert_called_once_with("first dialog")
+        self.assertEqual(
+            [
+                [(choice.title, choice.answer, choice.exit) for choice in call.args]
+                for call in installer.dialog.answer_until.call_args_list
+            ],
+            [
+                [
+                    ("Color Screen", "yes", False),
+                    ("Boot Floppy", None, True),
+                ],
+                [
+                    ("Select Packages", "no", False),
+                    ("Package Installation", "ok", False),
+                    ("Mouse Configuration", None, True),
+                ],
+            ],
         )
         answers = [call.args[0] for call in installer.dialog.answer.call_args_list]
         self.assertEqual(
             [(answer.widget, answer.title, answer.answer) for answer in answers],
             [
-                ("yesno", "Color Screen", "yes"),
                 ("yesno", "Add Swap", "yes"),
                 ("yesno", "Success", "yes"),
-                ("checklist", "Select Series", ""),
+                (
+                    "checklist",
+                    "Select Series",
+                    ("Networking", "X Windows"),
+                ),
                 ("menu", "X Configuration", "SVGA"),
-                ("yesno", "Select Packages", "no"),
-                ("msgbox", "Package Installation", "ok"),
             ],
         )
-        installer.dismiss_swap_error.assert_not_called()
+        installer.dismiss_swap_error.assert_called_once_with()
         installer._finish.assert_called_once_with(x_vga=True)
 
     def test_unattended_flow_boots_reboots_and_runs_postinstall(self) -> None:
@@ -1482,7 +1515,12 @@ class RedHatDriverTests(unittest.TestCase):
         session = SimpleNamespace(
             config=RetroConfig(
                 context=SimpleNamespace(),
-                data={"install": {"driver": "redhat-perl", "redhat": {"flow": "1.1"}}},
+                data={
+                    "install": {
+                        "driver": "redhat-perl",
+                        "redhat": {"flow": "1.1", "package_series": []},
+                    }
+                },
             )
         )
         installer = unittest.mock.Mock()
@@ -1495,13 +1533,14 @@ class RedHatDriverTests(unittest.TestCase):
             "Welcome to the Red Hat Commercial Linux installation program!"
         )
         installer.insert_boot_disk.assert_called_once_with()
-        session.config = RetroConfig(
-            context=SimpleNamespace(),
-            data={"install": {"driver": "redhat-perl", "redhat": {"flow": "unknown"}}},
-        )
+        installer.reset_mock()
+        installer.settings.flow = "3.0.3"
         with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
-            with self.assertRaisesRegex(ConfigError, "Unknown Red Hat Perl installer flow"):
-                redhat_perl.run_perl_installer(session)
+            redhat_perl.run_perl_installer(session)
+        installer.install.assert_called_once_with(
+            "This script will walk you through each step of the installation.",
+            x_vga=True,
+        )
 
     def test_early_redhat_x_configuration_uses_detected_cirrus_path(self) -> None:
         installer = object.__new__(redhat_perl.PerlInstaller)
@@ -1509,9 +1548,12 @@ class RedHatDriverTests(unittest.TestCase):
 
         installer._configure_x()
 
-        choices = [item.args[0] for item in installer.dialog.answer.call_args_list]
-        self.assertEqual(choices[0].answer, "yes")
-        self.assertEqual([choice.answer for choice in choices[1:4]], ["yes", "yes", "yes"])
+        choices = installer.dialog.answer_until.call_args.args
+        self.assertEqual([choice.answer for choice in choices[:4]], ["yes"] * 4)
+        self.assertEqual(choices[0].text, "Do you want to autoprobe?")
+        self.assertIn("Your chipset appears to be:", choices[1].text)
+        self.assertIn("2048 Kb of memory", choices[2].text)
+        self.assertIn("following clocks", choices[3].text)
         self.assertEqual(choices[4].title, "Monitor Specs")
         self.assertEqual(choices[4].answer, "Generic Monitor")
         self.assertEqual(choices[5].widget, "checklist")
@@ -1519,6 +1561,137 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(choices[7].answer, "no")
         self.assertEqual(choices[8].answer, "")
         self.assertEqual(choices[9].answer, "Two")
+
+    def test_early_redhat_uses_configured_boot_prompt(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.s = unittest.mock.Mock()
+        installer.prompts = SimpleNamespace(
+            boot_prompt="custom boot:",
+            boot_command="linux expert",
+        )
+
+        installer.boot()
+
+        installer.s.vga_wait.assert_called_once_with("custom boot:", match=Match.LINE)
+        installer.s.kb_type.assert_called_once_with("linux expert\n")
+
+    def test_early_redhat_finish_uses_locale_and_root_password(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.s = unittest.mock.Mock()
+        installer.dialog = unittest.mock.Mock()
+        installer.disk = SimpleNamespace(target_disk="/dev/hda")
+        installer.network = SimpleNamespace(hostname="redhat", domain="retro.net")
+        installer.locale = SimpleNamespace(
+            hardware_clock="local",
+            timezone="US/Central",
+            keymap="us.map",
+        )
+        installer.settings = SimpleNamespace(root_password="secret")
+        installer._configure_x_vga = unittest.mock.Mock()
+        installer._configure_user = unittest.mock.Mock()
+        installer._set_root_password = unittest.mock.Mock()
+
+        installer._finish(x_vga=True)
+
+        choices = installer.dialog.answer_until.call_args.args
+        answers = {choice.title: choice.answer for choice in choices}
+        self.assertEqual(answers["Clock Configuration"], "Local Time")
+        self.assertEqual(answers["Time Zone"], "US/Central")
+        self.assertEqual(answers["Keyboard Configuration"], "us.map")
+        installer.s.run_postinst.assert_called_once_with(
+            "secret",
+            login="redhat.retro.net login:",
+            shell="[root@redhat /root]#",
+        )
+
+    def test_early_redhat_configures_optional_user(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.dialog = unittest.mock.Mock()
+        installer.settings = SimpleNamespace(user=None, user_home=True)
+
+        installer._configure_user()
+
+        choice = installer.dialog.answer.call_args.args[0]
+        self.assertEqual((choice.title, choice.answer), ("Create User", "no"))
+
+        installer.dialog.reset_mock()
+        installer.settings.user = "retro"
+        installer.settings.user_home = False
+        installer._configure_user()
+
+        choices = [call.args[0] for call in installer.dialog.answer.call_args_list]
+        self.assertEqual(
+            [(choice.title, choice.answer) for choice in choices],
+            [
+                ("Create User", "yes"),
+                ("User Name", "retro"),
+                ("Home Directory", "no"),
+                ("Create User", "no"),
+            ],
+        )
+        self.assertEqual(
+            choices[-1].text,
+            "Do you want to create another user account?",
+        )
+
+    def test_early_redhat_sets_root_password_for_both_prompt_styles(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.s = unittest.mock.Mock()
+        installer.settings = SimpleNamespace(root_password="secret")
+
+        installer._set_root_password()
+
+        self.assertEqual(
+            installer.s.vga_wait.call_args_list,
+            [
+                call(
+                    r"(New password \(\? for help\):|Enter new password:)",
+                    match=Match.REGEX,
+                ),
+                call(
+                    r"(New password \(again\):|Re-type new password:)",
+                    match=Match.REGEX,
+                ),
+            ],
+        )
+        self.assertEqual(
+            installer.s.kb_type.call_args_list,
+            [call("secret\n"), call("secret\n")],
+        )
+
+        installer.s.reset_mock()
+        installer.settings.root_password = ""
+        installer._set_root_password()
+        self.assertEqual(
+            installer.s.kb_type.call_args_list,
+            [call("\n")],
+        )
+        installer.s.vga_wait.assert_called_once_with(
+            r"(New password \(\? for help\):|Enter new password:)",
+            match=Match.REGEX,
+        )
+
+    def test_early_redhat_quotes_dialog_media_paths(self) -> None:
+        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer.s = unittest.mock.Mock()
+        installer.disk = SimpleNamespace(
+            fat_mount="/media/retro disk",
+            fat_filesystem="msdos",
+            fat_partition="/dev/disk 1",
+            target_disk="/dev/hda",
+            swap_mb=64,
+        )
+
+        with patch.object(redhat_perl, "Fdisk"):
+            installer.prepare_dialog("first dialog")
+
+        installer.s.serial_shell_send.assert_any_call("mkdir -p '/media/retro disk'")
+        installer.s.serial_shell_send.assert_any_call(
+            "mount -t msdos '/dev/disk 1' '/media/retro disk'"
+        )
+        installer.s.serial_shell_send.assert_any_call(
+            "cp '/media/retro disk/guestlib.d/dialog.sh' /usr/bin/dialog"
+        )
 
     def test_redhat_303_x_configuration_uses_installed_dialog_on_vga(self) -> None:
         installer = object.__new__(redhat_perl.PerlInstaller)
@@ -1600,6 +1773,49 @@ class DialogTests(unittest.TestCase):
 
         dialog.answer(AnswerTitle("menu", "Main", handler, item="Next :: Install"))
         self.assertEqual(serial.answers, ["Next"])
+
+    def test_checklist_selections_resolve_decorated_item_tags(self) -> None:
+        screen = (
+            "TITLE: Select Series\n"
+            "TYPE: checklist\n"
+            "ITEM:   15.0 MB - Applications :: ON\n"
+            "ITEM:   46.3 MB - X Windows :: ON\n"
+            "RESPONSE:\n"
+        )
+        serial = _DialogSerial(screen)
+
+        Dialog(serial).answer(
+            AnswerTitle(
+                "checklist",
+                "Select Series",
+                ("Applications", "X Windows"),
+            )
+        )
+
+        self.assertEqual(
+            serial.answers,
+            ['"  15.0 MB - Applications" "  46.3 MB - X Windows"'],
+        )
+
+    def test_empty_checklist_selection_does_not_accept_defaults(self) -> None:
+        serial = _DialogSerial(
+            "TITLE: Select Series\n" "TYPE: checklist\n" "ITEM: Applications :: ON\n" "RESPONSE:\n"
+        )
+
+        Dialog(serial).answer(AnswerTitle("checklist", "Select Series", ()))
+
+        self.assertEqual(serial.answers, ['""'])
+
+    def test_unknown_checklist_selection_fails_with_context(self) -> None:
+        serial = _DialogSerial(
+            "TITLE: Select Series\n" "TYPE: checklist\n" "ITEM: Applications :: ON\n" "RESPONSE:\n"
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Checklist selection 'Typo' matched 0 items in 'Select Series'",
+        ):
+            Dialog(serial).answer(AnswerTitle("checklist", "Select Series", ("Typo",)))
 
     def test_pkgtool_callback_consumes_rewound_trigger_screen(self) -> None:
         def screen(title: str, widget: str) -> str:

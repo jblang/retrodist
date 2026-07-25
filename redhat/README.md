@@ -88,7 +88,14 @@ but they now share driver blocks by installer family:
   first widget, then matches structured widget titles, items, and prompt text.
   It uses Perl to rename the original binary because these root disks do not
   include `mv`. Screens that do not use the dialog stub remain VGA-driven.
-  Version-only package series and startup prompts stay in each release's TOML.
+  The release flow and package series stay in each release's TOML.
+  Set the required `install.redhat.package_series` array to series names without
+  the size prefixes shown by 3.0.3. Each config lists disabled series as
+  commented array entries so they can be enabled directly. The
+  `[install.locale]` table configures the hardware clock mode, time zone, and
+  keyboard map selected by the installer. `install.redhat.root_password`
+  configures the root password; optional `user` and `user_home` settings create
+  one regular account. Early Red Hat limits the user name to eight characters.
 - `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
   configs set prompt-order options and select common flow variants.
 - 5.2 uses the installer Kickstart support instead of driving every screen.

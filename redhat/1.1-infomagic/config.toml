@@ -5,6 +5,16 @@ driver = "redhat-perl"
 
 [install.redhat]
 flow = "1.1"
+# The incomplete 1.1 automation never reaches these installation choices.
+package_series = []
+root_password = ""
+# user = "redhat"
+# user_home = true
+
+[install.locale]
+hardware_clock = "utc"
+timezone = "UTC"
+keymap = "us.map"
 
 [download]
 cdrom = "infomagic/ldr/1995_08"

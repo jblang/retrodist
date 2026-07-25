@@ -8,10 +8,11 @@ callbacks for nested flows, or ``None`` to leave input for another handler.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import re
 from typing import Callable, Protocol
 
-DialogResponse = str | Callable[[str], None] | None
+DialogResponse = str | tuple[str, ...] | Callable[[str], None] | None
 
 
 class SerialTransport(Protocol):
@@ -41,7 +42,8 @@ class Answer:
     Literal titles are matched case-insensitively. Titles, prompt text, and item
     constraints may instead use regular expressions. When ``description`` is
     true, the configured answer selects an item's display text and is
-    translated back to the tag expected by ``dialog``.
+    translated back to the tag expected by ``dialog``. A tuple answer selects
+    checklist items by exact tag or by the label after a size prefix.
     """
 
     widget: str
@@ -232,8 +234,30 @@ class Dialog:
     def _resolve_answer(choice: Answer, screen: DialogScreen) -> str:
         """Resolve a description-based choice to its corresponding item key."""
         answer = choice.answer
-        assert isinstance(answer, str)
+        assert isinstance(answer, (str, tuple))
+        if isinstance(answer, tuple):
+            return Dialog._resolve_selections(answer, screen)
         if not choice.description:
             return answer
         matcher = re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
         return next(key for key, description in screen.items if matcher.search(description))
+
+    @staticmethod
+    def _resolve_selections(selections: tuple[str, ...], screen: DialogScreen) -> str:
+        """Resolve readable checklist labels to the tags emitted by dialog."""
+        resolved = []
+        for selection in selections:
+            matches = [
+                key
+                for key, _ in screen.items
+                if key == selection or key.endswith(f" - {selection}")
+            ]
+            if len(matches) != 1:
+                raise RuntimeError(
+                    f"Checklist selection {selection!r} matched {len(matches)} items "
+                    f"in {screen.title!r}"
+                )
+            resolved.append(matches[0])
+        # A quoted empty word bypasses dialog.sh's "accept defaults" behavior
+        # while still producing an empty checklist result for the installer.
+        return " ".join(json.dumps(item) for item in resolved) if resolved else '""'

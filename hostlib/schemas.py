@@ -130,7 +130,17 @@ class CInstallerSettings(ConfigModel):
 class PerlInstallerSettings(ConfigModel):
     """Select the early Red Hat Perl-installer flow."""
 
-    flow: str
+    flow: Literal["1.1", "2.1", "3.0.3"]
+    package_series: list[str]
+    root_password: str = ""
+    user: str | None = Field(default=None, min_length=1, max_length=8)
+    user_home: bool = True
+
+
+class PerlInstallerLocaleConfig(InstallLocaleConfig):
+    """Configure locale choices specific to the early Red Hat installer."""
+
+    hardware_clock: Literal["utc", "local"] = "utc"
 
 
 class SysinstallDiskConfig(ConfigModel):
@@ -244,6 +254,9 @@ class PerlInstallConfig(ConfigModel):
 
     driver: Literal["redhat-perl"]
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
+    locale: PerlInstallerLocaleConfig = Field(
+        default_factory=lambda: PerlInstallerLocaleConfig(keymap="us.map")
+    )
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
     redhat: PerlInstallerSettings

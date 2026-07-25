@@ -5,6 +5,40 @@ driver = "redhat-perl"
 
 [install.redhat]
 flow = "2.1"
+package_series = [
+    # "Shells",
+    # "Emacs",
+    # "DOS Compatibility",
+    "Printing",
+    "Networking",
+    # "Network Admin",
+    # "Networking Servers",
+    # "Development Libraries",
+    # "Fortran",
+    "X Windows",
+    "X Games",
+    "X Applications",
+    "Development",
+    "X Development",
+    # "TeX",
+    # "Communications",
+    "Applications",
+    # "Mail",
+    # "Tcl-Tk Extensions",
+    "Games",
+    "Documentation",
+    # "News",
+    # "a.out compatitibility",
+    # "Other",
+]
+root_password = "password"
+# user = "redhat"
+# user_home = true
+
+[install.locale]
+hardware_clock = "utc"
+timezone = "UTC"
+keymap = "us.map"
 
 [download]
 cdrom = "infomagic/ldr/1995_11"

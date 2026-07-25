@@ -65,11 +65,10 @@ retro boot slackware/2.3/walnut
 
 The automated installs use deliberately simple museum-machine credentials:
 
-- Slackware, Debian 0.91, and Red Hat Linux 3.0.3 log in as `root` with no
-  password.
+- Slackware and Debian 0.91 log in as `root` with no password.
 - Debian 1.1 uses `root` / `password1`; it also creates
   `debian` / `password1`.
-- Red Hat Linux 4.2 and 5.1 use `root` / `password`.
+- Red Hat Linux 2.1, 3.0.3, 4.2, and 5.1 use `root` / `password`.
 
 ### What Still Feels Familiar
 

@@ -59,7 +59,15 @@ def _special_validation_message(path: str, error: dict[str, object]) -> str | No
     if (path == "install.redhat" and location == ("flow",)) or (
         path == "install" and location[-2:] == ("redhat", "flow")
     ):
+        if error_type == "literal_error":
+            return "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3"
         return "install.redhat.flow must be a string"
+    if (
+        path == "install"
+        and location[-2:] == ("redhat", "package_series")
+        and error_type == "missing"
+    ):
+        return "install.redhat.package_series is required"
     return None
 
 
