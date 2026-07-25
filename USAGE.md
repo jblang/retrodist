@@ -52,6 +52,7 @@ screen, type text, press keys, and swap removable media:
 
 ```text
 qmp dump-screen
+qmp dump-screen --foreground light-red yellow --background blue
 qmp send-text -n 'root'
 qmp send-key ret
 qmp change-image root.img
@@ -59,6 +60,49 @@ qmp eject-disk
 ```
 
 Run `qmp --help` for the complete command list.
+`dump-screen` accepts repeatable `--foreground` and `--background` filters;
+each takes one or more symbolic VGA colors such as `red`, `light-blue`, or
+`dark-gray`. Backgrounds accept the classic eight colors from `black` through
+`light-gray`; VGA attribute bit 7 is treated as blink. Supplying both filters
+requires a character to match both. Filtered dumps omit rows that contain no
+matching attributes, even if the matching cells are blank.
+By default it prints every row in the configured VGA memory range; use
+`--rows` to limit the output. `--skip-blank` omits entirely blank rows only
+when no attribute filter is active; matching blank cells remain observable.
+Use `--trim` to strip leading and trailing whitespace from each displayed row.
+Use repeatable `--color-pair FOREGROUND BACKGROUND` options to select exact
+pairs, for example `--color-pair yellow blue --color-pair white black`.
+Use `--changed` to show only cells whose characters or attributes changed since
+the prior `dump-screen` command, preserving unchanged cells as spaces; the
+first changed dump shows all rows.
+Change detection alternates two raw VGA dumps in `qemu.d` and automatically
+starts a new baseline when the VM or dump geometry changes.
+
+Installer drivers can query the same attributes through `InstallSession`.
+Multiple filters form a union, while foreground/background constraints inside
+one filter must all match. Queries default to the complete 32 KiB VGA memory
+area interpreted as 80-column text; pass `rows=` to impose an explicit limit:
+
+```python
+from hostlib.vga import AttributeFilter, VgaColor
+
+frame = AttributeFilter(background=frozenset({VgaColor.RED}))
+label = AttributeFilter(
+    color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)})
+)
+
+session.vga_wait("Ok", attributes=(frame, label))
+selection = session.vga_select(frame, label)
+ok = selection.find("Ok")[0]  # one-based text bounds
+button = selection.regions_containing(ok.bounds)[0]
+```
+
+`session.vga_screen()` captures a reusable `ScreenSnapshot`; call
+`snapshot.select(...)` to run several local queries without dumping guest
+memory again. A selection exposes matching cells, rendered rows and text,
+literal text locations, overall bounds, and orthogonally connected regions.
+Region text preserves attribute-matching spaces, so a colored checkbox cell
+can be distinguished as `" "` or `"*"`.
 
 ## Generated State and Starting Over
 

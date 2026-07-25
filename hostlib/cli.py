@@ -112,11 +112,18 @@ class Application:
                     self.config,
                 )
                 log.info("🎉 Installation complete!")
+            else:
+                # QEMU accepts one QMP client on its Unix socket. A plain boot
+                # has no automation to run, so release the monitor for the
+                # standalone qmp command while the VM remains open.
+                await monitor.close()
+                monitor = None
             status = await process.wait()
             if status:
                 raise RetroError(f"QEMU exited with status {status}")
         finally:
-            await monitor.close()
+            if monitor is not None:
+                await monitor.close()
             if process.returncode is None:
                 process.terminate()
                 await process.wait()

@@ -21,7 +21,13 @@ from .config import RetroConfig
 from .qmp import Monitor
 from .keyboard import encode
 from .serial import SerialConsole
-from .vga import ScreenObserver
+from .vga import (
+    AttributeFilter,
+    AttributeSelection,
+    ScreenObserver,
+    ScreenSnapshot,
+    TextLocation,
+)
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -177,15 +183,27 @@ class InstallSession:
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop).result()
 
     def vga_wait(
-        self, *expected: str, match: Match = Match.TEXT, timeout: float | None = None
+        self,
+        *expected: str,
+        match: Match = Match.TEXT,
+        timeout: float | None = None,
+        attributes: AttributeFilter | tuple[AttributeFilter, ...] | None = None,
+        rows: int | None = None,
     ) -> None:
-        """Wait for one or more VGA strings using the selected match mode.
+        """Wait for VGA strings in the full screen or an attribute selection.
 
         Args:
             *expected: Screen values to match sequentially.
             match: Substring, complete-line, or per-line regular-expression mode.
             timeout: Optional timeout applied separately to each value.
+            attributes: One filter or a union of filters limiting matched cells.
+            rows: Optional row limit; the default searches all VGA text memory.
         """
+        filters = (
+            ()
+            if attributes is None
+            else (attributes,) if isinstance(attributes, AttributeFilter) else tuple(attributes)
+        )
         for value in expected:
             log.info("⏳ %s", value)
             if match is Match.TEXT:
@@ -199,8 +217,39 @@ class InstallSession:
                 predicate = lambda screen, expression=expression: any(
                     expression.search(line) for line in screen.splitlines()
                 )
-            self._call(self._runtime.vga.wait(predicate, timeout))
+            if filters or rows is not None:
+                self._call(
+                    self._runtime.vga.wait_selection(
+                        lambda selection, predicate=predicate: predicate(selection.text),
+                        *filters,
+                        timeout=timeout,
+                        rows=rows,
+                    )
+                )
+            else:
+                self._call(self._runtime.vga.wait(predicate, timeout))
             log.info("🖥️  %s", value)
+
+    def vga_screen(self, rows: int | None = None) -> ScreenSnapshot:
+        """Capture raw VGA cells for repeated, local attribute queries."""
+        return self._call(self._runtime.vga.capture(rows))
+
+    def vga_select(
+        self,
+        *attributes: AttributeFilter,
+        rows: int | None = None,
+    ) -> AttributeSelection:
+        """Capture matching cells, searching all VGA text memory by default."""
+        return self._call(self._runtime.vga.select(*attributes, rows=rows))
+
+    def vga_find(
+        self,
+        text: str,
+        *attributes: AttributeFilter,
+        rows: int | None = None,
+    ) -> tuple[TextLocation, ...]:
+        """Locate literal text whose cells match any supplied filter."""
+        return self.vga_select(*attributes, rows=rows).find(text)
 
     def kb_press(self, *keys: str) -> None:
         """Send literal QEMU key sequences and log them.

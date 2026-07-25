@@ -49,7 +49,16 @@ from hostlib.installers import (
 )
 from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
-from hostlib.vga import Screen, ScreenObserver, decode
+from hostlib.vga import (
+    AttributeFilter,
+    Screen,
+    ScreenBounds,
+    ScreenObserver,
+    ScreenSnapshot,
+    VgaColor,
+    decode,
+    decode_screen,
+)
 from hostlib.media import MediaStager
 from hostlib.schemas import (
     DebianPackagesConfig,
@@ -226,6 +235,18 @@ class CliTests(unittest.TestCase):
         monitor.close.assert_awaited_once_with()
         process.terminate.assert_called_once_with()
         process.wait.assert_awaited_once_with()
+
+    def test_plain_boot_releases_monitor_for_qmp_cli(self) -> None:
+        process = SimpleNamespace(returncode=0, wait=AsyncMock(return_value=0))
+        monitor = SimpleNamespace(close=AsyncMock())
+        runtime = SimpleNamespace(
+            start=AsyncMock(return_value=process),
+            connect_monitor=AsyncMock(return_value=monitor),
+        )
+        app = cli.Application(SimpleNamespace(qemu_dir=Path("qemu.d")), SimpleNamespace())
+        with patch.object(cli, "QemuRuntime", return_value=runtime):
+            asyncio.run(app._run_vm(QemuConfig(), install=False))
+        monitor.close.assert_awaited_once_with()
 
 
 class DownloadTests(unittest.TestCase):
@@ -441,6 +462,168 @@ class OperationsTests(unittest.TestCase):
 
 
 class QmpCliTests(unittest.IsolatedAsyncioTestCase):
+    def test_dump_screen_defaults_to_all_screen_memory_rows(self) -> None:
+        args = qmp_cli._parser().parse_args(["dump-screen"])
+        self.assertIsNone(args.rows)
+
+    def test_dump_screen_rejects_invalid_geometry_and_bright_backgrounds(self) -> None:
+        invalid_arguments = [
+            ["--address", "-1"],
+            ["--columns", "0"],
+            ["--rows", "-1"],
+            ["--bytes", "17"],
+            ["--timeout", "nan"],
+            ["--background", "light-blue"],
+        ]
+        for arguments in invalid_arguments:
+            with (
+                self.subTest(arguments=arguments),
+                patch.object(qmp_cli.sys, "stderr", io.StringIO()),
+                self.assertRaises(SystemExit),
+            ):
+                qmp_cli._parser().parse_args(["dump-screen", *arguments])
+
+        args = qmp_cli._parser().parse_args(["dump-screen", "--color-pair", "white", "light-blue"])
+        with self.assertRaisesRegex(RetroError, "cannot be used as backgrounds"):
+            qmp_cli._dump_options(args)
+
+    async def test_dump_screen_skips_blank_rows_after_filtering(self) -> None:
+        with temporary_root() as root:
+            monitor = AsyncMock()
+            socket = root / "qmp.sock"
+            socket.touch()
+
+            async def write_dump(command: str) -> None:
+                (root / command.split()[-1]).write_bytes(b"A\x04 \x07 \x07 \x07B\x01")
+
+            monitor.hmp.side_effect = write_dump
+            options = qmp_cli.DumpScreenOptions(
+                socket=socket,
+                address=0xB8000,
+                memory_bytes=8,
+                columns=2,
+                rows=2,
+                line_numbers=False,
+                skip_blank=True,
+                trim=False,
+                changed=False,
+                attributes=AttributeFilter(foreground=frozenset({VgaColor.RED})),
+            )
+            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
+                await qmp_cli._dump_screen(monitor, options)
+            self.assertEqual(output.getvalue(), "A \n")
+
+    async def test_dump_screen_shows_only_raw_rows_changed_since_prior_dump(self) -> None:
+        with temporary_root() as root:
+            monitor = AsyncMock()
+            socket = root / "qmp.sock"
+            socket.touch()
+            screens = [
+                b"A\x07B\x07C\x07D\x07",
+                b"A\x07B\x17C\x07E\x07",
+                b"A\x07B\x17C\x07E\x07",
+                b"A\x07B\x17C\x07E\x07",
+            ]
+
+            async def write_dump(command: str) -> None:
+                (root / command.split()[-1]).write_bytes(screens.pop(0))
+
+            monitor.hmp.side_effect = write_dump
+            options = qmp_cli.DumpScreenOptions(
+                socket=socket,
+                address=0xB8000,
+                memory_bytes=8,
+                columns=2,
+                rows=2,
+                line_numbers=True,
+                skip_blank=False,
+                trim=False,
+                changed=True,
+                attributes=AttributeFilter(),
+            )
+            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
+                await qmp_cli._dump_screen(monitor, options)
+                self.assertEqual(output.getvalue(), "     1\tAB\n     2\tCD\n")
+                output.seek(0)
+                output.truncate(0)
+                await qmp_cli._dump_screen(monitor, options)
+                self.assertEqual(output.getvalue(), "     1\t B\n     2\t E\n")
+
+                output.seek(0)
+                output.truncate(0)
+                timestamp = socket.stat().st_mtime_ns + 1_000_000
+                os.utime(socket, ns=(timestamp, timestamp))
+                await qmp_cli._dump_screen(monitor, options)
+                self.assertEqual(output.getvalue(), "     1\tAB\n     2\tCE\n")
+
+                output.seek(0)
+                output.truncate(0)
+                await qmp_cli._dump_screen(monitor, options)
+            self.assertEqual(output.getvalue(), "")
+            self.assertEqual(
+                [call.args[0].split()[-1] for call in monitor.hmp.await_args_list],
+                [
+                    ".qmp-screen-a.bin",
+                    ".qmp-screen-b.bin",
+                    ".qmp-screen-a.bin",
+                    ".qmp-screen-b.bin",
+                ],
+            )
+
+    def test_dump_screen_accepts_repeatable_symbolic_color_filters(self) -> None:
+        args = qmp_cli._parser().parse_args(
+            [
+                "dump-screen",
+                "--trim",
+                "--foreground",
+                "red",
+                "light_blue",
+                "--foreground",
+                "green",
+                "--background",
+                "black",
+                "blue",
+                "--color-pair",
+                "yellow",
+                "blue",
+                "--color-pair",
+                "red",
+                "black",
+            ]
+        )
+        options = qmp_cli._dump_options(args)
+        self.assertTrue(options.trim)
+        self.assertEqual(options.attributes.foreground, frozenset({2, 4, 9}))
+        self.assertEqual(options.attributes.background, frozenset({0, 1}))
+        self.assertEqual(options.attributes.color_pairs, frozenset({(14, 1), (4, 0)}))
+
+    async def test_dump_screen_uses_a_qemu_relative_raw_dump(self) -> None:
+        with temporary_root() as root:
+            monitor = AsyncMock()
+            socket = root / "qmp.sock"
+            socket.touch()
+
+            async def write_dump(command: str) -> None:
+                (root / command.split()[-1]).write_bytes(b"A\x07")
+
+            monitor.hmp.side_effect = write_dump
+            options = qmp_cli.DumpScreenOptions(
+                socket=socket,
+                address=0xB8000,
+                memory_bytes=2,
+                columns=1,
+                rows=1,
+                line_numbers=False,
+                skip_blank=False,
+                trim=False,
+                changed=False,
+                attributes=AttributeFilter(),
+            )
+            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
+                await qmp_cli._dump_screen(monitor, options)
+            self.assertEqual(output.getvalue(), "A\n")
+            self.assertFalse(monitor.hmp.await_args.args[0].split()[-1].startswith("/"))
+
     async def test_socket_resolution_and_control_commands(self) -> None:
         with temporary_root() as root:
             explicit = root / "custom.sock"
@@ -2281,8 +2464,134 @@ class ManifestCoverageTests(unittest.TestCase):
 
 
 class VgaTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _vga_cells(cells):
+        return b"".join(
+            character.encode("cp437") + bytes((attribute,)) for character, attribute in cells
+        )
+
+    def test_vga_api_rejects_invalid_geometry_and_background_colors(self) -> None:
+        with self.assertRaisesRegex(ValueError, "columns"):
+            decode_screen(b"A\x07", columns=0)
+        with self.assertRaisesRegex(ValueError, "rows"):
+            decode_screen(b"A\x07", rows=0)
+        with self.assertRaisesRegex(ValueError, "character/attribute pairs"):
+            decode_screen(b"A")
+        with self.assertRaisesRegex(ValueError, "bright VGA colors"):
+            AttributeFilter(background=frozenset({VgaColor.LIGHT_BLUE}))
+        with self.assertRaisesRegex(ValueError, "bright VGA colors"):
+            AttributeFilter(color_pairs=frozenset({(VgaColor.WHITE, VgaColor.LIGHT_BLUE)}))
+
+    def test_decode_screen_api_filters_skips_and_compares_snapshots(self) -> None:
+        attributes = AttributeFilter(
+            color_pairs=frozenset(
+                {
+                    (VgaColor.YELLOW, VgaColor.BLUE),
+                    (VgaColor.WHITE, VgaColor.BLACK),
+                }
+            )
+        )
+        first = decode_screen(
+            b"A\x1eB\x0f \x07 \x07",
+            2,
+            None,
+            attributes=attributes,
+        )
+        self.assertEqual([(row.number, row.text) for row in first.rows], [(1, "AB")])
+        second = decode_screen(
+            b"A\x1eB\x0fC\x0f \x07",
+            2,
+            None,
+            attributes=attributes,
+            skip_blank=True,
+            changed_from=first.snapshot,
+        )
+        self.assertEqual([(row.number, row.text) for row in second.rows], [(2, "C ")])
+
+    def test_attribute_filters_keep_rows_with_matching_blank_cells(self) -> None:
+        screen = decode_screen(
+            b" \x04 \x07",
+            columns=2,
+            attributes=AttributeFilter(foreground=frozenset({VgaColor.RED})),
+            skip_blank=True,
+        )
+        self.assertEqual([(row.number, row.text) for row in screen.rows], [(1, "  ")])
+
+    def test_decode_screen_masks_unchanged_cells_on_changed_rows(self) -> None:
+        first = decode_screen(b"A\x07B\x07C\x07D\x07", columns=4)
+        second = decode_screen(
+            b"A\x07X\x07C\x07D\x07",
+            columns=4,
+            changed_from=first.snapshot,
+        )
+        self.assertEqual([(row.number, row.text) for row in second.rows], [(1, " X  ")])
+
+    def test_decode_screen_can_trim_selected_lines(self) -> None:
+        screen = decode_screen(b" \x07A\x07 \x07", columns=3, trim_whitespace=True)
+        self.assertEqual([(row.number, row.text) for row in screen.rows], [(1, "A")])
+
+    def test_vga_color_api_parses_symbolic_names_and_aliases(self) -> None:
+        self.assertEqual(VgaColor.parse("light-blue"), VgaColor.LIGHT_BLUE)
+        self.assertEqual(VgaColor.parse("dark_grey"), VgaColor.DARK_GRAY)
+        self.assertEqual(VgaColor.parse("purple"), VgaColor.MAGENTA)
+
+    def test_attribute_selection_combines_filters_and_finds_control_bounds(self) -> None:
+        red_background = AttributeFilter(background=frozenset({VgaColor.RED}))
+        red_label = AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)}))
+        memory = self._vga_cells(
+            [
+                *((character, 0x47) for character in "┌────┐"),
+                ("│", 0x47),
+                *((character, 0x74) for character in " Ok "),
+                ("│", 0x47),
+                *((character, 0x47) for character in "└────┘"),
+            ]
+        )
+
+        snapshot = ScreenSnapshot.capture(memory, columns=6, rows=3)
+        frame = snapshot.select(red_background)
+        control = snapshot.select(red_background, red_label)
+
+        self.assertEqual(frame.regions[0].bounds, ScreenBounds(1, 1, 3, 6))
+        self.assertEqual(frame.regions[0].text, "┌────┐\n│    │\n└────┘")
+        self.assertEqual(control.regions[0].text, "┌────┐\n│ Ok │\n└────┘")
+        location = control.find("Ok")[0]
+        self.assertEqual(location.bounds, ScreenBounds(2, 3, 2, 4))
+        self.assertEqual(control.regions_containing(location.bounds)[0].bounds, control.bounds)
+
+    def test_attribute_region_preserves_blank_checkbox_state(self) -> None:
+        checkbox = AttributeFilter(background=frozenset({VgaColor.BROWN}))
+        empty = ScreenSnapshot.capture(b" \x60", columns=1, rows=1).select(checkbox)
+        checked = ScreenSnapshot.capture(b"*\x60", columns=1, rows=1).select(checkbox)
+
+        self.assertEqual(empty.regions[0].text, " ")
+        self.assertEqual(checked.regions[0].text, "*")
+        self.assertEqual(empty.regions[0].bounds, ScreenBounds(1, 1, 1, 1))
+
+    def test_attribute_selection_rejects_ambiguous_multiline_text_searches(self) -> None:
+        selection = ScreenSnapshot.capture(b"A\x07", columns=1, rows=1).select()
+        with self.assertRaisesRegex(ValueError, "single-line"):
+            selection.find("A\nB")
+
     def test_decode_character_attribute_pairs(self) -> None:
         self.assertEqual(decode(b"A\x07B\x07\x00\x07C\x07", 2, 2), "AB\n C")
+
+    def test_decode_converts_cp437_graphics_before_removing_controls(self) -> None:
+        memory = b"\xda\x07\xc4\x07\xbf\x07\x1b\x07"
+        self.assertEqual(decode(memory, 4, 1), "┌─┐ ")
+
+    def test_decode_filters_characters_by_vga_foreground_and_background(self) -> None:
+        memory = b"A\x04B\x14C\x1eD\x2e"
+        self.assertEqual(decode(memory, 4, 1, foreground=frozenset({4})), "AB  ")
+        self.assertEqual(decode(memory, 4, 1, background=frozenset({1})), " BC ")
+        self.assertEqual(
+            decode(memory, 4, 1, foreground=frozenset({4}), background=frozenset({1})),
+            " B  ",
+        )
+        self.assertEqual(
+            decode(memory, 4, 1, color_pairs=frozenset({(4, 1), (14, 2)})),
+            " B D",
+        )
 
     def test_full_memory_decode_finds_scrolled_console_text(self) -> None:
         memory = b" " + b"\x07"
@@ -2316,6 +2625,39 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
                 timeout=0.001,
             )
         self.assertIn("information correct", screen)
+
+    async def test_observer_waits_for_text_in_combined_attribute_selection(self) -> None:
+        red_background = AttributeFilter(background=frozenset({VgaColor.RED}))
+        red_label = AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)}))
+        first = ScreenSnapshot.capture(b" \x07 \x07", columns=2, rows=1)
+        second = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1)
+        monitor = AsyncMock()
+        with temporary_root() as root:
+            observer = ScreenObserver(monitor, root, columns=2, interval=0.001)
+            observer.capture = AsyncMock(side_effect=[first, second])
+            selection = await observer.wait_selection(
+                lambda selected: bool(selected.find("Ok")),
+                red_background,
+                red_label,
+                timeout=1,
+                rows=1,
+            )
+        self.assertEqual(selection.find("Ok")[0].bounds, ScreenBounds(1, 1, 1, 2))
+
+    async def test_observer_attribute_queries_default_to_all_vga_memory(self) -> None:
+        memory = b" \x07" * (80 * 61)
+        memory += "┌".encode("cp437") + b"\x47"
+        memory += b" \x07" * 79
+        snapshot = ScreenSnapshot.capture(memory, columns=80, rows=None)
+        monitor = AsyncMock()
+        with temporary_root() as root:
+            observer = ScreenObserver(monitor, root)
+            observer.capture = AsyncMock(return_value=snapshot)
+            selection = await observer.select(
+                AttributeFilter(background=frozenset({VgaColor.RED}))
+            )
+
+        self.assertEqual(selection.bounds, ScreenBounds(62, 1, 62, 1))
 
 
 class MonitorTests(unittest.IsolatedAsyncioTestCase):
@@ -2460,7 +2802,13 @@ class SessionTests(unittest.TestCase):
     def session(self, install=None, postinst=None):
         runtime = SimpleNamespace(
             monitor=AsyncMock(),
-            vga=SimpleNamespace(wait=AsyncMock(), invalidate=unittest.mock.Mock()),
+            vga=SimpleNamespace(
+                capture=AsyncMock(),
+                select=AsyncMock(),
+                wait=AsyncMock(),
+                wait_selection=AsyncMock(),
+                invalidate=unittest.mock.Mock(),
+            ),
         )
         session = InstallSession(
             runtime,
@@ -2479,6 +2827,30 @@ class SessionTests(unittest.TestCase):
         predicate = session._runtime.vga.wait.call_args.args[0]
         self.assertTrue(predicate("heading\n  boot:  \n"))
         self.assertFalse(predicate("not boot: yet"))
+
+    def test_vga_wait_can_match_union_of_attribute_filters(self) -> None:
+        session = self.session()
+        filters = (
+            AttributeFilter(background=frozenset({VgaColor.RED})),
+            AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)})),
+        )
+        session.vga_wait("Ok", attributes=filters, rows=25)
+
+        call = session._runtime.vga.wait_selection.call_args
+        predicate = call.args[0]
+        selection = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1).select(*filters)
+        self.assertTrue(predicate(selection))
+        self.assertEqual(call.args[1:], filters)
+        self.assertEqual(call.kwargs, {"timeout": None, "rows": 25})
+
+    def test_vga_selection_and_find_are_available_to_installer_drivers(self) -> None:
+        session = self.session()
+        selected = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1).select(
+            AttributeFilter(foreground=frozenset({VgaColor.RED}))
+        )
+        session._runtime.vga.select.return_value = selected
+
+        self.assertEqual(session.vga_find("Ok", *selected.filters), selected.find("Ok"))
 
     def test_type_uses_one_paced_qmp_request_per_key(self) -> None:
         session = self.session()
