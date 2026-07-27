@@ -16,14 +16,25 @@ profile = "linux-2.0"
 [qemu.network]
 device = "pcnet"
 
+[install.disk]
+root_partition = "/dev/hda2"
+fat_partition = "/dev/hdb1"
+
+[install.locale]
+hardware_clock = "utc"
+timezone = "Etc/UTC"
+keymap = "us"
+
 [install.redhat]
 keyboard_early = true
 pcmcia_prompt = false
 cdrom_type_prompt = false
-insert_cd_prompt = "Insert your Red Hat CD"
 flow = "50"
+x_video_memory_label = "2 meg"
 timezone_prompt = "Configure Timezones"
-lilo_extra_f12 = 1
+timezone_clock_control = "checkbox"
+timezone_button = "Ok"
+lilo_setup_dialogs = 2
 
 [postinst]
 stages = ["x11"]

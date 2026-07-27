@@ -98,20 +98,29 @@ class Application:
     async def _run_vm(self, qemu_config: QemuConfig, *, install: bool) -> None:
         """Own the live QEMU process and optional installer session.
 
-        QMP and process cleanup happen even if installer automation fails. A VM
-        left running after an exception is terminated before this method exits.
+        Installer failures are logged while the VM remains available for
+        inspection. QMP is released for the standalone utility, and the command
+        waits until the user closes QEMU. Cancellation still terminates QEMU.
         """
         runtime = QemuRuntime(self.context, qemu_config)
         process = await runtime.start()
         monitor = await runtime.connect_monitor(process)
         try:
             if install:
-                await run_install(
-                    monitor,
-                    self.context.qemu_dir,
-                    self.config,
-                )
-                log.info("🎉 Installation complete!")
+                try:
+                    await run_install(
+                        monitor,
+                        self.context.qemu_dir,
+                        self.config,
+                    )
+                except Exception:
+                    log.exception(
+                        "Installer automation failed; QEMU remains running for inspection"
+                    )
+                    await monitor.close()
+                    monitor = None
+                else:
+                    log.info("🎉 Installation complete!")
             else:
                 # QEMU accepts one QMP client on its Unix socket. A plain boot
                 # has no automation to run, so release the monitor for the

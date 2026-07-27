@@ -160,6 +160,17 @@ class ScreenSnapshot:
             raise ValueError("rows must be greater than zero")
         return ScreenSnapshot(self.columns, self.contents[:rows])
 
+    def cell(self, row: int, column: int) -> VgaCell:
+        """Return one decoded, one-based VGA cell."""
+        if row < 1 or column < 1 or row > len(self.contents) or column > self.columns:
+            raise ValueError(f"cell ({row}, {column}) is outside this snapshot")
+        try:
+            contents = self.contents[row - 1]
+            offset = (column - 1) * 2
+            return VgaCell.from_bytes(row, column, contents[offset], contents[offset + 1])
+        except (IndexError, ValueError) as exc:
+            raise ValueError(f"cell ({row}, {column}) is outside this snapshot") from exc
+
     @property
     def text(self) -> str:
         """Decode every captured cell without constructing a selection."""
@@ -575,6 +586,7 @@ class ScreenObserver:
         ``rows=None`` captures the complete configured memory range. With the
         default geometry this is 32 KiB interpreted as 80-column text rows.
         """
+        started = monotonic()
         with tempfile.NamedTemporaryFile(dir=self.qemu_dir, delete=False) as stream:
             dump = Path(stream.name)
         dump.unlink()
@@ -583,6 +595,7 @@ class ScreenObserver:
             return ScreenSnapshot.capture(dump.read_bytes(), self.columns, rows)
         finally:
             dump.unlink(missing_ok=True)
+            log.debug("VGA capture completed in %.3fs", monotonic() - started)
 
     async def select(
         self,
@@ -630,6 +643,53 @@ class ScreenObserver:
             return await self._wait_for_selection(predicate, selection, attributes, selected_rows)
         async with asyncio.timeout(timeout):
             return await self._wait_for_selection(predicate, selection, attributes, selected_rows)
+
+    async def wait_snapshot(
+        self,
+        predicate: Callable[[ScreenSnapshot], bool],
+        timeout: float | None,
+        *,
+        rows: int | None = None,
+        interval: float | None = None,
+    ) -> ScreenSnapshot:
+        """Poll snapshots immediately, backing off only during longer waits."""
+        started = monotonic()
+        captures = 1
+        slept = 0.0
+        selected_rows = self.rows if rows is None else rows
+        poll_interval = 0.01 if interval is None else interval
+        max_interval = self.interval if interval is None else interval
+        snapshot = (await self._fresh_selection((), selected_rows)).snapshot
+
+        async def next_snapshot() -> ScreenSnapshot:
+            """Capture the next frame after the current adaptive delay."""
+            nonlocal captures, poll_interval, slept
+            if poll_interval:
+                await asyncio.sleep(poll_interval)
+                slept += poll_interval
+            snapshot = (await self._selected_screen((), selected_rows))[1].snapshot
+            captures += 1
+            if interval is None:
+                poll_interval = min(max_interval, poll_interval * 2)
+            return snapshot
+
+        try:
+            if timeout is None:
+                while not predicate(snapshot):
+                    snapshot = await next_snapshot()
+                return snapshot
+            async with asyncio.timeout(timeout):
+                while not predicate(snapshot):
+                    snapshot = await next_snapshot()
+                return snapshot
+        finally:
+            log.debug(
+                "VGA snapshot wait finished in %.3fs: captures=%d artificial_sleep=%.3fs timeout=%s",
+                monotonic() - started,
+                captures,
+                slept,
+                timeout,
+            )
 
     async def _fresh_screen(self) -> str:
         """Wait past any invalidated VGA snapshot and return fresh text."""

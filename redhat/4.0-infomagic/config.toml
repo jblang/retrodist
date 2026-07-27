@@ -19,10 +19,16 @@ device = "pcnet"
 [install.prompts]
 boot_prompt = "LILO boot:"
 
+[install.locale]
+hardware_clock = "utc"
+timezone = "Etc/UTC"
+keymap = "us"
+
 [install.redhat]
 flow = "4x"
-x_card_down = 24
+x_card_label = "Cirrus Logic GD543x"
 keyboard_late = true
+timezone_prompt = "Configure Timezones"
 
 [postinst]
 stages = ["x11"]

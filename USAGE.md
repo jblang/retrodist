@@ -136,6 +136,12 @@ retro boot slackware/2.3/walnut
 You can also use `retro boot` before installation to work through the original
 installer yourself.
 
+If scripted installer automation fails, `retro install` logs the traceback and
+leaves QEMU running at the failing screen. The automation QMP connection is
+released so `qmp dump-screen`, `qmp send-key`, and related inspection commands
+can be used from another terminal. Close QEMU or press `Ctrl-C` in the original
+terminal after inspection.
+
 Some early installers ask for several floppy disks. Change them from another
 terminal with `qmp change-image IMAGE`. The nearest distro README calls out any
 release-specific sequence.

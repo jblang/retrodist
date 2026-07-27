@@ -76,9 +76,9 @@ separate Kickstart floppy.
 
 ## Scripted Installs
 
-The Python family drivers wait for installer screen text, send keys or boot
-commands, and change floppy images when the installer asks for another disk.
-Release-specific prompts and flags are declared in each `config.toml`.
+The Python family drivers send boot commands and change floppy images when the
+installer asks for another disk. Release-specific prompts and flags are
+declared in each `config.toml`.
 
 The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
@@ -97,7 +97,18 @@ but they now share driver blocks by installer family:
   configures the root password; optional `user` and `user_home` settings create
   one regular account. Early Red Hat limits the user name to eight characters.
 - `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
-  configs set prompt-order options and select common flow variants.
+  configs set prompt-order options, common flow variants, and the exact visible
+  `x_card_label` selected from the X-card menu. Its `NewtDialog` layer waits
+  for a delimiter-bounded dialog title and drives named buttons, menus, and
+  checklists from QMP VGA cell attributes; its logs use those same operations.
+  The `[install.locale]` table selects `hardware_clock` (`utc` or `local`),
+  the exact visible `timezone`, and the exact visible `keymap`.
+  The InfoMagic disc 1 images for 4.0 through 5.1 contain the matching installer
+  trees under `misc/src/install/`. The 4.0 renderer and X sources are under
+  `code/newt/` and `code/Xconfigurator/`. The 4.2 utility sources are on disc 5
+  under `RedHat.SRC/SRPMS/`; 5.0 sources are in disc 1 `SRPMS/`; and 5.1 splits
+  them between disc 1 `SRPMS/SRPMS.pt1/` and disc 5 `SRPMS.pt2/`. The audited
+  packages are `timeconfig`, `kbdconfig`, `mouseconfig`, and `Xconfigurator`.
 - 5.2 uses the installer Kickstart support instead of driving every screen.
 - 6.1 currently boots the text installer from the CD-ROM media; Kickstart is
   not configured for it.

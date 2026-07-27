@@ -42,6 +42,7 @@ class InstallDiskConfig(ConfigModel):
 
     target_disk: str = "/dev/hda"
     swap_mb: int = 64
+    root_partition: str = "/dev/hda2"
     fat_partition: str = "/dev/hdb1"
     fat_mount: str = "/retro"
     fat_filesystem: str = "msdos"
@@ -50,6 +51,7 @@ class InstallDiskConfig(ConfigModel):
 class InstallLocaleConfig(ConfigModel):
     """Configure installer locale choices shared by family drivers."""
 
+    hardware_clock: Literal["utc", "local"] = "utc"
     keymap: str = "us"
     timezone: str = "UTC"
 
@@ -117,12 +119,14 @@ class CInstallerSettings(ConfigModel):
     keyboard_late: bool = False
     pcmcia_prompt: bool = True
     cdrom_type_prompt: bool = True
-    insert_cd_prompt: str = "Insert your Red Hat CD into your CD drive"
     flow: str = "4x"
-    x_card_down: int = 66
-    monitor_key: str = "ret"
-    timezone_prompt: str = "Configure Timezone"
-    lilo_extra_f12: int = 0
+    x_card_label: str = "Cirrus Logic GD543x"
+    x_video_memory_label: str = "2048"
+    timezone_prompt: str = "Configure Timezones"
+    timezone_clock_control: Literal["radio", "checkbox"] = "radio"
+    timezone_button: str = "Okay"
+    lilo_setup_dialogs: int = Field(default=1, ge=1)
+    lilo_boot_labels: bool = True
     bootdisk_prompt: bool = False
     password: str = "password"
 
@@ -139,8 +143,6 @@ class PerlInstallerSettings(ConfigModel):
 
 class PerlInstallerLocaleConfig(InstallLocaleConfig):
     """Configure locale choices specific to the early Red Hat installer."""
-
-    hardware_clock: Literal["utc", "local"] = "utc"
 
 
 class SysinstallDiskConfig(ConfigModel):
@@ -244,6 +246,7 @@ class CInstallConfig(ConfigModel):
 
     driver: Literal["redhat-c"]
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
+    locale: InstallLocaleConfig = Field(default_factory=InstallLocaleConfig)
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
     redhat: CInstallerSettings = Field(default_factory=CInstallerSettings)

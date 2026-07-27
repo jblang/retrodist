@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 import shlex
 import time
-from typing import Any, Coroutine, TypeVar
+from typing import Any, Callable, Coroutine, TypeVar
 
 from .config import RetroConfig
 from .qmp import Monitor
@@ -234,6 +234,24 @@ class InstallSession:
         """Capture raw VGA cells for repeated, local attribute queries."""
         return self._call(self._runtime.vga.capture(rows))
 
+    def vga_wait_snapshot(
+        self,
+        predicate: Callable[[ScreenSnapshot], bool],
+        *,
+        timeout: float | None = None,
+        rows: int | None = None,
+        interval: float | None = None,
+    ) -> ScreenSnapshot:
+        """Wait for and return the VGA snapshot satisfying ``predicate``."""
+        return self._call(
+            self._runtime.vga.wait_snapshot(
+                predicate,
+                timeout,
+                rows=rows,
+                interval=interval,
+            )
+        )
+
     def vga_select(
         self,
         *attributes: AttributeFilter,
@@ -260,6 +278,10 @@ class InstallSession:
         log.info("👇 %s", " ".join(keys))
         self._send_keys(keys)
 
+    def kb_press_quiet(self, *keys: str) -> None:
+        """Send QEMU keys for a higher-level controller that owns logging."""
+        self._send_keys(keys)
+
     def _send_keys(self, keys: tuple[str, ...] | list[str]) -> None:
         """Send paced keys and invalidate VGA state after Enter."""
         for key in keys:
@@ -282,6 +304,10 @@ class InstallSession:
             log.info("⌨️  %s ↩️", text[:-1])
         else:
             log.info("⌨️  %s", text.replace("\t", r"\t").replace("\n", r"\n"))
+        self._send_keys(encode(text))
+
+    def kb_type_quiet(self, text: str) -> None:
+        """Type text for a higher-level controller that owns logging."""
         self._send_keys(encode(text))
 
     def change_image(self, image: str, device: str = "floppy0", format: str = "raw") -> None:
