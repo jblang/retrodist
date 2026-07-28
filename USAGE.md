@@ -104,6 +104,11 @@ literal text locations, overall bounds, and orthogonally connected regions.
 Region text preserves attribute-matching spaces, so a colored checkbox cell
 can be distinguished as `" "` or `"*"`.
 
+Use `snapshot.view(bounds)` for decoded lines and cells from one rectangular
+screen area while retaining absolute coordinates. Passing a row limit to
+`session.vga_screen()` or `session.vga_wait_snapshot()` also limits the VGA
+memory bytes read through QMP.
+
 ## Generated State and Starting Over
 
 Each config keeps its downloaded source media under `download.d/` and its

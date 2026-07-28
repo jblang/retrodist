@@ -1795,6 +1795,20 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.wait_for_title.assert_called_once_with("Partition Disks")
         installer.dialog.advance.assert_called_once_with("Done")
 
+    def test_redhat_51_waits_for_partition_dialog_after_mount_editor(self) -> None:
+        installer = object.__new__(redhat_c.CInstaller)
+        installer.disk = SimpleNamespace(root_partition="/dev/hda2")
+        installer.dialog = unittest.mock.Mock()
+        installer.dialog_step = unittest.mock.Mock()
+
+        installer._partition_5x("51")
+
+        installer.dialog.enter_text.assert_called_once_with("/", field="mount point")
+        self.assertEqual(
+            installer.dialog_step.call_args_list,
+            [call("Current Disk Partitions"), call("Active Swap Space")],
+        )
+
     def test_redhat_51_configures_combined_mouse_form(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.dialog = unittest.mock.Mock()
@@ -1805,9 +1819,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog_step.assert_called_once_with("Probing Result")
         installer.dialog.wait_for_title.assert_called_once_with("Configure Mouse")
         installer.dialog.select_menu_item.assert_called_once_with("PS/2 Mouse")
-        installer.dialog.set_checkbox.assert_called_once_with(
-            "Emulate 3 Buttons?", True
-        )
+        installer.dialog.set_checkbox.assert_called_once_with("Emulate 3 Buttons?", True)
         installer.dialog.advance.assert_called_once_with("Ok")
 
     def test_redhat_50_keeps_separate_mouse_emulation_question(self) -> None:
@@ -1913,9 +1925,7 @@ class RedHatDriverTests(unittest.TestCase):
 
         installer._finish_configuration()
 
-        installer.dialog.set_checkbox.assert_called_once_with(
-            "Hardware clock set to GMT", True
-        )
+        installer.dialog.set_checkbox.assert_called_once_with("Hardware clock set to GMT", True)
         installer.dialog.set_radio.assert_not_called()
         installer.dialog.select_menu_item.assert_called_once_with("Etc/UTC")
         self.assertEqual(
@@ -1957,9 +1967,7 @@ class RedHatDriverTests(unittest.TestCase):
 
         installer.dialog_step.assert_called_once_with("Lilo Installation")
         installer.dialog.select_partition.assert_called_once_with("/dev/hdb1")
-        installer.dialog.replace_text.assert_called_once_with(
-            "", field="boot label"
-        )
+        installer.dialog.replace_text.assert_called_once_with("", field="boot label")
         self.assertEqual(
             installer.dialog.wait_for_title.call_args_list,
             [
@@ -1973,6 +1981,29 @@ class RedHatDriverTests(unittest.TestCase):
             [call("Edit")],
         )
         installer.dialog.advance.assert_called_once_with("Ok")
+
+    def test_redhat_4x_waits_for_partition_dialog_after_mount_editor(self) -> None:
+        installer = object.__new__(redhat_c.CInstaller)
+        installer.disk = SimpleNamespace(
+            root_partition="/dev/hda2",
+            fat_partition="/dev/hdb1",
+            fat_mount="/retro",
+        )
+        installer.dialog = unittest.mock.Mock()
+        installer.dialog_step = unittest.mock.Mock()
+        installer.partition_helper = unittest.mock.Mock()
+
+        installer.partition_4x()
+
+        installer.dialog.enter_text.assert_called_once_with("/retro", field="mount point")
+        self.assertEqual(
+            installer.dialog_step.call_args_list,
+            [
+                call("Partition Disks", "Done"),
+                call("Active Swap Space"),
+                call("Partition Disk"),
+            ],
+        )
 
     def test_redhat_41_lilo_has_two_setup_dialogs_then_boot_label_editor(
         self,
@@ -2967,7 +2998,7 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertEqual(matched, snapshot)
-        observer.capture.assert_awaited_once_with()
+        observer.capture.assert_awaited_once_with(1)
         sleep.assert_not_awaited()
 
     def test_snapshot_cell_enforces_one_based_bounds(self) -> None:
@@ -2978,6 +3009,36 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(row=row, column=column):
                 with self.assertRaisesRegex(ValueError, "outside this snapshot"):
                     snapshot.cell(row, column)
+
+    def test_snapshot_view_preserves_absolute_coordinates(self) -> None:
+        snapshot = ScreenSnapshot.capture(
+            self._vga_cells((character, 0x07) for character in "ABCDEFGHIJKL"),
+            columns=4,
+            rows=3,
+        )
+        view = snapshot.view(ScreenBounds(2, 2, 3, 3))
+
+        self.assertEqual(view.lines, ("FG", "JK"))
+        self.assertEqual("".join(cell.character for cell in view.cells), "FGJK")
+        self.assertEqual(view.cell(3, 2).character, "J")
+        with self.assertRaisesRegex(ValueError, "outside this view"):
+            view.cell(1, 2)
+
+    async def test_bounded_capture_reads_only_requested_vga_rows(self) -> None:
+        monitor = AsyncMock()
+        with temporary_root() as root:
+
+            async def save(command):
+                _, _, byte_count, destination = command.split()
+                (root / destination).write_bytes(b" \x07" * (int(byte_count) // 2))
+
+            monitor.hmp.side_effect = save
+            observer = ScreenObserver(monitor, root, columns=4)
+            snapshot = await observer.capture(rows=3)
+
+        self.assertEqual(len(snapshot.contents), 3)
+        command = monitor.hmp.await_args.args[0].split()
+        self.assertEqual(command[2], "24")
 
     async def test_snapshot_wait_rejects_invalidated_matching_old_text(self) -> None:
         old = ScreenSnapshot.capture(b"O\x74k\x74 \x07", columns=3, rows=1)
@@ -3004,9 +3065,7 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
         monitor = AsyncMock()
         with temporary_root() as root:
             observer = ScreenObserver(monitor, root, columns=1, interval=0.25)
-            observer.capture = AsyncMock(
-                side_effect=[waiting, waiting, waiting, matched]
-            )
+            observer.capture = AsyncMock(side_effect=[waiting, waiting, waiting, matched])
             with patch("hostlib.vga.asyncio.sleep", new_callable=AsyncMock) as sleep:
                 result = await observer.wait_snapshot(
                     lambda frame: frame.text == "!",
@@ -3113,11 +3172,11 @@ class NewtDialogTests(unittest.TestCase):
             "│ Format machine time is stored in:  │",
             "│ [*] Hardware clock set to GMT      │",
             "│                                    │",
-            "│ What timezone are you in:           │",
-            "│ SystemV/YST9YDT                ▒    │",
-            "│ Turkey                         ▒    │",
-            "│ UTC                            #    │",
-            "│ US/Alaska                      ▒    │",
+            "│ What timezone are you in:          │",
+            "│ SystemV/YST9YDT                ▒   │",
+            "│ Turkey                         ▒   │",
+            "│ UTC                            #   │",
+            "│ US/Alaska                      ▒   │",
             "│                                    │",
             "└────────────────────────────────────┘",
         ]
@@ -3204,10 +3263,7 @@ class NewtDialogTests(unittest.TestCase):
         attributes = {(1, column): 0x74 for column in range(7, 32)}
         active_row = {"hda1": 3, "hda2": 4, "hdb1": 5}[active]
         attributes.update(
-            {
-                (active_row, column): 0x1E
-                for column in range(3, len(lines[active_row - 1]))
-            }
+            {(active_row, column): 0x1E for column in range(3, len(lines[active_row - 1]))}
         )
         return cls._snapshot(lines, attributes)
 
@@ -3238,7 +3294,8 @@ class NewtDialogTests(unittest.TestCase):
         frame = self._menu("GD542x")
         redless = ScreenSnapshot.capture(
             b"".join(
-                cell.character.encode("cp437") + bytes((0x70 if cell.row == 1 else cell.attribute,))
+                cell.character.encode("cp437")
+                + bytes((0x70 if cell.row == 1 else cell.attribute,))
                 for cell in frame.select().cells
             ),
             columns=frame.columns,
@@ -3253,19 +3310,28 @@ class NewtDialogTests(unittest.TestCase):
 
         class Session:
             rows = "unset"
+            screen_rows = []
 
-            def vga_wait_snapshot(
-                self, predicate, *, timeout=None, rows=None, interval=None
-            ):
+            def vga_wait_snapshot(self, predicate, *, timeout=None, rows=None, interval=None):
                 self.rows = rows
+                incomplete = ScreenSnapshot(frame.columns, frame.contents[:-1])
+                if predicate(incomplete):
+                    raise AssertionError("partial dialog unexpectedly matched")
                 if not predicate(frame):
                     raise AssertionError("title predicate did not match the later VGA page")
                 return frame
 
+            def vga_screen(self, rows=None):
+                self.screen_rows.append(rows)
+                return frame.limit(rows)
+
         session = Session()
-        state = NewtDialog(session).wait_for_title("Choose A Card")
+        dialog = NewtDialog(session)
+        state = dialog.wait_for_title("Choose A Card")
+        dialog.capture()
         self.assertIsNone(session.rows)
         self.assertEqual(state.bounds.top, 26)
+        self.assertEqual(session.screen_rows, [state.bounds.bottom])
 
     def test_nested_dialog_uses_innermost_border_and_matches_its_title(self) -> None:
         width, height = 46, 12
@@ -3288,25 +3354,42 @@ class NewtDialogTests(unittest.TestCase):
         self.assertEqual(NewtDialog.parse(frame).title, "Edit Mount Point")
         outer = NewtDialog.parse(frame, title="Partition Disk")
         self.assertEqual(outer.bounds, ScreenBounds(1, 1, 12, 46))
-        self.assertTrue(NewtDialog._has_title(frame, "Edit Mount Point"))
+
+    def test_title_traces_its_own_border_when_dialogs_share_a_row(self) -> None:
+        frame = self._snapshot(
+            [
+                "┌─┤ One ├─┐  ┌──┤ Two ├──┐",
+                "│         │  │           │",
+                "└─────────┘  └───────────┘",
+            ],
+            {},
+        )
+
+        one = NewtDialog.parse(frame, title="One")
+        two = NewtDialog.parse(frame, title="Two")
+
+        self.assertEqual(one.bounds, ScreenBounds(1, 1, 3, 11))
+        self.assertEqual(two.bounds, ScreenBounds(1, 14, 3, 26))
 
     @classmethod
     def _buttons(cls, selected):
         lines = [
-            "┌────┤ Confirm ├─────┐",
-            "│                    │",
-            "│     Ok     Cancel  │",
-            "│                    │",
-            "└────────────────────┘",
+            "┌────┤ Confirm ├──────────┐",
+            "│                         │",
+            "│    ┌────┐  ┌────────┐   │",
+            "│    │ Ok │  │ Cancel │   │",
+            "│    └────┘  └────────┘   │",
+            "│                         │",
+            "└─────────────────────────┘",
         ]
         attributes = {(1, column): 0x74 for column in range(7, 16)}
-        for label, start in (("Ok", 7), ("Cancel", 14)):
-            attributes.update(
-                {
-                    (3, column): 0x74 if label == selected else 0x47
-                    for column in range(start, start + len(label))
-                }
-            )
+        for label in ("Ok", "Cancel"):
+            start = lines[3].index(label) + 1
+            attributes.update({(4, column): 0x47 for column in range(start, start + len(label))})
+            if label == selected:
+                attributes.update(
+                    {(4, column): 0x74 for column in range(start, start + len(label))}
+                )
         return cls._snapshot(lines, attributes)
 
     def test_named_button_cycles_focus_then_activates(self) -> None:
@@ -3410,15 +3493,13 @@ class NewtDialogTests(unittest.TestCase):
     def test_monochrome_advance_uses_verified_f12_shortcut(self) -> None:
         frame = self._snapshot(
             [
-                "┌─────┤ Color Choices ├─────┐",
-                "│                           │",
-                "│  Are you using color?     │",
-                "│                           │",
-                "│   ┌─────┐      ┌────┐     │",
-                "│   │ Yes │      │ No │     │",
-                "│   └─────┘      └────┘     │",
-                "│                           │",
-                "└───────────────────────────┘",
+                "┌──┤ Screen Configuration ├────┐",
+                "│                              │",
+                "│      ┌─────────────┐         │",
+                "│      │ Don't Probe │         │",
+                "│      └─────────────┘         │",
+                "│                              │",
+                "└──────────────────────────────┘",
             ],
             {},
         )
@@ -3433,7 +3514,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).advance("Yes")
+        NewtDialog(session).advance("Don't Probe")
         self.assertEqual(session.keys, ["f12"])
 
     def test_menu_navigation_scans_from_the_observed_top(self) -> None:
@@ -3469,9 +3550,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return self.current
 
-            def vga_wait_snapshot(
-                self, predicate, *, timeout=None, rows=None, interval=None
-            ):
+            def vga_wait_snapshot(self, predicate, *, timeout=None, rows=None, interval=None):
                 if self.keys[-1] == "pgup":
                     raise TimeoutError
                 if predicate(self.current):
@@ -3494,17 +3573,14 @@ class NewtDialogTests(unittest.TestCase):
             "┌────┤ Configure Timezones ├─────┐",
             "│ explanatory text               │",
             "│                                │",
-            *(f"│ {item:<24}▒     │" for item in items),
+            *(f"│ {item:<24}▒      │" for item in items),
             "│                                │",
             "└────────────────────────────────┘",
         ]
         attributes = {(1, column): 0x74 for column in range(7, 26)}
         active_row = 4 + items.index(active)
         attributes.update(
-            {
-                (active_row, column): 0x1E
-                for column in range(3, len(lines[active_row - 1]))
-            }
+            {(active_row, column): 0x1E for column in range(3, len(lines[active_row - 1]))}
         )
         return cls._snapshot(lines, attributes)
 
@@ -3527,9 +3603,7 @@ class NewtDialogTests(unittest.TestCase):
 
         class Session:
             def __init__(self):
-                self.frames = iter(
-                    [middle, top, top, middle_after_page, bottom, selected]
-                )
+                self.frames = iter([middle, top, top, middle_after_page, bottom, selected])
                 self.keys = []
 
             def vga_screen(self, rows=None):
@@ -3548,12 +3622,12 @@ class NewtDialogTests(unittest.TestCase):
     @classmethod
     def _checklist(cls, active, checked):
         lines = [
-            "┌────┤ Components to Install ├────┐",
-            "│                                 │",
+            "┌────┤ Components to Install ├─────┐",
+            "│                                  │",
             f"│ [{'*' if checked.get('One') else ' '}] One                          │",
             f"│ [{'*' if checked.get('Two') else ' '}] Two                          │",
-            "│                                 │",
-            "└─────────────────────────────────┘",
+            "│                                  │",
+            "└──────────────────────────────────┘",
         ]
         attributes = {(1, column): 0x74 for column in range(7, 28)}
         row = 3 if active == "One" else 4
@@ -3597,12 +3671,12 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return self.current
 
-            def vga_wait_snapshot(
-                self, predicate, *, timeout=None, rows=None, interval=None
-            ):
+            def vga_wait_snapshot(self, predicate, *, timeout=None, rows=None, interval=None):
                 self.current = next(self.pending)
                 if not predicate(self.current):
-                    raise AssertionError("expected standalone-checkbox transition was not observed")
+                    raise AssertionError(
+                        "expected standalone-checkbox transition was not observed"
+                    )
                 return self.current
 
             def kb_press(self, *keys):
@@ -3862,6 +3936,9 @@ class SessionTests(unittest.TestCase):
             ["shift-a", "b", "ret"],
         )
         self.assertTrue(any("⌨️  Ab ↩️" in line for line in transcript.output))
+        session._runtime.vga.invalidate.assert_called_once_with()
+        session._runtime.vga.invalidate.reset_mock()
+        session.kb_press_quiet("f12")
         session._runtime.vga.invalidate.assert_called_once_with()
 
     def test_postinstall_command_uses_configured_fat_paths(self) -> None:

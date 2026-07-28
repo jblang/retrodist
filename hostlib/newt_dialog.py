@@ -11,7 +11,7 @@ import logging
 import re
 from typing import Protocol
 
-from .vga import ScreenBounds, ScreenSnapshot, VgaColor
+from .vga import ScreenBounds, ScreenSnapshot, ScreenView, VgaCell, VgaColor
 
 log = logging.getLogger(__name__)
 
@@ -26,14 +26,18 @@ class DialogState:
     """The controls needed by one supported Red Hat installer dialog."""
 
     title: str
-    bounds: ScreenBounds
+    view: ScreenView
     active_item: str | None
     visible_items: tuple[str, ...]
     checklist: tuple[tuple[str, bool], ...]
     focused_checkbox: str | None
     radios: tuple[tuple[str, bool], ...]
     focused_radio: str | None
-    snapshot: ScreenSnapshot
+
+    @property
+    def bounds(self) -> ScreenBounds:
+        """Return the active dialog rectangle."""
+        return self.view.bounds
 
     @property
     def checked(self) -> dict[str, bool]:
@@ -71,6 +75,9 @@ class _Session(Protocol):
     def kb_type_quiet(self, text: str) -> None:
         """Type text without duplicating this controller's semantic logging."""
 
+    def kb_type(self, text: str) -> None:
+        """Type text with session-level logging."""
+
 
 class NewtDialog:
     """Parse and navigate menus and checklists used by Red Hat C installers."""
@@ -85,12 +92,17 @@ class NewtDialog:
     def __init__(self, session: _Session) -> None:
         """Bind one synchronous installer session."""
         self.s = session
+        self._current: DialogState | None = None
 
     def wait_for_title(self, title: str) -> DialogState:
         """Wait specifically for a delimiter-bounded dialog title."""
         log.info("⏳ dialog %s", title)
-        snapshot = self.s.vga_wait_snapshot(lambda frame: self._has_title(frame, title))
+        target = _label(title)
+        snapshot = self.s.vga_wait_snapshot(
+            lambda frame: any(_label(found) == target for found, _ in self._dialogs(frame))
+        )
         state = self.parse(snapshot, title=title)
+        self._current = state
         log.info("🖥️  dialog %s", state.title)
         return state
 
@@ -100,51 +112,40 @@ class NewtDialog:
 
     def advance(self, label: str) -> None:
         """Advance with F12 where the caller source defines that action."""
-        target = _label(label)
-        state = self.capture()
-        rendered = self._buttons(state) | self._outlined_buttons(state)
-        if target not in rendered:
-            raise RuntimeError(f"Dialog {state.title!r} has no button {label!r}")
-        selected = self._selected_button(state)
-        if selected is None or selected == target:
-            log.info("👇 dialog %s: advance %s", state.title, label)
-            self._press("f12")
-            return
         self._activate_button(label, "f12", "advance")
 
     def _activate_button(self, label: str, key: str, action: str) -> None:
         """Focus a rendered button, then use one source-authorized activation key."""
         target = _label(label)
         state = self.capture()
-        if (
-            key == "f12"
-            and target not in self._buttons(state)
-            and target in self._outlined_buttons(state)
-        ):
-            log.info("👇 dialog %s: %s %s", state.title, action, label)
-            self._press(key)
-            return
         for _ in range(self._limit):
-            if self._selected_button(state) == target:
+            buttons = self._button_states(state)
+            selected = next((name for name, focused in buttons.items() if focused), None)
+            if target not in buttons:
+                raise RuntimeError(f"Dialog {state.title!r} has no button {label!r}")
+            if selected == target or (key == "f12" and selected is None):
                 log.info("👇 dialog %s: %s %s", state.title, action, label)
                 self._press(key)
                 return
-            if target not in self._buttons(state):
-                raise RuntimeError(f"Dialog {state.title!r} has no button {label!r}")
-            previous_button = self._selected_button(state)
             previous_checkbox = state.focused_checkbox
             previous_radio = state.focused_radio
             self._press("tab")
             state = self._wait_for_state(
-                lambda current: self._selected_button(current) != previous_button
+                lambda current: self._selected_button(current) != selected
                 or current.focused_checkbox != previous_checkbox
                 or current.focused_radio != previous_radio
             )
         raise RuntimeError(f"Dialog {state.title!r} never focused button {label!r}")
 
     def capture(self) -> DialogState:
-        """Capture and parse the current visible VGA dialog."""
-        return self.parse(self.s.vga_screen())
+        """Capture and parse through the current dialog's bottom row."""
+        current = self._current
+        state = self.parse(
+            self.s.vga_screen(current.bounds.bottom if current is not None else None),
+            title=current.title if current is not None else None,
+        )
+        self._current = state
+        return state
 
     def enter_text(
         self,
@@ -158,11 +159,15 @@ class NewtDialog:
         description = field or "focused entry"
         rendered = "<redacted>" if sensitive else repr(value)
         log.info("⌨️  dialog %s: enter %s=%s", state.title, description, rendered)
+        self._type(f"{value}\n")
+
+    def _type(self, text: str) -> None:
+        """Type through the quiet session API when it is available."""
         quiet = getattr(self.s, "kb_type_quiet", None)
         if quiet is None:
-            self.s.kb_type(f"{value}\n")
+            self.s.kb_type(text)
         else:
-            quiet(f"{value}\n")
+            quiet(text)
 
     def replace_text(self, value: str, *, field: str) -> None:
         """Clear a focused Newt entry with Ctrl-A/Ctrl-K, then submit a value."""
@@ -170,7 +175,7 @@ class NewtDialog:
         log.info("⌨️  dialog %s: set %s=%r", state.title, field, value)
         self._press("ctrl-a")
         self._press("ctrl-k")
-        self.enter_text(value, field=field)
+        self._type(f"{value}\n")
 
     @classmethod
     def parse(cls, snapshot: ScreenSnapshot, *, title: str | None = None) -> DialogState:
@@ -180,34 +185,26 @@ class NewtDialog:
             dialogs = tuple(dialog for dialog in dialogs if _label(dialog[0]) == _label(title))
         if not dialogs:
             raise RuntimeError("Screen does not contain a Red Hat dialog title")
-        title, row, column, bounds = max(
+        title, bounds = max(
             dialogs,
             key=lambda candidate: sum(
-                other[3] != candidate[3] and other[3].contains(candidate[3])
-                for other in dialogs
+                other[1] != candidate[1] and other[1].contains(candidate[1]) for other in dialogs
             ),
         )
-        active = cls._active_item(snapshot, bounds)
-        visible_items = cls._visible_menu_items(snapshot, bounds)
-        checklist, focused = cls._checklist_items(snapshot, bounds)
-        radios, focused_radio = cls._radio_items(snapshot, bounds)
+        view = snapshot.view(bounds)
+        active, visible_items = cls._menu(view)
+        checklist, focused = cls._checklist_items(view)
+        radios, focused_radio = cls._radio_items(view)
         return DialogState(
             title,
-            bounds,
+            view,
             active,
             visible_items,
             checklist,
             focused,
             radios,
             focused_radio,
-            snapshot,
         )
-
-    @classmethod
-    def _has_title(cls, snapshot: ScreenSnapshot, title: str) -> bool:
-        """Return whether a frame contains the requested dialog title."""
-        target = _label(title)
-        return any(_label(found[0]) == target for found in cls._find_titles(snapshot))
 
     @classmethod
     def _find_titles(cls, snapshot: ScreenSnapshot) -> tuple[tuple[str, int, int], ...]:
@@ -215,107 +212,104 @@ class NewtDialog:
         found = []
         for row, text in enumerate(snapshot.text.splitlines(), 1):
             found.extend(
-                (match.group(1), row, match.start() + 1)
-                for match in cls._title.finditer(text)
+                (match.group(1), row, match.start() + 1) for match in cls._title.finditer(text)
             )
         return tuple(found)
 
     @classmethod
-    def _dialogs(
-        cls, snapshot: ScreenSnapshot
-    ) -> tuple[tuple[str, int, int, ScreenBounds], ...]:
+    def _dialogs(cls, snapshot: ScreenSnapshot) -> tuple[tuple[str, ScreenBounds], ...]:
         """Return every titled dialog paired with its enclosing border."""
-        return tuple(
-            (title, row, column, cls._bounds(snapshot, row))
-            for title, row, column in cls._find_titles(snapshot)
-        )
+        dialogs = []
+        for title, row, column in cls._find_titles(snapshot):
+            bounds = cls._bounds(snapshot, row, column)
+            if bounds is not None:
+                dialogs.append((title, bounds))
+        return tuple(dialogs)
 
     @staticmethod
-    def _bounds(snapshot: ScreenSnapshot, title_row: int) -> ScreenBounds:
-        """Return the box enclosing the title's top border."""
-        rows = snapshot.text.splitlines()
-        for row in range(title_row, 0, -1):
-            top = rows[row - 1]
-            left, right = top.find("┌"), top.rfind("┐")
-            if left < 0 or right <= left:
-                continue
-            for bottom in range(row + 1, len(rows) + 1):
-                base = rows[bottom - 1]
-                if base[left : left + 1] == "└" and base[right : right + 1] == "┘":
-                    return ScreenBounds(row, left + 1, bottom, right + 1)
-        raise RuntimeError("Unable to determine dialog border bounds")
-
-    @classmethod
-    def _active_item(cls, snapshot: ScreenSnapshot, bounds: ScreenBounds) -> str | None:
-        """Return the yellow-on-blue active menu label inside one dialog."""
-        active = cls._active_menu(snapshot, bounds)
-        return active[0] if active is not None else None
-
-    @classmethod
-    def _active_menu(
-        cls, snapshot: ScreenSnapshot, bounds: ScreenBounds
-    ) -> tuple[str, int] | None:
-        """Return the active menu label and row inside one dialog."""
-        rows: dict[int, list[tuple[int, str]]] = {}
-        lines = snapshot.text.splitlines()
-        for cell in snapshot.select().cells:
-            if not (bounds.top < cell.row < bounds.bottom and bounds.left < cell.column < bounds.right):
-                continue
-            line = lines[cell.row - 1]
-            control_text = line[bounds.left - 1 : bounds.right].strip()
-            if (
-                cls._radio.search(control_text)
-                or cls._checklist.search(control_text)
-            ):
-                continue
-            if cell.foreground is VgaColor.YELLOW and cell.background is VgaColor.BLUE:
-                rows.setdefault(cell.row, []).append((cell.column, cell.character))
-        if not rows:
+    def _bounds(
+        snapshot: ScreenSnapshot,
+        title_row: int,
+        title_column: int,
+    ) -> ScreenBounds | None:
+        """Trace the connected box border containing one title delimiter."""
+        line = snapshot.view(ScreenBounds(title_row, 1, title_row, snapshot.columns)).lines[0]
+        left_delimiter = title_column - 1
+        right_delimiter = line.find("├", left_delimiter + 1)
+        if right_delimiter < 0:
             return None
-        row = min(rows)
-        runs: list[list[str]] = []
-        current: list[str] = []
-        previous = None
-        for column, character in rows[row]:
-            if previous is not None and column != previous + 1:
-                if current:
-                    runs.append(current)
-                current = []
-            current.append(character)
-            previous = column
-        if current:
-            runs.append(current)
-        label = "".join(max(runs, key=len)).split("#", 1)[0].split("▒", 1)[0]
-        label = label.rstrip(" │")
-        return (label, row) if label else None
+
+        left = left_delimiter - 1
+        while left >= 0 and line[left] == "─":
+            left -= 1
+        right = right_delimiter + 1
+        while right < len(line) and line[right] == "─":
+            right += 1
+        if left < 0 or right >= len(line) or line[left] != "┌" or line[right] != "┐":
+            return None
+
+        for bottom in range(title_row + 1, len(snapshot.contents) + 1):
+            left_edge = snapshot.cell(bottom, left + 1).character
+            right_edge = snapshot.cell(bottom, right + 1).character
+            if (left_edge, right_edge) == ("└", "┘"):
+                base = snapshot.view(ScreenBounds(bottom, left + 1, bottom, right + 1)).lines[0]
+                if base == f"└{'─' * (right - left - 1)}┘":
+                    return ScreenBounds(title_row, left + 1, bottom, right + 1)
+                return None
+            if (left_edge, right_edge) != ("│", "│"):
+                return None
+        return None
 
     @classmethod
-    def _visible_menu_items(
-        cls, snapshot: ScreenSnapshot, bounds: ScreenBounds
-    ) -> tuple[str, ...]:
-        """Return every visible row in the menu block containing the highlight."""
-        active = cls._active_menu(snapshot, bounds)
-        if active is None:
-            return ()
-        _, active_row = active
-        lines = snapshot.text.splitlines()
-        scrollbar = cls._scrollbar(snapshot, bounds, active_row)
+    def _menu(cls, view: ScreenView) -> tuple[str | None, tuple[str, ...]]:
+        """Return the active list item and the rows in its visible list page."""
+        bounds = view.bounds
+        lines = view.lines
+        control_rows = {
+            bounds.top + offset
+            for offset, line in enumerate(lines)
+            if cls._radio.search(line.strip()) or cls._checklist.search(line.strip())
+        }
+        highlighted: dict[int, list[tuple[int, str]]] = {}
+        cells = view.cells
+        for cell in cells:
+            if (
+                bounds.top < cell.row < bounds.bottom
+                and bounds.left < cell.column < bounds.right
+                and cell.row not in control_rows
+                and cell.foreground is VgaColor.YELLOW
+                and cell.background is VgaColor.BLUE
+            ):
+                highlighted.setdefault(cell.row, []).append((cell.column, cell.character))
+        if not highlighted:
+            return None, ()
+
+        active_row = min(highlighted)
+        runs: list[str] = []
+        start = 0
+        active_cells = highlighted[active_row]
+        for index in range(1, len(active_cells) + 1):
+            if (
+                index == len(active_cells)
+                or active_cells[index][0] != active_cells[index - 1][0] + 1
+            ):
+                runs.append("".join(character for _, character in active_cells[start:index]))
+                start = index
+        active = max(runs, key=len).split("#", 1)[0].split("▒", 1)[0].rstrip(" │")
+        if not active:
+            return None, ()
+
+        scrollbar = cls._scrollbar(cells, bounds, active_row)
         scrollbar_column = scrollbar[0] if scrollbar is not None else None
 
         def menu_row(row: int) -> str | None:
             """Return one list row, excluding headings, buttons, and scrollbars."""
             right = scrollbar_column - 1 if scrollbar_column is not None else bounds.right - 1
-            text = lines[row - 1][bounds.left:right].strip()
+            line = lines[row - bounds.top]
+            text = line[1 : right - bounds.left + 1].strip()
             if not text:
                 return None
-            if row == active_row:
-                return text
-            if not any(
-                snapshot.cell(row, column).foreground is VgaColor.BLACK
-                and snapshot.cell(row, column).background is VgaColor.LIGHT_GRAY
-                and snapshot.cell(row, column).character.strip()
-                for column in range(bounds.left + 1, bounds.right)
-            ):
+            if cls._radio.search(text) or cls._checklist.search(text):
                 return None
             return text
 
@@ -328,19 +322,18 @@ class NewtDialog:
             bottom = active_row
             while bottom < bounds.bottom - 1 and menu_row(bottom + 1) is not None:
                 bottom += 1
-        return tuple(
-            item
-            for row in range(top, bottom + 1)
-            if (item := menu_row(row)) is not None
+        visible = tuple(
+            item for row in range(top, bottom + 1) if (item := menu_row(row)) is not None
         )
+        return active, visible
 
     @staticmethod
     def _scrollbar(
-        snapshot: ScreenSnapshot, bounds: ScreenBounds, active_row: int
+        cells: tuple[VgaCell, ...], bounds: ScreenBounds, active_row: int
     ) -> tuple[int, int, int] | None:
         """Return the column and visible row range of the list's scrollbar."""
         columns: dict[int, list[int]] = {}
-        for cell in snapshot.select().cells:
+        for cell in cells:
             if (
                 bounds.top < cell.row < bounds.bottom
                 and bounds.left < cell.column < bounds.right
@@ -357,47 +350,33 @@ class NewtDialog:
         return max(candidates, key=lambda item: (item[2] - item[1], item[0]))
 
     @classmethod
-    def _checklist_items(
-        cls, snapshot: ScreenSnapshot, bounds: ScreenBounds
-    ) -> tuple[tuple[tuple[str, bool], ...], str | None]:
+    def _checklist_items(cls, view: ScreenView) -> tuple[tuple[tuple[str, bool], ...], str | None]:
         """Return visible checkbox labels, values, and the brown focused entry."""
-        rows = snapshot.text.splitlines()
-        entries: list[tuple[str, bool]] = []
-        focused = None
-        for row in range(bounds.top + 1, bounds.bottom):
-            text = rows[row - 1][bounds.left - 1 : bounds.right].strip()
-            match = cls._checklist.search(text)
-            if match is None:
-                continue
-            name = match.group(2).rstrip(" ▒#│")
-            entries.append((name, match.group(1) == "*"))
-            if any(
-                snapshot.cell(row, column).foreground is VgaColor.BLUE
-                and snapshot.cell(row, column).background is VgaColor.BROWN
-                for column in range(bounds.left, bounds.right + 1)
-            ):
-                focused = name
-        return tuple(entries), focused
+        return cls._marked_items(view, cls._checklist)
 
     @classmethod
-    def _radio_items(
-        cls, snapshot: ScreenSnapshot, bounds: ScreenBounds
-    ) -> tuple[tuple[tuple[str, bool], ...], str | None]:
+    def _radio_items(cls, view: ScreenView) -> tuple[tuple[tuple[str, bool], ...], str | None]:
         """Return visible radio labels, selection state, and focused entry."""
-        rows = snapshot.text.splitlines()
+        return cls._marked_items(view, cls._radio)
+
+    @staticmethod
+    def _marked_items(
+        view: ScreenView, pattern: re.Pattern[str]
+    ) -> tuple[tuple[tuple[str, bool], ...], str | None]:
+        """Parse checkbox-like markers, using color only to identify focus."""
         entries: list[tuple[str, bool]] = []
         focused = None
-        for row in range(bounds.top + 1, bounds.bottom):
-            text = rows[row - 1][bounds.left - 1 : bounds.right].strip()
-            match = cls._radio.search(text)
+        for offset, text in enumerate(view.lines[1:-1], 1):
+            match = pattern.search(text.strip())
             if match is None:
                 continue
+            row = view.bounds.top + offset
             name = match.group(2).rstrip(" ▒#│")
             entries.append((name, match.group(1) == "*"))
             if any(
-                snapshot.cell(row, column).foreground is VgaColor.BLUE
-                and snapshot.cell(row, column).background is VgaColor.BROWN
-                for column in range(bounds.left, bounds.right + 1)
+                (cell := view.cell(row, column)).foreground is VgaColor.BLUE
+                and cell.background is VgaColor.BROWN
+                for column in range(view.bounds.left, view.bounds.right + 1)
             ):
                 focused = name
         return tuple(entries), focused
@@ -431,9 +410,7 @@ class NewtDialog:
             state = next_state
         raise RuntimeError(self._missing(label, state))
 
-    def _focus_visible_menu_item(
-        self, state: DialogState, target: str, width: int | None
-    ) -> bool:
+    def _focus_visible_menu_item(self, state: DialogState, target: str, width: int | None) -> bool:
         """Move within one visible menu page when it contains the target."""
         visible = [self._menu_text(item, width) for item in state.visible_items]
         matches = [index for index, item in enumerate(visible) if _label(item) == target]
@@ -509,9 +486,7 @@ class NewtDialog:
                     break
                 state = current
             else:
-                raise RuntimeError(
-                    f"Dialog {state.title!r} exceeded the radio-list safety limit"
-                )
+                raise RuntimeError(f"Dialog {state.title!r} exceeded the radio-list safety limit")
 
             for _ in range(self._limit):
                 if _label(state.focused_radio or "") == target:
@@ -520,14 +495,10 @@ class NewtDialog:
                 self._press("down")
                 current = self.capture()
                 if current.focused_radio == previous:
-                    raise RuntimeError(
-                        f"Dialog {state.title!r} could not find radio {label!r}"
-                    )
+                    raise RuntimeError(f"Dialog {state.title!r} could not find radio {label!r}")
                 state = current
             else:
-                raise RuntimeError(
-                    f"Dialog {state.title!r} exceeded the radio-list safety limit"
-                )
+                raise RuntimeError(f"Dialog {state.title!r} exceeded the radio-list safety limit")
 
         if not state.selected_radios[target]:
             self._select_focused_radio(state, target, label)
@@ -537,18 +508,12 @@ class NewtDialog:
         self._press("tab")
         state = self.capture()
         if state.focused_radio is not None:
-            raise RuntimeError(
-                f"Dialog {state.title!r} did not leave the radio list after Tab"
-            )
+            raise RuntimeError(f"Dialog {state.title!r} did not leave the radio list after Tab")
 
-    def _select_focused_radio(
-        self, state: DialogState, target: str, label: str
-    ) -> None:
+    def _select_focused_radio(self, state: DialogState, target: str, label: str) -> None:
         """Activate a focused radio and verify its selected marker."""
         self._press("spc")
-        state = self._wait_for_state(
-            lambda current: current.selected_radios.get(target) is True
-        )
+        state = self._wait_for_state(lambda current: current.selected_radios.get(target) is True)
         if not state.selected_radios.get(target):
             raise RuntimeError(f"Radio {label!r} did not become selected")
 
@@ -634,9 +599,7 @@ class NewtDialog:
                     self._press("spc")
                     state = self.capture()
                     if state.checked.get(normalized) != checked:
-                        raise RuntimeError(
-                            f"Partition checkbox {device!r} did not change state"
-                        )
+                        raise RuntimeError(f"Partition checkbox {device!r} did not change state")
                 return
             next_state = self._move(state, "down", lambda item: item.focused_checkbox)
             if next_state is state:
@@ -729,10 +692,11 @@ class NewtDialog:
         if waiter is None:
             next_state = self.capture()
         else:
+
             def changed(snapshot: ScreenSnapshot) -> bool:
                 """Return whether a captured frame changed the focused identity."""
                 try:
-                    return identity(self.parse(snapshot)) != previous
+                    return identity(self._parse_current(snapshot)) != previous
                 except RuntimeError:
                     return False
 
@@ -740,9 +704,10 @@ class NewtDialog:
                 snapshot = waiter(
                     changed,
                     timeout=self._transition_timeout,
+                    rows=self._current.bounds.bottom if self._current is not None else None,
                     interval=self._transition_interval,
                 )
-                next_state = self.parse(snapshot)
+                next_state = self._parse_current(snapshot)
             except TimeoutError:
                 next_state = self.capture()
         if identity(next_state) == previous:
@@ -758,20 +723,30 @@ class NewtDialog:
         def changed(snapshot: ScreenSnapshot) -> bool:
             """Apply a state predicate only to complete parseable dialog frames."""
             try:
-                return predicate(self.parse(snapshot))
+                return predicate(self._parse_current(snapshot))
             except RuntimeError:
                 return False
 
         try:
-            return self.parse(
+            return self._parse_current(
                 waiter(
                     changed,
                     timeout=self._transition_timeout,
+                    rows=self._current.bounds.bottom if self._current is not None else None,
                     interval=self._transition_interval,
                 )
             )
         except TimeoutError:
             return self.capture()
+
+    def _parse_current(self, snapshot: ScreenSnapshot) -> DialogState:
+        """Parse a transition frame as the dialog currently being manipulated."""
+        state = self.parse(
+            snapshot,
+            title=self._current.title if self._current is not None else None,
+        )
+        self._current = state
+        return state
 
     def _press(self, key: str) -> None:
         """Send one QMP key without leaking implementation-level trace entries."""
@@ -782,40 +757,16 @@ class NewtDialog:
             quiet(key)
 
     @staticmethod
-    def _buttons(state: DialogState) -> set[str]:
-        """Return labels rendered in either Red Hat button color pair."""
-        result = set()
-        pairs = {
-            (VgaColor.LIGHT_GRAY, VgaColor.RED),
-            (VgaColor.RED, VgaColor.LIGHT_GRAY),
-        }
-        for row, line in enumerate(state.snapshot.text.splitlines(), 1):
-            if not state.bounds.top < row < state.bounds.bottom:
-                continue
-            run: list[str] = []
-            for column in range(state.bounds.left, state.bounds.right + 1):
-                cell = state.snapshot.cell(row, column)
-                if (cell.foreground, cell.background) in pairs:
-                    run.append(cell.character)
-                else:
-                    text = "".join(run).strip(" │")
-                    if text and re.fullmatch(r"[A-Za-z][A-Za-z ]*", text):
-                        result.add(_label(text))
-                    run = []
-            text = "".join(run).strip(" │")
-            if text and re.fullmatch(r"[A-Za-z][A-Za-z ]*", text):
-                result.add(_label(text))
-        return result
-
-    @staticmethod
-    def _outlined_buttons(state: DialogState) -> set[str]:
-        """Return labels enclosed by complete three-row Newt button borders."""
-        result = set()
-        rows = state.snapshot.text.splitlines()
-        for row in range(state.bounds.top + 1, state.bounds.bottom - 1):
-            top = rows[row - 1]
-            middle = rows[row]
-            bottom = rows[row + 1]
+    def _button_states(state: DialogState) -> dict[str, bool]:
+        """Return outlined button labels, using color only to identify focus."""
+        result: dict[str, bool] = {}
+        selected = (VgaColor.RED, VgaColor.LIGHT_GRAY)
+        view = state.view
+        lines = view.lines
+        for offset in range(1, len(lines) - 2):
+            top = lines[offset]
+            middle = lines[offset + 1]
+            bottom = lines[offset + 2]
             for left, character in enumerate(top):
                 if character != "┌":
                     continue
@@ -823,34 +774,38 @@ class NewtDialog:
                 if right <= left + 1:
                     continue
                 if (
-                    middle[left : left + 1] != "│"
+                    set(top[left + 1 : right]) != {"─"}
+                    or middle[left : left + 1] != "│"
                     or middle[right : right + 1] != "│"
                     or bottom[left : left + 1] != "└"
                     or bottom[right : right + 1] != "┘"
+                    or set(bottom[left + 1 : right]) != {"─"}
                 ):
                     continue
-                label = middle[left + 1 : right].strip()
-                if label:
-                    result.add(_label(label))
+                interior = middle[left + 1 : right]
+                label = interior.strip()
+                if not label:
+                    continue
+                start = left + 1 + interior.find(label)
+                row = state.bounds.top + offset + 1
+                focused = any(
+                    (
+                        view.cell(row, state.bounds.left + column).foreground,
+                        view.cell(row, state.bounds.left + column).background,
+                    )
+                    == selected
+                    for column in range(start, start + len(label))
+                )
+                result[_label(label)] = focused
         return result
 
     @classmethod
     def _selected_button(cls, state: DialogState) -> str | None:
         """Return the button currently rendered red on light gray."""
-        selected = (VgaColor.RED, VgaColor.LIGHT_GRAY)
-        for label in cls._buttons(state):
-            for row, line in enumerate(state.snapshot.text.splitlines(), 1):
-                if not state.bounds.top < row < state.bounds.bottom:
-                    continue
-                visible = line[state.bounds.left - 1 : state.bounds.right]
-                start = visible.casefold().find(label)
-                if start >= 0 and all(
-                    (state.snapshot.cell(row, column).foreground,
-                     state.snapshot.cell(row, column).background) == selected
-                    for column in range(state.bounds.left + start, state.bounds.left + start + len(label))
-                ):
-                    return label
-        return None
+        return next(
+            (label for label, selected in cls._button_states(state).items() if selected),
+            None,
+        )
 
     @staticmethod
     def _missing(label: str, state: DialogState) -> str:

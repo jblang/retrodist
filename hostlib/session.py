@@ -283,10 +283,10 @@ class InstallSession:
         self._send_keys(keys)
 
     def _send_keys(self, keys: tuple[str, ...] | list[str]) -> None:
-        """Send paced keys and invalidate VGA state after Enter."""
+        """Send paced keys and invalidate VGA state after screen activation."""
         for key in keys:
             self._call(self._runtime.monitor.send_key(key))
-            if "ret" in key.split("-"):
+            if {"ret", "f12"} & set(key.split("-")):
                 self._runtime.vga.invalidate()
 
     def kb_repeat(self, key: str, count: int = 1) -> None:

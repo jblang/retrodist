@@ -16,7 +16,6 @@ from ..newt_dialog import NewtDialog
 from ..errors import ConfigError
 from ..schemas import CInstallConfig, UnattendedInstallConfig
 
-
 # Red Hat 4.0's ``RedHat/base/comps`` and ``misc/src/install/pkgs.c`` define
 # these rendered component names and their initially selected skeleton state.
 COMPONENTS_40 = {
@@ -171,7 +170,7 @@ class CInstaller:
         self.dialog.press_button("Edit")
         self.dialog.wait_for_title(f"Edit Partition: {self.disk.root_partition}")
         self.dialog.enter_text("/", field="mount point")
-        self.dialog.advance("Ok")
+        self.dialog_step("Current Disk Partitions")
         self.dialog_step("Active Swap Space")
         self.dialog.wait_for_title("Partitions To Format")
         self.dialog.set_partition_checklist_item(self.disk.root_partition, True)
@@ -226,7 +225,7 @@ class CInstaller:
         self.dialog.press_button("Edit")
         self.dialog.wait_for_title("Edit Mount Point")
         self.dialog.enter_text(self.disk.fat_mount, field="mount point")
-        self.dialog.advance("Ok")
+        self.dialog_step("Partition Disk")
         self.dialog.wait_for_title("Format Partitions")
         self.dialog.set_partition_checklist_item(self.disk.root_partition, True)
         self.dialog.advance("Ok")
@@ -336,9 +335,7 @@ class CInstaller:
             )
         else:
             clock_label = (
-                "Universal time (GMT)"
-                if self.locale.hardware_clock == "utc"
-                else "Local time"
+                "Universal time (GMT)" if self.locale.hardware_clock == "utc" else "Local time"
             )
             self.dialog.set_radio(clock_label)
         self.dialog.select_menu_item(self.locale.timezone)

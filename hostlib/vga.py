@@ -171,6 +171,24 @@ class ScreenSnapshot:
         except (IndexError, ValueError) as exc:
             raise ValueError(f"cell ({row}, {column}) is outside this snapshot") from exc
 
+    def view(self, bounds: ScreenBounds) -> ScreenView:
+        """Return a decoded rectangular view with absolute cell coordinates."""
+        screen = ScreenBounds(1, 1, len(self.contents), self.columns)
+        if bounds.width <= 0 or bounds.height <= 0 or not screen.contains(bounds):
+            raise ValueError(f"view {bounds} is outside this snapshot")
+        start = (bounds.left - 1) * 2
+        stop = bounds.right * 2
+        lines = tuple(
+            _decode_row(contents[start:stop], None, None)
+            for contents in self.contents[bounds.top - 1 : bounds.bottom]
+        )
+        cells = tuple(
+            self.cell(row, column)
+            for row in range(bounds.top, bounds.bottom + 1)
+            for column in range(bounds.left, bounds.right + 1)
+        )
+        return ScreenView(bounds, lines, cells)
+
     @property
     def text(self) -> str:
         """Decode every captured cell without constructing a selection."""
@@ -240,6 +258,25 @@ class VgaCell:
     def bounds(self) -> ScreenBounds:
         """Return the one-cell rectangle occupied by this cell."""
         return ScreenBounds(self.row, self.column, self.row, self.column)
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenView:
+    """Expose only one rectangular part of a VGA snapshot."""
+
+    bounds: ScreenBounds
+    lines: tuple[str, ...]
+    cells: tuple[VgaCell, ...]
+
+    def cell(self, row: int, column: int) -> VgaCell:
+        """Return one decoded cell within the view."""
+        if not (
+            self.bounds.top <= row <= self.bounds.bottom
+            and self.bounds.left <= column <= self.bounds.right
+        ):
+            raise ValueError(f"cell ({row}, {column}) is outside this view")
+        offset = (row - self.bounds.top) * self.bounds.width + column - self.bounds.left
+        return self.cells[offset]
 
 
 def _bounds(cells: Iterable[VgaCell]) -> ScreenBounds | None:
@@ -586,12 +623,17 @@ class ScreenObserver:
         ``rows=None`` captures the complete configured memory range. With the
         default geometry this is 32 KiB interpreted as 80-column text rows.
         """
+        if rows is not None and rows <= 0:
+            raise ValueError("rows must be greater than zero")
         started = monotonic()
+        memory_bytes = (
+            self.memory_bytes if rows is None else min(self.memory_bytes, self.columns * rows * 2)
+        )
         with tempfile.NamedTemporaryFile(dir=self.qemu_dir, delete=False) as stream:
             dump = Path(stream.name)
         dump.unlink()
         try:
-            await self.monitor.hmp(f"pmemsave {self.address:#x} {self.memory_bytes} {dump.name}")
+            await self.monitor.hmp(f"pmemsave {self.address:#x} {memory_bytes} {dump.name}")
             return ScreenSnapshot.capture(dump.read_bytes(), self.columns, rows)
         finally:
             dump.unlink(missing_ok=True)
@@ -656,10 +698,18 @@ class ScreenObserver:
         started = monotonic()
         captures = 1
         slept = 0.0
-        selected_rows = self.rows if rows is None else rows
         poll_interval = 0.01 if interval is None else interval
         max_interval = self.interval if interval is None else interval
-        snapshot = (await self._fresh_selection((), selected_rows)).snapshot
+        if rows is None:
+            snapshot = (await self._fresh_selection((), self.rows)).snapshot
+        else:
+            while True:
+                snapshot = await self.capture(rows)
+                prior = "\n".join((self._stale or "").splitlines()[:rows])
+                if self._stale is None or snapshot.text != prior:
+                    self._stale = None
+                    break
+                await asyncio.sleep(min(self.interval, 0.01))
 
         async def next_snapshot() -> ScreenSnapshot:
             """Capture the next frame after the current adaptive delay."""
@@ -667,7 +717,10 @@ class ScreenObserver:
             if poll_interval:
                 await asyncio.sleep(poll_interval)
                 slept += poll_interval
-            snapshot = (await self._selected_screen((), selected_rows))[1].snapshot
+            if rows is None:
+                snapshot = (await self._selected_screen((), self.rows))[1].snapshot
+            else:
+                snapshot = await self.capture(rows)
             captures += 1
             if interval is None:
                 poll_interval = min(max_interval, poll_interval * 2)
