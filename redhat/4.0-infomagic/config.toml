@@ -26,6 +26,30 @@ keymap = "us"
 
 [install.redhat]
 flow = "4x"
+# Base is mandatory and is not shown in the component checklist.
+components = [
+  "C Development",
+  # "Development Libraries",
+  "C++ Development",
+  "Print Server",
+  # "News Server",
+  # "NFS Server",
+  # "Networked Workstation",
+  # "Anonymous FTP/Gopher Server",
+  # "Web Server",
+  # "Network Management Workstation",
+  # "Dialup Workstation",
+  "Game Machine",
+  "Multimedia Machine",
+  "X Window System",
+  "X Development",
+  "X multimedia support",
+  # "TeX Document Formatting",
+  # "Emacs",
+  # "Emacs with X windows",
+  # "DOS/Windows Connectivity",
+  "Extra Documentation",
+]
 x_card_label = "Cirrus Logic GD543x"
 keyboard_late = true
 timezone_prompt = "Configure Timezones"

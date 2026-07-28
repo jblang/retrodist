@@ -118,10 +118,6 @@ def AnswerText(
     *,
     regex: bool = False,
     text_regex: bool = False,
-    item: str | None = None,
-    item_regex: bool = False,
-    description: bool = False,
-    exit: bool = False,
 ) -> Answer:
     """Build an answer additionally matched by prompt text."""
     return Answer(
@@ -131,10 +127,6 @@ def AnswerText(
         answer=answer,
         regex=regex,
         text_regex=text_regex,
-        item=item,
-        item_regex=item_regex,
-        description=description,
-        exit=exit,
     )
 
 

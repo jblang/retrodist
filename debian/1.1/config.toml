@@ -25,6 +25,7 @@ net_module_args = "io=0x300 irq=9"
 
 [install.locale]
 keymap = ""
+timezone = "Etc/UTC"
 
 [install.debian]
 configure_keyboard = true

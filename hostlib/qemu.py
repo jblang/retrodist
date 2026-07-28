@@ -11,6 +11,7 @@ import asyncio
 from dataclasses import dataclass, field
 import logging
 from pathlib import Path
+import platform
 import shlex
 import socket
 import subprocess
@@ -19,6 +20,7 @@ from .config import QemuConfig
 from .context import Context
 from .errors import CommandError
 from .qmp import Monitor
+from .qemu_schemas import QEMU_PROFILES
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ class QemuRuntime:
 
     Staged filenames are the boundary between extraction and emulation. The
     runtime discovers conventional floppy, IDE, CD-ROM, and FAT-directory names
-    in ``qemu.d`` and combines them with a fully resolved ``QemuConfig``.
+    in ``qemu.d`` and combines them with the selected hardware profile.
     """
 
     context: Context
@@ -87,10 +89,9 @@ class QemuRuntime:
             return
         if not (floppy or cdrom):
             raise CommandError("No bootable devices")
-        command = ["qemu-img", "create", "-f", self.config.disk.format]
-        if self.config.disk.create_options:
-            command += ["-o", self.config.disk.create_options]
-        command += [str(disk), self.config.disk.size or "500M"]
+        profile = QEMU_PROFILES[self.config.profile]
+        command = ["qemu-img", "create", "-f", "qcow2", str(disk)]
+        command.append(self.config.disk.size or profile.disk_size)
         result = subprocess.run(command, check=False)
         if result.returncode:
             raise CommandError("Could not create hda.img")
@@ -118,24 +119,13 @@ class QemuRuntime:
         if name == "hdc" and cdrom:
             image = None
         if image is not None and image.is_file():
-            return self._image_drive_options(name, image, interface, indices[name])
+            image_format = "raw" if interface == "floppy" else "qcow2"
+            return f"if={interface},index={indices[name]},format={image_format},file={image.name}"
         if iso.is_file():
             return f"if={interface},index={indices[name]},format=raw,media=cdrom,file={iso.name}"
         if name == "hdb" and (self.directory / "fat").is_dir():
             return "if=ide,index=1,format=raw,file=fat:rw:fat"
-        if (self.directory / name).is_dir():
-            return f"if={interface},index={indices[name]},format=raw,file=fat:rw:{name}"
         return None
-
-    def _image_drive_options(self, name: str, image: Path, interface: str, index: int) -> str:
-        """Build options for a staged disk-image drive."""
-        image_format = "raw" if interface == "floppy" else self.config.disk.format
-        extra = (
-            f",{self.config.disk.hda_options}"
-            if name == "hda" and self.config.disk.hda_options
-            else ""
-        )
-        return f"if={interface},index={index},format={image_format},file={image.name}{extra}"
 
     def _forwards(self) -> list[tuple[int, int]]:
         """Resolve configured or automatically assigned host port forwards."""
@@ -179,14 +169,15 @@ class QemuRuntime:
         to exactly the same forwarded endpoints.
         """
         cfg = self.config
+        profile = QEMU_PROFILES[cfg.profile]
         args = [
-            cfg.system,
+            "qemu-system-i386",
             "-machine",
-            cfg.machine or "type=isapc",
+            profile.machine,
             "-smp",
-            str(cfg.smp),
+            "1",
             "-m",
-            cfg.ram or "16M",
+            profile.ram,
             "-qmp",
             "unix:qmp.sock,server=on,wait=off",
         ]
@@ -196,43 +187,38 @@ class QemuRuntime:
         boot = self._boot_order()
         if boot:
             args += ["-boot", boot]
-        return args + cfg.extra
+        return args
 
     def _device_arguments(self) -> list[str]:
         """Build character, display, network, and floppy-controller arguments."""
         args = [value for pair in self._chardevs() for value in pair]
-        display = self.config.display
+        profile = QEMU_PROFILES[self.config.profile]
         for option, value in (
-            ("-display", display.backend),
-            ("-accel", display.acceleration),
-            ("-vga", display.vga),
+            ("-display", "cocoa" if platform.system() == "Darwin" else "gtk"),
+            ("-accel", "tcg"),
+            ("-vga", profile.vga),
         ):
             if value:
                 args += [option, value]
         args += self._network_arguments()
-        for drive, value in (
-            ("A", self.config.disk.floppy_a_type),
-            ("B", self.config.disk.floppy_b_type),
-        ):
-            if value:
-                args += ["-global", f"isa-fdc.fdtype{drive}={value}"]
+        for drive in ("A", "B"):
+            args += ["-global", f"isa-fdc.fdtype{drive}=144"]
         return args
 
     def _network_arguments(self) -> list[str]:
         """Build user-network and forwarding arguments when networking is enabled."""
         network = self.config.network
-        if not (network.enabled and network.device):
+        device = network.device or QEMU_PROFILES[self.config.profile].nic
+        if not network.enabled:
             return []
         netdev = "user,id=internet" + "".join(
             f",hostfwd=tcp:127.0.0.1:{host}-:{guest}" for host, guest in self._forwards()
         )
-        return ["-netdev", netdev, "-device", f"{network.device},netdev=internet"]
+        return ["-netdev", netdev, "-device", f"{device},netdev=internet"]
 
     def _boot_order(self) -> str | None:
         """Resolve an explicit or install-media-derived QEMU boot order."""
         floppy, cdrom = self._startup_media()
-        if self.config.boot_order:
-            return self.config.boot_order
         if self.context.command != "install":
             return None
         return "order=a" if floppy else "order=d" if cdrom else None
@@ -247,15 +233,12 @@ class QemuRuntime:
 
     def _report_forwards(self) -> None:
         """Log configured guest TCP port forwarding endpoints."""
-        forwards = (
-            self._forwards() if self.config.network.enabled and self.config.network.device else []
-        )
+        if not self.config.network.enabled:
+            return
+        forwards = self._forwards()
         if forwards:
             log.info("📡 Guest ports:")
-            ordered = sorted(
-                forwards,
-                key=lambda pair: (pair[1] not in {22, 23}, pair[1]),
-            )
+            ordered = sorted(forwards, key=lambda pair: (pair[1] not in {22, 23}, pair[1]))
             for host, guest in ordered:
                 label = "SSH" if guest == 22 else "Telnet" if guest == 23 else "TCP"
                 log.info("    %-7s localhost:%s -> guest :%s", f"{label}:", host, guest)

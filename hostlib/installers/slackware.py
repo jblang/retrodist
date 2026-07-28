@@ -12,7 +12,7 @@ import logging
 
 from ..dialog import AnswerTitle
 from ..fdisk import Fdisk
-from ..session import InstallSession, Match
+from ..session import InstallSession, Match, fat_mount_command
 from ..schemas import PkgtoolInstallConfig
 
 log = logging.getLogger(__name__)
@@ -77,17 +77,16 @@ class Pkgtool:
     def _prepare(self) -> None:
         """Boot install media, partition the disk, and start setup."""
         o = self.disk
-        self.s.serial_shell_start()
+        shell_prompt = r"# *$"
+        self.s.serial_shell_start(screen_prompt=shell_prompt, screen_match=Match.REGEX)
         for command in (
-            f"mkdir -p {o.fat_mount}",
-            f"mount -t msdos {o.fat_partition} {o.fat_mount}",
+            fat_mount_command(o.fat_mount, o.fat_partition, "msdos"),
             "rm /bin/dialog",
             f"cp {o.fat_mount}/guestlib.d/dialog.sh /bin/dialog",
         ):
             self.s.serial_shell_send(command)
         Fdisk(self.s).partition_swap_root(o.target_disk, o.swap_mb)
-        self.s.serial.wait("#", line=True)
-        self.s.serial_shell_exit()
+        self.s.serial_shell_exit(screen_prompt=shell_prompt, screen_match=Match.REGEX)
         self.s.kb_type("setup\n")
 
     def _setup_step(self, answer: str) -> None:
@@ -339,8 +338,7 @@ def boot_pkgtool(
 ) -> None:
     """Boot Slackware install media and prepare the Pkgtool session."""
     if boot_prompt:
-        session.vga_wait(boot_prompt, match=Match.LINE)
-        session.kb_type("\n")
+        session.boot_command(boot_prompt)
     if root_prompt:
         session.vga_wait(root_prompt, match=Match.LINE)
         session.change_floppy(root_image)

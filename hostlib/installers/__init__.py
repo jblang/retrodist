@@ -99,20 +99,14 @@ def _type(session: InstallSession, step: TypeStep) -> None:
 
 def _press(session: InstallSession, step: PressStep) -> None:
     """Send configured literal key sequences."""
-    keys = step.keys
-    if isinstance(keys, str):
-        keys = [keys]
+    keys = [step.keys] if isinstance(step.keys, str) else step.keys
     for _ in range(step.repeat):
         session.kb_press(*keys)
 
 
 def _prompt(session: InstallSession, step: PromptStep) -> None:
     """Answer one or more configured VGA or serial prompts."""
-    questions = step.questions if step.questions is not None else step.text
-    assert questions is not None
-    if isinstance(questions, str):
-        questions = [questions]
-    expanded = [_expand(session, question) for question in questions]
+    expanded = [_expand(session, question) for question in step.questions]
     answer = _expand(session, step.answer)
     if step.transport == "vga":
         match = Match.REGEX if step.regex else Match.TEXT
@@ -214,7 +208,6 @@ STEP_HANDLERS: dict[str, StepHandler] = {
     "type": _type,
     "wait": _wait,
 }
-STEP_ACTIONS = frozenset(STEP_HANDLERS)
 
 
 DRIVERS: dict[str, Driver] = {

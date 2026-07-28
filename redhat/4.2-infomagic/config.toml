@@ -29,6 +29,33 @@ keymap = "us"
 keyboard_early = true
 cdrom_type_prompt = false
 flow = "42"
+# Base is mandatory and is not shown in the component checklist.
+components = [
+  "C Development",
+  # "Development Libraries",
+  "C++ Development",
+  "Printer Support",
+  # "Print Server",
+  # "News Server",
+  # "NFS Server",
+  # "Networked Workstation",
+  # "LAN Manager Connectivity",
+  # "Anonymous FTP/Gopher Server",
+  # "Web Server",
+  # "Network Management Workstation",
+  "Dialup Workstation",
+  "Game Machine",
+  "Multimedia Machine",
+  "X Window System",
+  "X Development",
+  # "X multimedia support",
+  # "Java Development",
+  # "TeX Document Formatting",
+  # "Emacs",
+  # "Emacs with X windows",
+  # "DOS/Windows Connectivity",
+  # "Extra Documentation",
+]
 x_card_label = "Cirrus Logic GD543x"
 x_video_memory_label = "2048"
 timezone_prompt = "Configure Timezones"

@@ -98,13 +98,18 @@ but they now share driver blocks by installer family:
   one regular account. Early Red Hat limits the user name to eight characters.
 - `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
   configs set prompt-order options, common flow variants, and the exact visible
-  `x_card_label` selected from the X-card menu. Its `NewtDialog` layer waits
-  for a delimiter-bounded dialog title and drives named buttons, menus, and
-  checklists from QMP VGA cells. Titles and dialog borders are recognized from
-  CP437 box characters; colors are reserved for focused and selected control
-  state. A complete border must be present before interaction begins, after
-  which captures stop at that dialog's bottom border. Its logs use those same
-  semantic operations.
+  `x_card_label` selected from the X-card menu. The required
+  `install.redhat.components` array names the exact visible component groups to
+  install. The driver selects listed groups and clears every unlisted group,
+  including installer defaults. Each config keeps the other available groups as
+  commented array entries so the complete release-specific catalog is visible
+  and groups can be enabled directly. The mandatory Base component is implicit.
+  Its `NewtDialog` layer waits for a delimiter-bounded dialog title and drives
+  named buttons, menus, and checklists from QMP VGA cells. Titles and dialog
+  borders are recognized from CP437 box characters; colors are reserved for
+  focused and selected control state. A complete border must be present before
+  interaction begins, after which captures stop at that dialog's bottom border.
+  Its logs use those same semantic operations.
   The `[install.locale]` table selects `hardware_clock` (`utc` or `local`),
   the exact visible `timezone`, and the exact visible `keymap`.
   The InfoMagic disc 1 images for 4.0 through 5.1 contain the matching installer

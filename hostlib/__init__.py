@@ -10,7 +10,3 @@ Configuration is declarative and grouped by subsystem. Shared installer-family
 drivers live under ``hostlib.installers`` while release-specific values and
 bounded prompt sequences remain in TOML.
 """
-
-from .context import Context
-
-__all__ = ["Context"]

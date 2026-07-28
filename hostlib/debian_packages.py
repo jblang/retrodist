@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 import re
 
 from .errors import ConfigError
-from .schemas import DebianPackagesConfig
+from .media_schemas import DebianPackagesConfig
 
 
 @dataclass(frozen=True, slots=True)

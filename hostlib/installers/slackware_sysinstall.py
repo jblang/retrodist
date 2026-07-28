@@ -51,7 +51,7 @@ class Sysinstall:
         self._prepare_disk()
         self._run_doinstall()
         self._finish_install()
-        self._first_boot()
+        self.s.run_postinst(login="darkstar login:", shell="darkstar:/#")
 
     def _prepare_disk(self) -> None:
         """Log in, partition the target, and create its filesystems."""
@@ -60,7 +60,6 @@ class Sysinstall:
         self.s.kb_type("root\n")
         self.s.serial_shell_start(screen_prompt="darkstar:/#")
         Fdisk(self.s).partition_swap_root(o.target_disk, o.swap_mb)
-        self.s.serial.wait("#", line=True)
         for command in (
             f"mkswap {o.swap_partition} {o.swap_blocks}",
             f"swapon {o.swap_partition}",
@@ -99,13 +98,6 @@ class Sysinstall:
         self.s.serial_shell_send("echo 'none /proc proc defaults 0 0' >> /root/etc/fstab")
         self.s.set_boot("c")
         self.s.kb_press("ctrl-alt-delete")
-
-    def _first_boot(self) -> None:
-        """Log in after the reboot and launch staged post-install setup."""
-        self.s.vga_wait("darkstar login:", match=Match.LINE)
-        self.s.kb_type("root\n")
-        self.s.vga_wait("darkstar:/#", match=Match.LINE)
-        self.s.kb_type(f"{self.s.postinst_command}\n")
 
     def _packages(self) -> None:
         """Answer package prompts and satisfy an optional boot-disk request.

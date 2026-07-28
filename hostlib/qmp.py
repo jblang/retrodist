@@ -122,13 +122,6 @@ class Monitor:
         )
         await asyncio.sleep(interval)
 
-    @property
-    def events(self) -> Any:
-        """Return the underlying QMP event queue."""
-        if self._client is None:
-            raise QmpUnavailable("QMP is not connected")
-        return self._client.events
-
     async def __aenter__(self) -> "Monitor":
         """Connect this monitor and return it as an asynchronous context manager."""
         await self.connect()

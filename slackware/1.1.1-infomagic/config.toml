@@ -59,12 +59,6 @@ action = "serial-shell-start"
 action = "partition"
 
 [[install.steps]]
-action = "wait"
-transport = "serial"
-text = "#"
-match = "line"
-
-[[install.steps]]
 action = "console-echo"
 text = "Starting Slackware setup; package installation may take a while..."
 

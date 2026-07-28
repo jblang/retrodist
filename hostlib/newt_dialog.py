@@ -7,10 +7,11 @@ snapshots, while this module knows the old installer palette and widgets.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import groupby
 import logging
 import re
-from typing import Protocol
 
+from .session import InstallSession
 from .vga import ScreenBounds, ScreenSnapshot, ScreenView, VgaCell, VgaColor
 
 log = logging.getLogger(__name__)
@@ -29,67 +30,24 @@ class DialogState:
     view: ScreenView
     active_item: str | None
     visible_items: tuple[str, ...]
-    checklist: tuple[tuple[str, bool], ...]
+    checked: dict[str, bool]
     focused_checkbox: str | None
-    radios: tuple[tuple[str, bool], ...]
+    selected_radios: dict[str, bool]
     focused_radio: str | None
-
-    @property
-    def bounds(self) -> ScreenBounds:
-        """Return the active dialog rectangle."""
-        return self.view.bounds
-
-    @property
-    def checked(self) -> dict[str, bool]:
-        """Return visible checklist entries indexed by normalized label."""
-        return {_label(name): checked for name, checked in self.checklist}
-
-    @property
-    def selected_radios(self) -> dict[str, bool]:
-        """Return visible radio entries indexed by normalized label."""
-        return {_label(name): selected for name, selected in self.radios}
-
-
-class _Session(Protocol):
-    """Minimal installer-session surface used by ``NewtDialog``."""
-
-    def vga_screen(self, rows: int | None = None) -> ScreenSnapshot:
-        """Capture one raw VGA snapshot."""
-
-    def vga_wait_snapshot(
-        self,
-        predicate,
-        *,
-        timeout: float | None = None,
-        rows: int | None = None,
-        interval: float | None = None,
-    ) -> ScreenSnapshot:
-        """Wait until a raw VGA snapshot satisfies ``predicate``."""
-
-    def kb_press(self, *keys: str) -> None:
-        """Send one or more QEMU key names."""
-
-    def kb_press_quiet(self, *keys: str) -> None:
-        """Send keys without duplicating this controller's semantic logging."""
-
-    def kb_type_quiet(self, text: str) -> None:
-        """Type text without duplicating this controller's semantic logging."""
-
-    def kb_type(self, text: str) -> None:
-        """Type text with session-level logging."""
 
 
 class NewtDialog:
     """Parse and navigate menus and checklists used by Red Hat C installers."""
 
     _title = re.compile(r"┤\s*(.*?)\s*├")
+    _button = re.compile(r"┌─+┐")
     _checklist = re.compile(r"\[([ *])\]\s*(.*?)\s*$")
     _radio = re.compile(r"\(([ *])\)\s*(.*?)\s*$")
     _limit = 100
     _transition_timeout = 0.25
     _transition_interval = 0.0
 
-    def __init__(self, session: _Session) -> None:
+    def __init__(self, session: InstallSession) -> None:
         """Bind one synchronous installer session."""
         self.s = session
         self._current: DialogState | None = None
@@ -139,35 +97,21 @@ class NewtDialog:
 
     def capture(self) -> DialogState:
         """Capture and parse through the current dialog's bottom row."""
-        current = self._current
-        state = self.parse(
-            self.s.vga_screen(current.bounds.bottom if current is not None else None),
-            title=current.title if current is not None else None,
-        )
-        self._current = state
-        return state
+        rows = self._current.view.bounds.bottom if self._current is not None else None
+        return self._parse_current(self.s.vga_screen(rows))
 
     def enter_text(
         self,
         value: str,
         *,
-        field: str | None = None,
+        field: str,
         sensitive: bool = False,
     ) -> None:
         """Type one focused dialog entry value and submit that entry."""
         state = self.capture()
-        description = field or "focused entry"
         rendered = "<redacted>" if sensitive else repr(value)
-        log.info("⌨️  dialog %s: enter %s=%s", state.title, description, rendered)
-        self._type(f"{value}\n")
-
-    def _type(self, text: str) -> None:
-        """Type through the quiet session API when it is available."""
-        quiet = getattr(self.s, "kb_type_quiet", None)
-        if quiet is None:
-            self.s.kb_type(text)
-        else:
-            quiet(text)
+        log.info("⌨️  dialog %s: enter %s=%s", state.title, field, rendered)
+        self.s.kb_type_quiet(f"{value}\n")
 
     def replace_text(self, value: str, *, field: str) -> None:
         """Clear a focused Newt entry with Ctrl-A/Ctrl-K, then submit a value."""
@@ -175,7 +119,7 @@ class NewtDialog:
         log.info("⌨️  dialog %s: set %s=%r", state.title, field, value)
         self._press("ctrl-a")
         self._press("ctrl-k")
-        self._type(f"{value}\n")
+        self.s.kb_type_quiet(f"{value}\n")
 
     @classmethod
     def parse(cls, snapshot: ScreenSnapshot, *, title: str | None = None) -> DialogState:
@@ -193,37 +137,28 @@ class NewtDialog:
         )
         view = snapshot.view(bounds)
         active, visible_items = cls._menu(view)
-        checklist, focused = cls._checklist_items(view)
-        radios, focused_radio = cls._radio_items(view)
+        checklist, focused = cls._marked_items(view, cls._checklist)
+        radios, focused_radio = cls._marked_items(view, cls._radio)
         return DialogState(
             title,
             view,
             active,
             visible_items,
-            checklist,
+            {_label(name): checked for name, checked in checklist},
             focused,
-            radios,
+            {_label(name): selected for name, selected in radios},
             focused_radio,
         )
-
-    @classmethod
-    def _find_titles(cls, snapshot: ScreenSnapshot) -> tuple[tuple[str, int, int], ...]:
-        """Locate every delimiter-bounded title and its screen coordinates."""
-        found = []
-        for row, text in enumerate(snapshot.text.splitlines(), 1):
-            found.extend(
-                (match.group(1), row, match.start() + 1) for match in cls._title.finditer(text)
-            )
-        return tuple(found)
 
     @classmethod
     def _dialogs(cls, snapshot: ScreenSnapshot) -> tuple[tuple[str, ScreenBounds], ...]:
         """Return every titled dialog paired with its enclosing border."""
         dialogs = []
-        for title, row, column in cls._find_titles(snapshot):
-            bounds = cls._bounds(snapshot, row, column)
-            if bounds is not None:
-                dialogs.append((title, bounds))
+        for row, text in enumerate(snapshot.text.splitlines(), 1):
+            for match in cls._title.finditer(text):
+                bounds = cls._bounds(snapshot, row, match.start() + 1)
+                if bounds is not None:
+                    dialogs.append((match.group(1), bounds))
         return tuple(dialogs)
 
     @staticmethod
@@ -265,18 +200,13 @@ class NewtDialog:
         """Return the active list item and the rows in its visible list page."""
         bounds = view.bounds
         lines = view.lines
-        control_rows = {
-            bounds.top + offset
-            for offset, line in enumerate(lines)
-            if cls._radio.search(line.strip()) or cls._checklist.search(line.strip())
-        }
         highlighted: dict[int, list[tuple[int, str]]] = {}
-        cells = view.cells
-        for cell in cells:
+        for cell in view.cells:
             if (
                 bounds.top < cell.row < bounds.bottom
                 and bounds.left < cell.column < bounds.right
-                and cell.row not in control_rows
+                and not cls._radio.search(lines[cell.row - bounds.top].strip())
+                and not cls._checklist.search(lines[cell.row - bounds.top].strip())
                 and cell.foreground is VgaColor.YELLOW
                 and cell.background is VgaColor.BLUE
             ):
@@ -285,21 +215,16 @@ class NewtDialog:
             return None, ()
 
         active_row = min(highlighted)
-        runs: list[str] = []
-        start = 0
         active_cells = highlighted[active_row]
-        for index in range(1, len(active_cells) + 1):
-            if (
-                index == len(active_cells)
-                or active_cells[index][0] != active_cells[index - 1][0] + 1
-            ):
-                runs.append("".join(character for _, character in active_cells[start:index]))
-                start = index
+        runs = (
+            "".join(character for _, (_, character) in run)
+            for _, run in groupby(enumerate(active_cells), lambda item: item[1][0] - item[0])
+        )
         active = max(runs, key=len).split("#", 1)[0].split("▒", 1)[0].rstrip(" │")
         if not active:
             return None, ()
 
-        scrollbar = cls._scrollbar(cells, bounds, active_row)
+        scrollbar = cls._scrollbar(view.cells, bounds, active_row)
         scrollbar_column = scrollbar[0] if scrollbar is not None else None
 
         def menu_row(row: int) -> str | None:
@@ -332,32 +257,20 @@ class NewtDialog:
         cells: tuple[VgaCell, ...], bounds: ScreenBounds, active_row: int
     ) -> tuple[int, int, int] | None:
         """Return the column and visible row range of the list's scrollbar."""
-        columns: dict[int, list[int]] = {}
+        columns: dict[int, set[int]] = {}
         for cell in cells:
             if (
                 bounds.top < cell.row < bounds.bottom
                 and bounds.left < cell.column < bounds.right
                 and cell.character in {"#", "▒"}
             ):
-                columns.setdefault(cell.column, []).append(cell.row)
-        candidates = [
+                columns.setdefault(cell.column, set()).add(cell.row)
+        candidates = (
             (column, min(rows), max(rows))
             for column, rows in columns.items()
-            if len(set(rows)) >= 2 and min(rows) <= active_row <= max(rows)
-        ]
-        if not candidates:
-            return None
-        return max(candidates, key=lambda item: (item[2] - item[1], item[0]))
-
-    @classmethod
-    def _checklist_items(cls, view: ScreenView) -> tuple[tuple[tuple[str, bool], ...], str | None]:
-        """Return visible checkbox labels, values, and the brown focused entry."""
-        return cls._marked_items(view, cls._checklist)
-
-    @classmethod
-    def _radio_items(cls, view: ScreenView) -> tuple[tuple[tuple[str, bool], ...], str | None]:
-        """Return visible radio labels, selection state, and focused entry."""
-        return cls._marked_items(view, cls._radio)
+            if len(rows) >= 2 and min(rows) <= active_row <= max(rows)
+        )
+        return max(candidates, key=lambda item: (item[2] - item[1], item[0]), default=None)
 
     @staticmethod
     def _marked_items(
@@ -385,57 +298,44 @@ class NewtDialog:
         """Find a menu item by visible pages, then align the active row to it."""
         target = _label(label)
         state = self.capture()
+        page = lambda current: (current.active_item, current.visible_items)
         while state.focused_radio is not None or state.focused_checkbox is not None:
             self._press("tab")
             state = self.capture()
         log.info("📋 dialog %s: select menu %s", state.title, label)
-
-        # Scan all rows on each page while moving upward. If the target is
-        # already visible, there is no reason to seek the absolute top.
-        for _ in range(self._limit):
-            if self._focus_visible_menu_item(state, target, label_width):
-                return
-            next_state = self._move(state, "pgup", self._menu_page_identity)
-            if next_state is state:
-                break
-            state = next_state
-
-        # We are at the top. Scan downward one visible page at a time.
-        for _ in range(self._limit):
-            if self._focus_visible_menu_item(state, target, label_width):
-                return
-            next_state = self._move(state, "pgdn", self._menu_page_identity)
-            if next_state is state:
-                break
-            state = next_state
+        for direction in ("pgup", "pgdn"):
+            for _ in range(self._limit):
+                if self._focus_visible_menu_item(state, target, label_width):
+                    return
+                next_state = self._move(state, direction, page)
+                if next_state is state:
+                    break
+                state = next_state
         raise RuntimeError(self._missing(label, state))
 
     def _focus_visible_menu_item(self, state: DialogState, target: str, width: int | None) -> bool:
         """Move within one visible menu page when it contains the target."""
-        visible = [self._menu_text(item, width) for item in state.visible_items]
-        matches = [index for index, item in enumerate(visible) if _label(item) == target]
-        if not matches:
+        text = lambda item: item if width is None else item[:width].rstrip()
+        visible = [_label(text(item)) for item in state.visible_items]
+        if target not in visible:
             return False
-        if len(matches) != 1:
+        if visible.count(target) != 1:
             raise RuntimeError(
                 f"Dialog {state.title!r} has duplicate visible menu matches for {target!r}"
             )
-        active = self._menu_text(state.active_item or "", width)
-        active_matches = [
-            index for index, item in enumerate(visible) if _label(item) == _label(active)
-        ]
-        if len(active_matches) != 1:
+        active = _label(text(state.active_item or ""))
+        if visible.count(active) != 1:
             raise RuntimeError(
                 f"Dialog {state.title!r} could not locate active item "
                 f"{state.active_item!r} in {state.visible_items!r}"
             )
-        offset = matches[0] - active_matches[0]
+        offset = visible.index(target) - visible.index(active)
         direction = "down" if offset > 0 else "up"
         for _ in range(abs(offset)):
             next_state = self._move(
                 state,
                 direction,
-                lambda current: self._menu_text(current.active_item or "", width),
+                lambda current: text(current.active_item or ""),
             )
             if next_state is state:
                 raise RuntimeError(
@@ -444,93 +344,53 @@ class NewtDialog:
             state = next_state
         return True
 
-    @staticmethod
-    def _menu_page_identity(state: DialogState) -> tuple[str | None, tuple[str, ...]]:
-        """Identify both the active row and all visible rows of a menu page."""
-        return state.active_item, state.visible_items
-
-    @staticmethod
-    def _menu_text(item: str, width: int | None) -> str:
-        """Return one semantic menu label, optionally clipping a model column."""
-        return item if width is None else item[:width].rstrip()
-
     def set_radio(self, label: str) -> None:
         """Select one radio-list item, then move focus to the following control."""
         target = _label(label)
         state = self.capture()
-        matches = [name for name, _ in state.radios if _label(name) == target]
-        if len(matches) != 1:
-            raise RuntimeError(
-                f"Dialog {state.title!r} expected one radio {label!r}, found {len(matches)}"
-            )
+        if target not in state.selected_radios:
+            raise RuntimeError(f"Dialog {state.title!r} expected one radio {label!r}")
         log.info("🔘 dialog %s: select radio %s", state.title, label)
-
-        # First enter the radio list. The blue-on-brown marker cell identifies
-        # its focused row even when an unchecked marker contains a blank.
         for _ in range(self._limit):
             if state.focused_radio is not None:
                 break
             self._press("tab")
-            state = self.capture()
+            state = self._wait_for_state(lambda current: current.focused_radio is not None)
         else:
             raise RuntimeError(f"Dialog {state.title!r} never focused its radio list")
 
-        if _label(state.focused_radio) != target:
-            # Establish the top boundary once, then scan the radio list
-            # sequentially. Do not use Tab to move between its rows.
-            for _ in range(self._limit):
-                previous = state.focused_radio
-                self._press("up")
-                current = self.capture()
-                if current.focused_radio == previous:
-                    break
-                state = current
-            else:
-                raise RuntimeError(f"Dialog {state.title!r} exceeded the radio-list safety limit")
-
-            for _ in range(self._limit):
-                if _label(state.focused_radio or "") == target:
-                    break
-                previous = state.focused_radio
-                self._press("down")
-                current = self.capture()
-                if current.focused_radio == previous:
-                    raise RuntimeError(f"Dialog {state.title!r} could not find radio {label!r}")
-                state = current
-            else:
-                raise RuntimeError(f"Dialog {state.title!r} exceeded the radio-list safety limit")
+        state = self._seek(
+            state,
+            lambda current: current.focused_radio,
+            lambda value: _label(value or "") == target,
+            label,
+            start="up",
+        )
 
         if not state.selected_radios[target]:
-            self._select_focused_radio(state, target, label)
+            self._press("spc")
+            state = self._wait_for_state(
+                lambda current: current.selected_radios.get(target) is True
+            )
+            if not state.selected_radios.get(target):
+                raise RuntimeError(f"Radio {label!r} did not become selected")
 
-        # Radio selection and timezone-list navigation are separate operations.
-        # Newt moves from this radio list to the timezone list with one Tab.
         self._press("tab")
-        state = self.capture()
+        state = self._wait_for_state(lambda current: current.focused_radio is None)
         if state.focused_radio is not None:
             raise RuntimeError(f"Dialog {state.title!r} did not leave the radio list after Tab")
-
-    def _select_focused_radio(self, state: DialogState, target: str, label: str) -> None:
-        """Activate a focused radio and verify its selected marker."""
-        self._press("spc")
-        state = self._wait_for_state(lambda current: current.selected_radios.get(target) is True)
-        if not state.selected_radios.get(target):
-            raise RuntimeError(f"Radio {label!r} did not become selected")
 
     def select_partition(self, device: str) -> None:
         """Select the source-rendered partition row whose first token is ``device``."""
         target = self._partition_device(device)
         state = self.capture()
         log.info("📋 dialog %s: select partition %s", state.title, device)
-        state = self._to_top(state, lambda item: item.active_item)
-        for _ in range(self._limit):
-            if self._partition_device(state.active_item or "") == target:
-                return
-            next_state = self._move(state, "down", lambda item: item.active_item)
-            if next_state is state:
-                break
-            state = next_state
-        raise RuntimeError(self._missing(device, state))
+        self._seek(
+            state,
+            lambda current: current.active_item,
+            lambda value: self._partition_device(value or "") == target,
+            device,
+        )
 
     @staticmethod
     def _partition_device(row: str) -> str:
@@ -541,91 +401,37 @@ class NewtDialog:
         device = tokens[0].casefold()
         return device.removeprefix("/dev/")
 
-    def move_focus(self, direction: str) -> DialogState:
-        """Move a dialog's current control in one named direction."""
-        if direction not in {"up", "down", "left", "right"}:
-            raise ValueError(f"Unsupported dialog direction: {direction}")
+    def move_down(self) -> None:
+        """Move the current control down once."""
         state = self.capture()
-        log.info("📋 dialog %s: move focus %s", state.title, direction)
-        self._press(direction)
-        return self.capture()
+        log.info("📋 dialog %s: move focus down", state.title)
+        self._press("down")
+        self.capture()
 
-    def toggle_focused_checkbox(self) -> DialogState:
-        """Toggle the currently focused checkbox with semantic logging."""
+    def check_partition(self, device: str) -> None:
+        """Check the partition row whose source-rendered first token is ``device``."""
+        target = self._partition_device(device)
         state = self.capture()
-        if state.focused_checkbox is None:
-            raise RuntimeError(f"Dialog {state.title!r} has no focused checkbox")
-        log.info("☑️  dialog %s: toggle %s", state.title, state.focused_checkbox)
-        self._press("spc")
-        return self.capture()
+        log.info("☑️  dialog %s: check partition %s", state.title, device)
+        state = self._seek(
+            state,
+            lambda current: current.focused_checkbox,
+            lambda value: self._partition_device(value or "") == target,
+            device,
+        )
+        focused = _label(state.focused_checkbox or "")
+        self._set_checked(state, focused, True, device)
 
-    def set_checklist_item(self, label: str, checked: bool) -> None:
-        """Set one named checklist item without changing an already-correct value."""
-        log.info("☑️  dialog: set checkbox %s=%s", label, checked)
-        target = _label(label)
-        state = self.capture()
-        state = self._to_top(state, lambda item: item.focused_checkbox)
-        for _ in range(self._limit):
-            focus = _label(state.focused_checkbox or "")
-            if focus == target:
-                current = state.checked.get(target)
-                if current is None:
-                    raise RuntimeError(self._missing(label, state))
-                if current != checked:
-                    self._press("spc")
-                    updated = self.capture()
-                    if updated.checked.get(target) != checked:
-                        raise RuntimeError(f"Checkbox {label!r} did not change state")
-                return
-            next_state = self._move(state, "down", lambda item: item.focused_checkbox)
-            if next_state is state:
-                break
-            state = next_state
-        raise RuntimeError(self._missing(label, state))
-
-    def set_partition_checklist_item(self, device: str, checked: bool) -> None:
-        """Set the checklist row whose source-rendered first token is ``device``."""
-        target = _label(device)
-        state = self._to_top(self.capture(), lambda item: item.focused_checkbox)
-        log.info("☑️  dialog %s: set partition %s=%s", state.title, device, checked)
-        for _ in range(self._limit):
-            focused = state.focused_checkbox or ""
-            normalized = _label(focused)
-            if normalized == target or normalized.startswith(f"{target} "):
-                current = state.checked.get(normalized)
-                if current is None:
-                    raise RuntimeError(self._missing(device, state))
-                if current != checked:
-                    self._press("spc")
-                    state = self.capture()
-                    if state.checked.get(normalized) != checked:
-                        raise RuntimeError(f"Partition checkbox {device!r} did not change state")
-                return
-            next_state = self._move(state, "down", lambda item: item.focused_checkbox)
-            if next_state is state:
-                break
-            state = next_state
-        raise RuntimeError(self._missing(device, state))
-
-    def set_checkbox(self, label: str, checked: bool) -> None:
+    def set_checkbox(self, label: str, checked: bool = True) -> None:
         """Set one visible standalone checkbox reached through form traversal."""
         target = _label(label)
         state = self.capture()
-        matches = [name for name, _ in state.checklist if _label(name) == target]
-        if len(matches) != 1:
-            raise RuntimeError(
-                f"Dialog {state.title!r} expected one checkbox {label!r}, found {len(matches)}"
-            )
+        if target not in state.checked:
+            raise RuntimeError(f"Dialog {state.title!r} expected checkbox {label!r}")
         log.info("☑️  dialog %s: set checkbox %s=%s", state.title, label, checked)
         for _ in range(self._limit):
             if _label(state.focused_checkbox or "") == target:
-                if state.checked[target] != checked:
-                    self._press("spc")
-                    state = self._wait_for_state(
-                        lambda current: current.checked.get(target) == checked
-                    )
-                    if state.checked.get(target) != checked:
-                        raise RuntimeError(f"Checkbox {label!r} did not change state")
+                self._set_checked(state, target, checked, label)
                 return
             self._press("tab")
             state = self._wait_for_state(
@@ -634,91 +440,76 @@ class NewtDialog:
             )
         raise RuntimeError(f"Dialog {state.title!r} never focused checkbox {label!r}")
 
-    def set_checklist_items(
-        self,
-        choices: dict[str, bool],
-        *,
-        deselect_unlisted: bool = False,
-    ) -> None:
-        """Set checklist values in one pass, optionally making them exhaustive.
-
-        With ``deselect_unlisted=True``, every encountered checklist entry not
-        named by ``choices`` is cleared. This is the mode used by a future TOML
-        package-set list: included names are selected and all others removed.
-        """
-        pending = {_label(label): (label, checked) for label, checked in choices.items()}
-        if len(pending) != len(choices):
+    def set_checklist_items(self, selected: list[str]) -> None:
+        """Make the checklist exactly match the selected labels."""
+        requested = {_label(label): label for label in selected}
+        if len(requested) != len(selected):
             raise ValueError("Checklist choices contain duplicate normalized labels")
+        pending = dict(requested)
         state = self._to_top(self.capture(), lambda item: item.focused_checkbox)
-        log.info("☑️  dialog %s: apply %d checkbox selections", state.title, len(choices))
+        log.info("☑️  dialog %s: apply %d checkbox selections", state.title, len(selected))
         for _ in range(self._limit):
             focus = _label(state.focused_checkbox or "")
-            if focus in pending or deselect_unlisted:
-                label, checked = pending.pop(focus, (state.focused_checkbox or "", False))
-                current = state.checked.get(focus)
-                if current is None:
-                    raise RuntimeError(self._missing(label, state))
-                if current != checked:
-                    log.info("☑️  dialog %s: set %s=%s", state.title, label, checked)
-                    self._press("spc")
-                    state = self.capture()
-                    if state.checked.get(focus) != checked:
-                        raise RuntimeError(f"Checkbox {label!r} did not change state")
-            if not pending and not deselect_unlisted:
-                return
+            label = requested.get(focus, state.focused_checkbox or "")
+            checked = focus in requested
+            current = state.checked.get(focus)
+            if current is None:
+                raise RuntimeError(self._missing(label, state))
+            if current != checked:
+                log.info("☑️  dialog %s: set %s=%s", state.title, label, checked)
+                state = self._set_checked(state, focus, checked, label)
+            pending.pop(focus, None)
             next_state = self._move(state, "down", lambda item: item.focused_checkbox)
             if next_state is state:
                 if not pending:
                     return
                 break
             state = next_state
-        label, _ = next(iter(pending.values()))
+        label = next(iter(pending.values()))
         raise RuntimeError(self._missing(label, state))
 
-    def _to_top(self, state: DialogState, identity) -> DialogState:
+    def _set_checked(self, state: DialogState, key: str, checked: bool, label: str) -> DialogState:
+        """Toggle a focused checkbox when needed and verify its new state."""
+        if state.checked.get(key) == checked:
+            return state
+        self._press("spc")
+        state = self._wait_for_state(lambda current: current.checked.get(key) == checked)
+        if state.checked.get(key) != checked:
+            raise RuntimeError(f"Checkbox {label!r} did not change state")
+        return state
+
+    def _to_top(self, state: DialogState, identity, key: str = "pgup") -> DialogState:
         """Page upward until the observed focused item no longer changes."""
         for _ in range(self._limit):
-            next_state = self._move(state, "pgup", identity)
+            next_state = self._move(state, key, identity)
             if identity(next_state) == identity(state):
                 return state
             state = next_state
         raise RuntimeError("Dialog navigation exceeded its safety limit while seeking the top")
 
+    def _seek(
+        self, state: DialogState, identity, matches, label: str, *, start="pgup"
+    ) -> DialogState:
+        """Return the first matching focused item after seeking the list boundary."""
+        state = self._to_top(state, identity, start)
+        for _ in range(self._limit):
+            if matches(identity(state)):
+                return state
+            next_state = self._move(state, "down", identity)
+            if next_state is state:
+                break
+            state = next_state
+        raise RuntimeError(self._missing(label, state))
+
     def _move(self, state: DialogState, key: str, identity) -> DialogState:
         """Send one directional key and wait for focused-item identity to change."""
         previous = identity(state)
         self._press(key)
-        waiter = getattr(self.s, "vga_wait_snapshot", None)
-        if waiter is None:
-            next_state = self.capture()
-        else:
-
-            def changed(snapshot: ScreenSnapshot) -> bool:
-                """Return whether a captured frame changed the focused identity."""
-                try:
-                    return identity(self._parse_current(snapshot)) != previous
-                except RuntimeError:
-                    return False
-
-            try:
-                snapshot = waiter(
-                    changed,
-                    timeout=self._transition_timeout,
-                    rows=self._current.bounds.bottom if self._current is not None else None,
-                    interval=self._transition_interval,
-                )
-                next_state = self._parse_current(snapshot)
-            except TimeoutError:
-                next_state = self.capture()
-        if identity(next_state) == previous:
-            return state
-        return next_state
+        next_state = self._wait_for_state(lambda current: identity(current) != previous)
+        return state if identity(next_state) == previous else next_state
 
     def _wait_for_state(self, predicate) -> DialogState:
         """Wait for a parsed dialog-state predicate, falling back after a boundary timeout."""
-        waiter = getattr(self.s, "vga_wait_snapshot", None)
-        if waiter is None:
-            return self.capture()
 
         def changed(snapshot: ScreenSnapshot) -> bool:
             """Apply a state predicate only to complete parseable dialog frames."""
@@ -729,10 +520,10 @@ class NewtDialog:
 
         try:
             return self._parse_current(
-                waiter(
+                self.s.vga_wait_snapshot(
                     changed,
                     timeout=self._transition_timeout,
-                    rows=self._current.bounds.bottom if self._current is not None else None,
+                    rows=self._current.view.bounds.bottom if self._current is not None else None,
                     interval=self._transition_interval,
                 )
             )
@@ -750,36 +541,22 @@ class NewtDialog:
 
     def _press(self, key: str) -> None:
         """Send one QMP key without leaking implementation-level trace entries."""
-        quiet = getattr(self.s, "kb_press_quiet", None)
-        if quiet is None:
-            self.s.kb_press(key)
-        else:
-            quiet(key)
+        self.s.kb_press_quiet(key)
 
-    @staticmethod
-    def _button_states(state: DialogState) -> dict[str, bool]:
+    @classmethod
+    def _button_states(cls, state: DialogState) -> dict[str, bool]:
         """Return outlined button labels, using color only to identify focus."""
         result: dict[str, bool] = {}
-        selected = (VgaColor.RED, VgaColor.LIGHT_GRAY)
         view = state.view
         lines = view.lines
         for offset in range(1, len(lines) - 2):
-            top = lines[offset]
-            middle = lines[offset + 1]
-            bottom = lines[offset + 2]
-            for left, character in enumerate(top):
-                if character != "┌":
-                    continue
-                right = top.find("┐", left + 1)
-                if right <= left + 1:
-                    continue
+            top, middle, bottom = lines[offset : offset + 3]
+            for match in cls._button.finditer(top):
+                left, right = match.start(), match.end() - 1
                 if (
-                    set(top[left + 1 : right]) != {"─"}
-                    or middle[left : left + 1] != "│"
+                    middle[left : left + 1] != "│"
                     or middle[right : right + 1] != "│"
-                    or bottom[left : left + 1] != "└"
-                    or bottom[right : right + 1] != "┘"
-                    or set(bottom[left + 1 : right]) != {"─"}
+                    or bottom[left : right + 1] != f"└{'─' * (right - left - 1)}┘"
                 ):
                     continue
                 interior = middle[left + 1 : right]
@@ -787,13 +564,11 @@ class NewtDialog:
                 if not label:
                     continue
                 start = left + 1 + interior.find(label)
-                row = state.bounds.top + offset + 1
+                row = state.view.bounds.top + offset + 1
                 focused = any(
-                    (
-                        view.cell(row, state.bounds.left + column).foreground,
-                        view.cell(row, state.bounds.left + column).background,
-                    )
-                    == selected
+                    (cell := view.cell(row, state.view.bounds.left + column)).foreground
+                    is VgaColor.RED
+                    and cell.background is VgaColor.LIGHT_GRAY
                     for column in range(start, start + len(label))
                 )
                 result[_label(label)] = focused
@@ -810,8 +585,8 @@ class NewtDialog:
     @staticmethod
     def _missing(label: str, state: DialogState) -> str:
         """Format useful context for a missing semantic dialog target."""
-        controls = state.checklist or state.radios
-        visible = ", ".join(name for name, _ in controls) or state.active_item or "none"
+        controls = state.checked or state.selected_radios
+        visible = ", ".join(controls) or state.active_item or "none"
         return (
             f"Dialog {state.title!r} could not find {label!r}; active={state.active_item!r}, "
             f"focused={state.focused_checkbox or state.focused_radio!r}, "

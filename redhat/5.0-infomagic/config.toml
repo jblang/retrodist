@@ -30,6 +30,39 @@ keyboard_early = true
 pcmcia_prompt = false
 cdrom_type_prompt = false
 flow = "50"
+# Base is mandatory and is not shown in the component checklist.
+components = [
+  # "Printer Support",
+  "X Window System",
+  "Mail/WWW/News Tools",
+  # "DOS/Windows Connectivity",
+  "File Managers",
+  # "Graphics Manipulation",
+  # "X Games",
+  # "Console Games",
+  "X multimedia support",
+  "Console Multimedia",
+  # "Print Server",
+  "Networked Workstation",
+  "Dialup Workstation",
+  # "News Server",
+  # "NFS Server",
+  # "SMB (Samba) Connectivity",
+  # "IPX/Netware(tm) Connectivity",
+  # "Anonymous FTP/Gopher Server",
+  # "Web Server",
+  # "DNS Name Server",
+  # "Postgres (SQL) Server",
+  # "Network Management Workstation",
+  # "TeX Document Formatting",
+  # "Emacs",
+  # "Emacs with X windows",
+  # "C Development",
+  # "Development Libraries",
+  # "C++ Development",
+  # "X Development",
+  # "Extra Documentation",
+]
 x_video_memory_label = "2 meg"
 timezone_prompt = "Configure Timezones"
 timezone_clock_control = "checkbox"

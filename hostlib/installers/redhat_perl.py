@@ -13,7 +13,7 @@ import shlex
 from ..dialog import AnswerText, AnswerTitle
 from ..fdisk import Fdisk
 from ..schemas import PerlInstallConfig
-from ..session import InstallSession, Match
+from ..session import InstallSession, Match, fat_mount_command
 
 FLOW_START_DIALOGS = {
     "2.1": "Welcome to the Red Hat Linux installation program!",
@@ -58,8 +58,7 @@ class PerlInstaller:
 
     def boot(self) -> None:
         """Send the configured kernel command at the boot prompt."""
-        self.s.vga_wait(self.prompts.boot_prompt, match=Match.LINE)
-        self.s.kb_type(f"{self.prompts.boot_command}\n")
+        self.s.boot_command(self.prompts.boot_prompt, self.prompts.boot_command)
 
     def prepare_dialog(self, first_dialog: str) -> None:
         """Install the serial dialog adapter while the first widget is open.
@@ -71,12 +70,14 @@ class PerlInstaller:
         self.s.vga_wait(first_dialog)
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start()
-        mount = shlex.quote(self.disk.fat_mount)
-        filesystem = shlex.quote(self.disk.fat_filesystem)
-        partition = shlex.quote(self.disk.fat_partition)
         dialog_adapter = shlex.quote(f"{self.disk.fat_mount}/guestlib.d/dialog.sh")
-        self.s.serial_shell_send(f"mkdir -p {mount}")
-        self.s.serial_shell_send(f"mount -t {filesystem} {partition} {mount}")
+        self.s.serial_shell_send(
+            fat_mount_command(
+                self.disk.fat_mount,
+                self.disk.fat_partition,
+                self.disk.fat_filesystem,
+            )
+        )
         self.s.serial_shell_send(
             "perl -e 'rename q{/usr/bin/dialog}, q{/usr/bin/dialog.bak} or die $!'"
         )
@@ -90,7 +91,6 @@ class PerlInstaller:
         self.s.serial.wait("DIALOG_REPLACED", line=True)
         self.s.serial.wait("#", line=True)
         Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
-        self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_press("alt-f1")
         # This widget was started by the original binary, before we replaced

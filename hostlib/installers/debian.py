@@ -13,7 +13,7 @@ import shlex
 
 from ..dialog import AnswerTitle
 from ..fdisk import Fdisk
-from ..session import InstallSession, Match
+from ..session import InstallSession, Match, fat_mount_command
 from ..schemas import DinstallInstallConfig
 
 
@@ -22,8 +22,7 @@ def run_dinstall(session: InstallSession) -> None:
     config = session.config.install
     assert isinstance(config, DinstallInstallConfig)
     boot = config.boot
-    session.vga_wait(boot.prompt, match=Match.LINE)
-    session.kb_type(boot.command + "\n")
+    session.boot_command(boot.prompt, boot.command)
     if boot.root_prompt:
         session.vga_wait(boot.root_prompt, match=Match.LINE)
         session.change_floppy(boot.root_image)
@@ -66,15 +65,20 @@ class Dinstall:
 
     def _start(self) -> None:
         """Boot the installer and handle any initial root or driver disks."""
-        self.s.vga_wait("Select Color or Monochrome", match=Match.LINE)
+        self.s.vga_wait("Select Color or Monochrome")
         self.s.kb_press("alt-f2")
         self.s.vga_wait("Please press Enter to activate this console.", match=Match.LINE)
         self.s.kb_press("ret")
         self.s.vga_wait("#", match=Match.LINE)
         mount = shlex.quote(self.disk.fat_mount)
-        partition = shlex.quote(self.disk.fat_partition)
-        filesystem = shlex.quote(self.settings.fat_filesystem or self.disk.fat_filesystem)
-        self.s.kb_type(f"mkdir -p {mount}; mount -t {filesystem} {partition} {mount}\n")
+        self.s.kb_type(
+            fat_mount_command(
+                self.disk.fat_mount,
+                self.disk.fat_partition,
+                self.settings.fat_filesystem or self.disk.fat_filesystem,
+            )
+            + "\n"
+        )
         self.s.kb_type(f"[ ! -f {mount}/serial.o ] || insmod {mount}/serial.o\n")
         self.s.serial_shell_start()
         for command in (
@@ -84,7 +88,6 @@ class Dinstall:
         ):
             self.s.serial_shell_send(command)
         Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
-        self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit()
         self.s.kb_press("alt-f1", "ret")
 
@@ -241,10 +244,12 @@ class Dinstall:
             self.s.serial.wait("TITLE: Keyboard Setup", line=True)
             self.s.serial.wait("TYPE: yesno", line=True)
             self.s.serial.prompt("RESPONSE:", answer="yes")
-        self.s.vga_wait("Which?", match=Match.LINE)
-        self.s.kb_type(f"{self.locale.timezone}\n")
+        # Dinstall's directory browser accepts one timezone path component per prompt.
+        for part in filter(None, self.locale.timezone.split("/")):
+            self.s.vga_wait("Which?", match=Match.LINE)
+            self.s.kb_type(f"{part}\n")
         self.s.vga_wait(r"Is your system clock set to GMT( \(y/n\) \[y\])?[?]", match=Match.REGEX)
-        self.s.kb_type("y\n")
+        self.s.kb_type("y\n" if self.locale.hardware_clock == "utc" else "n\n")
 
     def _network(self, _: str) -> None:
         """Configure hostname, domain, and networking."""

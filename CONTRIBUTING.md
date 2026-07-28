@@ -139,45 +139,34 @@ configured extraction source.
 
 ## QEMU
 
-Start with a profile and override only required hardware:
+Select an era profile and override only settings used by an existing distro:
 
 ```toml
 [qemu]
 profile = "linux-1.2"
-ram = "32M"
-smp = 1
-boot_order = "order=a"
-extra = ["-no-reboot"]
 
 [qemu.disk]
 size = "2G"
-format = "qcow2"
-create_options = "lazy_refcounts=on"
-hda_options = "cache=writeback"
-floppy_a_type = "144"
-floppy_b_type = "144"
 
 [qemu.network]
 device = "ne2k_isa"
 enabled = true
 forwards = [[2200, 22], [2300, 23]]
 
-[qemu.display]
-backend = "gtk"
-acceleration = "tcg"
-vga = "cirrus"
-
 [qemu.serial]
 auxiliary = "null"
 ```
 
 Available profiles are `default`, `linux-0.99`, `linux-1.0`, `linux-1.2`,
-`linux-2.0-isa`, `linux-2.0`, `linux-2.2`, and `linux-2.4`. If `forwards` is
-absent, Python assigns loopback SSH and Telnet forwards from the ranges starting
-at ports 2200 and 2300. An explicit empty array disables forwarding.
+`linux-2.0-isa`, `linux-2.0`, `linux-2.2`, and `linux-2.4`. Profiles fix the
+machine, RAM, default disk size, network adapter, and VGA model. Python assigns
+loopback SSH and Telnet forwards from the ranges starting at ports 2200 and
+2300. An explicit empty array disables forwarding. The runtime uses the
+project-wide QEMU system, disk format, display, acceleration, floppy geometry,
+and install-media-derived boot order.
 
 The stager supplies conventional `boot.img`, `root.img`, `install.iso`, and FAT
-media. Do not encode ordinary media attachment in `qemu.extra`.
+media.
 
 ## Automated Installation
 
@@ -245,15 +234,13 @@ Supported actions are `wait`, `type`, `press`, `prompt`, `partition`,
 `change-floppy`, `set-boot`, `serial-send`, `serial-shell-start`,
 `serial-shell-send`, `serial-shell-exit`, `console-echo`, and `run-postinst`.
 Use `\n` for Enter and `\t` for Tab in typed text. `${install.table.key}`
-interpolates another install value. Set `install.default_action` to any supported
-action (for example, `prompt`) to omit that action from steps using the default. An
-explicit step-level `action` overrides the default. Set
+interpolates another install value. Set `install.default_action` to any
+supported action to omit that action from matching steps. Set
 `install.default_transport` to `vga` or `serial` to choose the transport for
-`wait` and `prompt` steps that omit it. An explicit step-level `transport`
-overrides that default. Without a configured default, `wait` uses VGA and
-`prompt` uses serial for compatibility.
+`wait` and `prompt` steps that omit it. Explicit step-level values override
+those defaults; otherwise, `wait` uses VGA and `prompt` uses serial.
 `serial-shell-send.command` may be one string or an array of strings; arrays
-run in order, waiting for the configured prompt after each command by default.
+run in order, waiting for the shell prompt after each command by default.
 
 Keep screen sequences and branching in `hostlib/installers/`. Only truly
 exceptional linear sequences belong in distro TOML. Per-distro Python install

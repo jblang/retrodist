@@ -17,7 +17,7 @@ import urllib.parse
 from .context import Context
 from .config import RetroConfig, load_config
 from .errors import CommandError, ConfigError
-from .schemas import DownloadConfig
+from .media_schemas import DownloadConfig
 
 log = logging.getLogger(__name__)
 
@@ -168,10 +168,7 @@ class Downloader:
         files, directories = assets.get(
             release, (["Contents-i386.gz"], ["binary-i386", "disks-i386"])
         )
-        package_sources = self.config.extraction.package_sources
-        if self.config.extraction.package_source:
-            package_sources = [self.config.extraction.package_source]
-        for source in package_sources:
+        for source in self.config.extraction.package_paths:
             name = PurePosixPath(source).name
             if name.startswith("binary-"):
                 dos_name = "msdos-" + name.removeprefix("binary-")

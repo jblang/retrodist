@@ -141,14 +141,15 @@ then its immediate parent. Configuration loading follows the same two-level
 rule: the child replaces inherited scalars and arrays, while nested tables are
 merged recursively. Pydantic models validate each logical section when its
 owning subsystem consumes it; installer configuration is selected through a
-driver-discriminated model and unknown fields are rejected. QEMU profiles supply
-era-appropriate defaults before explicit overrides are used.
+driver-discriminated model and unknown fields are rejected. QEMU profiles fix
+era-appropriate machine, memory, disk, network, and display defaults; distro
+configuration retains only the controls used by current configs plus network
+enablement and forwarding.
 
 Schema implementation is grouped by concern: `schema_base.py` owns strict model
 defaults and user-facing validation errors, `qemu_schemas.py` owns emulator
 configuration, and `media_schemas.py` owns download, extraction, network, and
-post-install models. `schemas.py` contains installer models and re-exports the
-other schema names as the stable import surface.
+post-install models. `schemas.py` contains only installer models.
 
 ## Command Orchestration
 

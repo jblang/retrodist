@@ -19,13 +19,14 @@ class Fdisk:
 
     ``partition_swap_root`` deletes existing primary partitions 1 and 2 when
     present, creates a fixed-size Linux swap partition, assigns the remainder
-    to Linux, sets type codes, prints the result, and writes the table.
+    to Linux, sets type codes, prints the result, writes the table, and waits
+    for fdisk to return to the serial shell prompt.
     """
 
     session: InstallSession
 
     def partition_swap_root(self, device: str = "/dev/hda", swap_mb: int = 64) -> None:
-        """Create swap and root partitions with the guest's interactive fdisk."""
+        """Create swap and root partitions and wait for fdisk to exit."""
         command = f"fdisk {device}"
         if device == "/dev/hda":
             command = f"[ -b {device} ] || mknod {device} b 3 0; {command}"
@@ -38,6 +39,7 @@ class Fdisk:
         self.set_type(2, "83")
         self.print_table()
         self.write_table()
+        self.session.serial.wait("#", line=True)
 
     def _delete_swaproot(self) -> None:
         """Delete the first two primary partitions when they already exist."""

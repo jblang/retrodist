@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import tarfile
-from typing import BinaryIO, Callable
 import zipfile
 
 import py7zr
@@ -27,12 +26,8 @@ import py7zr
 from .context import Context
 from .config import RetroConfig
 from .errors import CommandError, ConfigError
-from .schemas import (
-    ConfigModel,
-    ExtractionConfig,
-    Overlay,
-    PostinstConfig,
-)
+from .media_schemas import ExtractionConfig, Overlay, PostinstConfig
+from .schema_base import ConfigModel
 
 
 class Iso:
@@ -59,16 +54,10 @@ class Iso:
             self.argument = "iso_path"
         self.paths: dict[str, tuple[str, bool]] = {}
         for base, directories, files in self.image.walk(**{self.argument: "/"}):
-            for name in directories:
-                self.paths[self._key(f"{base.rstrip('/')}/{name}")] = (
-                    f"{base.rstrip('/')}/{name}",
-                    True,
-                )
-            for name in files:
-                self.paths[self._key(f"{base.rstrip('/')}/{name}")] = (
-                    f"{base.rstrip('/')}/{name}",
-                    False,
-                )
+            for names, directory in ((directories, True), (files, False)):
+                for name in names:
+                    path = f"{base.rstrip('/')}/{name}"
+                    self.paths[self._key(path)] = (path, directory)
 
     @staticmethod
     def _key(path: str) -> str:
@@ -77,17 +66,13 @@ class Iso:
             part.split(";", 1)[0].lower() for part in PurePosixPath(path).parts if part != "/"
         )
 
-    def close(self) -> None:
-        """Close the ISO image and its backing stream."""
-        self.image.close()
-
     def __enter__(self) -> "Iso":
         """Return this open ISO image."""
         return self
 
     def __exit__(self, *_: object) -> None:
         """Close the ISO image when its context ends."""
-        self.close()
+        self.image.close()
 
     def extract_file(self, source: str, destination: Path) -> None:
         """Extract one file from the ISO namespace.
@@ -176,13 +161,6 @@ class MediaStager:
         if shell_script:
             self._run_shell_script(shell_script)
         self._postprocess(spec)
-        source = self._extraction_source(spec)
-        if (
-            shell_script
-            and not (self.directory / "install.iso").exists()
-            and source.suffix.lower() == ".iso"
-        ):
-            self._link(source, self.directory / "install.iso")
         self._stage_kickstart()
         self._stage_guestlib()
         marker.touch()
@@ -195,19 +173,7 @@ class MediaStager:
         directory. Mirror-backed configs use that default while selecting their
         files and package tree with paths below it.
         """
-        return any(
-            (
-                spec.source,
-                spec.boot_image,
-                spec.root_image,
-                spec.extra_images,
-                spec.files,
-                spec.fat_files,
-                spec.package_source,
-                spec.package_sources,
-                spec.package_index,
-            )
-        )
+        return bool(spec.source or spec.staged_files or spec.fat_files or spec.package_paths)
 
     def _run_shell_script(self, script: Path) -> None:
         """Run an exceptional extraction script from the staged-media directory."""
@@ -254,21 +220,13 @@ class MediaStager:
 
     def _stage(self, spec: ExtractionConfig) -> None:
         """Stage selected source media before a custom extraction hook."""
-        source = self._extraction_source(spec)
-        files = [
-            item
-            for item in [
-                spec.boot_image,
-                spec.root_image,
-                *spec.extra_images,
-                *spec.files,
-                spec.package_index,
-            ]
-            if item
-        ]
+        source = Path(spec.source)
+        if not source.is_absolute():
+            source = self.config.download_dir / source
+        files = spec.staged_files
         for path in [*files, *spec.fat_files]:
             self._validate_source_path(path)
-        for package_source in self._package_sources(spec):
+        for package_source in spec.package_paths:
             self._validate_source_path(package_source)
         if source.suffix.lower() == ".iso":
             self._stage_iso(source, spec, files)
@@ -294,39 +252,22 @@ class MediaStager:
                     member.name: member for member in archive.getmembers() if member.isfile()
                 }
                 selected = self._selected_archive_members(list(members), spec, files)
-                self._extract_members(
-                    selected,
+                archive.extractall(
                     temporary,
-                    lambda name: archive.extractfile(members[name]),
+                    (members[name] for name in selected),
+                    filter="data",
                 )
         elif source.suffix.lower() == ".7z":
             with py7zr.SevenZipFile(source, "r") as archive:
                 names = [entry.filename for entry in archive.list() if entry.is_file]
                 selected = self._selected_archive_members(names, spec, files)
-                for name in selected:
-                    self._safe_child(temporary, Path(name))
                 archive.extract(path=temporary, targets=selected)
         else:
             with zipfile.ZipFile(source) as archive:
                 names = [entry.filename for entry in archive.infolist() if not entry.is_dir()]
                 selected = self._selected_archive_members(names, spec, files)
-                self._extract_members(selected, temporary, archive.open)
+                archive.extractall(temporary, selected)
         self._stage_directory(temporary, spec, files)
-
-    def _extract_members(
-        self,
-        names: list[str],
-        destination: Path,
-        open_member: Callable[[str], BinaryIO | None],
-    ) -> None:
-        """Copy selected streaming archive members beneath a safe destination."""
-        for name in names:
-            target = self._safe_child(destination, Path(name))
-            target.parent.mkdir(parents=True, exist_ok=True)
-            source_file = open_member(name)
-            assert source_file is not None
-            with source_file, target.open("wb") as output:
-                shutil.copyfileobj(source_file, output)
 
     @staticmethod
     def _selected_archive_members(
@@ -339,20 +280,17 @@ class MediaStager:
             if not matches:
                 raise ConfigError(f"Archive path not found: {pattern}")
             selected.update(matches)
-        for package_source in MediaStager._package_sources(spec):
+        for package_source in spec.package_paths:
             prefix = package_source.strip("/")
             matches = [name for name in names if name.strip("/").startswith(f"{prefix}/")]
             if not matches:
                 raise ConfigError(f"Archive path not found: {package_source}")
             selected.update(matches)
+        for name in selected:
+            path = PurePosixPath(name)
+            if path.is_absolute() or ".." in path.parts:
+                raise ConfigError(f"Archive path escapes destination: {name}")
         return sorted(selected)
-
-    def _extraction_source(self, spec: ExtractionConfig) -> Path:
-        """Resolve the configured extraction source path."""
-        configured = Path(spec.source)
-        if configured.is_absolute():
-            return configured
-        return self.config.download_dir / configured
 
     def _stage_iso(self, source: Path, spec: ExtractionConfig, files: list[str]) -> None:
         """Stage selected files and a package tree from an ISO image."""
@@ -362,7 +300,7 @@ class MediaStager:
                 image.extract_files(item, self.directory)
             for item in spec.fat_files:
                 image.extract_files(item, self.directory / "fat")
-            for package_source in self._package_sources(spec):
+            for package_source in spec.package_paths:
                 image.extract_tree(package_source, self._package_destination(spec))
 
     def _stage_directory(self, source: Path, spec: ExtractionConfig, files: list[str]) -> None:
@@ -371,18 +309,13 @@ class MediaStager:
             self._copy_matches(source, item, self.directory)
         for item in spec.fat_files:
             self._copy_matches(source, item, self.directory / "fat")
-        for package_source in self._package_sources(spec):
+        for package_source in spec.package_paths:
             shutil.copytree(
                 self._safe_child(source, Path(package_source)),
                 self._package_destination(spec),
                 dirs_exist_ok=True,
                 ignore=shutil.ignore_patterns(".complete"),
             )
-
-    @staticmethod
-    def _package_sources(spec: ExtractionConfig) -> list[str]:
-        """Return the normalized singular or plural package-tree selectors."""
-        return spec.package_sources or ([spec.package_source] if spec.package_source else [])
 
     @staticmethod
     def _safe_child(directory: Path, relative: Path) -> Path:
@@ -444,16 +377,9 @@ class MediaStager:
             source = Path(overlay.source)
             if not source.is_absolute():
                 source = self.config.download_dir / source
-            destination = self._staged_path(overlay.destination)
+            destination = self._safe_child(self.directory, Path(overlay.destination))
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
-
-    def _staged_path(self, value: str) -> Path:
-        """Resolve and validate a path beneath the extraction directory."""
-        path = (self.directory / value).resolve()
-        if not path.is_relative_to(self.directory.resolve()):
-            raise ConfigError(f"Extraction path escapes qemu.d: {value}")
-        return path
 
     @staticmethod
     def _link(source: Path | str, destination: Path) -> None:

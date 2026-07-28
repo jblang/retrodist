@@ -1,4 +1,4 @@
-"""Compatibility exports and typed media, guest, and installer schemas."""
+"""Typed installer configuration schemas."""
 
 from __future__ import annotations
 
@@ -11,30 +11,8 @@ from pydantic import (
     model_validator,
 )
 
-from .media_schemas import (
-    DebianPackageMountConfig,
-    DebianPackagePrompt,
-    DebianPackagesConfig,
-    DownloadConfig,
-    DownloadFile,
-    ExtractionConfig,
-    NetworkConfig,
-    Overlay,
-    PostinstConfig,
-    PostinstNetworkConfig,
-    Scalar,
-)
-from .qemu_schemas import (
-    QEMU_PROFILES,
-    PortForward,
-    QemuConfig,
-    QemuDisk,
-    QemuDisplay,
-    QemuNetwork,
-    QemuProfile,
-    QemuSerial,
-)
-from .schema_base import ConfigModel, validate
+from .media_schemas import NetworkConfig
+from .schema_base import ConfigModel
 
 
 class InstallDiskConfig(ConfigModel):
@@ -112,6 +90,7 @@ class PkgtoolSettings(ConfigModel):
 class CInstallerSettings(ConfigModel):
     """Configure Red Hat C-installer-specific screens and navigation."""
 
+    components: list[str]
     color_prompt: bool = True
     language_prompt: bool = False
     keyboard_early: bool = False
@@ -119,7 +98,7 @@ class CInstallerSettings(ConfigModel):
     keyboard_late: bool = False
     pcmcia_prompt: bool = True
     cdrom_type_prompt: bool = True
-    flow: str = "4x"
+    flow: Literal["4x", "42", "50", "51"] = "4x"
     x_card_label: str = "Cirrus Logic GD543x"
     x_video_memory_label: str = "2048"
     timezone_prompt: str = "Configure Timezones"
@@ -139,10 +118,6 @@ class PerlInstallerSettings(ConfigModel):
     root_password: str = ""
     user: str | None = Field(default=None, min_length=1, max_length=8)
     user_home: bool = True
-
-
-class PerlInstallerLocaleConfig(InstallLocaleConfig):
-    """Configure locale choices specific to the early Red Hat installer."""
 
 
 class SysinstallDiskConfig(ConfigModel):
@@ -249,7 +224,7 @@ class CInstallConfig(ConfigModel):
     locale: InstallLocaleConfig = Field(default_factory=InstallLocaleConfig)
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
-    redhat: CInstallerSettings = Field(default_factory=CInstallerSettings)
+    redhat: CInstallerSettings
 
 
 class PerlInstallConfig(ConfigModel):
@@ -257,8 +232,8 @@ class PerlInstallConfig(ConfigModel):
 
     driver: Literal["redhat-perl"]
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
-    locale: PerlInstallerLocaleConfig = Field(
-        default_factory=lambda: PerlInstallerLocaleConfig(keymap="us.map")
+    locale: InstallLocaleConfig = Field(
+        default_factory=lambda: InstallLocaleConfig(keymap="us.map")
     )
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
@@ -270,10 +245,6 @@ class SysinstallInstallConfig(ConfigModel):
 
     driver: Literal["slackware-sysinstall"]
     disk: SysinstallDiskConfig = Field(default_factory=SysinstallDiskConfig)
-
-
-class CommonInstallConfig(InstallDiskConfig):
-    """Configure paths and partition defaults shared by installer actions."""
 
 
 class Step(ConfigModel):
@@ -310,17 +281,9 @@ class PromptStep(Step):
 
     action: Literal["prompt"]
     transport: Literal["vga", "serial"] = "serial"
-    questions: str | list[str] | None = None
-    text: str | None = None
+    questions: list[str] = Field(min_length=1)
     answer: str = ""
     regex: bool = False
-
-    @model_validator(mode="after")
-    def has_questions(self) -> "PromptStep":
-        """Require either the singular text form or one or more questions."""
-        if self.questions is None and self.text is None:
-            raise ValueError("requires prompt questions")
-        return self
 
 
 class SerialShellStartStep(Step):

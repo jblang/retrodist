@@ -13,7 +13,7 @@ import logging
 from pathlib import Path
 import shutil
 
-from .config import QemuConfig, RetroConfig, load_config, load_qemu_config
+from .config import QemuConfig, RetroConfig, load_config
 from .context import Context
 from .errors import RetroError
 from .download import Downloader
@@ -89,7 +89,7 @@ class Application:
 
     def boot(self, *, install: bool) -> None:
         """Stage media and start QEMU for a boot or automated install."""
-        qemu_config = load_qemu_config(self.config)
+        qemu_config = self.config.qemu
         if install:
             validate_install_config(self.config)
         self._prepare_media()

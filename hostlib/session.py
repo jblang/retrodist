@@ -21,13 +21,7 @@ from .config import RetroConfig
 from .qmp import Monitor
 from .keyboard import encode
 from .serial import SerialConsole
-from .vga import (
-    AttributeFilter,
-    AttributeSelection,
-    ScreenObserver,
-    ScreenSnapshot,
-    TextLocation,
-)
+from .vga import ScreenObserver, ScreenSnapshot
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -39,6 +33,15 @@ class Match(Enum):
     TEXT = "text"
     LINE = "line"
     REGEX = "regex"
+
+
+def fat_mount_command(mount: str, partition: str, filesystem: str) -> str:
+    """Return a quoted shell command that creates and mounts the FAT exchange partition."""
+    quoted_mount = shlex.quote(mount)
+    return (
+        f"mkdir -p {quoted_mount} && "
+        f"mount -t {shlex.quote(filesystem)} {shlex.quote(partition)} {quoted_mount}"
+    )
 
 
 class _InstallRuntime:
@@ -164,12 +167,10 @@ class InstallSession:
         """
         common = self.config.install_common
         mount = common.fat_mount
-        partition = common.fat_partition
         filesystem = self.config.postinst.fat_filesystem or common.fat_filesystem
         return (
             f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
-            f"mkdir -p {shlex.quote(mount)} && mount -t {shlex.quote(filesystem)} "
-            f"{shlex.quote(partition)} {shlex.quote(mount)}; fi; "
+            f"{fat_mount_command(mount, common.fat_partition, filesystem)}; fi; "
             f"{shlex.quote(mount)}/guestlib.d/postinst.sh"
         )
 
@@ -187,23 +188,14 @@ class InstallSession:
         *expected: str,
         match: Match = Match.TEXT,
         timeout: float | None = None,
-        attributes: AttributeFilter | tuple[AttributeFilter, ...] | None = None,
-        rows: int | None = None,
     ) -> None:
-        """Wait for VGA strings in the full screen or an attribute selection.
+        """Wait for VGA strings in the full text screen.
 
         Args:
             *expected: Screen values to match sequentially.
             match: Substring, complete-line, or per-line regular-expression mode.
             timeout: Optional timeout applied separately to each value.
-            attributes: One filter or a union of filters limiting matched cells.
-            rows: Optional row limit; the default searches all VGA text memory.
         """
-        filters = (
-            ()
-            if attributes is None
-            else (attributes,) if isinstance(attributes, AttributeFilter) else tuple(attributes)
-        )
         for value in expected:
             log.info("⏳ %s", value)
             if match is Match.TEXT:
@@ -217,21 +209,11 @@ class InstallSession:
                 predicate = lambda screen, expression=expression: any(
                     expression.search(line) for line in screen.splitlines()
                 )
-            if filters or rows is not None:
-                self._call(
-                    self._runtime.vga.wait_selection(
-                        lambda selection, predicate=predicate: predicate(selection.text),
-                        *filters,
-                        timeout=timeout,
-                        rows=rows,
-                    )
-                )
-            else:
-                self._call(self._runtime.vga.wait(predicate, timeout))
+            self._call(self._runtime.vga.wait(predicate, timeout))
             log.info("🖥️  %s", value)
 
     def vga_screen(self, rows: int | None = None) -> ScreenSnapshot:
-        """Capture raw VGA cells for repeated, local attribute queries."""
+        """Capture raw VGA cells for local dialog parsing."""
         return self._call(self._runtime.vga.capture(rows))
 
     def vga_wait_snapshot(
@@ -251,23 +233,6 @@ class InstallSession:
                 interval=interval,
             )
         )
-
-    def vga_select(
-        self,
-        *attributes: AttributeFilter,
-        rows: int | None = None,
-    ) -> AttributeSelection:
-        """Capture matching cells, searching all VGA text memory by default."""
-        return self._call(self._runtime.vga.select(*attributes, rows=rows))
-
-    def vga_find(
-        self,
-        text: str,
-        *attributes: AttributeFilter,
-        rows: int | None = None,
-    ) -> tuple[TextLocation, ...]:
-        """Locate literal text whose cells match any supplied filter."""
-        return self.vga_select(*attributes, rows=rows).find(text)
 
     def kb_press(self, *keys: str) -> None:
         """Send literal QEMU key sequences and log them.
@@ -289,11 +254,6 @@ class InstallSession:
             if {"ret", "f12"} & set(key.split("-")):
                 self._runtime.vga.invalidate()
 
-    def kb_repeat(self, key: str, count: int = 1) -> None:
-        """Send one literal key a configured number of times."""
-        log.info("👇 %s%s", key, f" ({count} times)" if count > 1 else "")
-        self._send_keys([key] * count)
-
     def kb_type(self, text: str) -> None:
         """Encode and type text through individual paced QMP key requests.
 
@@ -310,20 +270,16 @@ class InstallSession:
         """Type text for a higher-level controller that owns logging."""
         self._send_keys(encode(text))
 
-    def change_image(self, image: str, device: str = "floppy0", format: str = "raw") -> None:
-        """Insert a removable-media image through the QEMU monitor."""
-        log.info("💾 Inserting %r", image)
-        self._call(self._runtime.monitor.hmp(f"change {device} {image} {format}"))
+    def boot_command(self, prompt: str, command: str = "") -> None:
+        """Wait for a boot prompt and type the configured kernel command line."""
+        self.vga_wait(prompt, match=Match.LINE)
+        self.kb_type(f"{command}\n")
 
     def change_floppy(self, image: str) -> None:
         """Insert a floppy image and allow the guest time to detect it."""
-        self.change_image(image)
+        log.info("💾 Inserting %r", image)
+        self._call(self._runtime.monitor.hmp(f"change floppy0 {image} raw"))
         time.sleep(1)
-
-    def eject_disk(self, device: str = "floppy0") -> None:
-        """Eject a removable device through the QEMU monitor."""
-        log.info("⏏️  Ejecting %s", device)
-        self._call(self._runtime.monitor.hmp(f"eject {device}"))
 
     def set_boot(self, disk: str) -> None:
         """Set QEMU's next boot device."""

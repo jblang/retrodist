@@ -3,8 +3,8 @@
 Configuration is read from ``config.toml`` in the selected directory and its
 immediate parent. The selected config inherits parent values; child scalars and
 arrays replace them, while nested tables retain keys the child does not
-override. This module also resolves QEMU hardware profiles and validates
-logically grouped installer settings through a driver-discriminated model.
+override. This module also validates QEMU profile selection and logically
+grouped installer settings through a driver-discriminated model.
 
 The top-level ``download``, ``extract``, ``qemu``, ``install``, and ``postinst``
 tables are consumed independently by their owning subsystem. Unknown settings
@@ -22,19 +22,16 @@ from pydantic import ConfigDict
 
 from .context import Context
 from .errors import ConfigError
+from .media_schemas import DownloadConfig, ExtractionConfig, PostinstConfig
+from .qemu_schemas import QemuConfig
+from .schema_base import ConfigModel, validate
 from .schemas import (
-    CommonInstallConfig,
-    ConfigModel,
     DinstallInstallConfig,
-    DownloadConfig,
-    ExtractionConfig,
     InstallConfig,
     InstallConfigModel,
-    PostinstConfig,
+    InstallDiskConfig,
     PromptSequenceInstallConfig,
     PromptSequenceConfig,
-    QemuConfig,
-    validate,
 )
 
 T = TypeVar("T")
@@ -98,17 +95,17 @@ class RetroConfig(ConfigModel):
 
     @cached_property
     def qemu(self) -> QemuConfig:
-        """Return the validated and profile-resolved QEMU configuration."""
+        """Return the validated QEMU configuration."""
         if not self.section("qemu"):
             raise ConfigError(f"No [qemu] configuration for {self.context.name}")
         return validate(QemuConfig, self.section("qemu"), "qemu")
 
     @cached_property
-    def install_common(self) -> CommonInstallConfig:
+    def install_common(self) -> InstallDiskConfig:
         """Return shared installer paths and partition defaults."""
         if not self.value("install", "driver"):
             return validate(
-                CommonInstallConfig,
+                InstallDiskConfig,
                 self.section("install", "disk"),
                 "install.disk",
             )
@@ -119,8 +116,8 @@ class RetroConfig(ConfigModel):
         )
         if isinstance(install, DinstallInstallConfig) and install.debian.fat_filesystem:
             source["fat_filesystem"] = install.debian.fat_filesystem
-        values = {key: source[key] for key in CommonInstallConfig.model_fields if key in source}
-        return validate(CommonInstallConfig, values, "install")
+        values = {key: source[key] for key in InstallDiskConfig.model_fields if key in source}
+        return validate(InstallDiskConfig, values, "install")
 
     @cached_property
     def install(self) -> InstallConfig:
@@ -141,11 +138,7 @@ class RetroConfig(ConfigModel):
         Args:
             *path: Successive table names below the TOML root.
         """
-        value: Any = self.data
-        for part in path:
-            if not isinstance(value, dict):
-                return {}
-            value = value.get(part, {})
+        value = self.value(*path, default={})
         return value if isinstance(value, dict) else {}
 
     def value(self, *path: str, default: T | None = None) -> Any | T | None:
@@ -186,12 +179,3 @@ def load_config(context: Context) -> RetroConfig:
             raise ConfigError(f"Invalid TOML configuration {path}: {exc}") from exc
         data = _overlay(data, parsed)
     return RetroConfig(context=context, data=data)
-
-
-def load_qemu_config(config: RetroConfig) -> QemuConfig:
-    """Build validated QEMU settings from resolved TOML and profile defaults.
-
-    Raises:
-        ConfigError: If ``[qemu]`` is absent or contains an invalid setting.
-    """
-    return config.qemu

@@ -12,7 +12,7 @@ import shlex
 import subprocess
 import tarfile
 
-from .config import RetroConfig, load_qemu_config
+from .config import RetroConfig
 from .context import Context
 from .qemu import QemuRuntime
 
@@ -28,7 +28,7 @@ def package(context: Context, config: RetroConfig) -> Path:
     Returns:
         Path to the generated ``.tar.gz`` archive.
     """
-    runtime = QemuRuntime(context, load_qemu_config(config))
+    runtime = QemuRuntime(context, config.qemu)
     context.qemu_dir.mkdir(parents=True, exist_ok=True)
     runtime.ensure_disk()
     command = runtime.command()

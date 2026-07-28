@@ -23,7 +23,7 @@ import zipfile
 
 import py7zr
 
-from hostlib.config import QemuConfig, RetroConfig, load_config, load_qemu_config
+from hostlib.config import QemuConfig, RetroConfig, load_config
 from hostlib.context import Context
 from hostlib.errors import CommandError, ConfigError, RetroError
 from hostlib import cli, download, operations, qmp_cli, tagfiles
@@ -42,31 +42,19 @@ from hostlib.installers.slackware import Pkgtool, boot_pkgtool
 from hostlib.installers.debian import Dinstall
 from hostlib.installers.slackware_sysinstall import Sysinstall
 from hostlib.installers import (
-    DRIVERS,
-    STEP_ACTIONS,
+    STEP_HANDLERS,
     run_configured_install,
     validate_install_config,
 )
 from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
 from hostlib.newt_dialog import NewtDialog
-from hostlib.vga import (
-    AttributeFilter,
-    Screen,
-    ScreenBounds,
-    ScreenObserver,
-    ScreenSnapshot,
-    VgaColor,
-    decode,
-    decode_screen,
-)
+from hostlib.vga import ScreenBounds, ScreenObserver, ScreenSnapshot
 from hostlib.media import MediaStager
+from hostlib.media_schemas import DebianPackagesConfig, ExtractionConfig, PostinstConfig
 from hostlib.schemas import (
-    DebianPackagesConfig,
     DinstallInstallConfig,
-    ExtractionConfig,
     PkgtoolInstallConfig,
-    PostinstConfig,
     SysinstallInstallConfig,
 )
 from hostlib.qmp import Monitor
@@ -175,9 +163,8 @@ class CliTests(unittest.TestCase):
 
     def test_install_validates_before_download_and_vm_start(self) -> None:
         context = SimpleNamespace(command="install")
-        config = SimpleNamespace()
+        config = SimpleNamespace(qemu=QemuConfig())
         with (
-            patch.object(cli, "load_qemu_config", return_value=QemuConfig()),
             patch.object(cli, "validate_install_config") as validate,
             patch.object(cli, "Downloader") as downloader,
             patch.object(cli, "MediaStager") as stager,
@@ -467,140 +454,12 @@ class OperationsTests(unittest.TestCase):
 
 
 class QmpCliTests(unittest.IsolatedAsyncioTestCase):
-    def test_dump_screen_defaults_to_all_screen_memory_rows(self) -> None:
-        args = qmp_cli._parser().parse_args(["dump-screen"])
-        self.assertIsNone(args.rows)
-
-    def test_dump_screen_rejects_invalid_geometry_and_bright_backgrounds(self) -> None:
-        invalid_arguments = [
-            ["--address", "-1"],
-            ["--columns", "0"],
-            ["--rows", "-1"],
-            ["--bytes", "17"],
-            ["--timeout", "nan"],
-            ["--background", "light-blue"],
-        ]
-        for arguments in invalid_arguments:
-            with (
-                self.subTest(arguments=arguments),
-                patch.object(qmp_cli.sys, "stderr", io.StringIO()),
-                self.assertRaises(SystemExit),
-            ):
-                qmp_cli._parser().parse_args(["dump-screen", *arguments])
-
-        args = qmp_cli._parser().parse_args(["dump-screen", "--color-pair", "white", "light-blue"])
-        with self.assertRaisesRegex(RetroError, "cannot be used as backgrounds"):
-            qmp_cli._dump_options(args)
-
-    async def test_dump_screen_skips_blank_rows_after_filtering(self) -> None:
-        with temporary_root() as root:
-            monitor = AsyncMock()
-            socket = root / "qmp.sock"
-            socket.touch()
-
-            async def write_dump(command: str) -> None:
-                (root / command.split()[-1]).write_bytes(b"A\x04 \x07 \x07 \x07B\x01")
-
-            monitor.hmp.side_effect = write_dump
-            options = qmp_cli.DumpScreenOptions(
-                socket=socket,
-                address=0xB8000,
-                memory_bytes=8,
-                columns=2,
-                rows=2,
-                line_numbers=False,
-                skip_blank=True,
-                trim=False,
-                changed=False,
-                attributes=AttributeFilter(foreground=frozenset({VgaColor.RED})),
-            )
-            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
-                await qmp_cli._dump_screen(monitor, options)
-            self.assertEqual(output.getvalue(), "A \n")
-
-    async def test_dump_screen_shows_only_raw_rows_changed_since_prior_dump(self) -> None:
-        with temporary_root() as root:
-            monitor = AsyncMock()
-            socket = root / "qmp.sock"
-            socket.touch()
-            screens = [
-                b"A\x07B\x07C\x07D\x07",
-                b"A\x07B\x17C\x07E\x07",
-                b"A\x07B\x17C\x07E\x07",
-                b"A\x07B\x17C\x07E\x07",
-            ]
-
-            async def write_dump(command: str) -> None:
-                (root / command.split()[-1]).write_bytes(screens.pop(0))
-
-            monitor.hmp.side_effect = write_dump
-            options = qmp_cli.DumpScreenOptions(
-                socket=socket,
-                address=0xB8000,
-                memory_bytes=8,
-                columns=2,
-                rows=2,
-                line_numbers=True,
-                skip_blank=False,
-                trim=False,
-                changed=True,
-                attributes=AttributeFilter(),
-            )
-            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
-                await qmp_cli._dump_screen(monitor, options)
-                self.assertEqual(output.getvalue(), "     1\tAB\n     2\tCD\n")
-                output.seek(0)
-                output.truncate(0)
-                await qmp_cli._dump_screen(monitor, options)
-                self.assertEqual(output.getvalue(), "     1\t B\n     2\t E\n")
-
-                output.seek(0)
-                output.truncate(0)
-                timestamp = socket.stat().st_mtime_ns + 1_000_000
-                os.utime(socket, ns=(timestamp, timestamp))
-                await qmp_cli._dump_screen(monitor, options)
-                self.assertEqual(output.getvalue(), "     1\tAB\n     2\tCE\n")
-
-                output.seek(0)
-                output.truncate(0)
-                await qmp_cli._dump_screen(monitor, options)
-            self.assertEqual(output.getvalue(), "")
-            self.assertEqual(
-                [call.args[0].split()[-1] for call in monitor.hmp.await_args_list],
-                [
-                    ".qmp-screen-a.bin",
-                    ".qmp-screen-b.bin",
-                    ".qmp-screen-a.bin",
-                    ".qmp-screen-b.bin",
-                ],
-            )
-
-    def test_dump_screen_accepts_repeatable_symbolic_color_filters(self) -> None:
-        args = qmp_cli._parser().parse_args(
-            [
-                "dump-screen",
-                "--trim",
-                "--foreground",
-                "red",
-                "light_blue",
-                "--foreground",
-                "green",
-                "--background",
-                "black",
-                "blue",
-                "--color-pair",
-                "yellow",
-                "blue",
-                "--color-pair",
-                "red",
-                "black",
-            ]
-        )
-        options = qmp_cli._dump_options(args)
-        self.assertTrue(options.trim)
-        self.assertEqual(options.attributes.foreground, frozenset({2, 4, 9}))
-        self.assertEqual(options.attributes.background, frozenset({0, 1}))
-        self.assertEqual(options.attributes.color_pairs, frozenset({(14, 1), (4, 0)}))
+    def test_dump_screen_rejects_an_invalid_timeout(self) -> None:
+        with (
+            patch("sys.stderr", io.StringIO()),
+            self.assertRaises(SystemExit),
+        ):
+            qmp_cli._parser().parse_args(["dump-screen", "--timeout", "nan"])
 
     async def test_dump_screen_uses_a_qemu_relative_raw_dump(self) -> None:
         with temporary_root() as root:
@@ -609,24 +468,12 @@ class QmpCliTests(unittest.IsolatedAsyncioTestCase):
             socket.touch()
 
             async def write_dump(command: str) -> None:
-                (root / command.split()[-1]).write_bytes(b"A\x07")
+                (root / command.split()[-1]).write_bytes(b"A\x07" + b" \x07" * 79)
 
             monitor.hmp.side_effect = write_dump
-            options = qmp_cli.DumpScreenOptions(
-                socket=socket,
-                address=0xB8000,
-                memory_bytes=2,
-                columns=1,
-                rows=1,
-                line_numbers=False,
-                skip_blank=False,
-                trim=False,
-                changed=False,
-                attributes=AttributeFilter(),
-            )
-            with patch.object(qmp_cli.sys, "stdout", io.StringIO()) as output:
-                await qmp_cli._dump_screen(monitor, options)
-            self.assertEqual(output.getvalue(), "A\n")
+            with patch("sys.stdout", io.StringIO()) as output:
+                await qmp_cli._dump_screen(monitor, socket)
+            self.assertTrue(output.getvalue().startswith("A"))
             self.assertFalse(monitor.hmp.await_args.args[0].split()[-1].startswith("/"))
 
     async def test_socket_resolution_and_control_commands(self) -> None:
@@ -654,25 +501,6 @@ class QmpCliTests(unittest.IsolatedAsyncioTestCase):
                 [call.args[0] for call in monitor.send_key.await_args_list],
                 ["shift-a", "b", "ret"],
             )
-
-    async def test_send_stdin_encodes_all_input(self) -> None:
-        monitor = AsyncMock()
-
-        class MonitorContext:
-            async def __aenter__(self):
-                return monitor
-
-            async def __aexit__(self, *_):
-                return None
-
-        with (
-            patch.object(qmp_cli, "Monitor", return_value=MonitorContext()),
-            patch.object(qmp_cli.sys, "stdin", io.StringIO("ok\n")),
-        ):
-            await qmp_cli._run(["send-stdin", "-s", "qmp.sock"])
-        self.assertEqual(
-            [call.args[0] for call in monitor.send_key.await_args_list], ["o", "k", "ret"]
-        )
 
 
 class SlackwareTagfileTests(unittest.TestCase):
@@ -709,11 +537,17 @@ class SlackwareTagfileTests(unittest.TestCase):
 
 
 class ConfigTests(unittest.TestCase):
-    def test_profile_only_fills_unspecified_values(self) -> None:
-        config = QemuConfig(profile="linux-2.0", ram="32M")
-        self.assertEqual(config.ram, "32M")
-        self.assertEqual(config.disk.size, "8G")
-        self.assertEqual(config.display.vga, "cirrus")
+    def test_qemu_config_retains_only_distro_controls(self) -> None:
+        config = QemuConfig(
+            profile="linux-2.0",
+            disk={"size": "2G"},
+            network={"device": "pcnet"},
+            serial={"auxiliary": "msmouse"},
+        )
+        self.assertEqual(config.profile, "linux-2.0")
+        self.assertEqual(config.disk.size, "2G")
+        self.assertEqual(config.network.device, "pcnet")
+        self.assertEqual(config.serial.auxiliary, "msmouse")
 
     def test_toml_inherits_parent_tables_and_replaces_arrays(self) -> None:
         with temporary_root() as root:
@@ -739,15 +573,15 @@ class ConfigTests(unittest.TestCase):
             directory = root / "distro/version"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
-                '[qemu]\nprofile = "linux-2.0"\nram = "32M"\n'
+                '[qemu]\nprofile = "linux-2.0"\n'
                 '[qemu.network]\ndevice = "pcnet"\n'
                 '[extract]\nsource = "disc1.iso"\nboot_image = "images/boot.img"\n'
                 'package_source = "slakware"\n'
             )
             context = Context.create(root, "boot", str(directory))
-            qemu = load_qemu_config(load_config(context))
+            qemu = load_config(context).qemu
             extraction = load_config(context).extraction
-            self.assertEqual(qemu.ram, "32M")
+            self.assertEqual(qemu.profile, "linux-2.0")
             self.assertEqual(qemu.network.device, "pcnet")
             self.assertEqual(extraction.source, "disc1.iso")
             self.assertEqual(extraction.boot_image, "images/boot.img")
@@ -760,7 +594,7 @@ class ConfigTests(unittest.TestCase):
             data={"qemu": {"profile": "default", "unsupported_flag": True}},
         )
         with self.assertRaisesRegex(ConfigError, "unsupported_flag"):
-            load_qemu_config(config)
+            config.qemu
 
     def test_installer_options_are_collected_from_logical_tables(self) -> None:
         with temporary_root() as root:
@@ -769,7 +603,7 @@ class ConfigTests(unittest.TestCase):
             (directory / "config.toml").write_text(
                 '[install]\ndriver = "debian-dinstall"\n'
                 '[install.network]\nhostname = "buzz"\n'
-                'domainname = "example.test"\nipaddr = "192.0.2.15"\n'
+                'domain = "example.test"\nip = "192.0.2.15"\n'
                 "[install.debian]\ndriver_floppy = false\nrelogin = true\n"
             )
             context = Context.create(root, "install", str(directory))
@@ -790,19 +624,6 @@ class ConfigTests(unittest.TestCase):
             data={"install": {"driver": "debian-dinstall", "network": {"ip": 123}}},
         )
         with self.assertRaisesRegex(ConfigError, "install.network.ip must be a string"):
-            _ = config.install
-
-    def test_nested_installer_options_reject_conflicting_aliases(self) -> None:
-        config = RetroConfig(
-            context=SimpleNamespace(),
-            data={
-                "install": {
-                    "driver": "debian-dinstall",
-                    "network": {"domain": "example.test", "domainname": "legacy.test"},
-                }
-            },
-        )
-        with self.assertRaisesRegex(ConfigError, "multiple aliases: domain, domainname"):
             _ = config.install
 
     def test_postinstall_config_renders_logical_sections(self) -> None:
@@ -826,7 +647,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("X11_MOUSEDEV='/dev/ttyS2'", rendered)
         self.assertIn("POSTINST_REBOOT='true'", rendered)
 
-    def test_postinstall_network_uses_canonical_names_and_legacy_aliases(self) -> None:
+    def test_postinstall_network_renders_guest_variable_names(self) -> None:
         settings = RetroConfig(
             context=SimpleNamespace(),
             data={
@@ -834,8 +655,8 @@ class ConfigTests(unittest.TestCase):
                     "stages": ["network"],
                     "network": {
                         "hostname": "retro",
-                        "domainname": "example.test",
-                        "ipaddr": "192.0.2.15",
+                        "domain": "example.test",
+                        "ip": "192.0.2.15",
                     },
                 }
             },
@@ -877,8 +698,7 @@ class QemuTests(unittest.TestCase):
 
     def test_explicit_empty_forward_list_disables_port_forwards(self) -> None:
         with temporary_root() as root:
-            config = QemuConfig(network={"forwards": []})
-            runtime = self.runtime(root, config)
+            runtime = self.runtime(root, QemuConfig(network={"forwards": []}))
             netdev = runtime.command()[runtime.command().index("-netdev") + 1]
             self.assertEqual(netdev, "user,id=internet")
 
@@ -916,17 +736,16 @@ class QemuTests(unittest.TestCase):
                 with self.assertRaisesRegex(CommandError, "Could not create"):
                     runtime.ensure_disk()
 
-    def test_drives_include_floppy_cdrom_fat_and_disk_options(self) -> None:
+    def test_drives_include_floppy_cdrom_fat_and_disk(self) -> None:
         with temporary_root() as root:
-            config = QemuConfig(disk={"hda_options": "cache=writeback"})
-            runtime = self.runtime(root, config)
+            runtime = self.runtime(root)
             (runtime.directory / "hda.img").touch()
             (runtime.directory / "install.iso").touch()
             (runtime.directory / "fat").mkdir()
             drives = runtime._drives()
             rendered = "\n".join(drives)
             self.assertIn("file=boot.img", rendered)
-            self.assertIn("file=hda.img,cache=writeback", rendered)
+            self.assertIn("file=hda.img", rendered)
             self.assertIn("media=cdrom,file=install.iso", rendered)
             self.assertIn("file=fat:rw:fat", rendered)
 
@@ -953,7 +772,7 @@ class QemuLifecycleTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(await runtime.start(), process)
             self.assertFalse(stale.exists())
             self.assertEqual(create.await_args.kwargs["cwd"], directory)
-            self.assertEqual(create.await_args.args[0], config.system)
+            self.assertEqual(create.await_args.args[0], "qemu-system-i386")
 
 
 class DebianPackageTests(unittest.TestCase):
@@ -1333,6 +1152,10 @@ class MediaStagerTests(unittest.TestCase):
             directory.mkdir()
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
                 MediaStager._safe_child(directory, Path("../outside"))
+            with self.assertRaisesRegex(ConfigError, "escapes destination"):
+                MediaStager._selected_archive_members(
+                    ["../outside"], ExtractionConfig(files=["*"]), ["*"]
+                )
             context = SimpleNamespace(qemu_dir=directory)
             stager = MediaStager(context, SimpleNamespace())
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
@@ -1372,7 +1195,7 @@ class FdiskTests(unittest.TestCase):
         sent: list[str] = []
 
         class Serial:
-            def wait(self, expected, regex=False):
+            def wait(self, expected, regex=False, line=False):
                 if regex:
                     label = "First" if "First" in expected else "Last"
                     return f"{label} cylinder (1-520): "
@@ -1407,7 +1230,7 @@ class InstallPlanTests(unittest.TestCase):
                 '[install.network]\nhostname = "retro"\n'
                 '[[install.steps]]\naction = "type"\n'
                 'text = "${install.network.hostname}\\n"\n'
-                '[[install.steps]]\naction = "press"\nkeys = ["f12"]\n'
+                '[[install.steps]]\naction = "press"\nkeys = "f12"\n'
             )
             session = SimpleNamespace(
                 config=load_config(Context.create(root, "install", str(directory))),
@@ -1510,6 +1333,7 @@ class InstallPlanTests(unittest.TestCase):
         self.assertEqual(session.kb_type.call_args_list, [call("retro\n"), call("ok\n")])
         self.assertEqual(session.kb_press.call_count, 2)
         serial.prompt.assert_called_once_with("one", "two", answer="yes", regex=True)
+        session.serial_shell_start.assert_called_once_with(screen_prompt="$", serial_prompt="#")
         self.assertEqual(
             session.serial_shell_send.call_args_list,
             [
@@ -1518,6 +1342,7 @@ class InstallPlanTests(unittest.TestCase):
                 call("echo done", wait=True, prompt="$"),
             ],
         )
+        session.serial_shell_exit.assert_called_once_with(screen_prompt="done")
         fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/sda", 32)
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
@@ -1529,7 +1354,7 @@ class InstallPlanTests(unittest.TestCase):
                     "driver": "prompt-sequence",
                     "steps": [
                         {"action": "wait", "text": "screen"},
-                        {"action": "prompt", "text": "serial", "answer": "yes"},
+                        {"action": "prompt", "questions": ["serial"], "answer": "yes"},
                     ],
                 }
             },
@@ -1546,7 +1371,7 @@ class InstallPlanTests(unittest.TestCase):
                     "driver": "prompt-sequence",
                     "default_action": "prompt",
                     "default_transport": "vga",
-                    "steps": [{"text": "Continue?", "answer": "y"}],
+                    "steps": [{"questions": ["Continue?"], "answer": "y"}],
                 }
             },
         )
@@ -1577,6 +1402,19 @@ class InstallPlanTests(unittest.TestCase):
                 "install.redhat.flow must be a string",
             ),
             (
+                {"install": {"driver": "redhat-c", "redhat": {}}},
+                "install.redhat.components is required",
+            ),
+            (
+                {
+                    "install": {
+                        "driver": "redhat-c",
+                        "redhat": {"flow": "unknown", "components": []},
+                    }
+                },
+                "install.redhat.flow must be one of: 4x, 42, 50, 51",
+            ),
+            (
                 {"install": {"driver": "redhat-perl", "redhat": {"flow": "2.1"}}},
                 "install.redhat.package_series is required",
             ),
@@ -1597,6 +1435,66 @@ class InstallPlanTests(unittest.TestCase):
 
 
 class RedHatDriverTests(unittest.TestCase):
+    def test_c_installer_configs_declare_exact_component_sets(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        expected = {
+            "4.0-infomagic": [
+                "C Development",
+                "C++ Development",
+                "Print Server",
+                "Game Machine",
+                "Multimedia Machine",
+                "X Window System",
+                "X Development",
+                "X multimedia support",
+                "Extra Documentation",
+            ],
+            "4.1-infomagic": [
+                "C Development",
+                "C++ Development",
+                "Print Server",
+                "Game Machine",
+                "Multimedia Machine",
+                "X Window System",
+                "X Development",
+                "X multimedia support",
+                "Extra Documentation",
+            ],
+            "4.2-infomagic": [
+                "C Development",
+                "C++ Development",
+                "Printer Support",
+                "Dialup Workstation",
+                "Game Machine",
+                "Multimedia Machine",
+                "X Window System",
+                "X Development",
+            ],
+            "5.0-infomagic": [
+                "X Window System",
+                "Mail/WWW/News Tools",
+                "File Managers",
+                "X multimedia support",
+                "Console Multimedia",
+                "Networked Workstation",
+                "Dialup Workstation",
+            ],
+            "5.1-infomagic": [
+                "X Window System",
+                "Mail/WWW/News Tools",
+                "File Managers",
+                "X multimedia support",
+                "Console Multimedia",
+                "Networked Workstation",
+                "Dialup Workstation",
+            ],
+        }
+        for release, components in expected.items():
+            with self.subTest(release=release):
+                context = Context.create(root, "install", f"redhat/{release}")
+                install = load_config(context).install
+                self.assertEqual(install.redhat.components, components)
+
     def test_later_c_installer_configs_encode_source_specific_controls(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
@@ -1720,18 +1618,19 @@ class RedHatDriverTests(unittest.TestCase):
         )
         session = SimpleNamespace(
             config=config,
+            boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
         redhat_c.run_unattended(session)
-        self.assertEqual(session.vga_wait.call_args_list[0].args, ("boot:",))
-        session.kb_type.assert_any_call("linux ks=floppy\n")
+        session.boot_command.assert_called_once_with("boot:", "linux ks=floppy")
+        session.vga_wait.assert_called_once_with("Complete")
         session.set_boot.assert_called_once_with("c")
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
-    def test_c_installer_composes_4x_phases_and_rejects_unknown_flow(self) -> None:
+    def test_c_installer_composes_4x_phases(self) -> None:
         session = SimpleNamespace()
         installer = unittest.mock.Mock()
         installer.settings.flow = "4x"
@@ -1739,18 +1638,30 @@ class RedHatDriverTests(unittest.TestCase):
             redhat_c.run_c_installer(session)
         for method in (
             installer.start,
-            installer.partition_4x,
-            installer.components_40,
-            installer.finish_components,
-            installer.x11_4x,
+            installer.run_flow,
             installer.network,
             installer.finish,
         ):
             method.assert_called_once_with()
-        installer.settings.flow = "mystery"
-        with patch.object(redhat_c, "CInstaller", return_value=installer):
-            with self.assertRaisesRegex(ConfigError, "Unknown Red Hat C installer flow"):
-                redhat_c.run_c_installer(session)
+
+    def test_c_installer_run_flow_composes_4x_and_42_phases(self) -> None:
+        for flow in ("4x", "42"):
+            with self.subTest(flow=flow):
+                installer = object.__new__(redhat_c.CInstaller)
+                installer.settings = SimpleNamespace(flow=flow)
+                installer.partition_4x = unittest.mock.Mock()
+                installer.components = unittest.mock.Mock()
+                installer.finish_components = unittest.mock.Mock()
+                installer.x11_4x = unittest.mock.Mock()
+                installer._flow_5x = unittest.mock.Mock()
+
+                installer.run_flow()
+
+                installer.partition_4x.assert_called_once_with()
+                installer.components.assert_called_once_with()
+                installer.finish_components.assert_called_once_with()
+                installer.x11_4x.assert_called_once_with()
+                installer._flow_5x.assert_not_called()
 
     def test_c_installer_chooses_yes_to_configure_networking(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
@@ -1773,6 +1684,19 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog_step.assert_any_call("Network Configuration", "Yes")
         installer.dialog.wait_for_title.assert_any_call("Configure TCP/IP")
 
+    def test_c_installer_applies_the_configured_component_set(self) -> None:
+        installer = object.__new__(redhat_c.CInstaller)
+        installer.settings = SimpleNamespace(components=["C Development", "X Development"])
+        installer.dialog = unittest.mock.Mock()
+
+        installer.components()
+
+        installer.dialog.wait_for_title.assert_called_once_with("Components to Install")
+        installer.dialog.set_checklist_items.assert_called_once_with(
+            ["C Development", "X Development"]
+        )
+        installer.dialog.advance.assert_called_once_with("Ok")
+
     def test_redhat_5x_selects_fdisk_then_runs_scripted_partitioning(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.settings = SimpleNamespace(flow="50")
@@ -1780,7 +1704,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog_step = unittest.mock.Mock()
         installer.partition_helper = unittest.mock.Mock()
         installer._partition_5x = unittest.mock.Mock()
-        installer.components_default = unittest.mock.Mock()
+        installer.components = unittest.mock.Mock()
         installer.finish_components = unittest.mock.Mock()
         installer.x11_5x = unittest.mock.Mock()
 
@@ -1792,6 +1716,7 @@ class RedHatDriverTests(unittest.TestCase):
             advance=False,
         )
         installer.partition_helper.assert_called_once_with()
+        installer.components.assert_called_once_with()
         installer.dialog.wait_for_title.assert_called_once_with("Partition Disks")
         installer.dialog.advance.assert_called_once_with("Done")
 
@@ -1819,7 +1744,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog_step.assert_called_once_with("Probing Result")
         installer.dialog.wait_for_title.assert_called_once_with("Configure Mouse")
         installer.dialog.select_menu_item.assert_called_once_with("PS/2 Mouse")
-        installer.dialog.set_checkbox.assert_called_once_with("Emulate 3 Buttons?", True)
+        installer.dialog.set_checkbox.assert_called_once_with("Emulate 3 Buttons?")
         installer.dialog.advance.assert_called_once_with("Ok")
 
     def test_redhat_50_keeps_separate_mouse_emulation_question(self) -> None:
@@ -1905,33 +1830,37 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_later_redhat_timeconfig_uses_gmt_checkbox_and_ok(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
-        installer.settings = SimpleNamespace(
-            timezone_prompt="Configure Timezones",
-            timezone_clock_control="checkbox",
-            timezone_button="Ok",
-            keyboard_late=False,
-            flow="50",
-            password="password",
-            bootdisk_prompt=False,
-        )
-        installer.locale = SimpleNamespace(
-            hardware_clock="utc",
-            timezone="Etc/UTC",
-            keymap="us",
-        )
-        installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
+        for clock, checked in (("utc", True), ("local", False)):
+            with self.subTest(clock=clock):
+                installer = object.__new__(redhat_c.CInstaller)
+                installer.settings = SimpleNamespace(
+                    timezone_prompt="Configure Timezones",
+                    timezone_clock_control="checkbox",
+                    timezone_button="Ok",
+                    keyboard_late=False,
+                    flow="50",
+                    password="password",
+                    bootdisk_prompt=False,
+                )
+                installer.locale = SimpleNamespace(
+                    hardware_clock=clock,
+                    timezone="Etc/UTC",
+                    keymap="us",
+                )
+                installer.dialog = unittest.mock.Mock()
+                installer.dialog_step = unittest.mock.Mock()
 
-        installer._finish_configuration()
+                installer._finish_configuration()
 
-        installer.dialog.set_checkbox.assert_called_once_with("Hardware clock set to GMT", True)
-        installer.dialog.set_radio.assert_not_called()
-        installer.dialog.select_menu_item.assert_called_once_with("Etc/UTC")
-        self.assertEqual(
-            installer.dialog.advance.call_args_list,
-            [call("Ok"), call("Ok")],
-        )
+                installer.dialog.set_checkbox.assert_called_once_with(
+                    "Hardware clock set to GMT", checked
+                )
+                installer.dialog.set_radio.assert_not_called()
+                installer.dialog.select_menu_item.assert_called_once_with("Etc/UTC")
+                self.assertEqual(
+                    installer.dialog.advance.call_args_list,
+                    [call("Ok"), call("Ok")],
+                )
 
     def test_all_c_installer_flows_wait_for_the_source_defined_done_dialog(self) -> None:
         for flow in ("4x", "42", "50", "51"):
@@ -2094,8 +2023,7 @@ class RedHatDriverTests(unittest.TestCase):
 
         installer.boot()
 
-        installer.s.vga_wait.assert_called_once_with("custom boot:", match=Match.LINE)
-        installer.s.kb_type.assert_called_once_with("linux expert\n")
+        installer.s.boot_command.assert_called_once_with("custom boot:", "linux expert")
 
     def test_early_redhat_finish_uses_locale_and_root_password(self) -> None:
         installer = object.__new__(redhat_perl.PerlInstaller)
@@ -2207,9 +2135,8 @@ class RedHatDriverTests(unittest.TestCase):
         with patch.object(redhat_perl, "Fdisk"):
             installer.prepare_dialog("first dialog")
 
-        installer.s.serial_shell_send.assert_any_call("mkdir -p '/media/retro disk'")
         installer.s.serial_shell_send.assert_any_call(
-            "mount -t msdos '/dev/disk 1' '/media/retro disk'"
+            "mkdir -p '/media/retro disk' && " "mount -t msdos '/dev/disk 1' '/media/retro disk'"
         )
         installer.s.serial_shell_send.assert_any_call(
             "cp '/media/retro disk/guestlib.d/dialog.sh' /usr/bin/dialog"
@@ -2392,6 +2319,26 @@ class DialogTests(unittest.TestCase):
 
 
 class DinstallTests(unittest.TestCase):
+    def test_start_matches_the_title_inside_its_cp437_dialog_border(self) -> None:
+        session = SimpleNamespace(
+            dialog=unittest.mock.Mock(),
+            vga_wait=unittest.mock.Mock(),
+            kb_press=unittest.mock.Mock(),
+            kb_type=unittest.mock.Mock(),
+            serial_shell_start=unittest.mock.Mock(),
+            serial_shell_send=unittest.mock.Mock(),
+            serial_shell_exit=unittest.mock.Mock(),
+            serial=unittest.mock.Mock(),
+        )
+
+        with patch("hostlib.installers.debian.Fdisk"):
+            Dinstall(session, dinstall_config())._start()
+
+        self.assertEqual(
+            session.vga_wait.call_args_list[0],
+            call("Select Color or Monochrome"),
+        )
+
     def test_filesystem_module_is_selected_from_its_menu(self) -> None:
         """Filesystem modules use the same Dinstall module workflow as network drivers."""
         dialog = unittest.mock.Mock()
@@ -2435,6 +2382,47 @@ class DinstallTests(unittest.TestCase):
         self.assertEqual(kernel_choices[3].answer, "/media/retro")
         self.assertEqual(kernel_choices[5].answer, "/media/retro")
 
+    def test_base_configuration_navigates_timezone_path_and_sets_clock_mode(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        debian_11 = load_config(Context.create(root, "install", "debian/1.1/official")).install
+        for config, answers in (
+            (debian_11, ["Etc\n", "UTC\n", "y\n"]),
+            (
+                dinstall_config(
+                    locale={"timezone": "US/Central", "hardware_clock": "local"},
+                    debian={"configure_keyboard": True},
+                ),
+                ["US\n", "Central\n", "n\n"],
+            ),
+        ):
+            with self.subTest(timezone=config.locale.timezone):
+                session = SimpleNamespace(
+                    dialog=unittest.mock.Mock(),
+                    serial=unittest.mock.Mock(),
+                    vga_wait=unittest.mock.Mock(),
+                    kb_type=unittest.mock.Mock(),
+                )
+                driver = Dinstall(session, config)
+
+                driver._configure_base("")
+
+                self.assertEqual(
+                    session.vga_wait.call_args_list,
+                    [
+                        call("Which?", match=Match.LINE),
+                        call("Which?", match=Match.LINE),
+                        call(
+                            r"Is your system clock set to GMT( \(y/n\) \[y\])?[?]",
+                            match=Match.REGEX,
+                        ),
+                    ],
+                )
+                self.assertEqual(
+                    session.kb_type.call_args_list,
+                    [call(answer) for answer in answers],
+                )
+                session.serial.prompt.assert_called_once_with("RESPONSE:", answer="yes")
+
     def test_package_prompts_are_answered_over_the_automation_serial_port(self) -> None:
         """Interactive package configuration stays on ttyS3 until postinst completes."""
         packages = DebianPackagesConfig.model_validate(
@@ -2469,6 +2457,26 @@ class DinstallTests(unittest.TestCase):
 
 
 class PkgtoolPromptTests(unittest.TestCase):
+    def test_prepare_accepts_a_decorated_root_shell_prompt(self) -> None:
+        session = SimpleNamespace(
+            dialog=unittest.mock.Mock(),
+            serial_shell_start=unittest.mock.Mock(),
+            serial_shell_send=unittest.mock.Mock(),
+            serial_shell_exit=unittest.mock.Mock(),
+            kb_type=unittest.mock.Mock(),
+        )
+
+        with patch("hostlib.installers.slackware.Fdisk"):
+            Pkgtool(session, pkgtool_config())._prepare()
+
+        shell_prompt = r"# *$"
+        session.serial_shell_start.assert_called_once_with(
+            screen_prompt=shell_prompt, screen_match=Match.REGEX
+        )
+        session.serial_shell_exit.assert_called_once_with(
+            screen_prompt=shell_prompt, screen_match=Match.REGEX
+        )
+
     def test_boot_prompt_can_be_disabled_when_kernel_is_already_running(self) -> None:
         session = SimpleNamespace(
             vga_wait=unittest.mock.Mock(),
@@ -2490,6 +2498,7 @@ class PkgtoolPromptTests(unittest.TestCase):
 
     def test_boot_answers_a_second_vfs_prompt_after_changing_root_disk(self) -> None:
         session = SimpleNamespace(
+            boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             change_floppy=unittest.mock.Mock(),
@@ -2748,7 +2757,7 @@ class ManifestCoverageTests(unittest.TestCase):
             default_action = install.get("default_action")
             for step in install["steps"]:
                 self.assertIn(
-                    step.get("action", default_action), STEP_ACTIONS, path.relative_to(root)
+                    step.get("action", default_action), STEP_HANDLERS, path.relative_to(root)
                 )
 
     def test_debian_091_uses_vga_prompt_questions(self) -> None:
@@ -2809,185 +2818,61 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
             character.encode("cp437") + bytes((attribute,)) for character, attribute in cells
         )
 
-    def test_vga_api_rejects_invalid_geometry_and_background_colors(self) -> None:
+    def test_snapshot_rejects_invalid_geometry(self) -> None:
         with self.assertRaisesRegex(ValueError, "columns"):
-            decode_screen(b"A\x07", columns=0)
+            ScreenSnapshot.capture(b"A\x07", columns=0)
         with self.assertRaisesRegex(ValueError, "rows"):
-            decode_screen(b"A\x07", rows=0)
+            ScreenSnapshot.capture(b"A\x07", rows=0)
         with self.assertRaisesRegex(ValueError, "character/attribute pairs"):
-            decode_screen(b"A")
-        with self.assertRaisesRegex(ValueError, "bright VGA colors"):
-            AttributeFilter(background=frozenset({VgaColor.LIGHT_BLUE}))
-        with self.assertRaisesRegex(ValueError, "bright VGA colors"):
-            AttributeFilter(color_pairs=frozenset({(VgaColor.WHITE, VgaColor.LIGHT_BLUE)}))
+            ScreenSnapshot.capture(b"A")
 
-    def test_decode_screen_api_filters_skips_and_compares_snapshots(self) -> None:
-        attributes = AttributeFilter(
-            color_pairs=frozenset(
-                {
-                    (VgaColor.YELLOW, VgaColor.BLUE),
-                    (VgaColor.WHITE, VgaColor.BLACK),
-                }
-            )
-        )
-        first = decode_screen(
-            b"A\x1eB\x0f \x07 \x07",
-            2,
-            None,
-            attributes=attributes,
-        )
-        self.assertEqual([(row.number, row.text) for row in first.rows], [(1, "AB")])
-        second = decode_screen(
-            b"A\x1eB\x0fC\x0f \x07",
-            2,
-            None,
-            attributes=attributes,
-            skip_blank=True,
-            changed_from=first.snapshot,
-        )
-        self.assertEqual([(row.number, row.text) for row in second.rows], [(2, "C ")])
-
-    def test_attribute_filters_keep_rows_with_matching_blank_cells(self) -> None:
-        screen = decode_screen(
-            b" \x04 \x07",
-            columns=2,
-            attributes=AttributeFilter(foreground=frozenset({VgaColor.RED})),
-            skip_blank=True,
-        )
-        self.assertEqual([(row.number, row.text) for row in screen.rows], [(1, "  ")])
-
-    def test_decode_screen_masks_unchanged_cells_on_changed_rows(self) -> None:
-        first = decode_screen(b"A\x07B\x07C\x07D\x07", columns=4)
-        second = decode_screen(
-            b"A\x07X\x07C\x07D\x07",
-            columns=4,
-            changed_from=first.snapshot,
-        )
-        self.assertEqual([(row.number, row.text) for row in second.rows], [(1, " X  ")])
-
-    def test_decode_screen_can_trim_selected_lines(self) -> None:
-        screen = decode_screen(b" \x07A\x07 \x07", columns=3, trim_whitespace=True)
-        self.assertEqual([(row.number, row.text) for row in screen.rows], [(1, "A")])
-
-    def test_vga_color_api_parses_symbolic_names_and_aliases(self) -> None:
-        self.assertEqual(VgaColor.parse("light-blue"), VgaColor.LIGHT_BLUE)
-        self.assertEqual(VgaColor.parse("dark_grey"), VgaColor.DARK_GRAY)
-        self.assertEqual(VgaColor.parse("purple"), VgaColor.MAGENTA)
-
-    def test_attribute_selection_combines_filters_and_finds_control_bounds(self) -> None:
-        red_background = AttributeFilter(background=frozenset({VgaColor.RED}))
-        red_label = AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)}))
-        memory = self._vga_cells(
-            [
-                *((character, 0x47) for character in "┌────┐"),
-                ("│", 0x47),
-                *((character, 0x74) for character in " Ok "),
-                ("│", 0x47),
-                *((character, 0x47) for character in "└────┘"),
-            ]
-        )
-
-        snapshot = ScreenSnapshot.capture(memory, columns=6, rows=3)
-        frame = snapshot.select(red_background)
-        control = snapshot.select(red_background, red_label)
-
-        self.assertEqual(frame.regions[0].bounds, ScreenBounds(1, 1, 3, 6))
-        self.assertEqual(frame.regions[0].text, "┌────┐\n│    │\n└────┘")
-        self.assertEqual(control.regions[0].text, "┌────┐\n│ Ok │\n└────┘")
-        location = control.find("Ok")[0]
-        self.assertEqual(location.bounds, ScreenBounds(2, 3, 2, 4))
-        self.assertEqual(control.regions_containing(location.bounds)[0].bounds, control.bounds)
-
-    def test_attribute_region_preserves_blank_checkbox_state(self) -> None:
-        checkbox = AttributeFilter(background=frozenset({VgaColor.BROWN}))
-        empty = ScreenSnapshot.capture(b" \x60", columns=1, rows=1).select(checkbox)
-        checked = ScreenSnapshot.capture(b"*\x60", columns=1, rows=1).select(checkbox)
-
-        self.assertEqual(empty.regions[0].text, " ")
-        self.assertEqual(checked.regions[0].text, "*")
-        self.assertEqual(empty.regions[0].bounds, ScreenBounds(1, 1, 1, 1))
-
-    def test_attribute_selection_rejects_ambiguous_multiline_text_searches(self) -> None:
-        selection = ScreenSnapshot.capture(b"A\x07", columns=1, rows=1).select()
-        with self.assertRaisesRegex(ValueError, "single-line"):
-            selection.find("A\nB")
-
-    def test_decode_character_attribute_pairs(self) -> None:
-        self.assertEqual(decode(b"A\x07B\x07\x00\x07C\x07", 2, 2), "AB\n C")
+    def test_snapshot_decodes_character_attribute_pairs(self) -> None:
+        snapshot = ScreenSnapshot.capture(b"A\x07B\x07\x00\x07C\x07", 2, 2)
+        self.assertEqual(snapshot.text, "AB\n C")
 
     def test_decode_converts_cp437_graphics_before_removing_controls(self) -> None:
         memory = b"\xda\x07\xc4\x07\xbf\x07\x1b\x07"
-        self.assertEqual(decode(memory, 4, 1), "┌─┐ ")
-
-    def test_decode_filters_characters_by_vga_foreground_and_background(self) -> None:
-        memory = b"A\x04B\x14C\x1eD\x2e"
-        self.assertEqual(decode(memory, 4, 1, foreground=frozenset({4})), "AB  ")
-        self.assertEqual(decode(memory, 4, 1, background=frozenset({1})), " BC ")
-        self.assertEqual(
-            decode(memory, 4, 1, foreground=frozenset({4}), background=frozenset({1})),
-            " B  ",
-        )
-        self.assertEqual(
-            decode(memory, 4, 1, color_pairs=frozenset({(4, 1), (14, 2)})),
-            " B D",
-        )
+        self.assertEqual(ScreenSnapshot.capture(memory, 4, 1).text, "┌─┐ ")
 
     def test_full_memory_decode_finds_scrolled_console_text(self) -> None:
         memory = b" " + b"\x07"
         memory *= 80 * 25
         memory += b"V\x07F\x07S\x07:\x07"
-        self.assertNotIn("VFS:", decode(memory, 80, 25))
-        self.assertIn("VFS:", decode(memory, 80, None))
+        self.assertNotIn("VFS:", ScreenSnapshot.capture(memory, 80, 25).text)
+        self.assertIn("VFS:", ScreenSnapshot.capture(memory, 80, None).text)
 
     async def test_observer_polls_only_while_waiting(self) -> None:
         monitor = AsyncMock()
         with temporary_root() as root:
             observer = ScreenObserver(monitor, root, interval=0.001)
-            observer._read = AsyncMock(side_effect=["boot:", "boot:", "login:"])
-            self.assertEqual(observer._read.await_count, 0)
+            frames = [SimpleNamespace(text=value) for value in ("boot:", "boot:", "login:")]
+            observer.capture = AsyncMock(side_effect=frames)
             screen = await observer.wait(lambda value: "login:" in value, 1)
         self.assertEqual(screen, "login:")
-        self.assertEqual(observer._read.await_count, 3)
-        self.assertEqual([item.text for item in observer.history], ["boot:", "login:"])
+        self.assertEqual(observer.capture.await_count, 3)
 
     async def test_wait_ignores_pre_return_screen_before_starting_timeout(self) -> None:
         monitor = AsyncMock()
         with temporary_root() as root:
             observer = ScreenObserver(monitor, root, interval=0.01)
-            observer.history.append(Screen(0, "Full Name []:"))
+            observer._current = "Full Name []:"
             observer.invalidate()
-            observer._read = AsyncMock(
-                side_effect=["Full Name []:", "Is the information correct? [y/n]"]
-            )
+            frames = [
+                SimpleNamespace(text=value)
+                for value in ("Full Name []:", "Is the information correct? [y/n]")
+            ]
+            observer.capture = AsyncMock(side_effect=frames)
             screen = await observer.wait(
                 lambda value: "information correct" in value,
                 timeout=0.001,
             )
         self.assertIn("information correct", screen)
 
-    async def test_observer_waits_for_text_in_combined_attribute_selection(self) -> None:
-        red_background = AttributeFilter(background=frozenset({VgaColor.RED}))
-        red_label = AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)}))
-        first = ScreenSnapshot.capture(b" \x07 \x07", columns=2, rows=1)
-        second = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1)
-        monitor = AsyncMock()
-        with temporary_root() as root:
-            observer = ScreenObserver(monitor, root, columns=2, interval=0.001)
-            observer.capture = AsyncMock(side_effect=[first, second])
-            selection = await observer.wait_selection(
-                lambda selected: bool(selected.find("Ok")),
-                red_background,
-                red_label,
-                timeout=1,
-                rows=1,
-            )
-        self.assertEqual(selection.find("Ok")[0].bounds, ScreenBounds(1, 1, 1, 2))
-
     async def test_snapshot_wait_returns_an_initial_match_without_sleeping(self) -> None:
         snapshot = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1)
         monitor = AsyncMock()
         with temporary_root() as root:
-            observer = ScreenObserver(monitor, root, columns=2)
+            observer = ScreenObserver(monitor, root)
             observer.capture = AsyncMock(return_value=snapshot)
             with patch("hostlib.vga.asyncio.sleep", new_callable=AsyncMock) as sleep:
                 matched = await observer.wait_snapshot(
@@ -3033,20 +2918,20 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
                 (root / destination).write_bytes(b" \x07" * (int(byte_count) // 2))
 
             monitor.hmp.side_effect = save
-            observer = ScreenObserver(monitor, root, columns=4)
+            observer = ScreenObserver(monitor, root)
             snapshot = await observer.capture(rows=3)
 
         self.assertEqual(len(snapshot.contents), 3)
         command = monitor.hmp.await_args.args[0].split()
-        self.assertEqual(command[2], "24")
+        self.assertEqual(command[2], "480")
 
     async def test_snapshot_wait_rejects_invalidated_matching_old_text(self) -> None:
         old = ScreenSnapshot.capture(b"O\x74k\x74 \x07", columns=3, rows=1)
         fresh = ScreenSnapshot.capture(b"O\x74k\x74!\x07", columns=3, rows=1)
         monitor = AsyncMock()
         with temporary_root() as root:
-            observer = ScreenObserver(monitor, root, columns=3, interval=0.001)
-            observer.history.append(Screen(0, old.text))
+            observer = ScreenObserver(monitor, root, interval=0.001)
+            observer._current = old.text
             observer.invalidate()
             observer.capture = AsyncMock(side_effect=[old, fresh])
             matched = await observer.wait_snapshot(
@@ -3064,7 +2949,7 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
         matched = ScreenSnapshot.capture(b"!\x07", columns=1, rows=1)
         monitor = AsyncMock()
         with temporary_root() as root:
-            observer = ScreenObserver(monitor, root, columns=1, interval=0.25)
+            observer = ScreenObserver(monitor, root, interval=0.25)
             observer.capture = AsyncMock(side_effect=[waiting, waiting, waiting, matched])
             with patch("hostlib.vga.asyncio.sleep", new_callable=AsyncMock) as sleep:
                 result = await observer.wait_snapshot(
@@ -3079,20 +2964,14 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
             [0.01, 0.02, 0.04],
         )
 
-    async def test_observer_attribute_queries_default_to_all_vga_memory(self) -> None:
-        memory = b" \x07" * (80 * 61)
-        memory += "┌".encode("cp437") + b"\x47"
-        memory += b" \x07" * 79
-        snapshot = ScreenSnapshot.capture(memory, columns=80, rows=None)
-        monitor = AsyncMock()
-        with temporary_root() as root:
-            observer = ScreenObserver(monitor, root)
-            observer.capture = AsyncMock(return_value=snapshot)
-            selection = await observer.select(
-                AttributeFilter(background=frozenset({VgaColor.RED}))
-            )
 
-        self.assertEqual(selection.bounds, ScreenBounds(62, 1, 62, 1))
+class NewtSession:
+    """Provide the production snapshot-wait surface to synchronous dialog fakes."""
+
+    def vga_wait_snapshot(self, predicate, *, rows=None, **_):
+        snapshot = self.vga_screen(rows)
+        predicate(snapshot)
+        return snapshot
 
 
 class NewtDialogTests(unittest.TestCase):
@@ -3126,7 +3005,7 @@ class NewtDialogTests(unittest.TestCase):
         state = NewtDialog.parse(self._menu("GD543x"))
 
         self.assertEqual(state.title, "Choose A Card")
-        self.assertEqual(state.bounds, ScreenBounds(1, 1, 6, 27))
+        self.assertEqual(state.view.bounds, ScreenBounds(1, 1, 6, 27))
         self.assertEqual(state.active_item, "Cirrus Logic GD543x")
 
     @classmethod
@@ -3158,8 +3037,8 @@ class NewtDialogTests(unittest.TestCase):
         state = NewtDialog.parse(self._timezone("Local time", False))
 
         self.assertEqual(
-            state.radios,
-            (("Local time", True), ("Universal time (GMT)", False)),
+            state.selected_radios,
+            {"local time": True, "universal time (gmt)": False},
         )
         self.assertEqual(state.focused_radio, "Local time")
         self.assertEqual(state.active_item, "UTC")
@@ -3186,8 +3065,8 @@ class NewtDialogTests(unittest.TestCase):
         state = NewtDialog.parse(self._snapshot(lines, attributes))
 
         self.assertEqual(
-            state.checklist,
-            (("Hardware clock set to GMT", True),),
+            state.checked,
+            {"hardware clock set to gmt": True},
         )
         self.assertEqual(state.active_item, "UTC")
         self.assertEqual(
@@ -3196,7 +3075,7 @@ class NewtDialogTests(unittest.TestCase):
         )
 
     def test_select_radio_traverses_and_verifies_the_requested_value(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3212,7 +3091,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3235,13 +3114,13 @@ class NewtDialogTests(unittest.TestCase):
         attributes.update({(3, column): 0x1E for column in range(3, width)})
         frame = self._snapshot(lines, attributes)
 
-        class Session:
+        class Session(NewtSession):
             keys = []
 
             def vga_screen(self, rows=None):
                 return frame
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         state = NewtDialog.parse(frame)
@@ -3268,7 +3147,7 @@ class NewtDialogTests(unittest.TestCase):
         return cls._snapshot(lines, attributes)
 
     def test_partition_matches_canonical_device_to_bare_5x_rendering(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3283,7 +3162,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3292,11 +3171,12 @@ class NewtDialogTests(unittest.TestCase):
 
     def test_dialog_title_does_not_require_a_color(self) -> None:
         frame = self._menu("GD542x")
+        cells = frame.view(ScreenBounds(1, 1, len(frame.contents), frame.columns)).cells
         redless = ScreenSnapshot.capture(
             b"".join(
                 cell.character.encode("cp437")
                 + bytes((0x70 if cell.row == 1 else cell.attribute,))
-                for cell in frame.select().cells
+                for cell in cells
             ),
             columns=frame.columns,
             rows=len(frame.contents),
@@ -3308,7 +3188,7 @@ class NewtDialogTests(unittest.TestCase):
         blank = bytes((ord(" "), 0x70)) * menu.columns
         frame = ScreenSnapshot(menu.columns, (blank,) * 25 + menu.contents)
 
-        class Session:
+        class Session(NewtSession):
             rows = "unset"
             screen_rows = []
 
@@ -3323,15 +3203,17 @@ class NewtDialogTests(unittest.TestCase):
 
             def vga_screen(self, rows=None):
                 self.screen_rows.append(rows)
-                return frame.limit(rows)
+                return (
+                    frame if rows is None else ScreenSnapshot(frame.columns, frame.contents[:rows])
+                )
 
         session = Session()
         dialog = NewtDialog(session)
         state = dialog.wait_for_title("Choose A Card")
         dialog.capture()
         self.assertIsNone(session.rows)
-        self.assertEqual(state.bounds.top, 26)
-        self.assertEqual(session.screen_rows, [state.bounds.bottom])
+        self.assertEqual(state.view.bounds.top, 26)
+        self.assertEqual(session.screen_rows, [state.view.bounds.bottom])
 
     def test_nested_dialog_uses_innermost_border_and_matches_its_title(self) -> None:
         width, height = 46, 12
@@ -3353,7 +3235,7 @@ class NewtDialogTests(unittest.TestCase):
 
         self.assertEqual(NewtDialog.parse(frame).title, "Edit Mount Point")
         outer = NewtDialog.parse(frame, title="Partition Disk")
-        self.assertEqual(outer.bounds, ScreenBounds(1, 1, 12, 46))
+        self.assertEqual(outer.view.bounds, ScreenBounds(1, 1, 12, 46))
 
     def test_title_traces_its_own_border_when_dialogs_share_a_row(self) -> None:
         frame = self._snapshot(
@@ -3368,8 +3250,8 @@ class NewtDialogTests(unittest.TestCase):
         one = NewtDialog.parse(frame, title="One")
         two = NewtDialog.parse(frame, title="Two")
 
-        self.assertEqual(one.bounds, ScreenBounds(1, 1, 3, 11))
-        self.assertEqual(two.bounds, ScreenBounds(1, 14, 3, 26))
+        self.assertEqual(one.view.bounds, ScreenBounds(1, 1, 3, 11))
+        self.assertEqual(two.view.bounds, ScreenBounds(1, 14, 3, 26))
 
     @classmethod
     def _buttons(cls, selected):
@@ -3393,7 +3275,7 @@ class NewtDialogTests(unittest.TestCase):
         return cls._snapshot(lines, attributes)
 
     def test_named_button_cycles_focus_then_activates(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3406,7 +3288,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3416,13 +3298,13 @@ class NewtDialogTests(unittest.TestCase):
     def test_source_authorized_advance_uses_f12_without_button_animation(self) -> None:
         frame = self._buttons("Ok")
 
-        class Session:
+        class Session(NewtSession):
             keys = []
 
             def vga_screen(self, rows=None):
                 return frame
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3432,13 +3314,13 @@ class NewtDialogTests(unittest.TestCase):
     def test_advance_does_not_focus_button_when_form_content_has_focus(self) -> None:
         frame = self._buttons("neither button")
 
-        class Session:
+        class Session(NewtSession):
             keys = []
 
             def vga_screen(self, rows=None):
                 return frame
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3448,14 +3330,14 @@ class NewtDialogTests(unittest.TestCase):
     def test_replace_text_uses_newt_entry_clear_shortcuts(self) -> None:
         frame = self._buttons("Ok")
 
-        class Session:
+        class Session(NewtSession):
             keys = []
             typed = []
 
             def vga_screen(self, rows=None):
                 return frame
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
             def kb_type_quiet(self, text):
@@ -3469,7 +3351,7 @@ class NewtDialogTests(unittest.TestCase):
     def test_sensitive_text_entry_is_redacted_from_semantic_log(self) -> None:
         frame = self._buttons("Ok")
 
-        class Session:
+        class Session(NewtSession):
             typed = []
 
             def vga_screen(self, rows=None):
@@ -3504,13 +3386,13 @@ class NewtDialogTests(unittest.TestCase):
             {},
         )
 
-        class Session:
+        class Session(NewtSession):
             keys = []
 
             def vga_screen(self, rows=None):
                 return frame
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3518,7 +3400,7 @@ class NewtDialogTests(unittest.TestCase):
         self.assertEqual(session.keys, ["f12"])
 
     def test_menu_navigation_scans_from_the_observed_top(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3531,7 +3413,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3542,7 +3424,7 @@ class NewtDialogTests(unittest.TestCase):
         top = self._menu("GD542x")
         target = self._menu("GD543x")
 
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.current = top
                 self.keys = []
@@ -3560,7 +3442,7 @@ class NewtDialogTests(unittest.TestCase):
                     raise AssertionError("changed frame did not satisfy transition")
                 return self.current
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3601,7 +3483,7 @@ class NewtDialogTests(unittest.TestCase):
         bottom = self._scroll_menu(["Z1", "Etc/UTC", "Z3"], "Z1")
         selected = self._scroll_menu(["Z1", "Etc/UTC", "Z3"], "Etc/UTC")
 
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter([middle, top, top, middle_after_page, bottom, selected])
                 self.keys = []
@@ -3609,7 +3491,7 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
@@ -3634,35 +3516,12 @@ class NewtDialogTests(unittest.TestCase):
         attributes[(row, 4)] = 0x61
         return cls._snapshot(lines, attributes)
 
-    def test_checklist_navigation_changes_only_the_requested_state(self) -> None:
-        class Session:
-            def __init__(self):
-                self.frames = iter(
-                    [
-                        NewtDialogTests._checklist("One", {"One": False, "Two": False}),
-                        NewtDialogTests._checklist("One", {"One": False, "Two": False}),
-                        NewtDialogTests._checklist("Two", {"One": False, "Two": False}),
-                        NewtDialogTests._checklist("Two", {"One": False, "Two": True}),
-                    ]
-                )
-                self.keys = []
-
-            def vga_screen(self, rows=None):
-                return next(self.frames)
-
-            def kb_press(self, *keys):
-                self.keys.extend(keys)
-
-        session = Session()
-        NewtDialog(session).set_checklist_item("Two", True)
-        self.assertEqual(session.keys, ["pgup", "down", "spc"])
-
     def test_standalone_checkbox_is_focused_by_tab_and_set_idempotently(self) -> None:
         unfocused = self._checklist("Two", {"One": False, "Two": False})
         focused = self._checklist("One", {"One": False, "Two": False})
         checked = self._checklist("One", {"One": True, "Two": False})
 
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.current = unfocused
                 self.pending = iter((focused, checked))
@@ -3679,15 +3538,15 @@ class NewtDialogTests(unittest.TestCase):
                     )
                 return self.current
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).set_checkbox("One", True)
+        NewtDialog(session).set_checkbox("One")
         self.assertEqual(session.keys, ["tab", "spc"])
 
     def test_checklist_batch_scans_once_for_all_requested_items(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3696,6 +3555,7 @@ class NewtDialogTests(unittest.TestCase):
                         NewtDialogTests._checklist("One", {"One": True, "Two": False}),
                         NewtDialogTests._checklist("Two", {"One": True, "Two": False}),
                         NewtDialogTests._checklist("Two", {"One": True, "Two": True}),
+                        NewtDialogTests._checklist("Two", {"One": True, "Two": True}),
                     ]
                 )
                 self.keys = []
@@ -3703,15 +3563,15 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).set_checklist_items({"One": True, "Two": True})
-        self.assertEqual(session.keys, ["pgup", "spc", "down", "spc"])
+        NewtDialog(session).set_checklist_items(["One", "Two"])
+        self.assertEqual(session.keys, ["pgup", "spc", "down", "spc", "down"])
 
     def test_exhaustive_checklist_batch_clears_unlisted_entries(self) -> None:
-        class Session:
+        class Session(NewtSession):
             def __init__(self):
                 self.frames = iter(
                     [
@@ -3727,23 +3587,21 @@ class NewtDialogTests(unittest.TestCase):
             def vga_screen(self, rows=None):
                 return next(self.frames)
 
-            def kb_press(self, *keys):
+            def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).set_checklist_items({"One": True}, deselect_unlisted=True)
+        NewtDialog(session).set_checklist_items(["One"])
         self.assertEqual(session.keys, ["pgup", "down", "spc", "down"])
 
 
 class MonitorTests(unittest.IsolatedAsyncioTestCase):
-    async def test_disconnected_monitor_rejects_commands_and_events(self) -> None:
+    async def test_disconnected_monitor_rejects_commands(self) -> None:
         from hostlib.qmp import QmpUnavailable
 
         monitor = Monitor(Path("missing.sock"))
         with self.assertRaisesRegex(QmpUnavailable, "not connected"):
             await monitor.execute("query-status")
-        with self.assertRaisesRegex(QmpUnavailable, "not connected"):
-            _ = monitor.events
 
     async def test_close_tolerates_a_peer_that_already_disconnected(self) -> None:
         client = SimpleNamespace(disconnect=AsyncMock(side_effect=EOFError))
@@ -3879,9 +3737,7 @@ class SessionTests(unittest.TestCase):
             monitor=AsyncMock(),
             vga=SimpleNamespace(
                 capture=AsyncMock(),
-                select=AsyncMock(),
                 wait=AsyncMock(),
-                wait_selection=AsyncMock(),
                 invalidate=unittest.mock.Mock(),
             ),
         )
@@ -3903,29 +3759,11 @@ class SessionTests(unittest.TestCase):
         self.assertTrue(predicate("heading\n  boot:  \n"))
         self.assertFalse(predicate("not boot: yet"))
 
-    def test_vga_wait_can_match_union_of_attribute_filters(self) -> None:
+    def test_text_wait_matches_a_title_inside_a_cp437_border(self) -> None:
         session = self.session()
-        filters = (
-            AttributeFilter(background=frozenset({VgaColor.RED})),
-            AttributeFilter(color_pairs=frozenset({(VgaColor.RED, VgaColor.LIGHT_GRAY)})),
-        )
-        session.vga_wait("Ok", attributes=filters, rows=25)
-
-        call = session._runtime.vga.wait_selection.call_args
-        predicate = call.args[0]
-        selection = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1).select(*filters)
-        self.assertTrue(predicate(selection))
-        self.assertEqual(call.args[1:], filters)
-        self.assertEqual(call.kwargs, {"timeout": None, "rows": 25})
-
-    def test_vga_selection_and_find_are_available_to_installer_drivers(self) -> None:
-        session = self.session()
-        selected = ScreenSnapshot.capture(b"O\x74k\x74", columns=2, rows=1).select(
-            AttributeFilter(foreground=frozenset({VgaColor.RED}))
-        )
-        session._runtime.vga.select.return_value = selected
-
-        self.assertEqual(session.vga_find("Ok", *selected.filters), selected.find("Ok"))
+        session.vga_wait("Select Color or Monochrome")
+        predicate = session._runtime.vga.wait.call_args.args[0]
+        self.assertTrue(predicate("┌──── Select Color or Monochrome ────┐"))
 
     def test_type_uses_one_paced_qmp_request_per_key(self) -> None:
         session = self.session()

@@ -56,18 +56,21 @@ def _special_validation_message(path: str, error: dict[str, object]) -> str | No
         return f"install.steps entry {int(location[step + 1]) + 1} keys must be strings"
     if path == "postinst" and error_type == "literal_error":
         return f"Unknown post-install stage(s): {error['input']}"
-    if (path == "install.redhat" and location == ("flow",)) or (
-        path == "install" and location[-2:] == ("redhat", "flow")
-    ):
+    if path == "install" and location[-2:] == ("redhat", "flow"):
         if error_type == "literal_error":
-            return "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3"
+            choices = "1.1, 2.1, 3.0.3" if "redhat-perl" in location else "4x, 42, 50, 51"
+            return f"install.redhat.flow must be one of: {choices}"
         return "install.redhat.flow must be a string"
     if (
         path == "install"
-        and location[-2:] == ("redhat", "package_series")
         and error_type == "missing"
+        and location[-2:]
+        in {
+            ("redhat", "package_series"),
+            ("redhat", "components"),
+        }
     ):
-        return "install.redhat.package_series is required"
+        return f"install.redhat.{location[-1]} is required"
     return None
 
 

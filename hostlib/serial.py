@@ -190,8 +190,6 @@ class SerialConsole:
         """
         log.info("⏳ %s", expected)
         pattern = self._wait_pattern(expected, line=line, regex=regex)
-        if timeout is None:
-            return await self._wait_one(pattern)
         async with asyncio.timeout(timeout):
             return await self._wait_one(pattern)
 
@@ -227,8 +225,6 @@ class SerialConsole:
             for value in patterns
         )
 
-        if timeout is None:
-            return await self._wait_first(compiled)
         async with asyncio.timeout(timeout):
             return await self._wait_first(compiled)
 

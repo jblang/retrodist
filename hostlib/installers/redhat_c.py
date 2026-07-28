@@ -11,68 +11,25 @@ from __future__ import annotations
 import time
 
 from ..fdisk import Fdisk
-from ..session import InstallSession, Match
+from ..session import InstallSession
 from ..newt_dialog import NewtDialog
-from ..errors import ConfigError
 from ..schemas import CInstallConfig, UnattendedInstallConfig
-
-# Red Hat 4.0's ``RedHat/base/comps`` and ``misc/src/install/pkgs.c`` define
-# these rendered component names and their initially selected skeleton state.
-COMPONENTS_40 = {
-    "C Development": True,
-    "C++ Development": True,
-    "Print Server": True,
-    "Game Machine": True,
-    "Multimedia Machine": True,
-    "X Window System": True,
-    "X Development": True,
-    "X multimedia support": True,
-    "Extra Documentation": True,
-}
-
-COMPONENTS_42 = {
-    "C Development": True,
-    "C++ Development": True,
-    "Printer Support": True,
-    "Dialup Workstation": True,
-    "Game Machine": True,
-    "Multimedia Machine": True,
-    "X Window System": True,
-    "X Development": True,
-}
 
 
 def run_c_installer(session: InstallSession) -> None:
     """Run a Red Hat C-installer installation with validated configuration."""
     installer = CInstaller(session)
     installer.start()
-    _run_c_flow(installer)
+    installer.run_flow()
     installer.network()
     installer.finish()
-
-
-def _run_c_flow(installer: "CInstaller") -> None:
-    """Dispatch the release-specific middle phases of the C installer."""
-    flow = installer.settings.flow
-    if flow == "4x":
-        installer.partition_4x()
-        installer.components_40()
-        installer.finish_components()
-        installer.x11_4x()
-    elif flow == "42":
-        installer._flow_42()
-    elif flow in {"50", "51"}:
-        installer._flow_5x()
-    else:
-        raise ConfigError(f"Unknown Red Hat C installer flow: {flow}")
 
 
 def run_unattended(session: InstallSession) -> None:
     """Wait for an unattended Red Hat install and complete post-install setup."""
     settings = session.config.install
     assert isinstance(settings, UnattendedInstallConfig)
-    session.vga_wait(settings.boot.prompt, match=Match.LINE)
-    session.kb_type(settings.boot.command + "\n")
+    session.boot_command(settings.boot.prompt, settings.boot.command)
     session.vga_wait(settings.completion.prompt)
     if settings.completion.reboot:
         session.set_boot(settings.completion.boot_device)
@@ -119,12 +76,15 @@ class CInstaller:
         else:
             self.dialog.press_button(button)
 
-    def _flow_42(self) -> None:
-        """Run the Red Hat 4.2 component-selection variant."""
-        self.partition_4x()
-        self._components(COMPONENTS_42)
-        self.finish_components()
-        self.x11_4x()
+    def run_flow(self) -> None:
+        """Dispatch the release-specific middle phases of the C installer."""
+        if self.settings.flow in {"4x", "42"}:
+            self.partition_4x()
+            self.components()
+            self.finish_components()
+            self.x11_4x()
+        else:
+            self._flow_5x()
 
     def _flow_5x(self) -> None:
         """Run the Red Hat 5.0 or 5.1 partition and X11 phases."""
@@ -134,7 +94,7 @@ class CInstaller:
         self.partition_helper()
         self.dialog.advance("Done")
         self._partition_5x(flow)
-        self.components_default()
+        self.components()
         self.finish_components()
         self._configure_mouse_5x(flow)
         self.x11_5x()
@@ -150,7 +110,7 @@ class CInstaller:
         # emulation checkbox, and buttons in one "Configure Mouse" form.
         self.dialog.wait_for_title("Configure Mouse")
         self.dialog.select_menu_item("PS/2 Mouse")
-        self.dialog.set_checkbox("Emulate 3 Buttons?", True)
+        self.dialog.set_checkbox("Emulate 3 Buttons?")
         self.dialog.advance("Ok")
 
     def _partition_5x(self, flow: str) -> None:
@@ -162,7 +122,7 @@ class CInstaller:
             self.dialog_step("Partition Disk")
             self.dialog_step("Active Swap Space")
             self.dialog.wait_for_title("Format Partitions")
-            self.dialog.set_partition_checklist_item(self.disk.root_partition, True)
+            self.dialog.check_partition(self.disk.root_partition)
             self.dialog.advance("Ok")
             return
         self.dialog.wait_for_title("Current Disk Partitions")
@@ -173,14 +133,13 @@ class CInstaller:
         self.dialog_step("Current Disk Partitions")
         self.dialog_step("Active Swap Space")
         self.dialog.wait_for_title("Partitions To Format")
-        self.dialog.set_partition_checklist_item(self.disk.root_partition, True)
+        self.dialog.check_partition(self.disk.root_partition)
         self.dialog.advance("Ok")
 
     def start(self) -> None:
         """Complete the initial language, media, and install-mode screens."""
         o = self.settings
-        self.s.vga_wait(self.prompts.boot_prompt, match=Match.LINE)
-        self.s.kb_type(f"{self.prompts.boot_command}\n")
+        self.s.boot_command(self.prompts.boot_prompt, self.prompts.boot_command)
         if self.prompts.boot_sleep:
             time.sleep(self.prompts.boot_sleep)
         if o.color_prompt:
@@ -207,7 +166,6 @@ class CInstaller:
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start(screen_prompt="bash#")
         Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
-        self.s.serial.wait("#", line=True)
         self.s.serial_shell_exit(screen_prompt="bash#")
         self.s.kb_press("alt-f1")
 
@@ -227,22 +185,14 @@ class CInstaller:
         self.dialog.enter_text(self.disk.fat_mount, field="mount point")
         self.dialog_step("Partition Disk")
         self.dialog.wait_for_title("Format Partitions")
-        self.dialog.set_partition_checklist_item(self.disk.root_partition, True)
+        self.dialog.check_partition(self.disk.root_partition)
         self.dialog.advance("Ok")
 
-    def components_40(self) -> None:
-        """Select Red Hat 4.0 component groups."""
-        self._components(COMPONENTS_40)
-
-    def _components(self, choices: dict[str, bool]) -> None:
-        """Apply source-defined component selections and accept the form."""
+    def components(self) -> None:
+        """Apply the configured component set and accept the form."""
         self.dialog.wait_for_title("Components to Install")
-        self.dialog.set_checklist_items(choices)
+        self.dialog.set_checklist_items(self.settings.components)
         self.dialog.advance("Ok")
-
-    def components_default(self) -> None:
-        """Accept the default component selection."""
-        self.dialog_step("Components to Install")
 
     def finish_components(self) -> None:
         """Finish component selection and begin package installation."""
@@ -254,14 +204,14 @@ class CInstaller:
         """Configure X11 screens used by Red Hat 4.x."""
         self.dialog.wait_for_title("Configure Mouse")
         self.dialog.select_menu_item("PS/2 Mouse")
-        self.dialog.set_checkbox("Emulate 3 Buttons?", True)
+        self.dialog.set_checkbox("Emulate 3 Buttons?")
         self.dialog.advance("Ok")
         self.dialog.wait_for_title("Choose A Card")
         # Xconfigurator 2.0.1 renders sprintf("%-49s%s", name, chipset).
         self.dialog.select_menu_item(self.settings.x_card_label, label_width=49)
         self.dialog.advance("Ok")
         self.dialog.wait_for_title("Monitor Setup")
-        self.dialog.move_focus("down")
+        self.dialog.move_down()
         self.dialog.advance("Ok")
         self.dialog.wait_for_title("Video Memory")
         self.dialog.select_menu_item(self.settings.x_video_memory_label)
@@ -275,7 +225,7 @@ class CInstaller:
         # containing dialog "PCI Probe".
         self.dialog_step("PCI Probe")
         self.dialog.wait_for_title("Monitor Setup")
-        self.dialog.move_focus("down")
+        self.dialog.move_down()
         self.dialog.advance("Ok")
         self.dialog_step("Screen Configuration", "Don't Probe")
         self.dialog.wait_for_title("Video Memory")

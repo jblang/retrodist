@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import Field, model_validator
 
 from .schema_base import ConfigModel
 
@@ -59,6 +59,26 @@ class ExtractionConfig(ConfigModel):
             raise ValueError("extract.package_source and package_sources are mutually exclusive")
         return self
 
+    @property
+    def staged_files(self) -> list[str]:
+        """Return files copied to the root of the staging directory."""
+        return [
+            path
+            for path in (
+                self.boot_image,
+                self.root_image,
+                *self.extra_images,
+                *self.files,
+                self.package_index,
+            )
+            if path
+        ]
+
+    @property
+    def package_paths(self) -> list[str]:
+        """Return the normalized singular or plural package-tree selectors."""
+        return self.package_sources or ([self.package_source] if self.package_source else [])
+
 
 Scalar = str | int | bool
 
@@ -67,32 +87,13 @@ class NetworkConfig(ConfigModel):
     """Describe static guest networking shared by installers and guestlib."""
 
     hostname: str = "localhost"
-    domain: str = Field(
-        default="retro.net",
-        validation_alias=AliasChoices("domain", "domainname"),
-    )
-    ip: str = Field(
-        default="10.0.2.15",
-        validation_alias=AliasChoices("ip", "ipaddr"),
-    )
+    domain: str = "retro.net"
+    ip: str = "10.0.2.15"
     netmask: str = "255.255.255.0"
     network: str = "10.0.2.0"
     broadcast: str = "10.0.2.255"
     gateway: str = "10.0.2.2"
     nameserver: str = "10.0.2.3"
-
-    @model_validator(mode="before")
-    @classmethod
-    def aliases_do_not_conflict(cls, data: object) -> object:
-        """Reject simultaneous canonical and compatibility spellings."""
-        if isinstance(data, dict):
-            for canonical, legacy in (("domain", "domainname"), ("ip", "ipaddr")):
-                if canonical in data and legacy in data:
-                    raise ValueError(
-                        f"Install option {canonical!r} is set through multiple aliases: "
-                        f"{canonical}, {legacy}"
-                    )
-        return data
 
 
 class PostinstNetworkConfig(NetworkConfig):
