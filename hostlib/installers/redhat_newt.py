@@ -1,4 +1,4 @@
-"""Automate Red Hat releases that use the full-screen C installer driver.
+"""Automate Red Hat releases that use the full-screen Newt installer driver.
 
 The supported releases share broad phases while selecting explicit partition,
 mouse, X11, and network screen workflows from configuration. Kickstart-based

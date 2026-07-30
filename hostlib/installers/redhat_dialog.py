@@ -1,4 +1,4 @@
-"""Automate Red Hat 1.x through 3.x Perl/dialog installer drivers.
+"""Automate Red Hat 1.x through 3.x dialog-based installer drivers.
 
 The early Red Hat installer is a Perl program which delegates its UI to the
 ``dialog`` executable.  Replacing that executable with guestlib's serial

@@ -31,8 +31,8 @@ from ..schemas import (
 )
 from ..session import InstallSession, Match
 from .debian import run_dinstall
-from .redhat_c import run_c_installer, run_unattended
-from .redhat_perl import run_perl_installer
+from .redhat_dialog import run_perl_installer
+from .redhat_newt import run_c_installer, run_unattended
 from .slackware import run_pkgtool
 from .slackware_sysinstall import run_sysinstall
 

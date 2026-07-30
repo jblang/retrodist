@@ -47,7 +47,7 @@ from hostlib.installers import (
     validate_install_config,
 )
 from hostlib import installers
-from hostlib.installers import redhat_c, redhat_perl
+from hostlib.installers import redhat_dialog, redhat_newt
 from hostlib.newt_dialog import NewtDialog, parse_dialog
 from hostlib.vga import ScreenBounds, ScreenObserver, ScreenSnapshot
 from hostlib.media import MediaStager
@@ -1624,8 +1624,8 @@ class RedHatDriverTests(unittest.TestCase):
                         continue
                     self.assertEqual(getattr(install.redhat, name), value)
 
-    def test_redhat_perl_combines_common_flow_and_dispatches_optional_dialogs(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+    def test_redhat_dialog_combines_common_flow_and_dispatches_optional_dialogs(self) -> None:
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.load_two_ramdisks = unittest.mock.Mock()
         installer.prepare_dialog = unittest.mock.Mock()
         installer.insert_boot_disk = unittest.mock.Mock()
@@ -1700,7 +1700,7 @@ class RedHatDriverTests(unittest.TestCase):
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
-        redhat_c.run_unattended(session)
+        redhat_newt.run_unattended(session)
         session.boot_command.assert_called_once_with("boot:", "linux ks=floppy")
         session.vga_wait.assert_called_once_with("Complete")
         session.set_boot.assert_called_once_with("c")
@@ -1709,8 +1709,8 @@ class RedHatDriverTests(unittest.TestCase):
     def test_c_installer_composes_explicit_phases(self) -> None:
         session = SimpleNamespace()
         installer = unittest.mock.Mock()
-        with patch.object(redhat_c, "CInstaller", return_value=installer):
-            redhat_c.run_c_installer(session)
+        with patch.object(redhat_newt, "CInstaller", return_value=installer):
+            redhat_newt.run_c_installer(session)
         for method in (
             installer.boot_and_select_installation_options,
             installer.partition_storage,
@@ -1726,7 +1726,7 @@ class RedHatDriverTests(unittest.TestCase):
             method.assert_called_once_with()
 
     def test_c_installer_explicitly_selects_default_installation_options(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.s = SimpleNamespace(boot_command=unittest.mock.Mock())
         installer.prompts = SimpleNamespace(
             boot_prompt="boot:",
@@ -1755,7 +1755,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_c_installer_chooses_yes_to_configure_networking(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(
             network_setup="direct",
             tcp_ip_form="network-and-broadcast",
@@ -1802,7 +1802,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_c_installer_applies_the_configured_component_set(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(components=["C Development", "X Development"])
         installer.dialog = unittest.mock.Mock()
 
@@ -1815,7 +1815,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.advance.assert_called_once_with()
 
     def test_select_root_partition_workflow_runs_scripted_fdisk_first(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(partitioning="select-root-partition")
         installer.dialog = unittest.mock.Mock()
         installer._create_partitions_with_fdisk = unittest.mock.Mock()
@@ -1831,7 +1831,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer._select_root_partition.assert_called_once_with()
 
     def test_current_disk_partitions_workflow_waits_after_mount_editor(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.disk = SimpleNamespace(root_partition="/dev/hda2")
         installer.dialog = unittest.mock.Mock()
 
@@ -1843,7 +1843,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.wait_for_title.assert_any_call("Active Swap Space")
 
     def test_probe_and_configure_mouse_workflow_uses_combined_form(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(mouse_setup="probe-and-configure-mouse")
         installer.dialog = unittest.mock.Mock()
 
@@ -1858,7 +1858,7 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
     def test_probe_and_emulation_workflow_keeps_separate_question(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(mouse_setup="probe-and-emulation")
         installer.dialog = unittest.mock.Mock()
 
@@ -1890,7 +1890,7 @@ class RedHatDriverTests(unittest.TestCase):
         }
         for workflow, titles in cases.items():
             with self.subTest(workflow=workflow):
-                installer = object.__new__(redhat_c.CInstaller)
+                installer = object.__new__(redhat_newt.CInstaller)
                 installer.settings = SimpleNamespace(
                     x11_setup=workflow,
                     x_card_label="Cirrus Logic GD543x",
@@ -1920,7 +1920,7 @@ class RedHatDriverTests(unittest.TestCase):
     def test_redhat_51_accepts_probed_tulip_and_selects_static_networking(
         self,
     ) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(
             network_setup="probe-static",
             tcp_ip_form="gateway-and-nameserver",
@@ -1971,7 +1971,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_c_installer_advances_configuration_dialogs_without_button_labels(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(
             timezone_prompt="Configure Timezones",
             timezone_clock_control="radio",
@@ -2019,7 +2019,7 @@ class RedHatDriverTests(unittest.TestCase):
     def test_later_redhat_timeconfig_uses_gmt_checkbox_and_ok(self) -> None:
         for clock, checked in (("utc", True), ("local", False)):
             with self.subTest(clock=clock):
-                installer = object.__new__(redhat_c.CInstaller)
+                installer = object.__new__(redhat_newt.CInstaller)
                 installer.settings = SimpleNamespace(
                     timezone_prompt="Configure Timezones",
                     timezone_clock_control="checkbox",
@@ -2050,7 +2050,7 @@ class RedHatDriverTests(unittest.TestCase):
                 )
 
     def test_complete_installation_waits_for_the_source_defined_done_dialog(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.settings = SimpleNamespace(password="password")
         installer.network_config = SimpleNamespace(hostname="retro")
         installer.dialog = unittest.mock.Mock()
@@ -2063,7 +2063,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.s.set_boot.assert_called_once_with("c")
 
     def test_lilo_clears_the_staged_fat_disks_boot_label(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.disk = SimpleNamespace(
             target_disk="/dev/hda",
             fat_partition="/dev/hdb1",
@@ -2096,7 +2096,7 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
     def test_partition_disks_workflow_waits_after_mount_editor(self) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.disk = SimpleNamespace(
             root_partition="/dev/hda2",
             fat_partition="/dev/hdb1",
@@ -2117,7 +2117,7 @@ class RedHatDriverTests(unittest.TestCase):
     def test_redhat_41_lilo_has_two_setup_dialogs_then_boot_label_editor(
         self,
     ) -> None:
-        installer = object.__new__(redhat_c.CInstaller)
+        installer = object.__new__(redhat_newt.CInstaller)
         installer.disk = SimpleNamespace(
             target_disk="/dev/hda",
             fat_partition="/dev/hdb1",
@@ -2158,8 +2158,8 @@ class RedHatDriverTests(unittest.TestCase):
         )
         installer = unittest.mock.Mock()
         installer.settings.flow = "1.1"
-        with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
-            redhat_perl.run_perl_installer(session)
+        with patch.object(redhat_dialog, "PerlInstaller", return_value=installer):
+            redhat_dialog.run_perl_installer(session)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
         installer.prepare_dialog.assert_called_once_with(
@@ -2168,15 +2168,15 @@ class RedHatDriverTests(unittest.TestCase):
         installer.insert_boot_disk.assert_called_once_with()
         installer.reset_mock()
         installer.settings.flow = "3.0.3"
-        with patch.object(redhat_perl, "PerlInstaller", return_value=installer):
-            redhat_perl.run_perl_installer(session)
+        with patch.object(redhat_dialog, "PerlInstaller", return_value=installer):
+            redhat_dialog.run_perl_installer(session)
         installer.install.assert_called_once_with(
             "This script will walk you through each step of the installation.",
             x_vga=True,
         )
 
     def test_early_redhat_x_configuration_uses_detected_cirrus_path(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.dialog = unittest.mock.Mock()
 
         installer._configure_x()
@@ -2196,7 +2196,7 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(choices[9].answer, "Two")
 
     def test_early_redhat_uses_configured_boot_prompt(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.s = unittest.mock.Mock()
         installer.prompts = SimpleNamespace(
             boot_prompt="custom boot:",
@@ -2208,7 +2208,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.s.boot_command.assert_called_once_with("custom boot:", "linux expert")
 
     def test_early_redhat_finish_uses_locale_and_root_password(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.s = unittest.mock.Mock()
         installer.dialog = unittest.mock.Mock()
         installer.disk = SimpleNamespace(target_disk="/dev/hda")
@@ -2237,7 +2237,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_configures_optional_user(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.dialog = unittest.mock.Mock()
         installer.settings = SimpleNamespace(user=None, user_home=True)
 
@@ -2267,7 +2267,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_sets_root_password_for_both_prompt_styles(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.s = unittest.mock.Mock()
         installer.settings = SimpleNamespace(root_password="secret")
 
@@ -2304,7 +2304,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_quotes_dialog_media_paths(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.s = unittest.mock.Mock()
         installer.disk = SimpleNamespace(
             fat_mount="/media/retro disk",
@@ -2314,7 +2314,7 @@ class RedHatDriverTests(unittest.TestCase):
             swap_mb=64,
         )
 
-        with patch.object(redhat_perl, "Fdisk"):
+        with patch.object(redhat_dialog, "Fdisk"):
             installer.prepare_dialog("first dialog")
 
         installer.s.serial_shell_send.assert_any_call(
@@ -2325,7 +2325,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_redhat_303_x_configuration_uses_installed_dialog_on_vga(self) -> None:
-        installer = object.__new__(redhat_perl.PerlInstaller)
+        installer = object.__new__(redhat_dialog.PerlInstaller)
         installer.s = unittest.mock.Mock()
 
         installer._configure_x_vga()

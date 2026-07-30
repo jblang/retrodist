@@ -83,7 +83,7 @@ declared in each `config.toml`.
 The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
 
-- `redhat_perl.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
+- `redhat_dialog.py` covers the 1.1 through 3.0.3 Perl/dialog-based era. It
   replaces the installer's `dialog` executable with the serial adapter at its
   first widget, then matches structured widget titles, items, and prompt text.
   It uses Perl to rename the original binary because these root disks do not
@@ -96,7 +96,7 @@ but they now share driver blocks by installer family:
   keyboard map selected by the installer. `install.redhat.root_password`
   configures the root password; optional `user` and `user_home` settings create
   one regular account. Early Red Hat limits the user name to eight characters.
-- `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
+- `redhat_newt.py` covers the 4.0 through 5.1 C-based text installer era. Version
   configs select independent `partitioning`, `mouse_setup`, `x11_setup`, and
   `network_setup` screen workflows instead of a release-number flow. The
   configured values describe the screens directly: partitioning uses
