@@ -97,19 +97,39 @@ but they now share driver blocks by installer family:
   configures the root password; optional `user` and `user_home` settings create
   one regular account. Early Red Hat limits the user name to eight characters.
 - `redhat_c.py` covers the 4.0 through 5.1 C-based text installer era. Version
-  configs set prompt-order options, common flow variants, and the exact visible
-  `x_card_label` selected from the X-card menu. The required
+  configs select independent `partitioning`, `mouse_setup`, `x11_setup`, and
+  `network_setup` screen workflows instead of a release-number flow. The
+  configured values describe the screens directly: partitioning uses
+  `partition-disks`, `select-root-partition`, or `current-disk-partitions`;
+  mouse setup uses `configure-mouse`, `probe-and-emulation`, or
+  `probe-and-configure-mouse`; X11 uses `choose-card` or `pci-probe`; and
+  networking uses `direct` or `probe-static`. The
+  required `tcp_ip_form` distinguishes 4.0's network/broadcast fields from the
+  gateway/nameserver fields used by 4.1 and later. Prompt-order settings cover
+  dialogs that only some releases display, while `x_card_label` and
+  `x_video_memory_label` hold exact rendered menu entries. The
+  `password_field` and `boot_label_field` settings capture 5.1's shorter field
+  labels. The required
   `install.redhat.components` array names the exact visible component groups to
   install. The driver selects listed groups and clears every unlisted group,
   including installer defaults. Each config keeps the other available groups as
   commented array entries so the complete release-specific catalog is visible
   and groups can be enabled directly. The mandatory Base component is implicit.
+  Other single-choice menus are also selected explicitly, even when the desired
+  entry is already the default, so the installation log records choices such as
+  English, local CD-ROM media, IDE/ATAPI, Generic Monitor, no clockchip setting,
+  and the target disk's master boot record.
   Its `NewtDialog` layer waits for a delimiter-bounded dialog title and drives
-  named buttons, menus, and checklists from QMP VGA cells. Titles and dialog
-  borders are recognized from CP437 box characters; colors are reserved for
-  focused and selected control state. A complete border must be present before
-  interaction begins, after which captures stop at that dialog's bottom border.
-  Its logs use those same semantic operations.
+  named buttons, fields, menus, and checklists from QMP VGA cells. Titles and
+  dialog borders are recognized from CP437 box characters; widget markers and
+  colors identify entries and control state. A complete border must be present
+  before interaction begins, after which captures stop at that dialog's bottom
+  border. Fields are matched by exact rendered labels and verified together
+  after editing, before the dialog advances. Dialog waits use `⏳`, each match
+  logs one `📸` snapshot, and actions use an icon plus a concise verb such as
+  `Press`, `Edit`, `Select`, or `Clear` without repeating the dialog title.
+  F12 skips slow button animation; button labels are retained only where focus
+  determines the result, while ordinary acceptance uses the rendered default.
   The `[install.locale]` table selects `hardware_clock` (`utc` or `local`),
   the exact visible `timezone`, and the exact visible `keymap`.
   The InfoMagic disc 1 images for 4.0 through 5.1 contain the matching installer

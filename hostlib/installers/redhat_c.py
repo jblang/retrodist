@@ -1,9 +1,8 @@
 """Automate Red Hat releases that use the full-screen C installer driver.
 
-Red Hat 4.x and 5.x share broad phases but differ substantially in partition,
-component, mouse, and X11 screens. ``flow`` selects the bounded branch while
-network and completion behavior remain common. Kickstart-based releases use
-the smaller unattended entry point in this module.
+The supported releases share broad phases while selecting explicit partition,
+mouse, X11, and network screen workflows from configuration. Kickstart-based
+releases use the smaller unattended entry point in this module.
 """
 
 from __future__ import annotations
@@ -19,10 +18,16 @@ from ..schemas import CInstallConfig, UnattendedInstallConfig
 def run_c_installer(session: InstallSession) -> None:
     """Run a Red Hat C-installer installation with validated configuration."""
     installer = CInstaller(session)
-    installer.start()
-    installer.run_flow()
-    installer.network()
-    installer.finish()
+    installer.boot_and_select_installation_options()
+    installer.partition_storage()
+    installer.select_components()
+    installer.begin_package_installation()
+    installer.configure_mouse()
+    installer.configure_x11()
+    installer.configure_network()
+    installer.configure_installed_system()
+    installer.configure_bootloader()
+    installer.complete_installation()
 
 
 def run_unattended(session: InstallSession) -> None:
@@ -45,9 +50,9 @@ def run_unattended(session: InstallSession) -> None:
 class CInstaller:
     """Drive reusable phases of Red Hat's C-installer screens.
 
-    The top-level entry point selects a release flow, then composes these phase
-    methods. Keyboard movement is explicit because these installers do not emit
-    the guestlib dialog protocol.
+    The top-level entry point composes common phases whose screen workflows are
+    selected independently. Keyboard movement is explicit because these
+    installers do not emit the guestlib dialog protocol.
     """
 
     def __init__(self, session: InstallSession, config: CInstallConfig | None = None) -> None:
@@ -62,223 +67,242 @@ class CInstaller:
         self.settings = config.redhat
         self.dialog = NewtDialog(session)
 
-    def dialog_step(
-        self,
-        title: str,
-        button: str = "Ok",
-        *,
-        advance: bool = True,
-    ) -> None:
-        """Wait for a dialog and perform its source-defined button action."""
-        self.dialog.wait_for_title(title)
-        if advance:
-            self.dialog.advance(button)
-        else:
-            self.dialog.press_button(button)
+    def partition_storage(self) -> None:
+        """Partition storage with the configured installer screen workflow."""
+        workflow = self.settings.partitioning
+        if workflow == "partition-disks":
+            self._partition_disks()
+            return
 
-    def run_flow(self) -> None:
-        """Dispatch the release-specific middle phases of the C installer."""
-        if self.settings.flow in {"4x", "42"}:
-            self.partition_4x()
-            self.components()
-            self.finish_components()
-            self.x11_4x()
-        else:
-            self._flow_5x()
-
-    def _flow_5x(self) -> None:
-        """Run the Red Hat 5.0 or 5.1 partition and X11 phases."""
-        flow = self.settings.flow
-        self.dialog_step("Disk Setup", "fdisk", advance=False)
+        self.dialog.wait_for_title("Disk Setup")
+        self.dialog.press_button("fdisk")
         self.dialog.wait_for_title("Partition Disks")
-        self.partition_helper()
+        self._create_partitions_with_fdisk()
         self.dialog.advance("Done")
-        self._partition_5x(flow)
-        self.components()
-        self.finish_components()
-        self._configure_mouse_5x(flow)
-        self.x11_5x()
+        if workflow == "select-root-partition":
+            self._select_root_partition()
+        else:
+            self._edit_current_disk_partitions()
 
-    def _configure_mouse_5x(self, flow: str) -> None:
-        """Configure the release-specific mouseconfig screens."""
-        self.dialog_step("Probing Result")
-        if flow == "50":
-            self.dialog_step("Emulate Three Buttons", "Yes")
-            return
+    def _select_root_partition(self) -> None:
+        """Use the Select Root Partition and Format Partitions screens."""
+        self.dialog.wait_for_title("Select Root Partition")
+        self.dialog.select_partition(self.disk.root_partition)
+        self.dialog.advance()
+        self.dialog.wait_for_title("Partition Disk")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Active Swap Space")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Format Partitions")
+        self.dialog.check_partition(self.disk.root_partition)
+        self.dialog.advance()
 
-        # mouseconfig 2.6 mouseTypeWindow() combines its mouse list,
-        # emulation checkbox, and buttons in one "Configure Mouse" form.
-        self.dialog.wait_for_title("Configure Mouse")
-        self.dialog.select_menu_item("PS/2 Mouse")
-        self.dialog.set_checkbox("Emulate 3 Buttons?")
-        self.dialog.advance("Ok")
-
-    def _partition_5x(self, flow: str) -> None:
-        """Complete release-specific root and format screens for Red Hat 5.x."""
-        if flow == "50":
-            self.dialog.wait_for_title("Select Root Partition")
-            self.dialog.select_partition(self.disk.root_partition)
-            self.dialog.advance("Ok")
-            self.dialog_step("Partition Disk")
-            self.dialog_step("Active Swap Space")
-            self.dialog.wait_for_title("Format Partitions")
-            self.dialog.check_partition(self.disk.root_partition)
-            self.dialog.advance("Ok")
-            return
+    def _edit_current_disk_partitions(self) -> None:
+        """Edit the root row in the Current Disk Partitions screen."""
         self.dialog.wait_for_title("Current Disk Partitions")
         self.dialog.select_partition(self.disk.root_partition)
         self.dialog.press_button("Edit")
         self.dialog.wait_for_title(f"Edit Partition: {self.disk.root_partition}")
-        self.dialog.enter_text("/", field="mount point")
-        self.dialog_step("Current Disk Partitions")
-        self.dialog_step("Active Swap Space")
+        self.dialog.set_fields({"Mount Point:": "/"})
+        self.dialog.press_button("Ok")
+        self.dialog.wait_for_title("Current Disk Partitions")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Active Swap Space")
+        self.dialog.advance()
         self.dialog.wait_for_title("Partitions To Format")
         self.dialog.check_partition(self.disk.root_partition)
-        self.dialog.advance("Ok")
+        self.dialog.advance()
 
-    def start(self) -> None:
-        """Complete the initial language, media, and install-mode screens."""
-        o = self.settings
+    def configure_mouse(self) -> None:
+        """Configure the mouse with the selected screen workflow."""
+        workflow = self.settings.mouse_setup
+        if workflow != "configure-mouse":
+            self.dialog.wait_for_title("Probing Result")
+            self.dialog.advance()
+        if workflow == "probe-and-emulation":
+            self.dialog.wait_for_title("Emulate Three Buttons")
+            self.dialog.advance("Yes")
+            return
+
+        self.dialog.wait_for_title("Configure Mouse")
+        self.dialog.select_menu_item("PS/2 Mouse")
+        self.dialog.set_checkbox("Emulate 3 Buttons?")
+        self.dialog.advance()
+
+    def boot_and_select_installation_options(self) -> None:
+        """Boot the installer and select its language, media, and install mode."""
+        settings = self.settings
         self.s.boot_command(self.prompts.boot_prompt, self.prompts.boot_command)
         if self.prompts.boot_sleep:
             time.sleep(self.prompts.boot_sleep)
-        if o.color_prompt:
+        if settings.color_prompt:
             self.dialog.wait_for_title("Color Choices")
             self.dialog.advance("Yes")
-        self.dialog_step("Red Hat Linux")
-        if o.language_prompt:
-            self.dialog_step("Choose a Language")
-        if o.keyboard_early:
+        self.dialog.wait_for_title("Red Hat Linux")
+        self.dialog.advance()
+        if settings.language_prompt:
+            self.dialog.wait_for_title("Choose a Language")
+            self.dialog.select_menu_item("English")
+            self.dialog.advance()
+        if settings.keyboard_early:
             self.dialog.wait_for_title("Keyboard Type")
             self.dialog.select_menu_item(self.locale.keymap)
-            self.dialog.advance("Ok")
-        if o.pcmcia_prompt:
-            self.dialog_step("PCMCIA Support", "No")
-        self.dialog_step("Installation Method")
-        self.dialog_step("Note")
-        if o.cdrom_type_prompt:
-            self.dialog_step("CDROM type")
-        self.dialog_step("Installation Path", "Install")
-        self.dialog_step("SCSI Configuration", "No")
+            self.dialog.advance()
+        if settings.pcmcia_prompt:
+            self.dialog.wait_for_title("PCMCIA Support")
+            self.dialog.advance("No")
+        self.dialog.wait_for_title("Installation Method")
+        self.dialog.select_menu_item("Local CDROM")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Note")
+        self.dialog.advance()
+        if settings.cdrom_type_prompt:
+            self.dialog.wait_for_title("CDROM type")
+            self.dialog.select_menu_item("IDE (ATAPI)")
+            self.dialog.advance()
+        self.dialog.wait_for_title("Installation Path")
+        self.dialog.advance("Install")
+        self.dialog.wait_for_title("SCSI Configuration")
+        self.dialog.advance("No")
 
-    def partition_helper(self) -> None:
-        """Run the early graphical partition helper workflow."""
+    def _create_partitions_with_fdisk(self) -> None:
+        """Create the swap and root partitions from the installer's shell."""
         self.s.kb_press("alt-f2")
         self.s.serial_shell_start(screen_prompt="bash#")
         Fdisk(self.s).partition_swap_root(self.disk.target_disk, self.disk.swap_mb)
         self.s.serial_shell_exit(screen_prompt="bash#")
         self.s.kb_press("alt-f1")
 
-    def partition_4x(self) -> None:
-        """Partition a Red Hat 4.x target with the scripted fdisk workflow."""
+    def _partition_disks(self) -> None:
+        """Use the Partition Disks workflow with the scripted fdisk helper."""
         self.dialog.wait_for_title("Partition Disks")
-        self.partition_helper()
-        self.dialog_step("Partition Disks", "Done")
-        self.dialog_step("Active Swap Space")
+        self._create_partitions_with_fdisk()
+        self.dialog.wait_for_title("Partition Disks")
+        self.dialog.advance("Done")
+        self.dialog.wait_for_title("Active Swap Space")
+        self.dialog.advance()
         self.dialog.wait_for_title("Select Root Partition")
         self.dialog.select_partition(self.disk.root_partition)
-        self.dialog.advance("Ok")
+        self.dialog.advance()
         self.dialog.wait_for_title("Partition Disk")
         self.dialog.select_partition(self.disk.fat_partition)
         self.dialog.press_button("Edit")
         self.dialog.wait_for_title("Edit Mount Point")
-        self.dialog.enter_text(self.disk.fat_mount, field="mount point")
-        self.dialog_step("Partition Disk")
+        self.dialog.set_fields({"Mount point :": self.disk.fat_mount})
+        self.dialog.press_button("Ok")
+        self.dialog.wait_for_title("Partition Disk")
+        self.dialog.advance()
         self.dialog.wait_for_title("Format Partitions")
         self.dialog.check_partition(self.disk.root_partition)
-        self.dialog.advance("Ok")
+        self.dialog.advance()
 
-    def components(self) -> None:
+    def select_components(self) -> None:
         """Apply the configured component set and accept the form."""
         self.dialog.wait_for_title("Components to Install")
         self.dialog.set_checklist_items(self.settings.components)
-        self.dialog.advance("Ok")
+        self.dialog.advance()
 
-    def finish_components(self) -> None:
-        """Finish component selection and begin package installation."""
-        self.dialog_step("Install log")
+    def begin_package_installation(self) -> None:
+        """Accept the install log notice and begin package installation."""
+        self.dialog.wait_for_title("Install log")
+        self.dialog.advance()
         if self.settings.keyboard_after_packages:
             self._configure_keyboard()
 
-    def x11_4x(self) -> None:
-        """Configure X11 screens used by Red Hat 4.x."""
-        self.dialog.wait_for_title("Configure Mouse")
-        self.dialog.select_menu_item("PS/2 Mouse")
-        self.dialog.set_checkbox("Emulate 3 Buttons?")
-        self.dialog.advance("Ok")
-        self.dialog.wait_for_title("Choose A Card")
-        # Xconfigurator 2.0.1 renders sprintf("%-49s%s", name, chipset).
-        self.dialog.select_menu_item(self.settings.x_card_label, label_width=49)
-        self.dialog.advance("Ok")
+    def configure_x11(self) -> None:
+        """Configure X11 with the selected screen workflow."""
+        pci_probe = self.settings.x11_setup == "pci-probe"
+        if not pci_probe:
+            self.dialog.wait_for_title("Choose A Card")
+            self.dialog.select_menu_item(self.settings.x_card_label, label_width=49)
+            self.dialog.advance()
+        else:
+            self.dialog.wait_for_title("PCI Probe")
+            self.dialog.advance()
         self.dialog.wait_for_title("Monitor Setup")
-        self.dialog.move_down()
-        self.dialog.advance("Ok")
+        self.dialog.select_menu_item("Generic Monitor")
+        self.dialog.advance()
+        if pci_probe:
+            self.dialog.wait_for_title("Screen Configuration")
+            self.dialog.advance("Don't Probe")
         self.dialog.wait_for_title("Video Memory")
         self.dialog.select_menu_item(self.settings.x_video_memory_label)
-        self.dialog.advance("Ok")
-        self.dialog_step("Clockchip Configuration")
-        self.dialog_step("Select Video Modes")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Clockchip Configuration")
+        self.dialog.select_menu_item("No Clockchip Setting (recommended)")
+        self.dialog.advance()
+        self.dialog.wait_for_title("Select Video Modes")
+        self.dialog.advance()
 
-    def x11_5x(self) -> None:
-        """Configure X11 screens used by Red Hat 5.x."""
-        # "X Server : SVGA" is message text; Xconfigurator 3.x titles the
-        # containing dialog "PCI Probe".
-        self.dialog_step("PCI Probe")
-        self.dialog.wait_for_title("Monitor Setup")
-        self.dialog.move_down()
-        self.dialog.advance("Ok")
-        self.dialog_step("Screen Configuration", "Don't Probe")
-        self.dialog.wait_for_title("Video Memory")
-        self.dialog.select_menu_item(self.settings.x_video_memory_label)
-        self.dialog.advance("Ok")
-        self.dialog_step("Clockchip Configuration")
-        self.dialog_step("Select Video Modes")
-
-    def network(self) -> None:
+    def configure_network(self) -> None:
         """Configure Red Hat networking and resolver settings."""
-        o = self.settings
-        n = self.network_config
-        self.dialog_step("Network Configuration", "Yes")
-        if o.flow == "51":
-            # devices.c auto-loads a uniquely matched PCI driver, reports it
-            # in a "Probe" message, and returns before the manual module menu.
-            self.dialog_step("Probe")
+        settings = self.settings
+        network = self.network_config
+        self.dialog.wait_for_title("Network Configuration")
+        self.dialog.advance("Yes")
+        if settings.network_setup == "probe-static":
+            self.dialog.wait_for_title("Probe")
+            self.dialog.advance()
             self.dialog.wait_for_title("Boot Protocol")
             self.dialog.select_menu_item("Static IP address")
-            self.dialog.advance("Ok")
+            self.dialog.advance()
         self.dialog.wait_for_title("Configure TCP/IP")
-        self.dialog.enter_text(n.ip, field="IP address")
-        for value in (n.netmask, n.network, n.broadcast):
-            self.dialog.replace_text(value, field="TCP/IP address")
-        self.dialog.advance("Ok")
-        self.dialog.wait_for_title("Configure Network")
-        self.dialog.enter_text(n.domain, field="domain name")
-        self.dialog.enter_text(n.hostname, field="hostname")
-        for value in (n.gateway, n.nameserver):
-            self.dialog.replace_text(value, field="network address")
-        self.dialog.advance("Ok")
+        if settings.tcp_ip_form == "network-and-broadcast":
+            tcp_ip_tail = {
+                "Network address:": network.network,
+                "Broadcast address:": network.broadcast,
+            }
+            network_tail = {
+                "Default gateway (IP):": network.gateway,
+                "Primary nameserver (IP):": network.nameserver,
+                "Secondary nameserver (IP):": "",
+                "Tertiary nameserver (IP):": "",
+            }
+        else:
+            tcp_ip_tail = {
+                "Default gateway (IP):": network.gateway,
+                "Primary nameserver:": network.nameserver,
+            }
+            network_tail = {
+                "Secondary nameserver (IP):": "",
+                "Tertiary nameserver (IP):": "",
+            }
+        self.dialog.set_fields(
+            {
+                "IP address:": network.ip,
+                "Netmask:": network.netmask,
+                **tcp_ip_tail,
+            }
+        )
+        self.dialog.advance()
 
-    def finish(self) -> None:
-        """Complete installation and launch post-installation setup."""
-        o = self.settings
+        self.dialog.wait_for_title("Configure Network")
+        self.dialog.set_fields(
+            {
+                "Domain name:": network.domain,
+                "Host name:": network.hostname,
+                **network_tail,
+            }
+        )
+        self.dialog.advance()
+
+    def complete_installation(self) -> None:
+        """Dismiss the completion screen and launch post-installation setup."""
         hostname = self.network_config.hostname
-        self._finish_configuration()
-        self._install_lilo()
-        # Red Hat 4.0 install2.c finishes with winMessage(..., "Done", ...).
         self.dialog.wait_for_title("Done")
         self.s.set_boot("c")
-        self.dialog.advance("Ok")
+        self.dialog.advance()
         self.s.run_postinst(
-            o.password,
+            self.settings.password,
             login=f"{hostname} login:",
             shell=f"[root@{hostname} /root]#",
         )
 
-    def _finish_configuration(self) -> None:
-        """Answer final service, printer, account, and boot-disk screens."""
-        o = self.settings
-        self.dialog.wait_for_title(o.timezone_prompt)
-        if o.timezone_clock_control == "checkbox":
+    def configure_installed_system(self) -> None:
+        """Configure timezone, services, printing, accounts, and boot media."""
+        settings = self.settings
+        self.dialog.wait_for_title(settings.timezone_prompt)
+        if settings.timezone_clock_control == "checkbox":
             self.dialog.set_checkbox(
                 "Hardware clock set to GMT",
                 self.locale.hardware_clock == "utc",
@@ -289,40 +313,49 @@ class CInstaller:
             )
             self.dialog.set_radio(clock_label)
         self.dialog.select_menu_item(self.locale.timezone)
-        self.dialog.advance(o.timezone_button)
-        if o.keyboard_late:
+        self.dialog.advance()
+        if settings.keyboard_late:
             self._configure_keyboard()
-        if o.flow in {"50", "51"}:
-            self.dialog_step("Services")
-        if o.flow == "42":
-            self.dialog_step("Add Printers", "No", advance=False)
-        elif o.flow in {"50", "51"}:
-            self.dialog_step("Configure Printer", "No", advance=False)
+        if settings.services_prompt:
+            self.dialog.wait_for_title("Services")
+            self.dialog.advance()
+        if settings.printer_prompt is not None:
+            self.dialog.wait_for_title(settings.printer_prompt)
+            self.dialog.press_button("No")
         self.dialog.wait_for_title("Root Password")
-        self.dialog.enter_text(o.password, field="root password", sensitive=True)
-        self.dialog.enter_text(o.password, field="confirmation", sensitive=True)
-        self.dialog.advance("Ok")
-        if o.bootdisk_prompt:
-            self.dialog_step("Bootdisk", "No", advance=False)
+        self.dialog.set_fields(
+            {
+                settings.password_field: settings.password,
+                "Password (again):": settings.password,
+            },
+            sensitive=True,
+        )
+        self.dialog.advance()
+        if settings.bootdisk_prompt:
+            self.dialog.wait_for_title("Bootdisk")
+            self.dialog.press_button("No")
 
     def _configure_keyboard(self) -> None:
         """Select the configured keymap in the external kbdconfig utility."""
         self.dialog.wait_for_title("Configure Keyboard")
         self.dialog.select_menu_item(self.locale.keymap)
-        self.dialog.advance("Okay")
+        self.dialog.advance()
 
-    def _install_lilo(self) -> None:
-        """Install LILO while excluding the staged FAT disk from its boot menu."""
-        for _ in range(self.settings.lilo_setup_dialogs):
-            self.dialog_step("Lilo Installation")
+    def configure_bootloader(self) -> None:
+        """Configure LILO while excluding the staged FAT disk from its boot menu."""
+        self.dialog.wait_for_title("Lilo Installation")
+        self.dialog.select_menu_item(f"{self.disk.target_disk} Master Boot Record")
+        self.dialog.advance()
+        for _ in range(self.settings.lilo_setup_dialogs - 1):
+            self.dialog.wait_for_title("Lilo Installation")
+            self.dialog.advance()
         if not self.settings.lilo_boot_labels:
             return
         self.dialog.wait_for_title("Bootable Partitions")
         self.dialog.select_partition(self.disk.fat_partition)
         self.dialog.press_button("Edit")
         self.dialog.wait_for_title("Edit Boot Label")
-        # lilo.c assigns the first DOS partition "dos"; the historical driver
-        # selected that row and erased its three-character label.
-        self.dialog.replace_text("", field="boot label")
+        self.dialog.set_fields({self.settings.boot_label_field: ""})
+        self.dialog.press_button("Ok")
         self.dialog.wait_for_title("Bootable Partitions")
-        self.dialog.advance("Ok")
+        self.dialog.advance()

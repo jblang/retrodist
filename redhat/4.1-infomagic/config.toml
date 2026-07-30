@@ -26,7 +26,10 @@ timezone = "UTC"
 keymap = "us"
 
 [install.redhat]
-flow = "4x"
+partitioning = "partition-disks"
+mouse_setup = "configure-mouse"
+x11_setup = "choose-card"
+tcp_ip_form = "gateway-and-nameserver"
 # Base is mandatory and is not shown in the component checklist.
 components = [
   "C Development",
@@ -55,7 +58,6 @@ x_card_label = "Cirrus Logic GD543x"
 x_video_memory_label = "2048"
 keyboard_after_packages = true
 timezone_clock_control = "checkbox"
-timezone_button = "Okay"
 lilo_setup_dialogs = 2
 lilo_boot_labels = true
 

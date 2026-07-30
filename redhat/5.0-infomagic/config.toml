@@ -29,7 +29,12 @@ keymap = "us"
 keyboard_early = true
 pcmcia_prompt = false
 cdrom_type_prompt = false
-flow = "50"
+partitioning = "select-root-partition"
+mouse_setup = "probe-and-emulation"
+x11_setup = "pci-probe"
+tcp_ip_form = "gateway-and-nameserver"
+services_prompt = true
+printer_prompt = "Configure Printer"
 # Base is mandatory and is not shown in the component checklist.
 components = [
   # "Printer Support",
@@ -66,7 +71,6 @@ components = [
 x_video_memory_label = "2 meg"
 timezone_prompt = "Configure Timezones"
 timezone_clock_control = "checkbox"
-timezone_button = "Ok"
 lilo_setup_dialogs = 2
 
 [postinst]

@@ -58,8 +58,7 @@ def _special_validation_message(path: str, error: dict[str, object]) -> str | No
         return f"Unknown post-install stage(s): {error['input']}"
     if path == "install" and location[-2:] == ("redhat", "flow"):
         if error_type == "literal_error":
-            choices = "1.1, 2.1, 3.0.3" if "redhat-perl" in location else "4x, 42, 50, 51"
-            return f"install.redhat.flow must be one of: {choices}"
+            return "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3"
         return "install.redhat.flow must be a string"
     if (
         path == "install"

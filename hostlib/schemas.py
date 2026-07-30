@@ -98,15 +98,30 @@ class CInstallerSettings(ConfigModel):
     keyboard_late: bool = False
     pcmcia_prompt: bool = True
     cdrom_type_prompt: bool = True
-    flow: Literal["4x", "42", "50", "51"] = "4x"
+    partitioning: Literal[
+        "partition-disks",
+        "select-root-partition",
+        "current-disk-partitions",
+    ]
+    mouse_setup: Literal[
+        "configure-mouse",
+        "probe-and-emulation",
+        "probe-and-configure-mouse",
+    ]
+    x11_setup: Literal["choose-card", "pci-probe"]
+    network_setup: Literal["direct", "probe-static"] = "direct"
+    tcp_ip_form: Literal["network-and-broadcast", "gateway-and-nameserver"]
+    services_prompt: bool = False
+    printer_prompt: Literal["Add Printers", "Configure Printer"] | None = None
     x_card_label: str = "Cirrus Logic GD543x"
     x_video_memory_label: str = "2048"
     timezone_prompt: str = "Configure Timezones"
     timezone_clock_control: Literal["radio", "checkbox"] = "radio"
-    timezone_button: str = "Okay"
     lilo_setup_dialogs: int = Field(default=1, ge=1)
     lilo_boot_labels: bool = True
+    boot_label_field: str = "Boot label :"
     bootdisk_prompt: bool = False
+    password_field: str = "Password        :"
     password: str = "password"
 
 

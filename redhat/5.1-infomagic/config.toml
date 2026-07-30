@@ -31,7 +31,13 @@ language_prompt = true
 keyboard_early = true
 pcmcia_prompt = false
 cdrom_type_prompt = false
-flow = "51"
+partitioning = "current-disk-partitions"
+mouse_setup = "probe-and-configure-mouse"
+x11_setup = "pci-probe"
+tcp_ip_form = "gateway-and-nameserver"
+network_setup = "probe-static"
+services_prompt = true
+printer_prompt = "Configure Printer"
 # Base is mandatory and is not shown in the component checklist.
 components = [
   # "Printer Support",
@@ -68,9 +74,10 @@ components = [
 x_video_memory_label = "2 meg"
 timezone_prompt = "Configure Timezones"
 timezone_clock_control = "checkbox"
-timezone_button = "Ok"
 lilo_setup_dialogs = 2
+boot_label_field = "Boot label:"
 bootdisk_prompt = true
+password_field = "Password:"
 
 [postinst]
 stages = ["x11"]

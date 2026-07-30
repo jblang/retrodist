@@ -25,7 +25,10 @@ timezone = "Etc/UTC"
 keymap = "us"
 
 [install.redhat]
-flow = "4x"
+partitioning = "partition-disks"
+mouse_setup = "configure-mouse"
+x11_setup = "choose-card"
+tcp_ip_form = "network-and-broadcast"
 # Base is mandatory and is not shown in the component checklist.
 components = [
   "C Development",

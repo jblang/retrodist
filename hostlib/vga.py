@@ -60,7 +60,11 @@ class ScreenSnapshot:
             raise ValueError("VGA memory must contain complete character/attribute pairs")
         length = len(memory) if rows is None else min(len(memory), columns * rows * 2)
         width = columns * 2
-        contents = tuple(memory[index : index + width] for index in range(0, length, width))
+        contents = tuple(
+            row + b" \x07" * ((width - len(row)) // 2)
+            for index in range(0, length, width)
+            if (row := memory[index : index + width])
+        )
         return cls(columns, contents)
 
     def cell(self, row: int, column: int) -> VgaCell:

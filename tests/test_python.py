@@ -48,7 +48,7 @@ from hostlib.installers import (
 )
 from hostlib import installers
 from hostlib.installers import redhat_c, redhat_perl
-from hostlib.newt_dialog import NewtDialog
+from hostlib.newt_dialog import NewtDialog, parse_dialog
 from hostlib.vga import ScreenBounds, ScreenObserver, ScreenSnapshot
 from hostlib.media import MediaStager
 from hostlib.media_schemas import DebianPackagesConfig, ExtractionConfig, PostinstConfig
@@ -1409,10 +1409,16 @@ class InstallPlanTests(unittest.TestCase):
                 {
                     "install": {
                         "driver": "redhat-c",
-                        "redhat": {"flow": "unknown", "components": []},
+                        "redhat": {
+                            "components": [],
+                            "partitioning": "unknown",
+                            "mouse_setup": "configure-mouse",
+                            "x11_setup": "choose-card",
+                            "tcp_ip_form": "gateway-and-nameserver",
+                        },
                     }
                 },
-                "install.redhat.flow must be one of: 4x, 42, 50, 51",
+                "partitioning Input should be 'partition-disks'",
             ),
             (
                 {"install": {"driver": "redhat-perl", "redhat": {"flow": "2.1"}}},
@@ -1435,6 +1441,60 @@ class InstallPlanTests(unittest.TestCase):
 
 
 class RedHatDriverTests(unittest.TestCase):
+    def test_c_installer_configs_select_explicit_screen_workflows(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        expected = {
+            "4.0-infomagic": (
+                "partition-disks",
+                "configure-mouse",
+                "choose-card",
+                "direct",
+                "network-and-broadcast",
+            ),
+            "4.1-infomagic": (
+                "partition-disks",
+                "configure-mouse",
+                "choose-card",
+                "direct",
+                "gateway-and-nameserver",
+            ),
+            "4.2-infomagic": (
+                "partition-disks",
+                "configure-mouse",
+                "choose-card",
+                "direct",
+                "gateway-and-nameserver",
+            ),
+            "5.0-infomagic": (
+                "select-root-partition",
+                "probe-and-emulation",
+                "pci-probe",
+                "direct",
+                "gateway-and-nameserver",
+            ),
+            "5.1-infomagic": (
+                "current-disk-partitions",
+                "probe-and-configure-mouse",
+                "pci-probe",
+                "probe-static",
+                "gateway-and-nameserver",
+            ),
+        }
+        for release, workflows in expected.items():
+            with self.subTest(release=release):
+                context = Context.create(root, "install", f"redhat/{release}")
+                settings = load_config(context).install.redhat
+                self.assertEqual(
+                    (
+                        settings.partitioning,
+                        settings.mouse_setup,
+                        settings.x11_setup,
+                        settings.network_setup,
+                        settings.tcp_ip_form,
+                    ),
+                    workflows,
+                )
+
     def test_c_installer_configs_declare_exact_component_sets(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
@@ -1495,26 +1555,41 @@ class RedHatDriverTests(unittest.TestCase):
                 install = load_config(context).install
                 self.assertEqual(install.redhat.components, components)
 
+    def test_c_installer_configs_use_source_field_labels(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        expected = {
+            "4.0-infomagic": ("Password        :", "Boot label :"),
+            "4.1-infomagic": ("Password        :", "Boot label :"),
+            "4.2-infomagic": ("Password        :", "Boot label :"),
+            "5.0-infomagic": ("Password        :", "Boot label :"),
+            "5.1-infomagic": ("Password:", "Boot label:"),
+        }
+        for release, labels in expected.items():
+            with self.subTest(release=release):
+                context = Context.create(root, "install", f"redhat/{release}")
+                settings = load_config(context).install.redhat
+                self.assertEqual(
+                    (settings.password_field, settings.boot_label_field),
+                    labels,
+                )
+
     def test_later_c_installer_configs_encode_source_specific_controls(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
             "4.1-infomagic": {
                 "timezone": "UTC",
-                "timezone_button": "Okay",
                 "lilo_setup_dialogs": 2,
                 "lilo_boot_labels": True,
                 "x_video_memory_label": "2048",
             },
             "4.2-infomagic": {
                 "timezone": "Etc/UTC",
-                "timezone_button": "Ok",
                 "lilo_setup_dialogs": 2,
                 "lilo_boot_labels": True,
                 "x_video_memory_label": "2048",
             },
             "5.0-infomagic": {
                 "timezone": "Etc/UTC",
-                "timezone_button": "Ok",
                 "lilo_setup_dialogs": 2,
                 "lilo_boot_labels": True,
                 # Xconfigurator 3.25 stores 2048 internally but renders the
@@ -1523,10 +1598,11 @@ class RedHatDriverTests(unittest.TestCase):
             },
             "5.1-infomagic": {
                 "timezone": "Etc/UTC",
-                "timezone_button": "Ok",
                 "lilo_setup_dialogs": 2,
                 "lilo_boot_labels": True,
                 "x_video_memory_label": "2 meg",
+                "password_field": "Password:",
+                "boot_label_field": "Boot label:",
             },
         }
         for release, controls in expected.items():
@@ -1630,42 +1706,60 @@ class RedHatDriverTests(unittest.TestCase):
         session.set_boot.assert_called_once_with("c")
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
-    def test_c_installer_composes_4x_phases(self) -> None:
+    def test_c_installer_composes_explicit_phases(self) -> None:
         session = SimpleNamespace()
         installer = unittest.mock.Mock()
-        installer.settings.flow = "4x"
         with patch.object(redhat_c, "CInstaller", return_value=installer):
             redhat_c.run_c_installer(session)
         for method in (
-            installer.start,
-            installer.run_flow,
-            installer.network,
-            installer.finish,
+            installer.boot_and_select_installation_options,
+            installer.partition_storage,
+            installer.select_components,
+            installer.begin_package_installation,
+            installer.configure_mouse,
+            installer.configure_x11,
+            installer.configure_network,
+            installer.configure_installed_system,
+            installer.configure_bootloader,
+            installer.complete_installation,
         ):
             method.assert_called_once_with()
 
-    def test_c_installer_run_flow_composes_4x_and_42_phases(self) -> None:
-        for flow in ("4x", "42"):
-            with self.subTest(flow=flow):
-                installer = object.__new__(redhat_c.CInstaller)
-                installer.settings = SimpleNamespace(flow=flow)
-                installer.partition_4x = unittest.mock.Mock()
-                installer.components = unittest.mock.Mock()
-                installer.finish_components = unittest.mock.Mock()
-                installer.x11_4x = unittest.mock.Mock()
-                installer._flow_5x = unittest.mock.Mock()
+    def test_c_installer_explicitly_selects_default_installation_options(self) -> None:
+        installer = object.__new__(redhat_c.CInstaller)
+        installer.s = SimpleNamespace(boot_command=unittest.mock.Mock())
+        installer.prompts = SimpleNamespace(
+            boot_prompt="boot:",
+            boot_command="",
+            boot_sleep=0,
+        )
+        installer.settings = SimpleNamespace(
+            color_prompt=False,
+            language_prompt=True,
+            keyboard_early=False,
+            pcmcia_prompt=False,
+            cdrom_type_prompt=True,
+        )
+        installer.locale = SimpleNamespace(keymap="us")
+        installer.dialog = unittest.mock.Mock()
 
-                installer.run_flow()
+        installer.boot_and_select_installation_options()
 
-                installer.partition_4x.assert_called_once_with()
-                installer.components.assert_called_once_with()
-                installer.finish_components.assert_called_once_with()
-                installer.x11_4x.assert_called_once_with()
-                installer._flow_5x.assert_not_called()
+        self.assertEqual(
+            installer.dialog.select_menu_item.call_args_list,
+            [
+                call("English"),
+                call("Local CDROM"),
+                call("IDE (ATAPI)"),
+            ],
+        )
 
     def test_c_installer_chooses_yes_to_configure_networking(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
-        installer.settings = SimpleNamespace(flow="4x")
+        installer.settings = SimpleNamespace(
+            network_setup="direct",
+            tcp_ip_form="network-and-broadcast",
+        )
         installer.network_config = SimpleNamespace(
             ip="192.0.2.2",
             netmask="255.255.255.0",
@@ -1677,94 +1771,160 @@ class RedHatDriverTests(unittest.TestCase):
             nameserver="192.0.2.1",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer.network()
+        installer.configure_network()
 
-        installer.dialog_step.assert_any_call("Network Configuration", "Yes")
+        installer.dialog.wait_for_title.assert_any_call("Network Configuration")
+        installer.dialog.advance.assert_any_call("Yes")
         installer.dialog.wait_for_title.assert_any_call("Configure TCP/IP")
+        self.assertEqual(
+            installer.dialog.set_fields.call_args_list,
+            [
+                call(
+                    {
+                        "IP address:": "192.0.2.2",
+                        "Netmask:": "255.255.255.0",
+                        "Network address:": "192.0.2.0",
+                        "Broadcast address:": "192.0.2.255",
+                    }
+                ),
+                call(
+                    {
+                        "Domain name:": "example.test",
+                        "Host name:": "retro",
+                        "Default gateway (IP):": "192.0.2.1",
+                        "Primary nameserver (IP):": "192.0.2.1",
+                        "Secondary nameserver (IP):": "",
+                        "Tertiary nameserver (IP):": "",
+                    }
+                ),
+            ],
+        )
 
     def test_c_installer_applies_the_configured_component_set(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.settings = SimpleNamespace(components=["C Development", "X Development"])
         installer.dialog = unittest.mock.Mock()
 
-        installer.components()
+        installer.select_components()
 
         installer.dialog.wait_for_title.assert_called_once_with("Components to Install")
         installer.dialog.set_checklist_items.assert_called_once_with(
             ["C Development", "X Development"]
         )
-        installer.dialog.advance.assert_called_once_with("Ok")
+        installer.dialog.advance.assert_called_once_with()
 
-    def test_redhat_5x_selects_fdisk_then_runs_scripted_partitioning(self) -> None:
+    def test_select_root_partition_workflow_runs_scripted_fdisk_first(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
-        installer.settings = SimpleNamespace(flow="50")
+        installer.settings = SimpleNamespace(partitioning="select-root-partition")
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
-        installer.partition_helper = unittest.mock.Mock()
-        installer._partition_5x = unittest.mock.Mock()
-        installer.components = unittest.mock.Mock()
-        installer.finish_components = unittest.mock.Mock()
-        installer.x11_5x = unittest.mock.Mock()
+        installer._create_partitions_with_fdisk = unittest.mock.Mock()
+        installer._select_root_partition = unittest.mock.Mock()
 
-        installer._flow_5x()
+        installer.partition_storage()
 
-        installer.dialog_step.assert_any_call(
-            "Disk Setup",
-            "fdisk",
-            advance=False,
-        )
-        installer.partition_helper.assert_called_once_with()
-        installer.components.assert_called_once_with()
-        installer.dialog.wait_for_title.assert_called_once_with("Partition Disks")
+        installer.dialog.wait_for_title.assert_any_call("Disk Setup")
+        installer.dialog.press_button.assert_called_once_with("fdisk")
+        installer._create_partitions_with_fdisk.assert_called_once_with()
+        installer.dialog.wait_for_title.assert_any_call("Partition Disks")
         installer.dialog.advance.assert_called_once_with("Done")
+        installer._select_root_partition.assert_called_once_with()
 
-    def test_redhat_51_waits_for_partition_dialog_after_mount_editor(self) -> None:
+    def test_current_disk_partitions_workflow_waits_after_mount_editor(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.disk = SimpleNamespace(root_partition="/dev/hda2")
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer._partition_5x("51")
+        installer._edit_current_disk_partitions()
 
-        installer.dialog.enter_text.assert_called_once_with("/", field="mount point")
-        self.assertEqual(
-            installer.dialog_step.call_args_list,
-            [call("Current Disk Partitions"), call("Active Swap Space")],
-        )
+        installer.dialog.set_fields.assert_called_once_with({"Mount Point:": "/"})
+        installer.dialog.press_button.assert_any_call("Ok")
+        installer.dialog.wait_for_title.assert_any_call("Current Disk Partitions")
+        installer.dialog.wait_for_title.assert_any_call("Active Swap Space")
 
-    def test_redhat_51_configures_combined_mouse_form(self) -> None:
+    def test_probe_and_configure_mouse_workflow_uses_combined_form(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
+        installer.settings = SimpleNamespace(mouse_setup="probe-and-configure-mouse")
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer._configure_mouse_5x("51")
+        installer.configure_mouse()
 
-        installer.dialog_step.assert_called_once_with("Probing Result")
-        installer.dialog.wait_for_title.assert_called_once_with("Configure Mouse")
+        self.assertEqual(
+            installer.dialog.wait_for_title.call_args_list,
+            [call("Probing Result"), call("Configure Mouse")],
+        )
         installer.dialog.select_menu_item.assert_called_once_with("PS/2 Mouse")
         installer.dialog.set_checkbox.assert_called_once_with("Emulate 3 Buttons?")
-        installer.dialog.advance.assert_called_once_with("Ok")
+        self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
-    def test_redhat_50_keeps_separate_mouse_emulation_question(self) -> None:
+    def test_probe_and_emulation_workflow_keeps_separate_question(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
+        installer.settings = SimpleNamespace(mouse_setup="probe-and-emulation")
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer._configure_mouse_5x("50")
+        installer.configure_mouse()
 
         self.assertEqual(
-            installer.dialog_step.call_args_list,
-            [call("Probing Result"), call("Emulate Three Buttons", "Yes")],
+            installer.dialog.wait_for_title.call_args_list,
+            [call("Probing Result"), call("Emulate Three Buttons")],
         )
-        installer.dialog.assert_not_called()
+        self.assertEqual(installer.dialog.advance.call_args_list, [call(), call("Yes")])
+
+    def test_x11_workflows_share_common_configuration_screens(self) -> None:
+        cases = {
+            "choose-card": [
+                "Choose A Card",
+                "Monitor Setup",
+                "Video Memory",
+                "Clockchip Configuration",
+                "Select Video Modes",
+            ],
+            "pci-probe": [
+                "PCI Probe",
+                "Monitor Setup",
+                "Screen Configuration",
+                "Video Memory",
+                "Clockchip Configuration",
+                "Select Video Modes",
+            ],
+        }
+        for workflow, titles in cases.items():
+            with self.subTest(workflow=workflow):
+                installer = object.__new__(redhat_c.CInstaller)
+                installer.settings = SimpleNamespace(
+                    x11_setup=workflow,
+                    x_card_label="Cirrus Logic GD543x",
+                    x_video_memory_label="2048",
+                )
+                installer.dialog = unittest.mock.Mock()
+
+                installer.configure_x11()
+
+                self.assertEqual(
+                    installer.dialog.wait_for_title.call_args_list,
+                    [call(title) for title in titles],
+                )
+                installer.dialog.select_menu_item.assert_any_call("Generic Monitor")
+                installer.dialog.select_menu_item.assert_any_call("2048")
+                installer.dialog.select_menu_item.assert_any_call(
+                    "No Clockchip Setting (recommended)"
+                )
+                if workflow == "choose-card":
+                    installer.dialog.select_menu_item.assert_any_call(
+                        "Cirrus Logic GD543x",
+                        label_width=49,
+                    )
+                else:
+                    installer.dialog.advance.assert_any_call("Don't Probe")
 
     def test_redhat_51_accepts_probed_tulip_and_selects_static_networking(
         self,
     ) -> None:
         installer = object.__new__(redhat_c.CInstaller)
-        installer.settings = SimpleNamespace(flow="51")
+        installer.settings = SimpleNamespace(
+            network_setup="probe-static",
+            tcp_ip_form="gateway-and-nameserver",
+        )
         installer.network_config = SimpleNamespace(
             ip="192.0.2.2",
             netmask="255.255.255.0",
@@ -1776,11 +1936,10 @@ class RedHatDriverTests(unittest.TestCase):
             nameserver="192.0.2.1",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer.network()
+        installer.configure_network()
 
-        installer.dialog_step.assert_any_call("Probe")
+        installer.dialog.wait_for_title.assert_any_call("Probe")
         self.assertNotIn(
             call("Digital 21040 (Tulip)"),
             installer.dialog.select_menu_item.call_args_list,
@@ -1789,15 +1948,37 @@ class RedHatDriverTests(unittest.TestCase):
             call("Static IP address"),
             installer.dialog.select_menu_item.call_args_list,
         )
+        self.assertEqual(
+            installer.dialog.set_fields.call_args_list,
+            [
+                call(
+                    {
+                        "IP address:": "192.0.2.2",
+                        "Netmask:": "255.255.255.0",
+                        "Default gateway (IP):": "192.0.2.1",
+                        "Primary nameserver:": "192.0.2.1",
+                    }
+                ),
+                call(
+                    {
+                        "Domain name:": "example.test",
+                        "Host name:": "retro",
+                        "Secondary nameserver (IP):": "",
+                        "Tertiary nameserver (IP):": "",
+                    }
+                ),
+            ],
+        )
 
-    def test_c_installer_uses_the_rendered_timezone_button_label(self) -> None:
+    def test_c_installer_advances_configuration_dialogs_without_button_labels(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.settings = SimpleNamespace(
             timezone_prompt="Configure Timezones",
             timezone_clock_control="radio",
-            timezone_button="Okay",
             keyboard_late=True,
-            flow="4x",
+            services_prompt=False,
+            printer_prompt=None,
+            password_field="Password        :",
             password="password",
             bootdisk_prompt=False,
         )
@@ -1807,9 +1988,8 @@ class RedHatDriverTests(unittest.TestCase):
             keymap="us",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
 
-        installer._finish_configuration()
+        installer.configure_installed_system()
 
         self.assertEqual(
             installer.dialog.wait_for_title.call_args_list,
@@ -1824,9 +2004,16 @@ class RedHatDriverTests(unittest.TestCase):
             installer.dialog.select_menu_item.call_args_list,
             [call("Etc/UTC"), call("us")],
         )
+        installer.dialog.set_fields.assert_called_once_with(
+            {
+                "Password        :": "password",
+                "Password (again):": "password",
+            },
+            sensitive=True,
+        )
         self.assertEqual(
             installer.dialog.advance.call_args_list,
-            [call("Okay"), call("Okay"), call("Ok")],
+            [call(), call(), call()],
         )
 
     def test_later_redhat_timeconfig_uses_gmt_checkbox_and_ok(self) -> None:
@@ -1836,9 +2023,10 @@ class RedHatDriverTests(unittest.TestCase):
                 installer.settings = SimpleNamespace(
                     timezone_prompt="Configure Timezones",
                     timezone_clock_control="checkbox",
-                    timezone_button="Ok",
                     keyboard_late=False,
-                    flow="50",
+                    services_prompt=True,
+                    printer_prompt="Configure Printer",
+                    password_field="Password        :",
                     password="password",
                     bootdisk_prompt=False,
                 )
@@ -1848,9 +2036,8 @@ class RedHatDriverTests(unittest.TestCase):
                     keymap="us",
                 )
                 installer.dialog = unittest.mock.Mock()
-                installer.dialog_step = unittest.mock.Mock()
 
-                installer._finish_configuration()
+                installer.configure_installed_system()
 
                 installer.dialog.set_checkbox.assert_called_once_with(
                     "Hardware clock set to GMT", checked
@@ -1859,25 +2046,21 @@ class RedHatDriverTests(unittest.TestCase):
                 installer.dialog.select_menu_item.assert_called_once_with("Etc/UTC")
                 self.assertEqual(
                     installer.dialog.advance.call_args_list,
-                    [call("Ok"), call("Ok")],
+                    [call(), call(), call()],
                 )
 
-    def test_all_c_installer_flows_wait_for_the_source_defined_done_dialog(self) -> None:
-        for flow in ("4x", "42", "50", "51"):
-            with self.subTest(flow=flow):
-                installer = object.__new__(redhat_c.CInstaller)
-                installer.settings = SimpleNamespace(flow=flow, password="password")
-                installer.network_config = SimpleNamespace(hostname="retro")
-                installer.dialog = unittest.mock.Mock()
-                installer.s = unittest.mock.Mock()
-                installer._finish_configuration = unittest.mock.Mock()
-                installer._install_lilo = unittest.mock.Mock()
+    def test_complete_installation_waits_for_the_source_defined_done_dialog(self) -> None:
+        installer = object.__new__(redhat_c.CInstaller)
+        installer.settings = SimpleNamespace(password="password")
+        installer.network_config = SimpleNamespace(hostname="retro")
+        installer.dialog = unittest.mock.Mock()
+        installer.s = unittest.mock.Mock()
 
-                installer.finish()
+        installer.complete_installation()
 
-                installer.dialog.wait_for_title.assert_called_once_with("Done")
-                installer.dialog.advance.assert_called_once_with("Ok")
-                installer.s.set_boot.assert_called_once_with("c")
+        installer.dialog.wait_for_title.assert_called_once_with("Done")
+        installer.dialog.advance.assert_called_once_with()
+        installer.s.set_boot.assert_called_once_with("c")
 
     def test_lilo_clears_the_staged_fat_disks_boot_label(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
@@ -1886,20 +2069,21 @@ class RedHatDriverTests(unittest.TestCase):
             fat_partition="/dev/hdb1",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
         installer.settings = SimpleNamespace(
             lilo_setup_dialogs=1,
             lilo_boot_labels=True,
+            boot_label_field="Boot label :",
         )
 
-        installer._install_lilo()
+        installer.configure_bootloader()
 
-        installer.dialog_step.assert_called_once_with("Lilo Installation")
+        installer.dialog.select_menu_item.assert_called_once_with("/dev/hda Master Boot Record")
         installer.dialog.select_partition.assert_called_once_with("/dev/hdb1")
-        installer.dialog.replace_text.assert_called_once_with("", field="boot label")
+        installer.dialog.set_fields.assert_called_once_with({"Boot label :": ""})
         self.assertEqual(
             installer.dialog.wait_for_title.call_args_list,
             [
+                call("Lilo Installation"),
                 call("Bootable Partitions"),
                 call("Edit Boot Label"),
                 call("Bootable Partitions"),
@@ -1907,11 +2091,11 @@ class RedHatDriverTests(unittest.TestCase):
         )
         self.assertEqual(
             installer.dialog.press_button.call_args_list,
-            [call("Edit")],
+            [call("Edit"), call("Ok")],
         )
-        installer.dialog.advance.assert_called_once_with("Ok")
+        self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
-    def test_redhat_4x_waits_for_partition_dialog_after_mount_editor(self) -> None:
+    def test_partition_disks_workflow_waits_after_mount_editor(self) -> None:
         installer = object.__new__(redhat_c.CInstaller)
         installer.disk = SimpleNamespace(
             root_partition="/dev/hda2",
@@ -1919,47 +2103,45 @@ class RedHatDriverTests(unittest.TestCase):
             fat_mount="/retro",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
-        installer.partition_helper = unittest.mock.Mock()
+        installer._create_partitions_with_fdisk = unittest.mock.Mock()
 
-        installer.partition_4x()
+        installer._partition_disks()
 
-        installer.dialog.enter_text.assert_called_once_with("/retro", field="mount point")
-        self.assertEqual(
-            installer.dialog_step.call_args_list,
-            [
-                call("Partition Disks", "Done"),
-                call("Active Swap Space"),
-                call("Partition Disk"),
-            ],
-        )
+        installer.dialog.set_fields.assert_called_once_with({"Mount point :": "/retro"})
+        installer.dialog.press_button.assert_any_call("Ok")
+        installer.dialog.wait_for_title.assert_any_call("Partition Disks")
+        installer.dialog.wait_for_title.assert_any_call("Active Swap Space")
+        installer.dialog.wait_for_title.assert_any_call("Partition Disk")
+        installer.dialog.advance.assert_any_call("Done")
 
     def test_redhat_41_lilo_has_two_setup_dialogs_then_boot_label_editor(
         self,
     ) -> None:
         installer = object.__new__(redhat_c.CInstaller)
-        installer.disk = SimpleNamespace(fat_partition="/dev/hdb1")
+        installer.disk = SimpleNamespace(
+            target_disk="/dev/hda",
+            fat_partition="/dev/hdb1",
+        )
         installer.dialog = unittest.mock.Mock()
-        installer.dialog_step = unittest.mock.Mock()
         installer.settings = SimpleNamespace(
             lilo_setup_dialogs=2,
             lilo_boot_labels=True,
+            boot_label_field="Boot label :",
         )
 
-        installer._install_lilo()
+        installer.configure_bootloader()
 
-        self.assertEqual(
-            installer.dialog_step.call_args_list,
-            [call("Lilo Installation"), call("Lilo Installation")],
-        )
         self.assertEqual(
             installer.dialog.wait_for_title.call_args_list,
             [
+                call("Lilo Installation"),
+                call("Lilo Installation"),
                 call("Bootable Partitions"),
                 call("Edit Boot Label"),
                 call("Bootable Partitions"),
             ],
         )
+        installer.dialog.select_menu_item.assert_called_once_with("/dev/hda Master Boot Record")
         installer.dialog.select_partition.assert_called_once_with("/dev/hdb1")
 
     def test_early_redhat_flow_composes_release_specific_phases(self) -> None:
@@ -2830,6 +3012,12 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
         snapshot = ScreenSnapshot.capture(b"A\x07B\x07\x00\x07C\x07", 2, 2)
         self.assertEqual(snapshot.text, "AB\n C")
 
+    def test_snapshot_pads_a_partial_final_row(self) -> None:
+        snapshot = ScreenSnapshot.capture(b"A\x07B\x07C\x07", columns=2, rows=None)
+
+        self.assertEqual(snapshot.text, "AB\nC ")
+        self.assertEqual(snapshot.cell(2, 2).character, " ")
+
     def test_decode_converts_cp437_graphics_before_removing_controls(self) -> None:
         memory = b"\xda\x07\xc4\x07\xbf\x07\x1b\x07"
         self.assertEqual(ScreenSnapshot.capture(memory, 4, 1).text, "┌─┐ ")
@@ -3002,7 +3190,7 @@ class NewtDialogTests(unittest.TestCase):
         return cls._snapshot(lines, attributes)
 
     def test_parses_title_bounds_and_active_menu_item(self) -> None:
-        state = NewtDialog.parse(self._menu("GD543x"))
+        state = parse_dialog(self._menu("GD543x"))
 
         self.assertEqual(state.title, "Choose A Card")
         self.assertEqual(state.view.bounds, ScreenBounds(1, 1, 6, 27))
@@ -3034,7 +3222,7 @@ class NewtDialogTests(unittest.TestCase):
         return cls._snapshot(lines, attributes)
 
     def test_timezone_radio_does_not_hide_the_active_timezone_menu_item(self) -> None:
-        state = NewtDialog.parse(self._timezone("Local time", False))
+        state = parse_dialog(self._timezone("Local time", False))
 
         self.assertEqual(
             state.selected_radios,
@@ -3062,7 +3250,7 @@ class NewtDialogTests(unittest.TestCase):
         attributes = {(1, column): 0x74 for column in range(6, 25)}
         attributes.update({(3, column): 0x1E for column in range(3, 34)})
         attributes.update({(8, column): 0x1E for column in range(3, 32)})
-        state = NewtDialog.parse(self._snapshot(lines, attributes))
+        state = parse_dialog(self._snapshot(lines, attributes))
 
         self.assertEqual(
             state.checked,
@@ -3123,7 +3311,7 @@ class NewtDialogTests(unittest.TestCase):
             def kb_press_quiet(self, *keys):
                 self.keys.extend(keys)
 
-        state = NewtDialog.parse(frame)
+        state = parse_dialog(frame)
         self.assertEqual(state.active_item, row)
         session = Session()
         NewtDialog(session).select_menu_item(card, label_width=49)
@@ -3181,7 +3369,7 @@ class NewtDialogTests(unittest.TestCase):
             columns=frame.columns,
             rows=len(frame.contents),
         )
-        self.assertEqual(NewtDialog.parse(redless).title, "Choose A Card")
+        self.assertEqual(parse_dialog(redless).title, "Choose A Card")
 
     def test_title_wait_searches_beyond_the_first_vga_page(self) -> None:
         menu = self._menu("GD542x")
@@ -3209,8 +3397,16 @@ class NewtDialogTests(unittest.TestCase):
 
         session = Session()
         dialog = NewtDialog(session)
-        state = dialog.wait_for_title("Choose A Card")
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            state = dialog.wait_for_title("Choose A Card")
         dialog.capture()
+        self.assertEqual(
+            [record.getMessage() for record in captured.records],
+            [
+                "⏳ Choose A Card",
+                "📸 Choose A Card:\n" + "\n".join(state.view.lines),
+            ],
+        )
         self.assertIsNone(session.rows)
         self.assertEqual(state.view.bounds.top, 26)
         self.assertEqual(session.screen_rows, [state.view.bounds.bottom])
@@ -3233,9 +3429,46 @@ class NewtDialogTests(unittest.TestCase):
         box(3, 6, 9, 38, "Edit Mount Point")
         frame = self._snapshot(["".join(row) for row in cells], {})
 
-        self.assertEqual(NewtDialog.parse(frame).title, "Edit Mount Point")
-        outer = NewtDialog.parse(frame, title="Partition Disk")
+        self.assertEqual(parse_dialog(frame).title, "Edit Mount Point")
+        outer = parse_dialog(frame, title="Partition Disk")
         self.assertEqual(outer.view.bounds, ScreenBounds(1, 1, 12, 46))
+
+    def test_title_wait_rejects_parent_until_child_dialog_closes(self) -> None:
+        def frame(child: bool) -> ScreenSnapshot:
+            width, height = 40, 10
+            cells = [[" " for _ in range(width)] for _ in range(height)]
+
+            def box(top, left, bottom, right, title):
+                cells[top][left], cells[top][right] = "┌", "┐"
+                cells[bottom][left], cells[bottom][right] = "└", "┘"
+                for column in range(left + 1, right):
+                    cells[top][column] = cells[bottom][column] = "─"
+                for row in range(top + 1, bottom):
+                    cells[row][left] = cells[row][right] = "│"
+                rendered = f"┤ {title} ├"
+                cells[top][left + 3 : left + 3 + len(rendered)] = rendered
+
+            box(0, 0, 9, 39, "Parent")
+            if child:
+                box(3, 6, 7, 32, "Child")
+            return self._snapshot(["".join(row) for row in cells], {})
+
+        overlaid = frame(True)
+        closed = frame(False)
+
+        class Session(NewtSession):
+            def vga_wait_snapshot(self, predicate, **_):
+                if predicate(overlaid):
+                    raise AssertionError("parent matched while child was still visible")
+                if not predicate(closed):
+                    raise AssertionError("parent did not match after child closed")
+                return closed
+
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            state = NewtDialog(Session()).wait_for_title("Parent")
+
+        self.assertEqual(state.title, "Parent")
+        self.assertFalse(any("Child" in record.getMessage() for record in captured.records))
 
     def test_title_traces_its_own_border_when_dialogs_share_a_row(self) -> None:
         frame = self._snapshot(
@@ -3247,8 +3480,8 @@ class NewtDialogTests(unittest.TestCase):
             {},
         )
 
-        one = NewtDialog.parse(frame, title="One")
-        two = NewtDialog.parse(frame, title="Two")
+        one = parse_dialog(frame, title="One")
+        two = parse_dialog(frame, title="Two")
 
         self.assertEqual(one.view.bounds, ScreenBounds(1, 1, 3, 11))
         self.assertEqual(two.view.bounds, ScreenBounds(1, 14, 3, 26))
@@ -3274,6 +3507,29 @@ class NewtDialogTests(unittest.TestCase):
                 )
         return cls._snapshot(lines, attributes)
 
+    @classmethod
+    def _entry(cls, value="", *, sensitive=False, other=None):
+        width = 16
+        rendered = "" if sensitive else value
+        lines = [
+            "┌────┤ Entry ├─────────────────────┐",
+            "│                                  │",
+            f"│ Value: {rendered:_<{width}}          │",
+        ]
+        if other is not None:
+            lines.append(f"│ Other: {other:_<{width}}          │")
+        lines.extend(
+            [
+                "│                                  │",
+                "└──────────────────────────────────┘",
+            ]
+        )
+        attributes = {(1, column): 0x74 for column in range(7, 14)}
+        attributes.update({(3, column): 0x1E for column in range(10, 10 + width)})
+        if other is not None:
+            attributes.update({(4, column): 0x1E for column in range(10, 10 + width)})
+        return cls._snapshot(lines, attributes)
+
     def test_named_button_cycles_focus_then_activates(self) -> None:
         class Session(NewtSession):
             def __init__(self):
@@ -3292,8 +3548,10 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).press_button("Cancel")
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(session).press_button("Cancel")
         self.assertEqual(session.keys, ["tab", "ret"])
+        self.assertIn("👇 Press Cancel", captured.output[0])
 
     def test_source_authorized_advance_uses_f12_without_button_animation(self) -> None:
         frame = self._buttons("Ok")
@@ -3308,11 +3566,52 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).advance("Ok")
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(session).advance("Ok")
         self.assertEqual(session.keys, ["f12"])
+        self.assertIn("👇 Press Ok", captured.output[0])
 
-    def test_advance_does_not_focus_button_when_form_content_has_focus(self) -> None:
-        frame = self._buttons("neither button")
+    def test_unlabeled_advance_logs_default_without_focusing_highlighted_button(self) -> None:
+        frame = self._buttons("Cancel")
+
+        class Session(NewtSession):
+            keys = []
+
+            def vga_screen(self, rows=None):
+                return frame
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
+
+        session = Session()
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(session).advance()
+        self.assertEqual(session.keys, ["f12"])
+        self.assertIn("👇 Press Ok", captured.output[0])
+
+    def test_labeled_advance_cycles_focus_then_uses_f12(self) -> None:
+        class Session(NewtSession):
+            def __init__(self):
+                self.frames = iter(
+                    [
+                        NewtDialogTests._buttons("Ok"),
+                        NewtDialogTests._buttons("Cancel"),
+                    ]
+                )
+                self.keys = []
+
+            def vga_screen(self, rows=None):
+                return next(self.frames)
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
+
+        session = Session()
+        NewtDialog(session).advance("Cancel")
+        self.assertEqual(session.keys, ["tab", "f12"])
+
+    def test_monochrome_multi_button_advance_uses_named_default(self) -> None:
+        frame = self._buttons(None)
 
         class Session(NewtSession):
             keys = []
@@ -3327,8 +3626,85 @@ class NewtDialogTests(unittest.TestCase):
         NewtDialog(session).advance("Ok")
         self.assertEqual(session.keys, ["f12"])
 
-    def test_replace_text_uses_newt_entry_clear_shortcuts(self) -> None:
-        frame = self._buttons("Ok")
+    def test_set_fields_tabs_between_entries_and_verifies_them_together(self) -> None:
+        before = self._entry("old", other="old")
+        after = self._entry("one", other="two")
+
+        class Session(NewtSession):
+            keys = []
+            typed = []
+
+            def vga_screen(self, rows=None):
+                return before
+
+            def vga_wait_snapshot(self, predicate, **_):
+                if not predicate(after):
+                    raise AssertionError("updated entry did not match")
+                return after
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
+
+            def kb_type_quiet(self, text):
+                self.typed.append(text)
+
+        session = Session()
+        NewtDialog(session).set_fields({"Value:": "one", "Other:": "two"})
+        self.assertEqual(
+            session.keys,
+            ["ctrl-a", "ctrl-k", "tab", "ctrl-a", "ctrl-k"],
+        )
+        self.assertEqual(session.typed, ["one", "two"])
+
+    def test_set_fields_matches_the_redhat_51_mount_point_label(self) -> None:
+        width = 72
+        title = "┤ Edit Partition: /dev/hda2 ├"
+        top = "┌" + "─" * 19 + title
+        top += "─" * (width - len(top) - 1) + "┐"
+
+        def frame(value: str) -> ScreenSnapshot:
+            entry = f"{value:_<30}"
+            field = f"│{'   Mount Point:       ' + entry:<{width - 2}}│"
+            lines = [
+                top,
+                f"│{'':<{width - 2}}│",
+                field,
+                f"│{'':<{width - 2}}│",
+                "└" + "─" * (width - 2) + "┘",
+            ]
+            start = field.index(entry) + 1
+            attributes = {(3, column): 0x1E for column in range(start, start + 30)}
+            return self._snapshot(lines, attributes)
+
+        before = frame("")
+        after = frame("/")
+
+        class Session(NewtSession):
+            keys = []
+            typed = []
+
+            def vga_screen(self, rows=None):
+                return before
+
+            def vga_wait_snapshot(self, predicate, **_):
+                if not predicate(after):
+                    raise AssertionError("updated mount point did not match")
+                return after
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
+
+            def kb_type_quiet(self, text):
+                self.typed.append(text)
+
+        session = Session()
+        NewtDialog(session).set_fields({"Mount Point:": "/"})
+
+        self.assertEqual(session.typed, ["/"])
+        self.assertEqual(session.keys, ["ctrl-a", "ctrl-k"])
+
+    def test_set_fields_validates_every_exact_label_before_typing(self) -> None:
+        frame = self._entry(other="")
 
         class Session(NewtSession):
             keys = []
@@ -3344,33 +3720,93 @@ class NewtDialogTests(unittest.TestCase):
                 self.typed.append(text)
 
         session = Session()
-        NewtDialog(session).replace_text("value", field="entry")
-        self.assertEqual(session.keys, ["ctrl-a", "ctrl-k"])
-        self.assertEqual(session.typed, ["value\n"])
+        with self.assertRaisesRegex(RuntimeError, "entry labeled 'ther:'"):
+            NewtDialog(session).set_fields({"Value:": "one", "ther:": "two"})
 
-    def test_sensitive_text_entry_is_redacted_from_semantic_log(self) -> None:
-        frame = self._buttons("Ok")
+        self.assertEqual(session.keys, [])
+        self.assertEqual(session.typed, [])
+
+    def test_set_fields_rejects_a_value_rendered_in_the_wrong_entry(self) -> None:
+        frame = self._entry(other="Value")
 
         class Session(NewtSession):
+            keys = []
             typed = []
 
             def vga_screen(self, rows=None):
                 return frame
+
+            def vga_wait_snapshot(self, predicate, **_):
+                if predicate(frame):
+                    raise AssertionError("unchanged entry unexpectedly matched")
+                raise TimeoutError
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
+
+            def kb_type_quiet(self, text):
+                self.typed.append(text)
+
+        session = Session()
+        with self.assertRaisesRegex(RuntimeError, "did not render.*'Value:'"):
+            NewtDialog(session).set_fields({"Value:": "Value"})
+
+        self.assertEqual(session.typed, ["Value"])
+        self.assertEqual(session.keys, ["ctrl-a", "ctrl-k"])
+
+    def test_sensitive_text_entry_is_redacted_from_semantic_log(self) -> None:
+        before = self._entry()
+        after = self._entry("secret", sensitive=True)
+
+        class Session(NewtSession):
+            keys = []
+            typed = []
+
+            def vga_screen(self, rows=None):
+                return before
+
+            def vga_wait_snapshot(self, predicate, **_):
+                if not predicate(after):
+                    raise AssertionError("masked entry did not match")
+                return after
+
+            def kb_press_quiet(self, *keys):
+                self.keys.extend(keys)
 
             def kb_type_quiet(self, text):
                 self.typed.append(text)
 
         session = Session()
         with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
-            NewtDialog(session).enter_text(
-                "secret",
-                field="root password",
-                sensitive=True,
-            )
+            NewtDialog(session).set_fields({"Value:": "secret"}, sensitive=True)
 
-        self.assertEqual(session.typed, ["secret\n"])
-        self.assertIn("root password=<redacted>", captured.output[0])
+        self.assertEqual(session.typed, ["secret"])
+        self.assertEqual(session.keys, ["ctrl-a", "ctrl-k"])
+        self.assertIn("✏️  Edit Value: <redacted>", captured.output[0])
         self.assertNotIn("secret", captured.output[0])
+
+    def test_empty_text_entry_is_logged_as_blank(self) -> None:
+        frame = self._entry()
+
+        class Session(NewtSession):
+            def vga_screen(self, rows=None):
+                return frame
+
+            def vga_wait_snapshot(self, predicate, **_):
+                if not predicate(frame):
+                    raise AssertionError("empty entry did not match")
+                return frame
+
+            def kb_press_quiet(self, *keys):
+                pass
+
+            def kb_type_quiet(self, text):
+                pass
+
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(Session()).set_fields({"Value:": ""})
+
+        self.assertIn("✏️  Edit Value: <blank>", captured.output[0])
 
     def test_monochrome_advance_uses_verified_f12_shortcut(self) -> None:
         frame = self._snapshot(
@@ -3467,9 +3903,7 @@ class NewtDialogTests(unittest.TestCase):
         return cls._snapshot(lines, attributes)
 
     def test_scrollbar_defines_visible_menu_rows(self) -> None:
-        state = NewtDialog.parse(
-            self._scroll_menu(["Etc/Greenwich", "Etc/UCT", "Etc/UTC"], "Etc/UCT")
-        )
+        state = parse_dialog(self._scroll_menu(["Etc/Greenwich", "Etc/UCT", "Etc/UTC"], "Etc/UCT"))
 
         self.assertEqual(
             state.visible_items,
@@ -3567,8 +4001,13 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).set_checklist_items(["One", "Two"])
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(session).set_checklist_items(["One", "Two"])
         self.assertEqual(session.keys, ["pgup", "spc", "down", "spc", "down"])
+        self.assertEqual(
+            [record.getMessage() for record in captured.records],
+            ["✅ Select One", "✅ Select Two"],
+        )
 
     def test_exhaustive_checklist_batch_clears_unlisted_entries(self) -> None:
         class Session(NewtSession):
@@ -3591,8 +4030,13 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        NewtDialog(session).set_checklist_items(["One"])
+        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+            NewtDialog(session).set_checklist_items(["One"])
         self.assertEqual(session.keys, ["pgup", "down", "spc", "down"])
+        self.assertEqual(
+            [record.getMessage() for record in captured.records],
+            ["☑️ Clear Two"],
+        )
 
 
 class MonitorTests(unittest.IsolatedAsyncioTestCase):

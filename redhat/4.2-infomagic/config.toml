@@ -28,7 +28,11 @@ keymap = "us"
 [install.redhat]
 keyboard_early = true
 cdrom_type_prompt = false
-flow = "42"
+partitioning = "partition-disks"
+mouse_setup = "configure-mouse"
+x11_setup = "choose-card"
+tcp_ip_form = "gateway-and-nameserver"
+printer_prompt = "Add Printers"
 # Base is mandatory and is not shown in the component checklist.
 components = [
   "C Development",
@@ -60,7 +64,6 @@ x_card_label = "Cirrus Logic GD543x"
 x_video_memory_label = "2048"
 timezone_prompt = "Configure Timezones"
 timezone_clock_control = "checkbox"
-timezone_button = "Ok"
 lilo_setup_dialogs = 2
 
 [postinst]
