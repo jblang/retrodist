@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch the primary retro command-line application."""
 
-from hostlib.cli import main
+from hostlib.retro_cli import main
 
 if __name__ == "__main__":
     main()

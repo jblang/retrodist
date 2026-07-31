@@ -16,10 +16,21 @@ import urllib.parse
 
 from .context import Context
 from .config import RetroConfig, load_config
-from .errors import CommandError, ConfigError
-from .media_schemas import DownloadConfig
+from . import CommandError, ConfigError
+from .schemas.download import DownloadConfig
 
 log = logging.getLogger(__name__)
+
+
+def _run_wget(*arguments: str) -> None:
+    """Run wget and turn command failures into user-facing errors."""
+    command = ["wget", "--no-verbose", "--show-progress", *arguments]
+    try:
+        result = subprocess.run(command, check=False)
+    except FileNotFoundError as exc:
+        raise CommandError("wget is required to download media") from exc
+    if result.returncode:
+        raise CommandError(f"wget failed with status {result.returncode}")
 
 
 def _mirror_identifier(value: str, setting: str) -> str:
@@ -34,21 +45,10 @@ class Wget:
 
     MIRROR_SENTINEL = ".complete"
 
-    @staticmethod
-    def _run(*arguments: str) -> None:
-        """Run wget and turn command failures into user-facing errors."""
-        command = ["wget", "--no-verbose", "--show-progress", *arguments]
-        try:
-            result = subprocess.run(command, check=False)
-        except FileNotFoundError as exc:
-            raise CommandError("wget is required to download media") from exc
-        if result.returncode:
-            raise CommandError(f"wget failed with status {result.returncode}")
-
     def retrieve(self, url: str, target: Path) -> None:
         """Download one URL to an exact destination filename."""
         try:
-            self._run("--output-document", str(target), url)
+            _run_wget("--output-document", str(target), url)
         except CommandError:
             target.unlink(missing_ok=True)
             raise
@@ -71,7 +71,7 @@ class Wget:
         cut_dirs = len(path.split("/")) if path else 0
         destination.mkdir(parents=True, exist_ok=True)
         log.info("Downloading directory tree %s", url)
-        self._run(
+        _run_wget(
             "--recursive",
             "--no-parent",
             "--no-host-directories",

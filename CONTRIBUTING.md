@@ -172,7 +172,7 @@ media.
 ## Automated Installation
 
 Set `install.driver` to one of the major or dedicated drivers registered in
-`hostlib/installers/__init__.py`:
+`hostlib/install/__init__.py`:
 
 - `debian-dialog`
 - `debian-091`
@@ -189,7 +189,7 @@ Family-driver settings are grouped into topical tables such as
 configuration, and family drivers consume those typed sections directly. Major
 drivers use `install.variant` to select a Python-defined profile that owns fixed
 screen sequences, boot prompts, and installer quirks. See the existing configs,
-`hostlib/schemas.py`, and `hostlib/installers/` for supported values. Use a
+`hostlib/schemas/`, and `hostlib/install/` for supported values. Use a
 release range or descriptive name when several releases share the same profile.
 
 Red Hat and Slackware install-time package selection belongs under
@@ -213,7 +213,7 @@ tagfile_path = "/retro/tagfiles"
 ```
 
 Keep screen sequences, prompt answers, and branching in
-`hostlib/installers/`. Extend a family driver when releases share a workflow;
+`hostlib/install/`. Extend a family driver when releases share a workflow;
 add a focused Python driver for a genuinely one-off installer. TOML should
 contain only the release-specific values consumed by the driver's typed schema.
 The dedicated `debian_091.py` and `slackware_tty.py` drivers are compact

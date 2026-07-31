@@ -18,6 +18,13 @@ from typing import BinaryIO
 log = logging.getLogger(__name__)
 
 
+def _wait_pattern(expected: str, *, line: bool, regex: bool) -> re.Pattern[str]:
+    """Compile a literal, complete-line, or regular-expression wait pattern."""
+    if line:
+        return re.compile(rf"(?m)^\s*{re.escape(expected.strip())}\s*$")
+    return re.compile(expected if regex else re.escape(expected), re.MULTILINE)
+
+
 class SerialConsole:
     """Asynchronous connection to QEMU's install-automation serial socket.
 
@@ -189,16 +196,9 @@ class SerialConsole:
             The exact text matched in the serial buffer.
         """
         log.info("⏳ %s", expected)
-        pattern = self._wait_pattern(expected, line=line, regex=regex)
+        pattern = _wait_pattern(expected, line=line, regex=regex)
         async with asyncio.timeout(timeout):
             return await self._wait_one(pattern)
-
-    @staticmethod
-    def _wait_pattern(expected: str, *, line: bool, regex: bool) -> re.Pattern[str]:
-        """Compile a literal, complete-line, or regular-expression wait pattern."""
-        if line:
-            return re.compile(rf"(?m)^\s*{re.escape(expected.strip())}\s*$")
-        return re.compile(expected if regex else re.escape(expected), re.MULTILINE)
 
     async def _wait_one(self, pattern: re.Pattern[str]) -> str:
         """Wait for one compiled pattern through the shared matcher."""

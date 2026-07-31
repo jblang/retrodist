@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tempfile
 
-from .errors import ConfigError
+from . import ConfigError
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Literal
 
 from pydantic import Field
-from .schema_base import ConfigModel
+from .base import ConfigModel
 
 
 class QemuDisk(ConfigModel):

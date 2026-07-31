@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from .session import InstallSession
+from ..session import QemuSession
 
 
 @dataclass(slots=True)
@@ -23,7 +23,7 @@ class Fdisk:
     for fdisk to return to the serial shell prompt.
     """
 
-    session: InstallSession
+    session: QemuSession
 
     def partition_swap_root(self, device: str = "/dev/hda", swap_mb: int = 64) -> None:
         """Create swap and root partitions and wait for fdisk to exit."""

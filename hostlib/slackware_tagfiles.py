@@ -14,7 +14,7 @@ import re
 import shutil
 
 from .context import Context
-from .media import Iso
+from .iso import Iso
 
 log = logging.getLogger(__name__)
 

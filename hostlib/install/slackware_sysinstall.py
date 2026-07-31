@@ -7,14 +7,16 @@ staged package layout, answers package prompts, and performs system setup.
 
 from __future__ import annotations
 
-from ..fdisk import Fdisk
-from ..schemas import SysinstallInstallConfig
-from ..session import InstallSession, Match
+from ..config import RetroConfig
+from ..schemas.slackware import SysinstallInstallConfig
+from ..session import Match, QemuSession
+from .fdisk import Fdisk
+from .postinst import run_postinst
 
 
-def run_slackware_sysinstall(session: InstallSession) -> None:
+def run_slackware_sysinstall(session: QemuSession, config: RetroConfig) -> None:
     """Run an early Slackware Sysinstall installation."""
-    Sysinstall(session).install()
+    Sysinstall(session, config).install()
 
 
 class Sysinstall:
@@ -24,12 +26,13 @@ class Sysinstall:
     retaining a single ordered installation workflow.
     """
 
-    def __init__(self, session: InstallSession) -> None:
+    def __init__(self, session: QemuSession, config: RetroConfig) -> None:
         """Initialize the Sysinstall driver with typed release configuration."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, SysinstallInstallConfig)
-        self.disk = config.disk
+        self.config = config
+        options = config.install
+        assert isinstance(options, SysinstallInstallConfig)
+        self.disk = options.disk
 
     def _prompt(self, *questions: str, answer: str, regex: bool = False) -> None:
         """Wait for a Sysinstall question and type its answer."""
@@ -49,7 +52,12 @@ class Sysinstall:
         self._prepare_disk()
         self._run_doinstall()
         self._finish_install()
-        self.s.run_postinst(login="darkstar login:", shell="darkstar:/#")
+        run_postinst(
+            self.s,
+            self.config,
+            login="darkstar login:",
+            shell="darkstar:/#",
+        )
 
     def _prepare_disk(self) -> None:
         """Log in, partition the target, and create its filesystems."""

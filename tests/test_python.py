@@ -25,46 +25,57 @@ import py7zr
 
 from hostlib.config import QemuConfig, RetroConfig, load_config
 from hostlib.context import Context
-from hostlib.errors import CommandError, ConfigError, RetroError
-from hostlib import cli, download, operations, qmp_cli, tagfiles
-from hostlib.fdisk import Fdisk
-from hostlib.keyboard import encode
-from hostlib.dialog import Answer, AnswerText, AnswerTitle, Dialog
+from hostlib import CommandError, ConfigError, RetroError
+from hostlib import download, install, qmp_cli, retro_cli, slackware_tagfiles
+from hostlib.install.fdisk import Fdisk
+from hostlib.qmp import Monitor, encode
+from hostlib.install.dialog import Answer, AnswerText, AnswerTitle, Dialog
 from hostlib.debian_packages import (
     DebianPackage,
     load_packages,
     render_installer,
     resolve_packages,
 )
-from hostlib.session import InstallSession, Match
+from hostlib.install.postinst import postinst_command
+from hostlib.session import Match, QemuSession
 from hostlib.serial import SerialConsole
-from hostlib.installers.slackware_dialog import (
+from hostlib.install.slackware_dialog import (
     DialogInstaller as SlackwareDialogInstaller,
     VARIANT_35 as SLACKWARE_VARIANT_35,
     run_slackware_dialog,
 )
-from hostlib.installers.debian_dialog import (
+from hostlib.install.debian_dialog import (
     DialogInstaller,
     VARIANT_11 as DEBIAN_VARIANT_11,
     VARIANT_12 as DEBIAN_VARIANT_12,
 )
-from hostlib.installers.debian_091 import Debian091Installer
-from hostlib.installers.slackware_sysinstall import Sysinstall
-from hostlib.installers.slackware_tty import SlackwareTtyInstaller
-from hostlib.installers import validate_install_config
-from hostlib.installers import redhat_dialog, redhat_newt
-from hostlib.newt_dialog import NewtDialog, parse_dialog
+from hostlib.install.debian_091 import Debian091Installer
+from hostlib.install.slackware_sysinstall import Sysinstall
+from hostlib.install.slackware_tty import SlackwareTtyInstaller
+from hostlib.install import validate_install_config
+from hostlib.install import redhat_dialog, redhat_newt
+from hostlib.install.newt_dialog import NewtDialog, parse_dialog
 from hostlib.vga import ScreenBounds, ScreenObserver, ScreenSnapshot
+from hostlib.guestlib import render_postinst_config
 from hostlib.media import MediaStager
-from hostlib.media_schemas import DebianPackagesConfig, ExtractionConfig, PostinstConfig
-from hostlib.schemas import (
-    DebianDialogInstallConfig,
+from hostlib.media_extract import (
+    MediaExtractor,
+    _selected_archive_members,
+    _validate_source_path,
+    link_media,
+    safe_child,
+)
+from hostlib.schemas.postinst import DebianPackagesConfig, PostinstConfig
+from hostlib.schemas.debian import DebianDialogInstallConfig
+from hostlib.schemas.redhat import (
     RedHatDialogInstallConfig,
     RedHatNewtInstallConfig,
+)
+from hostlib.schemas.slackware import (
     SlackwareDialogInstallConfig,
     SysinstallInstallConfig,
 )
-from hostlib.qmp import Monitor
+from hostlib.schemas.media import ExtractionConfig
 from hostlib.qemu import QemuRuntime
 
 
@@ -141,9 +152,9 @@ class CommandNameTests(unittest.TestCase):
         project = tomllib.loads((root / "pyproject.toml").read_text())
         self.assertEqual(
             project["project"]["scripts"],
-            {"retro": "hostlib.cli:main", "qmp": "hostlib.qmp_cli:main"},
+            {"retro": "hostlib.retro_cli:main", "qmp": "hostlib.qmp_cli:main"},
         )
-        self.assertIn("from hostlib.cli import main", (root / "retro").read_text())
+        self.assertIn("from hostlib.retro_cli import main", (root / "retro").read_text())
         self.assertIn("from hostlib.qmp_cli import main", (root / "qmp").read_text())
         self.assertFalse((root / "retro-bash").exists())
         self.assertFalse((root / "qmp-bash").exists())
@@ -154,8 +165,8 @@ class CommandNameTests(unittest.TestCase):
         bootstrap = root / "retro-prereq"
         self.assertTrue(bootstrap.is_file())
         self.assertTrue(bootstrap.stat().st_mode & 0o111)
-        self.assertNotIn("prereq", cli.COMMANDS)
-        self.assertFalse(hasattr(operations, "install_prerequisites"))
+        self.assertNotIn("prereq", retro_cli.COMMANDS)
+        self.assertFalse(hasattr(retro_cli, "install_prerequisites"))
 
 
 class CliTests(unittest.TestCase):
@@ -164,25 +175,29 @@ class CliTests(unittest.TestCase):
         config = SimpleNamespace()
         calls: list[str] = []
         with (
-            patch.object(cli, "Downloader") as downloader,
-            patch.object(cli, "MediaStager") as stager,
+            patch.object(retro_cli, "Downloader") as downloader,
+            patch.object(retro_cli, "MediaStager") as stager,
         ):
             downloader.return_value.run.side_effect = lambda: calls.append("download")
             stager.return_value.extract.side_effect = lambda: calls.append("extract")
-            cli.Application(context, config).run()
+            retro_cli.Application(context, config).run()
         self.assertEqual(calls, ["download", "extract"])
 
     def test_install_validates_before_download_and_vm_start(self) -> None:
         context = SimpleNamespace(command="install")
         config = SimpleNamespace(qemu=QemuConfig())
         with (
-            patch.object(cli, "validate_install_config") as validate,
-            patch.object(cli, "Downloader") as downloader,
-            patch.object(cli, "MediaStager") as stager,
-            patch.object(cli.asyncio, "run") as run,
-            patch.object(cli.Application, "_run_vm", new=unittest.mock.Mock(return_value="vm")),
+            patch.object(retro_cli, "validate_install_config") as validate,
+            patch.object(retro_cli, "Downloader") as downloader,
+            patch.object(retro_cli, "MediaStager") as stager,
+            patch.object(retro_cli.asyncio, "run") as run,
+            patch.object(
+                retro_cli.Application,
+                "_run_vm",
+                new=unittest.mock.Mock(return_value="vm"),
+            ),
         ):
-            cli.Application(context, config).run()
+            retro_cli.Application(context, config).run()
         validate.assert_called_once_with(config)
         downloader.return_value.run.assert_called_once_with()
         stager.return_value.extract.assert_called_once_with()
@@ -193,10 +208,10 @@ class CliTests(unittest.TestCase):
             context, config = temporary_config(root, "distro/version")
             context.qemu_dir.mkdir()
             with patch("builtins.input", return_value="no"):
-                cli.Application(context, config).reset()
+                retro_cli.Application(context, config).reset()
             self.assertTrue(context.qemu_dir.exists())
             with patch("builtins.input", return_value="yes"):
-                cli.Application(context, config).reset()
+                retro_cli.Application(context, config).reset()
             self.assertFalse(context.qemu_dir.exists())
 
     def test_run_main_always_removes_the_context_temporary_directory(self) -> None:
@@ -205,12 +220,20 @@ class CliTests(unittest.TestCase):
             scratch.mkdir()
             context = SimpleNamespace(command="help", name="test", temporary=scratch, config=root)
             with (
-                patch.object(cli.Context, "create", return_value=context),
-                patch.object(cli, "load_config", return_value=SimpleNamespace()),
-                patch.object(cli.Application, "run", side_effect=ConfigError("broken")),
+                patch.object(retro_cli.Context, "create", return_value=context),
+                patch.object(
+                    retro_cli,
+                    "load_config",
+                    return_value=SimpleNamespace(),
+                ),
+                patch.object(
+                    retro_cli.Application,
+                    "run",
+                    side_effect=ConfigError("broken"),
+                ),
             ):
                 with self.assertRaisesRegex(ConfigError, "broken"):
-                    cli.run_main(["help"])
+                    retro_cli.run_main(["help"])
             self.assertFalse(scratch.exists())
 
     def test_installer_failure_releases_monitor_and_leaves_vm_for_inspection(self) -> None:
@@ -226,12 +249,16 @@ class CliTests(unittest.TestCase):
             start=AsyncMock(return_value=process),
             connect_monitor=AsyncMock(return_value=monitor),
         )
-        app = cli.Application(SimpleNamespace(qemu_dir=Path("qemu.d")), SimpleNamespace())
+        app = retro_cli.Application(SimpleNamespace(qemu_dir=Path("qemu.d")), SimpleNamespace())
         with (
-            patch.object(cli, "QemuRuntime", return_value=runtime),
-            patch.object(cli, "run_install", AsyncMock(side_effect=RetroError("install failed"))),
+            patch.object(retro_cli, "QemuRuntime", return_value=runtime),
+            patch.object(
+                retro_cli,
+                "run_install",
+                AsyncMock(side_effect=RetroError("install failed")),
+            ),
         ):
-            with self.assertLogs("hostlib.cli", level="ERROR") as captured:
+            with self.assertLogs("hostlib.retro_cli", level="ERROR") as captured:
                 asyncio.run(app._run_vm(QemuConfig(), install=True))
         self.assertIn("Installer automation failed", "\n".join(captured.output))
         self.assertIn("RetroError: install failed", "\n".join(captured.output))
@@ -246,8 +273,8 @@ class CliTests(unittest.TestCase):
             start=AsyncMock(return_value=process),
             connect_monitor=AsyncMock(return_value=monitor),
         )
-        app = cli.Application(SimpleNamespace(qemu_dir=Path("qemu.d")), SimpleNamespace())
-        with patch.object(cli, "QemuRuntime", return_value=runtime):
+        app = retro_cli.Application(SimpleNamespace(qemu_dir=Path("qemu.d")), SimpleNamespace())
+        with patch.object(retro_cli, "QemuRuntime", return_value=runtime):
             asyncio.run(app._run_vm(QemuConfig(), install=False))
         monitor.close.assert_awaited_once_with()
 
@@ -446,7 +473,7 @@ class DownloadTests(unittest.TestCase):
             self.assertFalse((destination / download.Wget.MIRROR_SENTINEL).exists())
 
 
-class OperationsTests(unittest.TestCase):
+class PackageTests(unittest.TestCase):
     def test_package_writes_both_launchers_and_archive(self) -> None:
         with temporary_root() as root:
             context, config = temporary_config(
@@ -455,10 +482,10 @@ class OperationsTests(unittest.TestCase):
             runtime = unittest.mock.Mock()
             runtime.command.return_value = ["qemu-system-i386", "-name", "two words"]
             with (
-                patch.object(operations, "QemuRuntime", return_value=runtime),
-                patch.object(operations.Path, "cwd", return_value=root),
+                patch.object(retro_cli, "QemuRuntime", return_value=runtime),
+                patch.object(retro_cli.Path, "cwd", return_value=root),
             ):
-                archive = operations.package(context, config)
+                archive = retro_cli.Application(context, config).package()
             runtime.ensure_disk.assert_called_once_with()
             self.assertIn("'two words'", (context.qemu_dir / "retro.sh").read_text())
             self.assertIn('"two words"', (context.qemu_dir / "retro.bat").read_text())
@@ -517,8 +544,11 @@ class QmpCliTests(unittest.IsolatedAsyncioTestCase):
 
 class SlackwareTagfileTests(unittest.TestCase):
     def test_package_names_remove_only_slackware_version_suffixes(self) -> None:
-        self.assertEqual(tagfiles._package_name("bash-1.14.7-i386-1.tgz"), "bash")
-        self.assertEqual(tagfiles._package_name("kernel.tgz"), "kernel")
+        self.assertEqual(
+            slackware_tagfiles._package_name("bash-1.14.7-i386-1.tgz"),
+            "bash",
+        )
+        self.assertEqual(slackware_tagfiles._package_name("kernel.tgz"), "kernel")
 
     def test_prepare_tagfiles_applies_exact_rules_over_series_defaults(self) -> None:
         with temporary_root() as root:
@@ -529,7 +559,11 @@ class SlackwareTagfileTests(unittest.TestCase):
             packages.mkdir(parents=True)
             (packages / "bash-1.0-i386-1.tgz").touch()
             (packages / "ed-1.0-i386-1.tgz").touch()
-            tagfiles.prepare_tagfiles(context, qemu, context.config / "download.d")
+            slackware_tagfiles.prepare_tagfiles(
+                context,
+                qemu,
+                context.config / "download.d",
+            )
             tagfile = packages / "tagfile"
             self.assertEqual(tagfile.read_text(), "bash:     ADD\ned:     SKP\n")
             self.assertEqual((qemu / "fat/disksets.txt").read_text(), "a\n")
@@ -541,7 +575,7 @@ class SlackwareTagfileTests(unittest.TestCase):
             source.mkdir(parents=True)
             (source / "tagfile").write_text("bash: ADD\ned: OPT\n")
             (source / "disk1").write_text("bash: Bourne Again Shell\n")
-            tagfiles.generate_default_tag(context, context.qemu_dir)
+            slackware_tagfiles.generate_default_tag(context, context.qemu_dir)
             generated = (context.config / "default.tag").read_text()
             self.assertIn("a    *            SKP", generated)
             self.assertIn("bash", generated)
@@ -681,7 +715,7 @@ class ConfigTests(unittest.TestCase):
                 }
             },
         ).postinst
-        rendered = MediaStager._render_postinst_config(settings)
+        rendered = render_postinst_config(settings)
         self.assertIn("POSTINST_STAGES='network tty x11'", rendered)
         self.assertIn("NET_HOSTNAME='retro'", rendered)
         self.assertNotIn("NET_GATEWAY=", rendered)
@@ -705,7 +739,7 @@ class ConfigTests(unittest.TestCase):
         ).postinst
         self.assertEqual(settings.network.domain, "example.test")
         self.assertEqual(settings.network.ip, "192.0.2.15")
-        rendered = MediaStager._render_postinst_config(settings)
+        rendered = render_postinst_config(settings)
         self.assertIn("NET_DOMAINNAME='example.test'", rendered)
         self.assertIn("NET_IPADDR='192.0.2.15'", rendered)
 
@@ -1193,18 +1227,16 @@ class MediaStagerTests(unittest.TestCase):
             directory = root / "staging"
             directory.mkdir()
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
-                MediaStager._safe_child(directory, Path("../outside"))
+                safe_child(directory, Path("../outside"))
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
-                MediaStager._selected_archive_members(
-                    ["../outside"], ExtractionConfig(files=["*"]), ["*"]
-                )
+                _selected_archive_members(["../outside"], ExtractionConfig(files=["*"]), ["*"])
             context = SimpleNamespace(qemu_dir=directory)
-            stager = MediaStager(context, SimpleNamespace())
+            extractor = MediaExtractor(context, SimpleNamespace())
             with self.assertRaisesRegex(ConfigError, "escapes destination"):
-                stager._package_destination(ExtractionConfig(package_dest="../outside"))
+                extractor._package_destination(ExtractionConfig(package_dest="../outside"))
             for source in ("../outside", "/outside"):
                 with self.assertRaisesRegex(ConfigError, "escapes extraction source"):
-                    MediaStager._validate_source_path(source)
+                    _validate_source_path(source)
 
 
 class FdiskTests(unittest.TestCase):
@@ -1265,14 +1297,14 @@ class FdiskTests(unittest.TestCase):
 class InstallerDispatchTests(unittest.TestCase):
     def test_debian_091_runs_its_one_off_phases_in_order(self) -> None:
         config = RetroConfig(context=SimpleNamespace(), data={"install": {"driver": "debian-091"}})
-        session = unittest.mock.Mock(config=config)
-        installer = Debian091Installer(session)
+        session = unittest.mock.Mock()
+        installer = Debian091Installer(session, config)
         phases = unittest.mock.Mock()
         installer._install_base = phases.install_base
         installer._configure_system = phases.configure_system
         installer._install_lilo = phases.install_lilo
 
-        with patch("hostlib.installers.debian_091.Fdisk"):
+        with patch("hostlib.install.debian_091.Fdisk"):
             installer.install()
 
         self.assertEqual(
@@ -1286,7 +1318,6 @@ class InstallerDispatchTests(unittest.TestCase):
             data={"install": {"driver": "debian-091"}},
         )
         session = SimpleNamespace(
-            config=config,
             boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
@@ -1296,10 +1327,12 @@ class InstallerDispatchTests(unittest.TestCase):
             serial_shell_exit=unittest.mock.Mock(),
             change_floppy=unittest.mock.Mock(),
             set_boot=unittest.mock.Mock(),
-            run_postinst=unittest.mock.Mock(),
         )
-        with patch("hostlib.installers.debian_091.Fdisk") as fdisk:
-            Debian091Installer(session).install()
+        with (
+            patch("hostlib.install.debian_091.Fdisk") as fdisk,
+            patch("hostlib.install.debian_091.run_postinst") as run_postinst,
+        ):
+            Debian091Installer(session, config).install()
 
         fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/hda", 64)
         self.assertEqual(
@@ -1310,7 +1343,9 @@ class InstallerDispatchTests(unittest.TestCase):
             call("/root/usr/sbin/rdev /root/vmlinuz /dev/hda2"),
             session.serial_shell_send.call_args_list,
         )
-        session.run_postinst.assert_called_once_with(
+        run_postinst.assert_called_once_with(
+            session,
+            config,
             login="debra.retro.net login:",
             shell="[root:~]#",
         )
@@ -1322,7 +1357,6 @@ class InstallerDispatchTests(unittest.TestCase):
         )
         serial = unittest.mock.Mock()
         session = SimpleNamespace(
-            config=config,
             serial=serial,
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
@@ -1331,10 +1365,12 @@ class InstallerDispatchTests(unittest.TestCase):
             serial_shell_send=unittest.mock.Mock(),
             serial_console_echo=unittest.mock.Mock(),
             set_boot=unittest.mock.Mock(),
-            run_postinst=unittest.mock.Mock(),
         )
-        with patch("hostlib.installers.slackware_tty.Fdisk") as fdisk:
-            SlackwareTtyInstaller(session).install()
+        with (
+            patch("hostlib.install.slackware_tty.Fdisk") as fdisk,
+            patch("hostlib.install.slackware_tty.run_postinst") as run_postinst,
+        ):
+            SlackwareTtyInstaller(session, config).install()
 
         fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/hda", 64)
         session.serial_shell_send.assert_called_once_with("setup", wait=False)
@@ -1343,7 +1379,9 @@ class InstallerDispatchTests(unittest.TestCase):
             answer="A AP D E F IV N TCL OI OOP X XAP XD XV Y",
         )
         session.kb_press.assert_called_once_with("ctrl-alt-delete")
-        session.run_postinst.assert_called_once_with(
+        run_postinst.assert_called_once_with(
+            session,
+            config,
             login="darkstar login:",
             shell="darkstar:~#",
         )
@@ -1353,14 +1391,14 @@ class InstallerDispatchTests(unittest.TestCase):
             context=SimpleNamespace(),
             data={"install": {"driver": "slackware-tty"}},
         )
-        session = unittest.mock.Mock(config=config)
-        installer = SlackwareTtyInstaller(session)
+        session = unittest.mock.Mock()
+        installer = SlackwareTtyInstaller(session, config)
         phases = unittest.mock.Mock()
         installer._configure_filesystems = phases.configure_filesystems
         installer._install_packages = phases.install_packages
         installer._configure_system = phases.configure_system
 
-        with patch("hostlib.installers.slackware_tty.Fdisk"):
+        with patch("hostlib.install.slackware_tty.Fdisk"):
             installer.install()
 
         self.assertEqual(
@@ -1433,6 +1471,32 @@ class InstallerDispatchTests(unittest.TestCase):
             with self.subTest(message=message):
                 with self.assertRaisesRegex(ConfigError, message):
                     validate_install_config(RetroConfig(context=SimpleNamespace(), data=data))
+
+
+class InstallerLifecycleTests(unittest.IsolatedAsyncioTestCase):
+    async def test_installer_receives_session_and_config_as_separate_arguments(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"install": {"driver": "debian-091"}},
+        )
+        session = SimpleNamespace()
+        driver = unittest.mock.Mock()
+
+        async def run_script(_monitor, _qemu_dir, script):
+            return script(session)
+
+        with (
+            patch.object(install, "validate_install_config", return_value=driver),
+            patch.object(install, "run_script", side_effect=run_script),
+        ):
+            await install.run_install(
+                SimpleNamespace(),
+                Path("qemu.d"),
+                config,
+            )
+
+        driver.assert_called_once_with(session, config)
+        self.assertFalse(hasattr(session, "config"))
 
 
 class RedHatDriverTests(unittest.TestCase):
@@ -1715,8 +1779,11 @@ class RedHatDriverTests(unittest.TestCase):
             }
         )
         dialog = unittest.mock.Mock()
+        full_config = SimpleNamespace(install=config)
         installer = redhat_dialog.DialogInstaller(
-            SimpleNamespace(config=SimpleNamespace(install=config), dialog=dialog)
+            SimpleNamespace(),
+            full_config,
+            dialog,
         )
 
         installer.format_root()
@@ -1737,32 +1804,38 @@ class RedHatDriverTests(unittest.TestCase):
             },
         )
         session = SimpleNamespace(
-            config=config,
             boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             set_boot=unittest.mock.Mock(),
-            run_postinst=unittest.mock.Mock(),
         )
-        redhat_newt.run_redhat_unattended(session)
+        with patch.object(redhat_newt, "run_postinst") as run_postinst:
+            redhat_newt.run_redhat_unattended(session, config)
         session.boot_command.assert_called_once_with("boot:", "linux ks=floppy")
         session.vga_wait.assert_called_once_with("Complete")
         session.set_boot.assert_called_once_with("c")
-        session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
+        run_postinst.assert_called_once_with(
+            session,
+            config,
+            "secret",
+            login="login:",
+            shell="#",
+        )
 
     def test_newt_installer_composes_explicit_phases(self) -> None:
-        config = RedHatNewtInstallConfig.model_validate(
+        options = RedHatNewtInstallConfig.model_validate(
             {
                 "driver": "redhat-newt",
                 "variant": "4.0",
                 "packages": {"components": []},
             }
         )
-        session = SimpleNamespace(config=SimpleNamespace(install=config))
+        config = SimpleNamespace(install=options)
+        session = SimpleNamespace()
         installer = unittest.mock.Mock()
         with patch.object(redhat_newt, "NewtInstaller", return_value=installer) as constructor:
-            redhat_newt.run_redhat_newt(session)
-        constructor.assert_called_once_with(session, redhat_newt.VARIANT_40)
+            redhat_newt.run_redhat_newt(session, config)
+        constructor.assert_called_once_with(session, config, redhat_newt.VARIANT_40)
         for method in (
             installer.boot_and_select_installation_options,
             installer.partition_storage,
@@ -2102,10 +2175,12 @@ class RedHatDriverTests(unittest.TestCase):
         installer = object.__new__(redhat_newt.NewtInstaller)
         installer.root_password = "password"
         installer.network_config = SimpleNamespace(hostname="retro")
+        installer.config = SimpleNamespace()
         installer.dialog = unittest.mock.Mock()
         installer.s = unittest.mock.Mock()
 
-        installer.complete_installation()
+        with patch.object(redhat_newt, "run_postinst"):
+            installer.complete_installation()
 
         installer.dialog.wait_for_title.assert_called_once_with("Done")
         installer.dialog.advance.assert_called_once_with()
@@ -2201,9 +2276,10 @@ class RedHatDriverTests(unittest.TestCase):
                 "accounts": {},
             }
         )
-        session = SimpleNamespace(config=SimpleNamespace(install=config))
+        full_config = SimpleNamespace(install=config)
+        session = SimpleNamespace()
         with patch.object(redhat_dialog, "DialogInstaller", return_value=installer):
-            redhat_dialog.run_redhat_dialog(session)
+            redhat_dialog.run_redhat_dialog(session, full_config)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
         installer.prepare_dialog.assert_called_once_with(
@@ -2219,9 +2295,10 @@ class RedHatDriverTests(unittest.TestCase):
                 "accounts": {},
             }
         )
-        session = SimpleNamespace(config=SimpleNamespace(install=config))
+        full_config = SimpleNamespace(install=config)
+        session = SimpleNamespace()
         with patch.object(redhat_dialog, "DialogInstaller", return_value=installer):
-            redhat_dialog.run_redhat_dialog(session)
+            redhat_dialog.run_redhat_dialog(session, full_config)
         installer.boot.assert_called_once_with()
         installer.install.assert_called_once_with(
             "This script will walk you through each step of the installation.",
@@ -2272,18 +2349,22 @@ class RedHatDriverTests(unittest.TestCase):
             keymap="us.map",
         )
         installer.accounts = SimpleNamespace(root_password="secret")
+        installer.config = SimpleNamespace()
         installer._configure_x_vga = unittest.mock.Mock()
         installer._configure_user = unittest.mock.Mock()
         installer._set_root_password = unittest.mock.Mock()
 
-        installer._finish(x_vga=True)
+        with patch.object(redhat_dialog, "run_postinst") as run_postinst:
+            installer._finish(x_vga=True)
 
         choices = installer.dialog.answer_until.call_args.args
         answers = {choice.title: choice.answer for choice in choices}
         self.assertEqual(answers["Clock Configuration"], "Local Time")
         self.assertEqual(answers["Time Zone"], "US/Central")
         self.assertEqual(answers["Keyboard Configuration"], "us.map")
-        installer.s.run_postinst.assert_called_once_with(
+        run_postinst.assert_called_once_with(
+            installer.s,
+            installer.config,
             "secret",
             login="redhat.retro.net login:",
             shell="[root@redhat /root]#",
@@ -2511,10 +2592,13 @@ class DialogTests(unittest.TestCase):
             + screen("SETUP COMPLETE", "msgbox")
         )
         dialog = Dialog(serial)
-        config = slackware_dialog_config()
+        options = slackware_dialog_config()
+        config = SimpleNamespace(install=options)
         SlackwareDialogInstaller(
-            SimpleNamespace(dialog=dialog, config=SimpleNamespace(install=config)),
+            SimpleNamespace(),
+            config,
             SLACKWARE_VARIANT_35,
+            dialog,
         )._configure()
         self.assertEqual(serial.answers, ["yes", "ok", "ok"])
 
@@ -2560,9 +2644,8 @@ class DialogTests(unittest.TestCase):
 class DebianDialogTests(unittest.TestCase):
     def test_start_matches_the_title_inside_its_cp437_dialog_border(self) -> None:
         config = dialog_config()
+        dialog = unittest.mock.Mock()
         session = SimpleNamespace(
-            config=SimpleNamespace(install=config),
-            dialog=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
@@ -2572,8 +2655,13 @@ class DebianDialogTests(unittest.TestCase):
             serial=unittest.mock.Mock(),
         )
 
-        with patch("hostlib.installers.debian_dialog.Fdisk"):
-            DialogInstaller(session, DEBIAN_VARIANT_12)._start()
+        with patch("hostlib.install.debian_dialog.Fdisk"):
+            DialogInstaller(
+                session,
+                SimpleNamespace(install=config),
+                DEBIAN_VARIANT_12,
+                dialog,
+            )._start()
 
         self.assertEqual(
             session.vga_wait.call_args_list[0],
@@ -2585,12 +2673,15 @@ class DebianDialogTests(unittest.TestCase):
         dialog = unittest.mock.Mock()
         config = dialog_config()
         session = SimpleNamespace(
-            config=SimpleNamespace(install=config),
-            dialog=dialog,
             vga_wait=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
         )
-        driver = DialogInstaller(session, DEBIAN_VARIANT_12)
+        driver = DialogInstaller(
+            session,
+            SimpleNamespace(install=config),
+            DEBIAN_VARIANT_12,
+            dialog,
+        )
 
         driver._modules("")
 
@@ -2607,11 +2698,13 @@ class DebianDialogTests(unittest.TestCase):
     def test_media_dialogs_use_the_configured_fat_mount(self) -> None:
         dialog = unittest.mock.Mock()
         config = dialog_config(disk={"fat_mount": "/media/retro"})
-        session = SimpleNamespace(
-            dialog=dialog,
-            config=SimpleNamespace(install=config),
+        session = SimpleNamespace()
+        driver = DialogInstaller(
+            session,
+            SimpleNamespace(install=config),
+            DEBIAN_VARIANT_12,
+            dialog,
         )
-        driver = DialogInstaller(session, DEBIAN_VARIANT_12)
 
         driver._base("")
         base_choices = dialog.answer_until.call_args.args
@@ -2632,8 +2725,10 @@ class DebianDialogTests(unittest.TestCase):
             }
         )
         driver = DialogInstaller(
-            SimpleNamespace(dialog=dialog, config=SimpleNamespace(install=config)),
+            SimpleNamespace(),
+            SimpleNamespace(install=config),
             DEBIAN_VARIANT_12,
+            dialog,
         )
 
         driver._swap("")
@@ -2653,14 +2748,18 @@ class DebianDialogTests(unittest.TestCase):
             ),
         ):
             with self.subTest(timezone=config.locale.timezone):
+                dialog = unittest.mock.Mock()
                 session = SimpleNamespace(
-                    config=SimpleNamespace(install=config),
-                    dialog=unittest.mock.Mock(),
                     serial=unittest.mock.Mock(),
                     vga_wait=unittest.mock.Mock(),
                     kb_type=unittest.mock.Mock(),
                 )
-                driver = DialogInstaller(session, DEBIAN_VARIANT_11)
+                driver = DialogInstaller(
+                    session,
+                    SimpleNamespace(install=config),
+                    DEBIAN_VARIANT_11,
+                    dialog,
+                )
 
                 driver._configure_base("")
 
@@ -2688,10 +2787,9 @@ class DebianDialogTests(unittest.TestCase):
         )
         postinst = PostinstConfig(stages=["packages"], packages=packages)
         serial = unittest.mock.Mock()
+        dialog = unittest.mock.Mock()
+        config = SimpleNamespace(install=dialog_config(), postinst=postinst)
         session = SimpleNamespace(
-            config=SimpleNamespace(install=dialog_config(), postinst=postinst),
-            postinst_command="/retro/guestlib.d/postinst.sh",
-            dialog=unittest.mock.Mock(),
             serial=serial,
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
@@ -2700,34 +2798,51 @@ class DebianDialogTests(unittest.TestCase):
             serial_shell_exit=unittest.mock.Mock(),
         )
 
-        DialogInstaller(session, DEBIAN_VARIANT_12)._postinst()
+        DialogInstaller(
+            session,
+            config,
+            DEBIAN_VARIANT_12,
+            dialog,
+        )._postinst()
 
         session.serial_shell_start.assert_called_once()
-        session.serial_shell_send.assert_called_once_with(session.postinst_command, wait=False)
+        session.serial_shell_send.assert_called_once_with(
+            postinst_command(config),
+            wait=False,
+        )
         serial.answer_any.assert_called_once_with([("Configure package?", "yes", False)])
         serial.wait.assert_called_once_with("Configuration complete!", line=True)
         session.serial_shell_exit.assert_called_once()
 
-        session.config.postinst = PostinstConfig(stages=["packages", "tty"], packages=packages)
+        config.postinst = PostinstConfig(stages=["packages", "tty"], packages=packages)
         session.serial_shell_exit.reset_mock()
-        DialogInstaller(session, DEBIAN_VARIANT_12)._postinst()
+        DialogInstaller(
+            session,
+            config,
+            DEBIAN_VARIANT_12,
+            dialog,
+        )._postinst()
         session.serial_shell_exit.assert_not_called()
 
 
 class SlackwareDialogPromptTests(unittest.TestCase):
     def test_prepare_accepts_a_decorated_root_shell_prompt(self) -> None:
         config = slackware_dialog_config(disk={"fat_filesystem": "vfat"})
+        dialog = unittest.mock.Mock()
         session = SimpleNamespace(
-            config=SimpleNamespace(install=config),
-            dialog=unittest.mock.Mock(),
             serial_shell_start=unittest.mock.Mock(),
             serial_shell_send=unittest.mock.Mock(),
             serial_shell_exit=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
         )
 
-        with patch("hostlib.installers.slackware_dialog.Fdisk"):
-            SlackwareDialogInstaller(session, SLACKWARE_VARIANT_35)._prepare()
+        with patch("hostlib.install.slackware_dialog.Fdisk"):
+            SlackwareDialogInstaller(
+                session,
+                SimpleNamespace(install=config),
+                SLACKWARE_VARIANT_35,
+                dialog,
+            )._prepare()
 
         shell_prompt = r"# *$"
         session.serial_shell_start.assert_called_once_with(
@@ -2742,16 +2857,17 @@ class SlackwareDialogPromptTests(unittest.TestCase):
         )
 
     def test_boot_prompt_can_be_disabled_when_kernel_is_already_running(self) -> None:
+        config = SimpleNamespace(install=slackware_dialog_config(variant="1.1.2"))
         session = SimpleNamespace(
-            config=SimpleNamespace(install=slackware_dialog_config(variant="1.1.2")),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             change_floppy=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
+            serial=unittest.mock.Mock(),
             dialog=SimpleNamespace(),
         )
-        with patch("hostlib.installers.slackware_dialog.DialogInstaller.install"):
-            run_slackware_dialog(session)
+        with patch("hostlib.install.slackware_dialog.DialogInstaller.install"):
+            run_slackware_dialog(session, config)
 
         self.assertEqual(
             session.vga_wait.call_args_list,
@@ -2766,17 +2882,18 @@ class SlackwareDialogPromptTests(unittest.TestCase):
         session.kb_type.assert_not_called()
 
     def test_boot_answers_a_second_vfs_prompt_after_changing_root_disk(self) -> None:
+        config = SimpleNamespace(install=slackware_dialog_config(variant="2.0"))
         session = SimpleNamespace(
-            config=SimpleNamespace(install=slackware_dialog_config(variant="2.0")),
             boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             change_floppy=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
+            serial=unittest.mock.Mock(),
             dialog=SimpleNamespace(),
         )
-        with patch("hostlib.installers.slackware_dialog.DialogInstaller.install"):
-            run_slackware_dialog(session)
+        with patch("hostlib.install.slackware_dialog.DialogInstaller.install"):
+            run_slackware_dialog(session, config)
 
         session.change_floppy.assert_called_once_with("root.img")
         self.assertEqual(
@@ -2815,13 +2932,13 @@ class SysinstallTests(unittest.TestCase):
                 wait_any=unittest.mock.Mock(side_effect=[(1, ""), (2, "")]),
                 send=unittest.mock.Mock(),
             )
+            config = SimpleNamespace(install=sysinstall_config())
             session = SimpleNamespace(
-                config=SimpleNamespace(install=sysinstall_config()),
                 qemu_dir=root,
                 serial=serial,
                 change_floppy=unittest.mock.Mock(),
             )
-            Sysinstall(session)._packages()
+            Sysinstall(session, config)._packages()
 
             image = root / "bootdisk.img"
             self.assertEqual(image.stat().st_size, 1440 * 1024)
@@ -3061,8 +3178,8 @@ class ManifestCoverageTests(unittest.TestCase):
             install = tomllib.loads((root / relative).read_text())["install"]
             self.assertEqual(install["driver"], driver)
             self.assertNotIn("steps", install)
-        self.assertTrue((root / "hostlib/installers/debian_091.py").is_file())
-        self.assertTrue((root / "hostlib/installers/slackware_tty.py").is_file())
+        self.assertTrue((root / "hostlib/install/debian_091.py").is_file())
+        self.assertTrue((root / "hostlib/install/slackware_tty.py").is_file())
         self.assertFalse((root / "guestlib/deb091/lilo.sh").exists())
         self.assertFalse((root / "guestlib/deb091/pkginst.sh").exists())
         self.assertIn(
@@ -3074,7 +3191,7 @@ class ManifestCoverageTests(unittest.TestCase):
         with temporary_root() as root:
             boot = root / "boot.img"
             boot.write_bytes(b"boot image")
-            MediaStager._link("boot.img", boot)
+            link_media("boot.img", boot)
             self.assertFalse(boot.is_symlink())
             self.assertEqual(boot.read_bytes(), b"boot image")
 
@@ -3082,7 +3199,7 @@ class ManifestCoverageTests(unittest.TestCase):
         with temporary_root() as root:
             destination = root / "boot.img"
             with self.assertRaisesRegex(ConfigError, "Link source not found: missing.img"):
-                MediaStager._link("missing.img", destination)
+                link_media("missing.img", destination)
 
 
 class VgaTests(unittest.IsolatedAsyncioTestCase):
@@ -3489,7 +3606,7 @@ class NewtDialogTests(unittest.TestCase):
 
         session = Session()
         dialog = NewtDialog(session)
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             state = dialog.wait_for_title("Choose A Card")
         dialog.capture()
         self.assertEqual(
@@ -3556,7 +3673,7 @@ class NewtDialogTests(unittest.TestCase):
                     raise AssertionError("parent did not match after child closed")
                 return closed
 
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             state = NewtDialog(Session()).wait_for_title("Parent")
 
         self.assertEqual(state.title, "Parent")
@@ -3640,7 +3757,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).press_button("Cancel")
         self.assertEqual(session.keys, ["tab", "ret"])
         self.assertIn("👇 Press Cancel", captured.output[0])
@@ -3658,7 +3775,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).advance("Ok")
         self.assertEqual(session.keys, ["f12"])
         self.assertIn("👇 Press Ok", captured.output[0])
@@ -3676,7 +3793,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).advance()
         self.assertEqual(session.keys, ["f12"])
         self.assertIn("👇 Press Ok", captured.output[0])
@@ -3869,7 +3986,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.typed.append(text)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).set_fields({"Value:": "secret"}, sensitive=True)
 
         self.assertEqual(session.typed, ["secret"])
@@ -3895,7 +4012,7 @@ class NewtDialogTests(unittest.TestCase):
             def kb_type_quiet(self, text):
                 pass
 
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(Session()).set_fields({"Value:": ""})
 
         self.assertIn("✏️  Edit Value: <blank>", captured.output[0])
@@ -4093,7 +4210,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).set_checklist_items(["One", "Two"])
         self.assertEqual(session.keys, ["pgup", "spc", "down", "spc", "down"])
         self.assertEqual(
@@ -4122,7 +4239,7 @@ class NewtDialogTests(unittest.TestCase):
                 self.keys.extend(keys)
 
         session = Session()
-        with self.assertLogs("hostlib.newt_dialog", level="INFO") as captured:
+        with self.assertLogs("hostlib.install.newt_dialog", level="INFO") as captured:
             NewtDialog(session).set_checklist_items(["One"])
         self.assertEqual(session.keys, ["pgup", "down", "spc", "down"])
         self.assertEqual(
@@ -4268,7 +4385,7 @@ class SerialTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SessionTests(unittest.TestCase):
-    def session(self, install=None, postinst=None):
+    def session(self):
         runtime = SimpleNamespace(
             monitor=AsyncMock(),
             vga=SimpleNamespace(
@@ -4277,22 +4394,22 @@ class SessionTests(unittest.TestCase):
                 invalidate=unittest.mock.Mock(),
             ),
         )
-        session = InstallSession(
-            runtime,
-            None,
-            RetroConfig(
-                context=SimpleNamespace(),
-                data={
-                    "install": {
-                        "driver": "slackware-sysinstall",
-                        **(install or {}),
-                    },
-                    "postinst": postinst or {},
-                },
-            ),
-        )
+        session = QemuSession(runtime, None)
         session._call = lambda coroutine: asyncio.run(coroutine)
         return session
+
+    @staticmethod
+    def config(install=None, postinst=None):
+        return RetroConfig(
+            context=SimpleNamespace(),
+            data={
+                "install": {
+                    "driver": "slackware-sysinstall",
+                    **(install or {}),
+                },
+                "postinst": postinst or {},
+            },
+        )
 
     def test_line_wait_uses_trimmed_complete_lines(self) -> None:
         session = self.session()
@@ -4322,7 +4439,7 @@ class SessionTests(unittest.TestCase):
         session._runtime.vga.invalidate.assert_called_once_with()
 
     def test_postinstall_command_uses_configured_fat_paths(self) -> None:
-        session = self.session(
+        config = self.config(
             {
                 "disk": {
                     "fat_partition": "/dev/sdb1",
@@ -4331,13 +4448,14 @@ class SessionTests(unittest.TestCase):
                 }
             }
         )
-        self.assertIn("mount -t vfat", session.postinst_command)
-        self.assertIn("/dev/sdb1 /media/retro", session.postinst_command)
-        self.assertIn("/media/retro/guestlib.d/postinst.sh", session.postinst_command)
+        command = postinst_command(config)
+        self.assertIn("mount -t vfat", command)
+        self.assertIn("/dev/sdb1 /media/retro", command)
+        self.assertIn("/media/retro/guestlib.d/postinst.sh", command)
 
     def test_postinstall_can_use_a_different_fat_filesystem(self) -> None:
-        session = self.session(postinst={"fat_filesystem": "vfat"})
-        self.assertIn("mount -t vfat", session.postinst_command)
+        config = self.config(postinst={"fat_filesystem": "vfat"})
+        self.assertIn("mount -t vfat", postinst_command(config))
 
 
 if __name__ == "__main__":

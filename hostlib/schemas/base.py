@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from .errors import ConfigError
+from .. import ConfigError
 
 
 class ConfigModel(BaseModel):

@@ -7,8 +7,8 @@ import gzip
 from pathlib import Path, PurePosixPath
 import re
 
-from .errors import ConfigError
-from .media_schemas import DebianPackagesConfig
+from . import ConfigError
+from .schemas.postinst import DebianPackagesConfig
 
 
 @dataclass(frozen=True, slots=True)

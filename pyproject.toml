@@ -18,7 +18,7 @@ dependencies = [
 dev = ["black"]
 
 [project.scripts]
-retro = "hostlib.cli:main"
+retro = "hostlib.retro_cli:main"
 qmp = "hostlib.qmp_cli:main"
 
 [tool.black]

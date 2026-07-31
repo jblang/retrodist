@@ -10,26 +10,28 @@ from __future__ import annotations
 
 import shlex
 
-from ..dialog import AnswerText, AnswerTitle
-from ..fdisk import Fdisk
-from ..schemas import RedHatDialogInstallConfig
-from ..session import InstallSession, Match, fat_mount_command
+from ..config import RetroConfig
+from ..schemas.redhat import RedHatDialogInstallConfig
+from ..session import Match, QemuSession
+from .dialog import AnswerText, AnswerTitle, Dialog
+from .fdisk import Fdisk
+from .postinst import fat_mount_command, run_postinst
 
 
-def run_redhat_dialog(session: InstallSession) -> None:
+def run_redhat_dialog(session: QemuSession, config: RetroConfig) -> None:
     """Run the configured early Red Hat dialog installer variant."""
-    config = session.config.install
-    assert isinstance(config, RedHatDialogInstallConfig)
-    installer = DialogInstaller(session)
+    options = config.install
+    assert isinstance(options, RedHatDialogInstallConfig)
+    installer = DialogInstaller(session, config)
     installer.boot()
-    if config.variant == "1.1":
+    if options.variant == "1.1":
         installer.load_ramdisk("rootdisk.img")
         installer.prepare_dialog("Welcome to the Red Hat Commercial Linux installation program!")
         installer.dialog.answer(AnswerTitle("msgbox", "Important Copyright Notice", "ok"))
         installer.insert_boot_disk()
-    elif config.variant == "2.1":
+    elif options.variant == "2.1":
         installer.install("Welcome to the Red Hat Linux installation program!", x_vga=False)
-    elif config.variant == "3.0.3":
+    elif options.variant == "3.0.3":
         installer.install(
             "This script will walk you through each step of the installation.",
             x_vga=True,
@@ -39,18 +41,24 @@ def run_redhat_dialog(session: InstallSession) -> None:
 class DialogInstaller:
     """Drive Red Hat's Perl installer through its ``dialog`` protocol."""
 
-    def __init__(self, session: InstallSession) -> None:
+    def __init__(
+        self,
+        session: QemuSession,
+        config: RetroConfig,
+        dialog: Dialog | None = None,
+    ) -> None:
         """Bind the typed configuration and dialog transport for one install."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, RedHatDialogInstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.prompts = config.prompts
-        self.network = config.network
-        self.packages = config.packages
-        self.accounts = config.accounts
-        self.dialog = session.dialog
+        self.config = config
+        options = config.install
+        assert isinstance(options, RedHatDialogInstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.prompts = options.prompts
+        self.network = options.network
+        self.packages = options.packages
+        self.accounts = options.accounts
+        self.dialog = dialog if dialog is not None else Dialog(session.serial)
 
     @property
     def fqdn(self) -> str:
@@ -297,7 +305,9 @@ class DialogInstaller:
         self.dialog.answer(AnswerTitle("yesno", "Installation Completed", "yes"))
         self.s.set_boot("c")
         self.dialog.answer(AnswerTitle("msgbox", "Installation Complete", "ok"))
-        self.s.run_postinst(
+        run_postinst(
+            self.s,
+            self.config,
             self.accounts.root_password or None,
             login=f"{self.fqdn} login:",
             shell=f"[root@{self.network.hostname} /root]#",

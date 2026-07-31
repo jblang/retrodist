@@ -12,10 +12,12 @@ from dataclasses import dataclass
 import re
 import shlex
 
-from ..dialog import AnswerTitle
-from ..fdisk import Fdisk
-from ..session import InstallSession, Match, fat_mount_command
-from ..schemas import DebianDialogInstallConfig
+from ..config import RetroConfig
+from ..schemas.debian import DebianDialogInstallConfig
+from ..session import Match, QemuSession
+from .dialog import AnswerTitle, Dialog
+from .fdisk import Fdisk
+from .postinst import fat_mount_command, postinst_command
 
 
 @dataclass(frozen=True)
@@ -47,18 +49,18 @@ VARIANTS = {
 }
 
 
-def run_debian_dialog(session: InstallSession) -> None:
+def run_debian_dialog(session: QemuSession, config: RetroConfig) -> None:
     """Run the configured Debian Dinstall variant."""
-    config = session.config.install
-    assert isinstance(config, DebianDialogInstallConfig)
-    variant = VARIANTS[config.variant]
-    boot = config.boot
+    options = config.install
+    assert isinstance(options, DebianDialogInstallConfig)
+    variant = VARIANTS[options.variant]
+    boot = options.boot
     session.boot_command(boot.prompt, boot.command)
     if boot.root_prompt:
         session.vga_wait(boot.root_prompt, match=Match.LINE)
         session.change_floppy(boot.root_image)
         session.kb_type("\n")
-    DialogInstaller(session, variant).install()
+    DialogInstaller(session, config, variant).install()
 
 
 class DialogInstaller:
@@ -73,19 +75,22 @@ class DialogInstaller:
 
     def __init__(
         self,
-        session: InstallSession,
+        session: QemuSession,
+        config: RetroConfig,
         variant: DebianDialogVariant,
+        dialog: Dialog | None = None,
     ) -> None:
         """Initialize the Dinstall driver with typed release configuration."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, DebianDialogInstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.network = config.network
-        self.accounts = config.accounts
+        self.config = config
+        options = config.install
+        assert isinstance(options, DebianDialogInstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.network = options.network
+        self.accounts = options.accounts
         self.variant = variant
-        self.d = session.dialog
+        self.d = dialog if dialog is not None else Dialog(session.serial)
 
     def install(self) -> None:
         """Run the complete Debian Dinstall workflow."""
@@ -406,9 +411,10 @@ class DialogInstaller:
             self.s.vga_wait("Password:", match=Match.LINE)
             self.s.kb_type(f"{accounts.root_password}\n")
         self.s.vga_wait(r"^[^\s]*# *$", match=Match.REGEX)
-        prompts = self.s.config.postinst.packages.prompts
+        prompts = self.config.postinst.packages.prompts
+        command = postinst_command(self.config)
         if not prompts:
-            self.s.kb_type(f"{self.s.postinst_command}\n")
+            self.s.kb_type(f"{command}\n")
             return
         screen_prompt = r"^[^\s]*# *$"
         self.s.serial_shell_start(
@@ -416,10 +422,10 @@ class DialogInstaller:
             serial_prompt="retro-postinst#",
             screen_match=Match.REGEX,
         )
-        self.s.serial_shell_send(self.s.postinst_command, wait=False)
+        self.s.serial_shell_send(command, wait=False)
         self.s.serial.answer_any(
             [(prompt.expect, prompt.answer, prompt.regex) for prompt in prompts]
         )
         self.s.serial.wait("Configuration complete!", line=True)
-        if not self.s.config.postinst.reboots:
+        if not self.config.postinst.reboots:
             self.s.serial_shell_exit(screen_prompt=screen_prompt, screen_match=Match.REGEX)

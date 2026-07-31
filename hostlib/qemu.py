@@ -18,9 +18,9 @@ import subprocess
 
 from .config import QemuConfig
 from .context import Context
-from .errors import CommandError
+from . import CommandError
 from .qmp import Monitor
-from .qemu_schemas import QEMU_PROFILES
+from .schemas.qemu import QEMU_PROFILES
 
 log = logging.getLogger(__name__)
 

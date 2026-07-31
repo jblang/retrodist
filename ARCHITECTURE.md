@@ -144,14 +144,15 @@ era-appropriate machine, memory, disk, network, and display defaults; distro
 configuration retains only the controls used by current configs plus network
 enablement and forwarding.
 
-Schema implementation is grouped by concern: `schema_base.py` owns strict model
-defaults and user-facing validation errors, `qemu_schemas.py` owns emulator
-configuration, and `media_schemas.py` owns download, extraction, network, and
-post-install models. `schemas.py` contains only installer models.
+Schema implementation lives under `hostlib/schemas/` and has no runtime
+dependencies. Its `base`, `download`, `media`, `network`, `postinst`, and
+`qemu`, and installer-family modules define subsystem contracts. `install.py`
+holds shared installer models, while the package initializer composes the
+family models into the driver-discriminated configuration union.
 
 ## Command Orchestration
 
-`hostlib.cli.Application` is the composition root. Downloading, extraction,
+`hostlib.retro_cli.Application` is the composition root. Downloading, extraction,
 tagfile generation, reset, and packaging are synchronous. An asyncio event loop
 exists only for a live QEMU process and its monitor and installer transports.
 
@@ -214,11 +215,14 @@ guest library and generated post-install configuration are refreshed.
 
 ## Media Staging Contract
 
-`MediaStager` is the boundary between heterogeneous source media and QEMU. It
-can select files and package trees from directories, ISO images, tar archives,
-ZIP archives, and 7-Zip archives. Declarative postprocessing handles
-decompression, floppy truncation, overlays, and conventional links. A custom
-`extract.sh` is reserved for conversions that cannot be expressed by this path.
+`MediaStager` is the workflow boundary between heterogeneous source media and
+QEMU. It delegates format-specific selection from directories, ISO images, tar
+archives, ZIP archives, and 7-Zip archives to `MediaExtractor`, then applies
+declarative decompression, floppy truncation, overlays, and conventional links.
+`GuestlibStager` independently refreshes the staged guest library and generated
+post-install inputs, including when the extraction marker already exists. A
+custom `extract.sh` is reserved for conversions that cannot be expressed by
+this path.
 
 QEMU does not need to understand the original archive layout. `QemuRuntime`
 discovers a small set of conventional names in `qemu.d/`:
@@ -242,26 +246,31 @@ configuration.
 ## Installer Automation
 
 Reusable family drivers and focused one-off drivers live in
-`hostlib/installers/`. They use the synchronous `InstallSession` API, so driver
-code reads like the installer procedure it represents. Drivers consume the
-typed `disk`, `network`, `locale`, `prompts`, and family-specific sections of
-the selected install model directly.
+`hostlib/install/`. They consume the synchronous `QemuSession` scripting API
+and receive `RetroConfig` as a separate argument, so VM control remains
+independent of installer policy. Drivers consume the typed `disk`, `network`,
+`locale`, `prompts`, and family-specific sections of the selected install model
+directly.
 
-The live transports are asynchronous. `run_install` owns the serial transport
-on the main event loop, instantiates the demand-driven VGA observer, and runs
-the synchronous driver in a worker thread. Calls through `InstallSession` are
-submitted back to the owning event loop. This keeps QMP and serial input
-responsive while a driver performs blocking waits.
+The live transports are asynchronous. The general `run_script` lifecycle owns
+the serial transport on the main event loop, instantiates the demand-driven VGA
+observer, and runs a synchronous callback in a worker thread. `run_install`
+selects an installer driver and supplies that callback with both `QemuSession`
+and `RetroConfig`. Calls through `QemuSession` are submitted back to the owning
+event loop. This keeps QMP and serial input responsive while a script performs
+blocking waits.
 
 ```mermaid
 %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 28, "rankSpacing": 46}}}%%
 flowchart LR
     subgraph worker[Installer worker thread]
         driver["Python installer driver"]
-        session([InstallSession])
+        config[RetroConfig]
+        session([QemuSession])
         dialog[Dialog protocol parser]
         fdisk[Fdisk protocol driver]
         driver --> session
+        driver --> config
         driver --> dialog
         driver --> fdisk
         dialog --> session
@@ -317,8 +326,8 @@ The automation channels have separate purposes:
 - The `ttyS3` socket carries structured dialog exchanges or an interactive
   shell. `SerialConsole` continuously buffers and logs this stream while driver
   waits consume it independently.
-- The `qmp` command-line utility reuses the monitor, keyboard encoder, and VGA
-  decoder for manual inspection and recovery of a running VM.
+- The `qmp` command-line utility reuses the monitor's keyboard encoder and the
+  VGA decoder for manual inspection and recovery of a running VM.
 
 Transport and QMP cleanup is guaranteed when automation fails. The CLI also
 terminates a still-running QEMU process when it exits through an exception.

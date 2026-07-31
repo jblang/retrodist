@@ -90,7 +90,7 @@ Run `retro tagfile CONFIG` to regenerate `default.tag` from staged packages.
 ## Installer Automation
 
 Slackware 1.1.2 through 9.0 use the shared
-[`slackware_dialog.py`](../hostlib/installers/slackware_dialog.py) driver.
+[`slackware_dialog.py`](../hostlib/install/slackware_dialog.py) driver.
 Its `install.variant` selects a Python profile that owns boot prompts, root-disk
 changes, setup ordering, and optional release screens. TOML keeps package
 selection, tagfile policy, installation source, locale, network, and disk
@@ -98,6 +98,6 @@ choices. Behaviorally identical releases share range-named profiles, such as
 `3.1-3.4` and `8.0-9.0`.
 
 Slackware 1.1.1 uses the dedicated
-[`slackware_tty.py`](../hostlib/installers/slackware_tty.py) prompt driver.
+[`slackware_tty.py`](../hostlib/install/slackware_tty.py) prompt driver.
 Earlier 1.01 and 1.0beta releases use
-[`slackware_sysinstall.py`](../hostlib/installers/slackware_sysinstall.py).
+[`slackware_sysinstall.py`](../hostlib/install/slackware_sysinstall.py).

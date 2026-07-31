@@ -8,7 +8,8 @@ configured custom stage. Host-side install automation mounts that FAT disk at
 `/retro` and starts `/retro/guestlib.d/postinst.sh` after installation.
 
 Do not edit staged `qemu.d/fat/guestlib.d/` files; edit this directory or the
-distro's source `postinst.sh`. Host staging is implemented and documented in
+distro's source `postinst.sh`. Host staging is implemented in
+[`hostlib/guestlib.py`](../hostlib/guestlib.py) and coordinated by
 [`hostlib/media.py`](../hostlib/media.py); adding a distro is covered by
 [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -144,7 +145,8 @@ installer's real binary with this executable, turning widgets that use the stub
 into labeled text exchanges on the control serial port. Other screens may
 remain VGA-driven. The Python `Dialog` driver consumes each exchange and sends
 the answer expected by the original installer. Its protocol contract is
-documented in [`hostlib/dialog.py`](../hostlib/dialog.py).
+documented in
+[`hostlib/install/dialog.py`](../hostlib/install/dialog.py).
 
 For example, a menu exchange is:
 

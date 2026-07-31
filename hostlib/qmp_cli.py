@@ -8,9 +8,8 @@ import logging
 import math
 from pathlib import Path
 
-from .errors import RetroError
-from .keyboard import encode
-from .qmp import Monitor
+from . import RetroError
+from .qmp import Monitor, encode
 from .vga import ScreenObserver
 
 log = logging.getLogger(__name__)

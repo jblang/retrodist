@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
-from ..fdisk import Fdisk
-from ..schemas import SlackwareTtyInstallConfig
-from ..session import InstallSession, Match
+from ..config import RetroConfig
+from ..schemas.slackware import SlackwareTtyInstallConfig
+from ..session import Match, QemuSession
+from .fdisk import Fdisk
+from .postinst import run_postinst
 
 
 class SlackwareTtyInstaller:
     """Drive the one-off Slackware 1.1.1 tty installer."""
 
-    def __init__(self, session: InstallSession) -> None:
+    def __init__(self, session: QemuSession, config: RetroConfig) -> None:
         """Bind the typed Slackware tty settings to one install session."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, SlackwareTtyInstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.network = config.network
-        self.packages = config.packages
+        self.config = config
+        options = config.install
+        assert isinstance(options, SlackwareTtyInstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.network = options.network
+        self.packages = options.packages
 
     def prompt(self, *questions: str, answer: str = "") -> None:
         """Answer one prompt on the installer automation serial port."""
@@ -45,7 +48,9 @@ class SlackwareTtyInstaller:
         )
         self.s.set_boot("c")
         self.s.kb_press("ctrl-alt-delete")
-        self.s.run_postinst(
+        run_postinst(
+            self.s,
+            self.config,
             login=f"{network.hostname} login:",
             shell=f"{network.hostname}:~#",
         )
@@ -155,6 +160,6 @@ class SlackwareTtyInstaller:
         )
 
 
-def run_slackware_tty(session: InstallSession) -> None:
+def run_slackware_tty(session: QemuSession, config: RetroConfig) -> None:
     """Run Slackware 1.1.1's dedicated tty installer."""
-    SlackwareTtyInstaller(session).install()
+    SlackwareTtyInstaller(session, config).install()

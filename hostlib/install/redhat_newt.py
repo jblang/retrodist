@@ -6,10 +6,12 @@ from dataclasses import dataclass
 import time
 from typing import Literal, assert_never
 
-from ..fdisk import Fdisk
-from ..session import InstallSession
-from ..newt_dialog import NewtDialog
-from ..schemas import RedHatNewtInstallConfig, UnattendedInstallConfig
+from ..config import RetroConfig
+from ..schemas.redhat import RedHatNewtInstallConfig, UnattendedInstallConfig
+from ..session import QemuSession
+from .fdisk import Fdisk
+from .newt_dialog import NewtDialog
+from .postinst import run_postinst
 
 PartitionWorkflow = Literal[
     "partition-disks",
@@ -109,12 +111,12 @@ VARIANTS = {
 }
 
 
-def run_redhat_newt(session: InstallSession) -> None:
+def run_redhat_newt(session: QemuSession, config: RetroConfig) -> None:
     """Run the configured Red Hat Newt installer variant."""
-    config = session.config.install
-    assert isinstance(config, RedHatNewtInstallConfig)
-    variant = VARIANTS[config.variant]
-    installer = NewtInstaller(session, variant)
+    options = config.install
+    assert isinstance(options, RedHatNewtInstallConfig)
+    variant = VARIANTS[options.variant]
+    installer = NewtInstaller(session, config, variant)
     installer.boot_and_select_installation_options()
     installer.partition_storage()
     installer.select_components()
@@ -127,20 +129,22 @@ def run_redhat_newt(session: InstallSession) -> None:
     installer.complete_installation()
 
 
-def run_redhat_unattended(session: InstallSession) -> None:
+def run_redhat_unattended(session: QemuSession, config: RetroConfig) -> None:
     """Wait for an unattended Red Hat install and complete post-install setup."""
-    config = session.config.install
-    assert isinstance(config, UnattendedInstallConfig)
-    session.boot_command(config.boot.prompt, config.boot.command)
-    session.vga_wait(config.completion.prompt)
-    if config.completion.reboot:
-        session.set_boot(config.completion.boot_device)
+    options = config.install
+    assert isinstance(options, UnattendedInstallConfig)
+    session.boot_command(options.boot.prompt, options.boot.command)
+    session.vga_wait(options.completion.prompt)
+    if options.completion.reboot:
+        session.set_boot(options.completion.boot_device)
         session.kb_type("\n")
-    if config.completion.postinst:
-        session.run_postinst(
-            config.accounts.root_password,
-            login=config.prompts.login_prompt,
-            shell=config.prompts.shell_prompt,
+    if options.completion.postinst:
+        run_postinst(
+            session,
+            config,
+            options.accounts.root_password,
+            login=options.prompts.login_prompt,
+            shell=options.prompts.shell_prompt,
         )
 
 
@@ -154,19 +158,21 @@ class NewtInstaller:
 
     def __init__(
         self,
-        session: InstallSession,
+        session: QemuSession,
+        config: RetroConfig,
         variant: NewtVariant,
     ) -> None:
         """Initialize the Newt driver with typed release configuration."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, RedHatNewtInstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.prompts = config.prompts
-        self.network_config = config.network
-        self.components = config.packages.components
-        self.root_password = config.accounts.root_password
+        self.config = config
+        options = config.install
+        assert isinstance(options, RedHatNewtInstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.prompts = options.prompts
+        self.network_config = options.network
+        self.components = options.packages.components
+        self.root_password = options.accounts.root_password
         self.variant = variant
         self.dialog = NewtDialog(session)
 
@@ -409,7 +415,9 @@ class NewtInstaller:
         self.dialog.wait_for_title("Done")
         self.s.set_boot("c")
         self.dialog.advance()
-        self.s.run_postinst(
+        run_postinst(
+            self.s,
+            self.config,
             self.root_password,
             login=f"{hostname} login:",
             shell=f"[root@{hostname} /root]#",

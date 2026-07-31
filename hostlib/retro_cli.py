@@ -11,18 +11,19 @@ import argparse
 import asyncio
 import logging
 from pathlib import Path
+import shlex
 import shutil
+import subprocess
+import tarfile
 
+from . import RetroError
 from .config import QemuConfig, RetroConfig, load_config
 from .context import Context
-from .errors import RetroError
 from .download import Downloader
-from .installers import validate_install_config
+from .install import run_install, validate_install_config
 from .media import MediaStager
-from .operations import package
 from .qemu import QemuRuntime
-from .session import run_install
-from .tagfiles import generate_default_tag
+from .slackware_tagfiles import generate_default_tag
 
 log = logging.getLogger(__name__)
 COMMANDS = (
@@ -80,7 +81,7 @@ class Application:
                 generate_default_tag(self.context, self.context.qemu_dir)
             case "package":
                 self._prepare_media()
-                package(self.context, self.config)
+                self.package()
 
     def _prepare_media(self) -> None:
         """Download and stage all media required by later operations."""
@@ -142,6 +143,30 @@ class Application:
         answer = input(f"Really remove QEMU state for {self.context.name}? ")
         if answer.lower().startswith("y"):
             shutil.rmtree(self.context.qemu_dir, ignore_errors=True)
+
+    def package(self) -> Path:
+        """Build portable launchers and an archive from staged QEMU state.
+
+        Symlinks are dereferenced so shared CD-ROM media remains usable outside
+        the repository. The archive is created in the current working directory.
+        """
+        runtime = QemuRuntime(self.context, self.config.qemu)
+        self.context.qemu_dir.mkdir(parents=True, exist_ok=True)
+        runtime.ensure_disk()
+        command = runtime.command()
+        (self.context.qemu_dir / "retro.sh").write_text(
+            '#!/bin/sh\ncd -- "$(dirname -- "$0")"\nexec ' + shlex.join(command) + "\n"
+        )
+        (self.context.qemu_dir / "retro.sh").chmod(0o755)
+        (self.context.qemu_dir / "retro.bat").write_text(
+            "@echo off\r\ncd /d %~dp0\r\n" + subprocess.list2cmdline(command) + "\r\n"
+        )
+        name = self.context.name.replace("/", "-")
+        archive = Path.cwd() / f"{name}.tar.gz"
+        with tarfile.open(archive, "w:gz", dereference=True) as output:
+            output.add(self.context.qemu_dir, arcname=name)
+        log.info("📦 Package archive created: %s", archive)
+        return archive
 
 
 def run_main(arguments: list[str] | None = None) -> int:

@@ -1,10 +1,4 @@
-"""Bridge synchronous installer drivers to event-loop-owned VM transports.
-
-QEMU, QMP, VGA polling, and serial I/O remain asynchronous on the main event
-loop. Family drivers run in a worker thread and use ``InstallSession`` as a
-synchronous API, keeping release automation linear and readable without moving
-async concerns into every installer step.
-"""
+"""Expose synchronous QEMU scripting over event-loop-owned VM transports."""
 
 from __future__ import annotations
 
@@ -17,9 +11,7 @@ import shlex
 import time
 from typing import Any, Callable, Coroutine, TypeVar
 
-from .config import RetroConfig
-from .qmp import Monitor
-from .keyboard import encode
+from .qmp import Monitor, encode
 from .serial import SerialConsole
 from .vga import ScreenObserver, ScreenSnapshot
 
@@ -28,31 +20,22 @@ T = TypeVar("T")
 
 
 class Match(Enum):
-    """Select how installer screen text is matched."""
+    """Select how VGA screen text is matched."""
 
     TEXT = "text"
     LINE = "line"
     REGEX = "regex"
 
 
-def fat_mount_command(mount: str, partition: str, filesystem: str) -> str:
-    """Return a quoted shell command that creates and mounts the FAT exchange partition."""
-    quoted_mount = shlex.quote(mount)
-    return (
-        f"mkdir -p {quoted_mount} && "
-        f"mount -t {shlex.quote(filesystem)} {shlex.quote(partition)} {quoted_mount}"
-    )
-
-
-class _InstallRuntime:
-    """Own the asynchronous transports hidden behind ``InstallSession``.
+class _QemuSessionRuntime:
+    """Own the asynchronous transports hidden behind ``QemuSession``.
 
     The QMP monitor is supplied by the QEMU lifecycle. This object adds the VGA
     observer and owns the dedicated ``ttyS3`` automation console.
     """
 
     def __init__(self, monitor: Monitor, qemu_dir: Path) -> None:
-        """Create the asynchronous transports for one installer VM."""
+        """Create the asynchronous transports for one scripted VM."""
         self.monitor = monitor
         self.vga = ScreenObserver(monitor, qemu_dir)
         self.serial = SerialConsole(qemu_dir / "ttyS3.sock")
@@ -67,15 +50,15 @@ class _InstallRuntime:
 
 
 class Serial:
-    """Expose synchronous serial operations to installer drivers.
+    """Expose synchronous serial operations to QEMU scripts.
 
     Every call is submitted to the runtime's owning event loop through the
     parent session. The API mirrors ``SerialConsole`` closely enough to satisfy
     dialog and fdisk protocol drivers without exposing coroutines.
     """
 
-    def __init__(self, session: "InstallSession") -> None:
-        """Bind the synchronous serial facade to an installer session."""
+    def __init__(self, session: "QemuSession") -> None:
+        """Bind the synchronous serial facade to a QEMU session."""
         self._session = session
 
     def send(self, text: str) -> None:
@@ -134,45 +117,24 @@ class Serial:
         self._session._call(self._session._runtime.serial.rewind(offset))
 
 
-class InstallSession:
-    """Synchronous VM-control API used by declarative plans and family drivers.
+class QemuSession:
+    """Synchronous VM-control API for QEMU scripts.
 
     The session combines serial prompt matching, VGA observation, paced QMP
-    keyboard input, removable-media control, boot-device changes, interactive
-    serial shells, option binding, and post-install login. Calls block only the
-    installer worker thread; the transport event loop continues running.
+    keyboard input, removable-media control, boot-device changes, and
+    interactive serial shells. Calls block only the caller's worker thread;
+    the transport event loop continues running.
     """
 
     def __init__(
         self,
-        runtime: _InstallRuntime,
+        runtime: _QemuSessionRuntime,
         loop: asyncio.AbstractEventLoop,
-        config: RetroConfig,
     ) -> None:
-        """Bind synchronous driver APIs to an event-loop-owned runtime."""
-        from .dialog import Dialog
-
+        """Bind synchronous QEMU controls to an event-loop-owned runtime."""
         self._runtime = runtime
         self._loop = loop
-        self.config = config
         self.serial = Serial(self)
-        self.dialog = Dialog(self.serial)
-
-    @property
-    def postinst_command(self) -> str:
-        """Return the guest command that mounts FAT media and runs post-installation.
-
-        The mount device and path come from the install disk section so
-        distributions with nonstandard layouts use the same global guest runner.
-        """
-        disk = self.config.install.disk
-        mount = disk.fat_mount
-        filesystem = self.config.postinst.fat_filesystem or disk.fat_filesystem
-        return (
-            f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
-            f"{fat_mount_command(mount, disk.fat_partition, filesystem)}; fi; "
-            f"{shlex.quote(mount)}/guestlib.d/postinst.sh"
-        )
 
     @property
     def qemu_dir(self) -> Path:
@@ -324,43 +286,17 @@ class InstallSession:
         """Write a message to the guest's visible console."""
         self.serial_shell_send(f"echo {shlex.quote(message)} >/dev/console")
 
-    def run_postinst(
-        self, password: str | None = None, *, login: str = "login:", shell: str = "#"
-    ) -> None:
-        """Log in as root and launch the staged post-installation runner.
 
-        Args:
-            password: Optional root password required after the login name.
-            login: Complete-line login prompt to wait for.
-            shell: Complete-line root shell prompt to wait for.
-        """
-        self.vga_wait(login, match=Match.LINE)
-        self.kb_type("root\n")
-        if password is not None:
-            self.vga_wait("Password:")
-            self.kb_type(f"{password}\n")
-        self.vga_wait(shell, match=Match.LINE)
-        self.kb_type(f"{self.postinst_command}\n")
-
-
-async def run_install(
+async def run_script(
     monitor: Monitor,
     qemu_dir: Path,
-    config: RetroConfig,
-) -> None:
-    """Run one installer driver while owning its asynchronous transports.
-
-    The driver executes in a worker thread so its synchronous waits do not block
-    QMP or serial receipt. Transport cleanup is guaranteed even when validation
-    or installer automation raises an exception.
-    """
-    from .installers import validate_install_config
-
-    entrypoint = validate_install_config(config)
-    runtime = _InstallRuntime(monitor, qemu_dir)
+    script: Callable[[QemuSession], T],
+) -> T:
+    """Run a synchronous QEMU script while owning its asynchronous transports."""
+    runtime = _QemuSessionRuntime(monitor, qemu_dir)
     await runtime.start()
     try:
-        session = InstallSession(runtime, asyncio.get_running_loop(), config)
-        await asyncio.to_thread(entrypoint, session)
+        session = QemuSession(runtime, asyncio.get_running_loop())
+        return await asyncio.to_thread(script, session)
     finally:
         await runtime.close()

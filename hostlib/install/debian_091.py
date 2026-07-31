@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
-from ..fdisk import Fdisk
-from ..schemas import Debian091InstallConfig
-from ..session import InstallSession, Match
+from ..config import RetroConfig
+from ..schemas.debian import Debian091InstallConfig
+from ..session import Match, QemuSession
+from .fdisk import Fdisk
+from .postinst import run_postinst
 
 
 class Debian091Installer:
     """Drive the one-off Debian 0.91 installation and boot-loader setup."""
 
-    def __init__(self, session: InstallSession) -> None:
+    def __init__(self, session: QemuSession, config: RetroConfig) -> None:
         """Bind the typed Debian 0.91 settings to one install session."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, Debian091InstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.network = config.network
+        self.config = config
+        options = config.install
+        assert isinstance(options, Debian091InstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.network = options.network
 
     def prompt(self, *questions: str, answer: object = "", regex: bool = False) -> None:
         """Answer one VGA prompt, optionally matching its lines as regular expressions."""
@@ -38,7 +41,9 @@ class Debian091Installer:
         self._install_lilo()
         self.s.set_boot("c")
         self.s.kb_type("reboot\n")
-        self.s.run_postinst(
+        run_postinst(
+            self.s,
+            self.config,
             login=f"{self.network.hostname}.{self.network.domain} login:",
             shell="[root:~]#",
         )
@@ -146,6 +151,6 @@ class Debian091Installer:
         self.s.serial_shell_exit()
 
 
-def run_debian_091(session: InstallSession) -> None:
+def run_debian_091(session: QemuSession, config: RetroConfig) -> None:
     """Run Debian 0.91's dedicated installer."""
-    Debian091Installer(session).install()
+    Debian091Installer(session, config).install()

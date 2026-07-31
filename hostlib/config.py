@@ -21,11 +21,13 @@ from typing import Any, TypeVar
 from pydantic import ConfigDict
 
 from .context import Context
-from .errors import ConfigError
-from .media_schemas import DownloadConfig, ExtractionConfig, PostinstConfig
-from .qemu_schemas import QEMU_PROFILES, QemuConfig
-from .schema_base import ConfigModel, validate
+from . import ConfigError
 from .schemas import InstallConfig, InstallConfigModel
+from .schemas.base import ConfigModel, validate
+from .schemas.download import DownloadConfig
+from .schemas.postinst import PostinstConfig
+from .schemas.media import ExtractionConfig
+from .schemas.qemu import QEMU_PROFILES, QemuConfig
 
 T = TypeVar("T")
 

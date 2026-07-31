@@ -11,10 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 
-from ..dialog import AnswerTitle
-from ..fdisk import Fdisk
-from ..session import InstallSession, Match, fat_mount_command
-from ..schemas import SlackwareDialogInstallConfig
+from ..config import RetroConfig
+from ..schemas.slackware import SlackwareDialogInstallConfig
+from ..session import Match, QemuSession
+from .dialog import AnswerTitle, Dialog
+from .fdisk import Fdisk
+from .postinst import fat_mount_command
 
 log = logging.getLogger(__name__)
 
@@ -74,11 +76,11 @@ VARIANTS = {
 }
 
 
-def run_slackware_dialog(session: InstallSession) -> None:
+def run_slackware_dialog(session: QemuSession, config: RetroConfig) -> None:
     """Run the configured Slackware dialog installer variant."""
-    config = session.config.install
-    assert isinstance(config, SlackwareDialogInstallConfig)
-    variant = VARIANTS[config.variant]
+    options = config.install
+    assert isinstance(options, SlackwareDialogInstallConfig)
+    variant = VARIANTS[options.variant]
     if variant.boot_prompt:
         session.boot_command(variant.boot_prompt)
     if variant.root_prompt:
@@ -91,7 +93,7 @@ def run_slackware_dialog(session: InstallSession) -> None:
     if variant.keyboard_prompt:
         session.vga_wait("Enter 1 to select a keyboard map:", match=Match.LINE)
         session.kb_type("\n")
-    DialogInstaller(session, variant).install()
+    DialogInstaller(session, config, variant).install()
 
 
 class DialogInstaller:
@@ -104,24 +106,26 @@ class DialogInstaller:
 
     def __init__(
         self,
-        session: InstallSession,
+        session: QemuSession,
+        config: RetroConfig,
         variant: SlackwareDialogVariant,
+        dialog: Dialog | None = None,
     ) -> None:
         """Initialize the dialog driver with typed release configuration."""
         self.s = session
-        config = session.config.install
-        assert isinstance(config, SlackwareDialogInstallConfig)
-        self.disk = config.disk
-        self.locale = config.locale
-        self.network = config.network
-        self.prompts = config.prompts
-        self.packages = config.packages
-        self.bootloader = config.bootloader
-        self.modem = config.modem
-        self.mail = config.mail
+        options = config.install
+        assert isinstance(options, SlackwareDialogInstallConfig)
+        self.disk = options.disk
+        self.locale = options.locale
+        self.network = options.network
+        self.prompts = options.prompts
+        self.packages = options.packages
+        self.bootloader = options.bootloader
+        self.modem = options.modem
+        self.mail = options.mail
         self.variant = variant
         self.xwmconfig_pending = variant.xwmconfig
-        self.d = session.dialog
+        self.d = dialog if dialog is not None else Dialog(session.serial)
 
     def install(self) -> None:
         """Run the complete Slackware setup workflow."""
@@ -148,7 +152,11 @@ class DialogInstaller:
         shell_prompt = r"# *$"
         self.s.serial_shell_start(screen_prompt=shell_prompt, screen_match=Match.REGEX)
         for command in (
-            fat_mount_command(o.fat_mount, o.fat_partition, o.fat_filesystem),
+            fat_mount_command(
+                o.fat_mount,
+                o.fat_partition,
+                o.fat_filesystem,
+            ),
             "rm /bin/dialog",
             f"cp {o.fat_mount}/guestlib.d/dialog.sh /bin/dialog",
         ):

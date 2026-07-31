@@ -163,6 +163,47 @@ class DialogScreen:
         )
 
 
+def _matching_choice(screen: DialogScreen, pending: list[Answer]) -> Answer:
+    """Return the pending choice matching a screen or explain the mismatch."""
+    try:
+        return next(item for item in pending if item.matches(screen))
+    except StopIteration as exc:
+        expected = ", ".join(repr(item.title) for item in pending)
+        raise RuntimeError(
+            f"Unexpected dialog {screen.widget} {screen.title!r}; expected {expected}"
+        ) from exc
+
+
+def _resolve_selections(selections: tuple[str, ...], screen: DialogScreen) -> str:
+    """Resolve readable checklist labels to the tags emitted by dialog."""
+    resolved = []
+    for selection in selections:
+        matches = [
+            key for key, _ in screen.items if key == selection or key.endswith(f" - {selection}")
+        ]
+        if len(matches) != 1:
+            raise RuntimeError(
+                f"Checklist selection {selection!r} matched {len(matches)} items "
+                f"in {screen.title!r}"
+            )
+        resolved.append(matches[0])
+    # A quoted empty word bypasses dialog.sh's "accept defaults" behavior
+    # while still producing an empty checklist result for the installer.
+    return " ".join(json.dumps(item) for item in resolved) if resolved else '""'
+
+
+def _resolve_answer(choice: Answer, screen: DialogScreen) -> str:
+    """Resolve a description-based choice to its corresponding item key."""
+    answer = choice.answer
+    assert isinstance(answer, (str, tuple))
+    if isinstance(answer, tuple):
+        return _resolve_selections(answer, screen)
+    if not choice.description:
+        return answer
+    matcher = re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
+    return next(key for key, description in screen.items if matcher.search(description))
+
+
 class Dialog:
     """Match dialog screens and send configured answers.
 
@@ -195,22 +236,11 @@ class Dialog:
         while pending:
             mark = self.serial.mark()
             screen = DialogScreen.parse(self.serial.read_until(self._response))
-            choice = self._matching_choice(screen, pending)
+            choice = _matching_choice(screen, pending)
             self._send_answer(choice, screen, mark)
             pending.remove(choice)
             if choice.exit:
                 return
-
-    @staticmethod
-    def _matching_choice(screen: DialogScreen, pending: list[Answer]) -> Answer:
-        """Return the pending choice matching a screen or explain the mismatch."""
-        try:
-            return next(item for item in pending if item.matches(screen))
-        except StopIteration as exc:
-            expected = ", ".join(repr(item.title) for item in pending)
-            raise RuntimeError(
-                f"Unexpected dialog {screen.widget} {screen.title!r}; expected {expected}"
-            ) from exc
 
     def _send_answer(self, choice: Answer, screen: DialogScreen, mark: int) -> None:
         """Send a literal answer or return callback screens to their consumer."""
@@ -220,36 +250,4 @@ class Dialog:
         elif choice.answer is None:
             self.serial.rewind(mark)
         else:
-            self.serial.send(self._resolve_answer(choice, screen))
-
-    @staticmethod
-    def _resolve_answer(choice: Answer, screen: DialogScreen) -> str:
-        """Resolve a description-based choice to its corresponding item key."""
-        answer = choice.answer
-        assert isinstance(answer, (str, tuple))
-        if isinstance(answer, tuple):
-            return Dialog._resolve_selections(answer, screen)
-        if not choice.description:
-            return answer
-        matcher = re.compile(answer) if choice.item_regex else re.compile(re.escape(answer))
-        return next(key for key, description in screen.items if matcher.search(description))
-
-    @staticmethod
-    def _resolve_selections(selections: tuple[str, ...], screen: DialogScreen) -> str:
-        """Resolve readable checklist labels to the tags emitted by dialog."""
-        resolved = []
-        for selection in selections:
-            matches = [
-                key
-                for key, _ in screen.items
-                if key == selection or key.endswith(f" - {selection}")
-            ]
-            if len(matches) != 1:
-                raise RuntimeError(
-                    f"Checklist selection {selection!r} matched {len(matches)} items "
-                    f"in {screen.title!r}"
-                )
-            resolved.append(matches[0])
-        # A quoted empty word bypasses dialog.sh's "accept defaults" behavior
-        # while still producing an empty checklist result for the installer.
-        return " ".join(json.dumps(item) for item in resolved) if resolved else '""'
+            self.serial.send(_resolve_answer(choice, screen))

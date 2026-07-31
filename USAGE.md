@@ -61,7 +61,8 @@ qmp eject-disk
 Run `qmp --help` for the complete command list.
 `dump-screen` prints the standard 32 KiB, 80-column VGA text-memory area.
 
-Installer drivers wait for decoded text through `InstallSession`:
+Synchronous QEMU scripts, including installer drivers, wait for decoded text
+through `QemuSession`:
 
 ```python
 session.vga_wait("Ok")

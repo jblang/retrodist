@@ -11,8 +11,8 @@ from itertools import groupby
 import logging
 import re
 
-from .session import InstallSession
-from .vga import ScreenBounds, ScreenSnapshot, ScreenView, VgaCell, VgaColor
+from ..session import QemuSession
+from ..vga import ScreenBounds, ScreenSnapshot, ScreenView, VgaCell, VgaColor
 
 log = logging.getLogger(__name__)
 
@@ -319,8 +319,8 @@ class NewtDialog:
     _transition_timeout = 0.25
     _transition_interval = 0.0
 
-    def __init__(self, session: InstallSession) -> None:
-        """Bind one synchronous installer session."""
+    def __init__(self, session: QemuSession) -> None:
+        """Bind one synchronous QEMU session."""
         self.session = session
         self._current: DialogState | None = None
 
