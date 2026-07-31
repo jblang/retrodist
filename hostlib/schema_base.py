@@ -32,7 +32,7 @@ def validate(cls: type[Model], data: object, path: str) -> Model:
         if special := _special_validation_message(path, error):
             raise ConfigError(special) from exc
         raise ConfigError(
-            f"{_location(path, error['loc'])} {_validation_description(error, path)}"
+            f"{_location(path, error['loc'], data)} {_validation_description(error, path)}"
         ) from exc
 
 
@@ -47,29 +47,20 @@ def _special_validation_message(path: str, error: dict[str, object]) -> str | No
         return f"Unknown install driver: {error['input'].get('driver')}"
     if path == "download" and error_type == "missing" and location[-1] == "url":
         return f"Missing URL for download.files entry {int(location[-2]) + 1}"
-    if path == "install" and error_type == "too_short":
-        return "prompt-sequence driver requires install.steps"
     if path == "install" and location == ("driver",):
         return "config.toml must set install.driver"
-    if path == "install" and "keys" in location:
-        step = location.index("steps")
-        return f"install.steps entry {int(location[step + 1]) + 1} keys must be strings"
     if path == "postinst" and error_type == "literal_error":
         return f"Unknown post-install stage(s): {error['input']}"
-    if path == "install" and location[-2:] == ("redhat", "flow"):
-        if error_type == "literal_error":
-            return "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3"
-        return "install.redhat.flow must be a string"
     if (
         path == "install"
         and error_type == "missing"
         and location[-2:]
         in {
-            ("redhat", "package_series"),
-            ("redhat", "components"),
+            ("packages", "package_series"),
+            ("packages", "components"),
         }
     ):
-        return f"install.redhat.{location[-1]} is required"
+        return f"install.packages.{location[-1]} is required"
     return None
 
 
@@ -110,9 +101,12 @@ def _list_error_description(location: object, path: str) -> str:
     )
 
 
-def _location(path: str, parts: tuple[object, ...]) -> str:
+def _location(path: str, parts: tuple[object, ...], data: object) -> str:
     """Render a Pydantic error location using TOML-oriented notation."""
     result = path
+    driver = data.get("driver") if isinstance(data, dict) else None
+    if path == "install" and len(parts) > 1 and parts[0] == driver:
+        parts = parts[1:]
     for part in parts:
         if isinstance(part, int):
             result += f" entry {part + 1}"

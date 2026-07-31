@@ -1,7 +1,5 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "slackware-pkgtool"
+[qemu]
+profile = "linux-2.2"
 
 [download]
 cdrom = "walnut/slackware/4.0"
@@ -9,8 +7,9 @@ cdrom = "walnut/slackware/4.0"
 [extract]
 source = "disc1.iso"
 
-[qemu]
-profile = "linux-2.2"
+[install]
+driver = "slackware-dialog"
+variant = "3.5-4.0"
 
 [postinst]
 stages = ["modules", "tty", "x11"]

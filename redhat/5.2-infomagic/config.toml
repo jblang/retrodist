@@ -1,4 +1,12 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-2.0"
+
+[download]
+cdrom = "infomagic/ldr/1998_11"
+
+[extract]
+source = "disc1.iso"
+boot_image = "images/boot.img"
 
 [install]
 driver = "redhat-unattended"
@@ -9,16 +17,6 @@ command = "linux ks=floppy"
 [install.completion]
 prompt = "Congratulations, installation is complete."
 postinst = true
-
-[download]
-cdrom = "infomagic/ldr/1998_11"
-
-[extract]
-source = "disc1.iso"
-boot_image = "images/boot.img"
-
-[qemu]
-profile = "linux-2.0"
 
 [install.accounts]
 root_password = "password"

@@ -12,7 +12,7 @@ from ..schemas import SysinstallInstallConfig
 from ..session import InstallSession, Match
 
 
-def run_sysinstall(session: InstallSession) -> None:
+def run_slackware_sysinstall(session: InstallSession) -> None:
     """Run an early Slackware Sysinstall installation."""
     Sysinstall(session).install()
 
@@ -24,12 +24,10 @@ class Sysinstall:
     retaining a single ordered installation workflow.
     """
 
-    def __init__(
-        self, session: InstallSession, config: SysinstallInstallConfig | None = None
-    ) -> None:
+    def __init__(self, session: InstallSession) -> None:
         """Initialize the Sysinstall driver with typed release configuration."""
         self.s = session
-        config = config or session.config.install
+        config = session.config.install
         assert isinstance(config, SysinstallInstallConfig)
         self.disk = config.disk
 
@@ -61,9 +59,9 @@ class Sysinstall:
         self.s.serial_shell_start(screen_prompt="darkstar:/#")
         Fdisk(self.s).partition_swap_root(o.target_disk, o.swap_mb)
         for command in (
-            f"mkswap {o.swap_partition} {o.swap_blocks}",
+            f"mkswap {o.swap_partition} {o.swap_mb * 1000}",
             f"swapon {o.swap_partition}",
-            f"mke2fs {o.linux_partition}",
+            f"mke2fs {o.root_partition}",
         ):
             self.s.serial_shell_send(command)
 
@@ -73,13 +71,16 @@ class Sysinstall:
         self.s.serial_console_echo(
             "Starting Slackware setup; package installation may take a while..."
         )
-        self.s.serial_shell_send(f"doinstall {o.linux_partition}", wait=False)
+        self.s.serial_shell_send(f"doinstall {o.root_partition}", wait=False)
         self._prompt("Where will you be installing Linux from?", answer="2")
         self._prompt(
             "Enter the partition that the source is on (eg. /dev/hda1):",
             answer=o.fat_partition,
         )
-        self._prompt("Enter the type of the filesystem (minix/ext2/msdos)", answer="msdos")
+        self._prompt(
+            "Enter the type of the filesystem (minix/ext2/msdos)",
+            answer=o.fat_filesystem,
+        )
         self._prompt("Enter type of install (1 or 2):", answer=self._install_type())
         self._packages()
         self._prompt(r"^[Dd]o you have a mouse \(y/n\)\? *$", answer="n", regex=True)

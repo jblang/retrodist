@@ -1,7 +1,5 @@
 # Architecture
 
-> Disclaimer: AI generated and not fully reviewed.
-
 Retro Distro Playground is a configuration-driven host application that turns
 historical distribution media into a runnable QEMU workspace. Most behavior is
 declared in a distro's `config.toml`; Python code on the host downloads and
@@ -243,12 +241,11 @@ configuration.
 
 ## Installer Automation
 
-Reusable family drivers live in `hostlib/installers/`. The bounded
-`prompt-sequence` driver handles exceptional linear flows using a validated
-registry of actions. Both use the synchronous `InstallSession` API, so driver
-code reads like the installer procedure it represents. Family drivers consume
-the typed `disk`, `network`, `locale`, `prompts`, and family-specific sections
-of the selected install model directly.
+Reusable family drivers and focused one-off drivers live in
+`hostlib/installers/`. They use the synchronous `InstallSession` API, so driver
+code reads like the installer procedure it represents. Drivers consume the
+typed `disk`, `network`, `locale`, `prompts`, and family-specific sections of
+the selected install model directly.
 
 The live transports are asynchronous. `run_install` owns the serial transport
 on the main event loop, instantiates the demand-driven VGA observer, and runs
@@ -260,7 +257,7 @@ responsive while a driver performs blocking waits.
 %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 28, "rankSpacing": 46}}}%%
 flowchart LR
     subgraph worker[Installer worker thread]
-        driver["Family driver or<br/>prompt sequence"]
+        driver["Python installer driver"]
         session([InstallSession])
         dialog[Dialog protocol parser]
         fdisk[Fdisk protocol driver]
@@ -366,7 +363,7 @@ When extending the project, prefer the narrowest existing layer:
    formats or transformations. Use `extract.sh` only for exceptional media
    conversion.
 3. Extend an installer-family driver when behavior branches or repeats across
-   releases. Use `prompt-sequence` only for a distro-specific linear exchange.
+   releases. Add a focused Python installer module for a one-off workflow.
 4. Add reusable installed-system behavior to `guestlib/`; use a distro custom
    post-install stage only when a portable shared stage cannot express it.
 5. Preserve the conventional `qemu.d` filenames and the dialog serial protocol,

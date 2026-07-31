@@ -42,6 +42,12 @@ class QemuProfile:
     nic: str
     vga: str | None = None
 
+    @property
+    def memory_mb(self) -> int:
+        """Return the configured QEMU memory size in megabytes."""
+        assert self.ram.endswith("M")
+        return int(self.ram.removesuffix("M"))
+
 
 QEMU_PROFILES = {
     "default": QemuProfile(machine="type=isapc", ram="16M", disk_size="500M", nic="ne2k_isa"),

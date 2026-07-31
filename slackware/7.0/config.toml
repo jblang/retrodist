@@ -1,13 +1,9 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "slackware-pkgtool"
-
 [qemu]
 profile = "linux-2.2"
 
-[install.slackware]
-xwmconfig = true
+[install]
+driver = "slackware-dialog"
+variant = "7.0-7.1"
 
 [postinst]
 stages = ["tty", "x11"]

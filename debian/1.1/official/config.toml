@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [download]
 debian_mirror = "buzz"
 
@@ -12,5 +10,5 @@ package_sources = ["buzz/main/binary-i386", "buzz/main/binary-all"]
 package_index = "buzz/main/binary-i386/Packages"
 custom_script = "extract.sh"
 
-[install.debian]
+[install.disk]
 fat_filesystem = "vfat"

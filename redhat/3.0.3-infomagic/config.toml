@@ -1,10 +1,20 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-1.2"
+
+[download]
+cdrom = "infomagic/ldr/1996_09"
+
+[extract]
+source = "disc2.iso"
+boot_image = "images/1213/boot0015.img"
+extra_images = ["images/rescue.img", "images/ramdisk1.img", "images/ramdisk2.img"]
+truncate = ["boot0015.img"]
 
 [install]
-driver = "redhat-perl"
+driver = "redhat-dialog"
+variant = "3.0.3"
 
-[install.redhat]
-flow = "3.0.3"
+[install.packages]
 package_series = [
     "Applications",
     # "DOS Compatibility",
@@ -32,6 +42,8 @@ package_series = [
     # "a.out compatitibility",
     # "Other",
 ]
+
+[install.accounts]
 root_password = "password"
 # user = "redhat"
 # user_home = true
@@ -40,18 +52,6 @@ root_password = "password"
 hardware_clock = "utc"
 timezone = "UTC"
 keymap = "us.map"
-
-[download]
-cdrom = "infomagic/ldr/1996_09"
-
-[extract]
-source = "disc2.iso"
-boot_image = "images/1213/boot0015.img"
-extra_images = ["images/rescue.img", "images/ramdisk1.img", "images/ramdisk2.img"]
-truncate = ["boot0015.img"]
-
-[qemu]
-profile = "linux-1.2"
 
 [postinst]
 stages = ["x11"]

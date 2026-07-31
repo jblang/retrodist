@@ -1,11 +1,3 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "debian-dinstall"
-
-[install.debian]
-fs_module = "vfat"
-
 [qemu]
 profile = "linux-2.0"
 
@@ -14,6 +6,10 @@ device = "pcnet"
 
 [qemu.serial]
 auxiliary = "msmouse"
+
+[install]
+driver = "debian-dialog"
+variant = "1.2"
 
 [install.network]
 hostname = "rex"

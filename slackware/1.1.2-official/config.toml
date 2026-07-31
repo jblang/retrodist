@@ -1,12 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-1.0"
 
-[install]
-driver = "slackware-pkgtool"
-
-[install.boot]
-boot_prompt = false
-root_prompt = "Please remove the boot kernel disk from your floppy drive,"
-continuation_prompt = "VFS: Insert root floppy and press ENTER"
+[qemu.network]
+device = "ne2k_isa,iobase=0x280"
 
 [download]
 slackware_mirror = "1.1.2"
@@ -19,18 +15,13 @@ boot_link = "bareboot"
 root_link = "color144"
 decompress = ["bareboot.gz", "color144.gz"]
 
-[qemu]
-profile = "linux-1.0"
+[install]
+driver = "slackware-dialog"
+variant = "1.1.2"
 
-[qemu.network]
-device = "ne2k_isa,iobase=0x280"
-
-[install.slackware]
-setup_hostname = "darkstar"
+[install.packages]
 source = "/dev/hdb1"
 tagfile_path = false
-source_before_target = true
-simple_lilo = true
 
 [postinst]
 stages = ["tty", "x11"]

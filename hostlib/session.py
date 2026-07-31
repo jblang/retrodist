@@ -165,12 +165,12 @@ class InstallSession:
         The mount device and path come from the install disk section so
         distributions with nonstandard layouts use the same global guest runner.
         """
-        common = self.config.install_common
-        mount = common.fat_mount
-        filesystem = self.config.postinst.fat_filesystem or common.fat_filesystem
+        disk = self.config.install.disk
+        mount = disk.fat_mount
+        filesystem = self.config.postinst.fat_filesystem or disk.fat_filesystem
         return (
             f"if [ ! -d {shlex.quote(mount)}/guestlib.d ]; then "
-            f"{fat_mount_command(mount, common.fat_partition, filesystem)}; fi; "
+            f"{fat_mount_command(mount, disk.fat_partition, filesystem)}; fi; "
             f"{shlex.quote(mount)}/guestlib.d/postinst.sh"
         )
 
@@ -354,12 +354,13 @@ async def run_install(
     QMP or serial receipt. Transport cleanup is guaranteed even when validation
     or installer automation raises an exception.
     """
-    from .installers import run_configured_install
+    from .installers import validate_install_config
 
+    entrypoint = validate_install_config(config)
     runtime = _InstallRuntime(monitor, qemu_dir)
     await runtime.start()
     try:
         session = InstallSession(runtime, asyncio.get_running_loop(), config)
-        await asyncio.to_thread(run_configured_install, session)
+        await asyncio.to_thread(entrypoint, session)
     finally:
         await runtime.close()

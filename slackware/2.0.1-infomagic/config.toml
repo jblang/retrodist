@@ -1,11 +1,5 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "slackware-pkgtool"
-
-[install.boot]
-root_prompt = "Please remove the boot kernel disk from your floppy drive, insert a"
-continuation_prompt = "VFS: Insert root floppy and press ENTER"
+[qemu]
+profile = "linux-1.0"
 
 [download]
 cdrom = "infomagic/ldr/1994_10"
@@ -20,10 +14,11 @@ root_link = "color144"
 decompress = ["bare.gz", "color144.gz"]
 truncate = ["bare", "color144"]
 
-[qemu]
-profile = "linux-1.0"
+[install]
+driver = "slackware-dialog"
+variant = "2.0"
 
-[install.slackware]
+[install.packages]
 source = "/dev/hdb1"
 
 [postinst]

@@ -1,4 +1,4 @@
-"""Recognize and drive the small set of Red Hat C-installer screen dialogs.
+"""Recognize and drive the small set of Red Hat Newt installer screen dialogs.
 
 This intentionally lives above :mod:`hostlib.vga`: VGA exposes cells and
 snapshots, while this module knows the old installer palette and widgets.
@@ -313,7 +313,7 @@ def _missing(label: str, state: DialogState) -> str:
 
 
 class NewtDialog:
-    """Parse and drive the Newt dialogs used by Red Hat C installers."""
+    """Parse and drive the dialogs used by Red Hat Newt installers."""
 
     _navigation_limit = 100
     _transition_timeout = 0.25

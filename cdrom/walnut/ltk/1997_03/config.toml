@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [[download.files]]
 path = "disc1.iso"
 url = "https://archive.org/download/linux-toolkit-march-1997/Linux%20Toolkit%20-%20March%201997%20-%20Disc%201.iso"

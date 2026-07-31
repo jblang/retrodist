@@ -1,10 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-0.99"
 
 [install]
 driver = "slackware-sysinstall"
-
-[qemu]
-profile = "linux-0.99"
 
 [postinst]
 stages = ["tty", "network", "x11"]

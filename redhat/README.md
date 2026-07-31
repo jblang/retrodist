@@ -77,8 +77,8 @@ separate Kickstart floppy.
 ## Scripted Installs
 
 The Python family drivers send boot commands and change floppy images when the
-installer asks for another disk. Release-specific prompts and flags are
-declared in each `config.toml`.
+installer asks for another disk. Major-driver variant profiles own fixed prompt
+sequences and installer quirks; TOML retains user choices and media data.
 
 The older Red Hat installers are less uniform than Slackware's setup scripts,
 but they now share driver blocks by installer family:
@@ -88,33 +88,24 @@ but they now share driver blocks by installer family:
   first widget, then matches structured widget titles, items, and prompt text.
   It uses Perl to rename the original binary because these root disks do not
   include `mv`. Screens that do not use the dialog stub remain VGA-driven.
-  The release flow and package series stay in each release's TOML.
-  Set the required `install.redhat.package_series` array to series names without
-  the size prefixes shown by 3.0.3. Each config lists disabled series as
-  commented array entries so they can be enabled directly. The
+  The `redhat-dialog` driver uses `install.variant` to select the release flow
+  in Python. Set the required `install.packages.package_series` array to series
+  names without the size prefixes shown by 3.0.3. Each config lists disabled
+  series as commented array entries so they can be enabled directly. The
   `[install.locale]` table configures the hardware clock mode, time zone, and
-  keyboard map selected by the installer. `install.redhat.root_password`
+  keyboard map selected by the installer. `install.accounts.root_password`
   configures the root password; optional `user` and `user_home` settings create
   one regular account. Early Red Hat limits the user name to eight characters.
-- `redhat_newt.py` covers the 4.0 through 5.1 C-based text installer era. Version
-  configs select independent `partitioning`, `mouse_setup`, `x11_setup`, and
-  `network_setup` screen workflows instead of a release-number flow. The
-  configured values describe the screens directly: partitioning uses
-  `partition-disks`, `select-root-partition`, or `current-disk-partitions`;
-  mouse setup uses `configure-mouse`, `probe-and-emulation`, or
-  `probe-and-configure-mouse`; X11 uses `choose-card` or `pci-probe`; and
-  networking uses `direct` or `probe-static`. The
-  required `tcp_ip_form` distinguishes 4.0's network/broadcast fields from the
-  gateway/nameserver fields used by 4.1 and later. Prompt-order settings cover
-  dialogs that only some releases display, while `x_card_label` and
-  `x_video_memory_label` hold exact rendered menu entries. The
-  `password_field` and `boot_label_field` settings capture 5.1's shorter field
-  labels. The required
-  `install.redhat.components` array names the exact visible component groups to
-  install. The driver selects listed groups and clears every unlisted group,
-  including installer defaults. Each config keeps the other available groups as
-  commented array entries so the complete release-specific catalog is visible
-  and groups can be enabled directly. The mandatory Base component is implicit.
+- `redhat_newt.py` covers the 4.0 through 5.1 text-installer era. The
+  `redhat-newt` driver uses `install.variant` to select a Python profile. Those
+  profiles own the fixed screen workflow, prompt order, rendered labels, and other
+  installer implementation details in Python. TOML retains the required
+  `install.packages.components` array because package selection is user-facing
+  configuration. `[install.accounts]` supplies the root password. The driver
+  selects listed groups and clears every unlisted group, including installer
+  defaults. Each config keeps the other available groups as commented array
+  entries so the complete release-specific catalog is visible and groups can
+  be enabled directly. The mandatory Base component is implicit.
   Other single-choice menus are also selected explicitly, even when the desired
   entry is already the default, so the installation log records choices such as
   English, local CD-ROM media, IDE/ATAPI, Generic Monitor, no clockchip setting,

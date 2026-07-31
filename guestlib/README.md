@@ -75,8 +75,7 @@ function-only so they can be safely sourced.
 
 The runner sets `GUESTLIB_D=/retro/guestlib.d`; manifests may use it to invoke
 additional staged scripts. Keep media changes, VGA waits, and keyboard input in
-the host-side installer driver or declarative install steps, not in this
-manifest.
+the host-side Python installer driver, not in this manifest.
 
 ## Configuration Helpers
 

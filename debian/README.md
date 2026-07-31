@@ -53,9 +53,11 @@ interactive `fdisk` or `cfdisk`.
 `1.1` through `1.3` use a dialog-based `dinstall`. The guest's `dialog` binary
 is replaced with the serial adapter, so every installer screen is answered over
 the serial port. The shared Python driver is
-[`hostlib/installers/debian.py`](../hostlib/installers/debian.py). It
+[`hostlib/installers/debian_dialog.py`](../hostlib/installers/debian_dialog.py). It
 walks the main menu by matching its `Next` entry, so one menu tree covers all
-three releases while each `config.toml` supplies only release-specific options.
+three releases. The `debian-dialog` driver's `install.variant` selects the
+Python profile for release-specific prompt order and media quirks, while TOML
+supplies accounts, network, locale, and disk choices.
 The host then scripts Debian's installed-system setup (root password, user
 account, and `dselect`) before running the configured post-install stages.
 
@@ -64,13 +66,13 @@ priorities, per-section priorities, and named packages with their dependencies.
 See [CONTRIBUTING.md](../CONTRIBUTING.md#debian-package-selection) for index
 parsing and CD-ROM or VFAT package-media configuration.
 
-`0.91`'s `dinstall` is a prompt-and-response shell script. Its declarative
-`prompt-sequence` in [config.toml](0.91/infomagic/config.toml) matches the stock
+`0.91`'s `dinstall` is a prompt-and-response shell script. Its dedicated
+[`debian_091.py`](../hostlib/installers/debian_091.py) driver matches the stock
 VGA screens and types answers through QMP, leaving `tput` and the visible
-installer display intact. Only the shared partitioning step uses the automation
-serial port while `dinstall` is active. That `dinstall` installs no boot loader
-and no packages, so the prompt sequence runs the LILO commands in a serial shell
-after installation. The variant's custom
+installer display intact. Only shared partitioning uses the automation serial
+port while `dinstall` is active. That `dinstall` installs no boot loader and no
+packages, so the driver runs the LILO commands in a serial shell after
+installation. The variant's custom
 [postinst.sh](0.91/infomagic/postinst.sh) installs every `.deb` under
 `/retro/packages` with `zcat | cpio`, runs `fixperms` when metadata is present,
 then runs the non-interactive `.inst` scripts from `/var/adm/dpkg/inst`.

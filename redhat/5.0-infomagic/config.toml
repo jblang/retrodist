@@ -1,7 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-2.0"
 
-[install]
-driver = "redhat-c"
+[qemu.network]
+device = "pcnet"
 
 [download]
 cdrom = "infomagic/ldr/1998_01"
@@ -10,31 +11,19 @@ cdrom = "infomagic/ldr/1998_01"
 source = "disc1.iso"
 boot_image = "images/boot.img"
 
-[qemu]
-profile = "linux-2.0"
-
-[qemu.network]
-device = "pcnet"
-
-[install.disk]
-root_partition = "/dev/hda2"
-fat_partition = "/dev/hdb1"
+[install]
+driver = "redhat-newt"
+variant = "5.0"
 
 [install.locale]
 hardware_clock = "utc"
 timezone = "Etc/UTC"
 keymap = "us"
 
-[install.redhat]
-keyboard_early = true
-pcmcia_prompt = false
-cdrom_type_prompt = false
-partitioning = "select-root-partition"
-mouse_setup = "probe-and-emulation"
-x11_setup = "pci-probe"
-tcp_ip_form = "gateway-and-nameserver"
-services_prompt = true
-printer_prompt = "Configure Printer"
+[install.accounts]
+root_password = "password"
+
+[install.packages]
 # Base is mandatory and is not shown in the component checklist.
 components = [
   # "Printer Support",
@@ -68,10 +57,6 @@ components = [
   # "X Development",
   # "Extra Documentation",
 ]
-x_video_memory_label = "2 meg"
-timezone_prompt = "Configure Timezones"
-timezone_clock_control = "checkbox"
-lilo_setup_dialogs = 2
 
 [postinst]
 stages = ["x11"]

@@ -1,10 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-2.4"
 
-[install]
-driver = "slackware-pkgtool"
-
-[install.boot]
-keyboard_prompt = true
+[qemu.network]
+device = "e1000"
 
 [download]
 cdrom = "kimmel/slackware/9.0"
@@ -12,17 +10,12 @@ cdrom = "kimmel/slackware/9.0"
 [extract]
 source = "disc1.iso"
 
-[qemu]
-profile = "linux-2.4"
-
-[qemu.network]
-device = "e1000"
+[install]
+driver = "slackware-dialog"
+variant = "8.0-9.0"
 
 [install.prompts]
 postinst_prompt = "root@darkstar:~#"
-
-[install.slackware]
-xwmconfig = true
 
 [postinst]
 stages = ["tty", "x11"]

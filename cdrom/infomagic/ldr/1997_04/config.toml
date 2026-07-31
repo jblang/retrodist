@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [[download.files]]
 path = "disc1.iso"
 url = "https://archive.org/download/LDR0497_6cd/LDR_04971.ISO"

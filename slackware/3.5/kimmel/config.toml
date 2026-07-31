@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [download]
 cdrom = "kimmel/slackware/3.5"
 

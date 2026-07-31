@@ -1,20 +1,5 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "redhat-perl"
-
-[install.redhat]
-flow = "1.1"
-# The incomplete 1.1 automation never reaches these installation choices.
-package_series = []
-root_password = ""
-# user = "redhat"
-# user_home = true
-
-[install.locale]
-hardware_clock = "utc"
-timezone = "UTC"
-keymap = "us.map"
+[qemu]
+profile = "linux-1.2"
 
 [download]
 cdrom = "infomagic/ldr/1995_08"
@@ -25,8 +10,23 @@ boot_image = "images/1211/boot0015.img"
 extra_images = ["images/rescue.img", "images/rootdisk.img"]
 truncate = ["boot0015.img"]
 
-[qemu]
-profile = "linux-1.2"
+[install]
+driver = "redhat-dialog"
+variant = "1.1"
+
+[install.packages]
+# The incomplete 1.1 automation never reaches these installation choices.
+package_series = []
+
+[install.accounts]
+root_password = ""
+# user = "redhat"
+# user_home = true
+
+[install.locale]
+hardware_clock = "utc"
+timezone = "UTC"
+keymap = "us.map"
 
 [postinst]
 stages = ["x11"]

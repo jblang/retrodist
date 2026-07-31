@@ -1,7 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-2.0"
 
-[install]
-driver = "redhat-c"
+[qemu.network]
+device = "pcnet"
 
 [download]
 cdrom = "infomagic/ldr/1996_12"
@@ -10,11 +11,9 @@ cdrom = "infomagic/ldr/1996_12"
 source = "disc1.iso"
 boot_image = "images/boot.img"
 
-[qemu]
-profile = "linux-2.0"
-
-[qemu.network]
-device = "pcnet"
+[install]
+driver = "redhat-newt"
+variant = "4.0"
 
 [install.prompts]
 boot_prompt = "LILO boot:"
@@ -24,11 +23,10 @@ hardware_clock = "utc"
 timezone = "Etc/UTC"
 keymap = "us"
 
-[install.redhat]
-partitioning = "partition-disks"
-mouse_setup = "configure-mouse"
-x11_setup = "choose-card"
-tcp_ip_form = "network-and-broadcast"
+[install.accounts]
+root_password = "password"
+
+[install.packages]
 # Base is mandatory and is not shown in the component checklist.
 components = [
   "C Development",
@@ -53,9 +51,6 @@ components = [
   # "DOS/Windows Connectivity",
   "Extra Documentation",
 ]
-x_card_label = "Cirrus Logic GD543x"
-keyboard_late = true
-timezone_prompt = "Configure Timezones"
 
 [postinst]
 stages = ["x11"]

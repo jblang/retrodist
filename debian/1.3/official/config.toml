@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [download]
 debian_mirror = "bo"
 
@@ -12,8 +10,9 @@ package_sources = ["bo/main/binary-i386", "bo/main/binary-all"]
 package_index = "bo/main/binary-i386/Packages.gz"
 custom_script = "extract.sh"
 
-[install.debian]
-fs_module = "vfat"
+[install]
+driver = "debian-dialog"
+variant = "1.3-vfat"
 
 [postinst]
 fat_filesystem = "vfat"

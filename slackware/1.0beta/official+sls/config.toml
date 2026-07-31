@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [[download.files]]
 path = "slackware.tar.gz"
 url = "https://archive.org/download/slackware-beta/slack-pre1.0.tar.gz"

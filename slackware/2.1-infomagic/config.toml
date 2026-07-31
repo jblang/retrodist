@@ -1,10 +1,5 @@
-# Declarative configuration for the Python retro host.
-
-[install]
-driver = "slackware-pkgtool"
-
-[install.boot]
-root_prompt = "Please remove the boot kernel disk from your floppy drive, insert a"
+[qemu]
+profile = "linux-1.0"
 
 [download]
 cdrom = "infomagic/ldr/1994_12"
@@ -15,10 +10,11 @@ boot_image = "distributions/slakinst/boot144/bare"
 root_image = "distributions/slakinst/root144/color144"
 package_source = "distributions/slackware"
 
-[qemu]
-profile = "linux-1.0"
+[install]
+driver = "slackware-dialog"
+variant = "2.1"
 
-[install.slackware]
+[install.packages]
 source = "/dev/hdb1"
 
 [postinst]

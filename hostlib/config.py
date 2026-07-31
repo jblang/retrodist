@@ -23,16 +23,9 @@ from pydantic import ConfigDict
 from .context import Context
 from .errors import ConfigError
 from .media_schemas import DownloadConfig, ExtractionConfig, PostinstConfig
-from .qemu_schemas import QemuConfig
+from .qemu_schemas import QEMU_PROFILES, QemuConfig
 from .schema_base import ConfigModel, validate
-from .schemas import (
-    DinstallInstallConfig,
-    InstallConfig,
-    InstallConfigModel,
-    InstallDiskConfig,
-    PromptSequenceInstallConfig,
-    PromptSequenceConfig,
-)
+from .schemas import InstallConfig, InstallConfigModel
 
 T = TypeVar("T")
 
@@ -101,36 +94,18 @@ class RetroConfig(ConfigModel):
         return validate(QemuConfig, self.section("qemu"), "qemu")
 
     @cached_property
-    def install_common(self) -> InstallDiskConfig:
-        """Return shared installer paths and partition defaults."""
-        if not self.value("install", "driver"):
-            return validate(
-                InstallDiskConfig,
-                self.section("install", "disk"),
-                "install.disk",
-            )
-        install = self.install
-        disk = getattr(install, "disk", None)
-        source = (
-            disk.model_dump() if isinstance(disk, ConfigModel) else self.section("install", "disk")
-        )
-        if isinstance(install, DinstallInstallConfig) and install.debian.fat_filesystem:
-            source["fat_filesystem"] = install.debian.fat_filesystem
-        values = {key: source[key] for key in InstallDiskConfig.model_fields if key in source}
-        return validate(InstallDiskConfig, values, "install")
-
-    @cached_property
     def install(self) -> InstallConfig:
         """Return the driver-discriminated installer configuration."""
-        return validate(InstallConfigModel, self.section("install"), "install").root
-
-    @cached_property
-    def prompt_sequence(self) -> PromptSequenceConfig:
-        """Return the typed declarative installer action sequence."""
-        install = self.install
-        if not isinstance(install, PromptSequenceInstallConfig):
-            raise ConfigError("Install driver is not prompt-sequence")
-        return install
+        data = self.section("install")
+        qemu = self.section("qemu")
+        disk = data.get("disk", {})
+        if qemu and isinstance(disk, dict) and "swap_mb" not in disk:
+            profile = validate(QemuConfig, qemu, "qemu")
+            data = _overlay(
+                data,
+                {"disk": {"swap_mb": QEMU_PROFILES[profile.profile].memory_mb}},
+            )
+        return validate(InstallConfigModel, data, "install").root
 
     def section(self, *path: str) -> dict[str, Any]:
         """Return a nested configuration table, or an empty table when absent.

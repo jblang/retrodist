@@ -2,38 +2,99 @@
 
 The guestlib dialog adapter makes setup menus observable on ``ttyS3``. One
 driver covers releases from early floppy sets through CD-ROM distributions by
-configuring boot/root prompts, source layout, package selection, and optional
-configuration dialogs declaratively.
+selecting a named Python workflow profile. Source layout and package selection
+remain declarative.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 
 from ..dialog import AnswerTitle
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match, fat_mount_command
-from ..schemas import PkgtoolInstallConfig
+from ..schemas import SlackwareDialogInstallConfig
 
 log = logging.getLogger(__name__)
 
 
-def run_pkgtool(session: InstallSession) -> None:
-    """Run a Slackware Pkgtool installation with validated configuration."""
+@dataclass(frozen=True)
+class SlackwareDialogVariant:
+    """Describe one release's fixed boot and setup screen sequence."""
+
+    boot_prompt: str | None = "boot:"
+    root_prompt: str | None = None
+    continuation_prompt: str | None = None
+    keyboard_prompt: bool = False
+    setup_hostname: str = "slackware"
+    install_mode: str | None = None
+    source_before_target: bool = False
+    simple_lilo: bool = False
+    xwmconfig: bool = False
+
+
+VARIANT_112 = SlackwareDialogVariant(
+    boot_prompt=None,
+    root_prompt="Please remove the boot kernel disk from your floppy drive,",
+    continuation_prompt="VFS: Insert root floppy and press ENTER",
+    setup_hostname="darkstar",
+    source_before_target=True,
+    simple_lilo=True,
+)
+VARIANT_20 = SlackwareDialogVariant(
+    root_prompt="Please remove the boot kernel disk from your floppy drive, insert a",
+    continuation_prompt="VFS: Insert root floppy and press ENTER",
+)
+VARIANT_21 = SlackwareDialogVariant(
+    root_prompt="Please remove the boot kernel disk from your floppy drive, insert a",
+)
+VARIANT_22 = SlackwareDialogVariant(root_prompt="VFS: Insert ramdisk floppy and press ENTER")
+VARIANT_30 = SlackwareDialogVariant(
+    root_prompt="VFS: Insert ramdisk floppy and press ENTER",
+    install_mode="VERBOSE",
+)
+VARIANT_31 = SlackwareDialogVariant(
+    root_prompt="VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER"
+)
+VARIANT_35 = SlackwareDialogVariant()
+VARIANT_70 = SlackwareDialogVariant(xwmconfig=True)
+VARIANT_80 = SlackwareDialogVariant(keyboard_prompt=True, xwmconfig=True)
+
+VARIANTS = {
+    "1.1.2": VARIANT_112,
+    "2.0": VARIANT_20,
+    "2.1": VARIANT_21,
+    "2.2-2.3": VARIANT_22,
+    "3.0": VARIANT_30,
+    "3.1-3.4": VARIANT_31,
+    "3.5-4.0": VARIANT_35,
+    "7.0-7.1": VARIANT_70,
+    "8.0-9.0": VARIANT_80,
+}
+
+
+def run_slackware_dialog(session: InstallSession) -> None:
+    """Run the configured Slackware dialog installer variant."""
     config = session.config.install
-    assert isinstance(config, PkgtoolInstallConfig)
-    boot = config.boot
-    boot_pkgtool(
-        session,
-        boot_prompt=boot.boot_prompt or None,
-        root_prompt=boot.root_prompt or None,
-        root_image=boot.root_image,
-        continuation_prompt=boot.continuation_prompt or None,
-        keyboard_prompt=boot.keyboard_prompt,
-    )
+    assert isinstance(config, SlackwareDialogInstallConfig)
+    variant = VARIANTS[config.variant]
+    if variant.boot_prompt:
+        session.boot_command(variant.boot_prompt)
+    if variant.root_prompt:
+        session.vga_wait(variant.root_prompt, match=Match.LINE)
+        session.change_floppy("root.img")
+        session.kb_press("ret")
+    if variant.continuation_prompt:
+        session.vga_wait(variant.continuation_prompt)
+        session.kb_press("ret")
+    if variant.keyboard_prompt:
+        session.vga_wait("Enter 1 to select a keyboard map:", match=Match.LINE)
+        session.kb_type("\n")
+    DialogInstaller(session, variant).install()
 
 
-class Pkgtool:
+class DialogInstaller:
     """Drive Slackware setup and Pkgtool dialogs through guestlib.
 
     Setup stages are selected from the visible menu, while dialog choices are
@@ -42,27 +103,34 @@ class Pkgtool:
     """
 
     def __init__(
-        self, session: InstallSession, config: PkgtoolInstallConfig | None = None
+        self,
+        session: InstallSession,
+        variant: SlackwareDialogVariant,
     ) -> None:
-        """Initialize the Pkgtool driver with typed release configuration."""
+        """Initialize the dialog driver with typed release configuration."""
         self.s = session
-        config = config or session.config.install
-        assert isinstance(config, PkgtoolInstallConfig)
+        config = session.config.install
+        assert isinstance(config, SlackwareDialogInstallConfig)
         self.disk = config.disk
         self.locale = config.locale
         self.network = config.network
         self.prompts = config.prompts
-        self.settings = config.slackware
+        self.packages = config.packages
+        self.bootloader = config.bootloader
+        self.modem = config.modem
+        self.mail = config.mail
+        self.variant = variant
+        self.xwmconfig_pending = variant.xwmconfig
         self.d = session.dialog
 
     def install(self) -> None:
         """Run the complete Slackware setup workflow."""
-        self.s.vga_wait(f"{self.settings.setup_hostname} login:", match=Match.LINE)
+        self.s.vga_wait(f"{self.variant.setup_hostname} login:", match=Match.LINE)
         self.s.kb_type("root\n")
         self._prepare()
-        if self.settings.install_mode:
+        if self.variant.install_mode:
             self._setup_step("QUICK")
-            self.d.answer(AnswerTitle("menu", "CHANGE INSTALL MODE", self.settings.install_mode))
+            self.d.answer(AnswerTitle("menu", "CHANGE INSTALL MODE", self.variant.install_mode))
         self._setup_step("ADDSWAP")
         self._swap()
         self._target_and_source()
@@ -80,7 +148,7 @@ class Pkgtool:
         shell_prompt = r"# *$"
         self.s.serial_shell_start(screen_prompt=shell_prompt, screen_match=Match.REGEX)
         for command in (
-            fat_mount_command(o.fat_mount, o.fat_partition, "msdos"),
+            fat_mount_command(o.fat_mount, o.fat_partition, o.fat_filesystem),
             "rm /bin/dialog",
             f"cp {o.fat_mount}/guestlib.d/dialog.sh /bin/dialog",
         ):
@@ -108,18 +176,18 @@ class Pkgtool:
 
     def _target_and_source(self) -> None:
         """Configure the target filesystem and package source."""
-        if self.settings.source_before_target:
+        if self.variant.source_before_target:
             self._select_source()
         self._select_target()
         self._mount_fat_partition()
-        if not self.settings.source_before_target:
+        if not self.variant.source_before_target:
             self._select_source()
 
     def _select_target(self) -> None:
         """Select and format the configured Linux target partition."""
         o = self.disk
         self.d.answer_until(
-            AnswerTitle("menu", "Select Linux installation partition:", o.linux_partition),
+            AnswerTitle("menu", "Select Linux installation partition:", o.root_partition),
             AnswerTitle("msgbox", "Using this partition for Linux:", "ok"),
             AnswerTitle(
                 "menu",
@@ -162,7 +230,7 @@ class Pkgtool:
         FAT source uses the already mounted package directory. Unknown devices
         deliberately fall back to manual selection before automation resumes.
         """
-        source = self.settings.source
+        source = self.packages.source
         if source == "/dev/hdc":
             self.d.answer_until(
                 AnswerTitle("menu", "SOURCE MEDIA SELECTION", "CD-ROM", description=True),
@@ -197,29 +265,28 @@ class Pkgtool:
 
     def _sets(self) -> None:
         """Select package series and start package installation."""
-        mode = "custom path" if self.settings.tagfile_path else "default tagfiles"
+        mode = "custom path" if self.packages.tagfile_path else "default tagfiles"
         self.d.answer_until(
             AnswerTitle(
                 "checklist",
                 r"(PACKAGE |SOFTWARE )?SERIES SELECTION",
-                self.settings.package_sets,
+                self.packages.package_sets,
                 regex=True,
             ),
             AnswerTitle("yesno", "CONTINUE?", "yes"),
             AnswerTitle("menu", "SELECT PROMPTING MODE", mode, description=True, exit=True),
         )
-        if self.settings.tagfile_path:
+        if self.packages.tagfile_path:
             self.d.answer(
                 AnswerTitle(
                     "inputbox",
                     "PROVIDE A CUSTOM PATH TO YOUR TAGFILES",
-                    self.settings.tagfile_path,
+                    self.packages.tagfile_path,
                 )
             )
 
     def _configure(self) -> None:
         """Answer boot loader, network, time-zone, and service dialogs."""
-        o = self.settings
         self.d.answer_until(
             AnswerTitle("yesno", "CONFIGURE YOUR SYSTEM?", "yes"),
             AnswerTitle("menu", "MAKE BOOTDISK", "continue"),
@@ -233,7 +300,7 @@ class Pkgtool:
             AnswerTitle("yesno", "SCREEN FONT CONFIGURATION", "no"),
             AnswerTitle("yesno", "CONSOLE FONT CONFIGURATION", "no"),
             AnswerTitle("yesno", "FTAPE CONFIGURATION", "no"),
-            AnswerTitle("menu", "SET YOUR MODEM SPEED", o.modem_speed),
+            AnswerTitle("menu", "SET YOUR MODEM SPEED", self.modem.speed),
             AnswerTitle("menu", "INSTALL LINUX KERNEL", "skip"),
             AnswerTitle("menu", "INSTALL LILO", self._lilo),
             AnswerTitle("menu", "LILO INSTALLATION", self._lilo),
@@ -250,8 +317,7 @@ class Pkgtool:
 
     def _lilo(self, title: str) -> None:
         """Configure and install LILO for the selected Slackware release."""
-        o = self.settings
-        if o.simple_lilo:
+        if self.variant.simple_lilo:
             self.d.answer(AnswerTitle("menu", title, "2"))
             return
         if title == "INSTALL LILO":
@@ -260,13 +326,17 @@ class Pkgtool:
         self.d.answer_until(
             AnswerTitle("menu", title, "Begin"),
             AnswerTitle("inputbox", r"OPTIONAL (LILO )?append=.* LINE", "", regex=True),
-            AnswerTitle("menu", "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?", o.lilo_framebuffer),
+            AnswerTitle(
+                "menu",
+                "CONFIGURE LILO TO USE FRAME BUFFER CONSOLE?",
+                self.bootloader.framebuffer,
+            ),
             AnswerTitle("menu", "SELECT LILO TARGET LOCATION", "MBR"),
             AnswerTitle("inputbox", "CONFIRM LOCATION TO INSTALL LILO", self.disk.target_disk),
             AnswerTitle("menu", r"CHOOSE LILO (DELAY|TIMEOUT)", "None", regex=True),
             AnswerTitle("menu", title, "Linux"),
-            AnswerTitle("inputbox", "SELECT LINUX PARTITION", self.disk.linux_partition),
-            AnswerTitle("inputbox", "SELECT PARTITION NAME", self.disk.linux_partition_name),
+            AnswerTitle("inputbox", "SELECT LINUX PARTITION", self.disk.root_partition),
+            AnswerTitle("inputbox", "SELECT PARTITION NAME", self.bootloader.label),
             AnswerTitle("menu", title, "Install", exit=True),
         )
 
@@ -303,19 +373,19 @@ class Pkgtool:
 
     def _sendmail(self, title: str) -> None:
         """Select the configured sendmail mode and optional window manager."""
-        self.d.answer(AnswerTitle("menu", title, self.settings.sendmail_mode))
+        self.d.answer(AnswerTitle("menu", title, self.mail.mode))
         self._xwmconfig()
 
     def _xwmconfig(self) -> None:
         """Select the default window manager when its prompt is enabled."""
-        if not self.settings.xwmconfig:
+        if not self.xwmconfig_pending:
             return
         try:
             self.s.vga_wait("SELECT DEFAULT WINDOW MANAGER FOR X", timeout=1)
         except TimeoutError:
             return
         self.s.kb_press("spc", "ret")
-        self.settings.xwmconfig = False
+        self.xwmconfig_pending = False
 
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
@@ -324,29 +394,3 @@ class Pkgtool:
         self.s.kb_type("root\n")
         self.s.vga_wait(self.prompts.postinst_prompt or f"{hostname}:~#", match=Match.LINE)
         self.s.kb_type(f"{self.disk.fat_mount}/guestlib.d/postinst.sh\n")
-
-
-def boot_pkgtool(
-    session: InstallSession,
-    *,
-    boot_prompt: str | None = "boot:",
-    root_prompt: str | None = None,
-    root_image: str = "root.img",
-    continuation_prompt: str | None = None,
-    keyboard_prompt: bool = False,
-    config: PkgtoolInstallConfig | None = None,
-) -> None:
-    """Boot Slackware install media and prepare the Pkgtool session."""
-    if boot_prompt:
-        session.boot_command(boot_prompt)
-    if root_prompt:
-        session.vga_wait(root_prompt, match=Match.LINE)
-        session.change_floppy(root_image)
-        session.kb_press("ret")
-    if continuation_prompt:
-        session.vga_wait(continuation_prompt)
-        session.kb_press("ret")
-    if keyboard_prompt:
-        session.vga_wait("Enter 1 to select a keyboard map:", match=Match.LINE)
-        session.kb_type("\n")
-    Pkgtool(session, config).install()

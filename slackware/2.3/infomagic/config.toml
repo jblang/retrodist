@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [download]
 cdrom = "infomagic/ldr/1995_08"
 

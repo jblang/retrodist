@@ -43,7 +43,8 @@ root_image = "rootdsks/color.gz"
 profile = "linux-1.2"
 
 [install]
-driver = "slackware-pkgtool"
+driver = "slackware-dialog"
+variant = "3.0"
 
 [install.network]
 hostname = "darkstar"
@@ -170,81 +171,53 @@ media.
 
 ## Automated Installation
 
-Set `install.driver` to one of:
+Set `install.driver` to one of the major or dedicated drivers registered in
+`hostlib/installers/__init__.py`:
 
-- `debian-dinstall`
-- `slackware-pkgtool`
+- `debian-dialog`
+- `debian-091`
+- `slackware-dialog`
 - `slackware-sysinstall`
-- `redhat-perl`
-- `redhat-c`
+- `slackware-tty`
+- `redhat-dialog`
+- `redhat-newt`
 - `redhat-unattended`
-- `prompt-sequence`
 
-Family-driver settings are grouped into logical tables such as `install.boot`,
-`install.disk`, `install.network`, `install.locale`, and an installer-family
-table. Pydantic validates the complete driver-discriminated configuration, and
-family drivers consume those typed sections directly. See the existing configs,
-`hostlib/schemas.py`, and `hostlib/installers/` for supported fields.
+Family-driver settings are grouped into topical tables such as
+`install.accounts`, `install.disk`, `install.network`, `install.locale`, and
+`install.packages`. Pydantic validates the complete driver-discriminated
+configuration, and family drivers consume those typed sections directly. Major
+drivers use `install.variant` to select a Python-defined profile that owns fixed
+screen sequences, boot prompts, and installer quirks. See the existing configs,
+`hostlib/schemas.py`, and `hostlib/installers/` for supported values. Use a
+release range or descriptive name when several releases share the same profile.
 
-Example Slackware boot configuration:
+Red Hat and Slackware install-time package selection belongs under
+`[install.packages]`. Debian installs additional packages after the base system,
+so its package selection remains under `[postinst.packages]`.
 
-```toml
-[install]
-driver = "slackware-pkgtool"
+The default swap partition size matches the selected QEMU profile's memory.
+Set `install.disk.swap_mb` only when a release needs a deliberate override.
 
-[install.boot]
-boot_prompt = "boot:"
-root_prompt = "VFS: Insert ramdisk floppy and press ENTER"
-continuation_prompt = "VFS: Insert root floppy and press ENTER"
-root_image = "root.img"
-```
-
-Omit optional prompts when they do not occur. Set `boot_prompt = false` when a
-kernel starts without an interactive boot prompt.
-
-Use `prompt-sequence` for exceptional linear installers that cannot share a
-family driver:
+For example, a Slackware config selects its release workflow and keeps package
+selection declarative:
 
 ```toml
 [install]
-driver = "prompt-sequence"
-default_action = "prompt"
-default_transport = "vga"
+driver = "slackware-dialog"
+variant = "3.0"
 
-[[install.steps]]
-action = "wait"
-text = "boot:"
-match = "line"
-
-[[install.steps]]
-action = "type"
-text = "ramdisk root=/dev/fd0\n"
-
-[[install.steps]]
-action = "change-floppy"
-image = "root.img"
-
-[[install.steps]]
-action = "prompt"
-questions = ["Continue with installation?", "Select (y/n):"]
-answer = "y"
+[install.packages]
+package_sets = '"A" "AP" "N" "X" "XAP"'
+tagfile_path = "/retro/tagfiles"
 ```
 
-Supported actions are `wait`, `type`, `press`, `prompt`, `partition`,
-`change-floppy`, `set-boot`, `serial-send`, `serial-shell-start`,
-`serial-shell-send`, `serial-shell-exit`, `console-echo`, and `run-postinst`.
-Use `\n` for Enter and `\t` for Tab in typed text. `${install.table.key}`
-interpolates another install value. Set `install.default_action` to any
-supported action to omit that action from matching steps. Set
-`install.default_transport` to `vga` or `serial` to choose the transport for
-`wait` and `prompt` steps that omit it. Explicit step-level values override
-those defaults; otherwise, `wait` uses VGA and `prompt` uses serial.
-`serial-shell-send.command` may be one string or an array of strings; arrays
-run in order, waiting for the shell prompt after each command by default.
-
-Keep screen sequences and branching in `hostlib/installers/`. Only truly
-exceptional linear sequences belong in distro TOML. Per-distro Python install
-scripts are not supported.
+Keep screen sequences, prompt answers, and branching in
+`hostlib/installers/`. Extend a family driver when releases share a workflow;
+add a focused Python driver for a genuinely one-off installer. TOML should
+contain only the release-specific values consumed by the driver's typed schema.
+The dedicated `debian_091.py` and `slackware_tty.py` drivers are compact
+examples.
 
 ## Post-Installation Configuration
 
@@ -362,7 +335,7 @@ the series default. A variant-level tagset shadows the version-level file.
 
 Run `retro tagfile slackware/VERSION/VARIANT` to regenerate `default.tag` from
 staged packages. Installer package series and tagfile paths are configured in
-`[install.slackware]`.
+`[install.packages]`.
 
 ## Generated Files
 

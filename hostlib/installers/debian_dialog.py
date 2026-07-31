@@ -1,36 +1,67 @@
 """Automate Debian releases built around the menu-driven Dinstall program.
 
 The driver combines VGA menu navigation with the guestlib dialog adapter on
-``ttyS3``. Release differences are expressed as option values and conditional
-menu steps, while partitioning, first boot, account setup, and staged
-post-installation remain shared.
+``ttyS3``. A named variant selects the fixed release workflow, while
+partitioning, first boot, account setup, and staged post-installation remain
+shared.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 import shlex
 
 from ..dialog import AnswerTitle
 from ..fdisk import Fdisk
 from ..session import InstallSession, Match, fat_mount_command
-from ..schemas import DinstallInstallConfig
+from ..schemas import DebianDialogInstallConfig
 
 
-def run_dinstall(session: InstallSession) -> None:
-    """Run a Debian Dinstall installation with validated configuration."""
+@dataclass(frozen=True)
+class DebianDialogVariant:
+    """Describe one release's fixed Dinstall workflow."""
+
+    configure_keyboard: bool = False
+    kernel_floppy: str | None = None
+    driver_floppy: str | None = "drv1440.bin"
+    relogin: bool = False
+    fs_module: str | None = None
+
+
+VARIANT_11 = DebianDialogVariant(
+    configure_keyboard=True,
+    kernel_floppy="boot.img",
+    driver_floppy=None,
+    relogin=True,
+)
+VARIANT_12 = DebianDialogVariant(fs_module="vfat")
+VARIANT_13 = DebianDialogVariant(driver_floppy=None, relogin=True)
+VARIANT_13_VFAT = DebianDialogVariant(driver_floppy=None, relogin=True, fs_module="vfat")
+
+VARIANTS = {
+    "1.1": VARIANT_11,
+    "1.2": VARIANT_12,
+    "1.3": VARIANT_13,
+    "1.3-vfat": VARIANT_13_VFAT,
+}
+
+
+def run_debian_dialog(session: InstallSession) -> None:
+    """Run the configured Debian Dinstall variant."""
     config = session.config.install
-    assert isinstance(config, DinstallInstallConfig)
+    assert isinstance(config, DebianDialogInstallConfig)
+    variant = VARIANTS[config.variant]
     boot = config.boot
     session.boot_command(boot.prompt, boot.command)
     if boot.root_prompt:
         session.vga_wait(boot.root_prompt, match=Match.LINE)
         session.change_floppy(boot.root_image)
         session.kb_type("\n")
-    Dinstall(session).install()
+    DialogInstaller(session, variant).install()
 
 
-class Dinstall:
+class DialogInstaller:
     """Drive the Debian Dinstall and first-boot menu sequences.
 
     Main-menu labels are dispatched to focused handlers because releases expose
@@ -41,16 +72,19 @@ class Dinstall:
     menu = r"Debian (GNU/)?Linux( [0-9.]+)? Installation Main Menu"
 
     def __init__(
-        self, session: InstallSession, config: DinstallInstallConfig | None = None
+        self,
+        session: InstallSession,
+        variant: DebianDialogVariant,
     ) -> None:
         """Initialize the Dinstall driver with typed release configuration."""
         self.s = session
-        config = config or session.config.install
-        assert isinstance(config, DinstallInstallConfig)
+        config = session.config.install
+        assert isinstance(config, DebianDialogInstallConfig)
         self.disk = config.disk
         self.locale = config.locale
         self.network = config.network
-        self.settings = config.debian
+        self.accounts = config.accounts
+        self.variant = variant
         self.d = session.dialog
 
     def install(self) -> None:
@@ -75,7 +109,7 @@ class Dinstall:
             fat_mount_command(
                 self.disk.fat_mount,
                 self.disk.fat_partition,
-                self.settings.fat_filesystem or self.disk.fat_filesystem,
+                self.disk.fat_filesystem,
             )
             + "\n"
         )
@@ -148,7 +182,12 @@ class Dinstall:
         """Create and initialize the swap partition."""
         self._main()
         self.d.answer_until(
-            AnswerTitle("menu", r"Select (Disk|Swap) Partition", "/dev/hda1", regex=True),
+            AnswerTitle(
+                "menu",
+                r"Select (Disk|Swap) Partition",
+                self.disk.swap_partition,
+                regex=True,
+            ),
             AnswerTitle("yesno", "Scan for Bad Blocks?", "no"),
             AnswerTitle("yesno", "Are You Sure?", "yes", exit=True),
         )
@@ -157,7 +196,12 @@ class Dinstall:
         """Create, format, and mount the root partition."""
         self._main()
         self.d.answer_until(
-            AnswerTitle("menu", r"Select (Disk )?Partition", "/dev/hda2", regex=True),
+            AnswerTitle(
+                "menu",
+                r"Select (Disk )?Partition",
+                self.disk.root_partition,
+                regex=True,
+            ),
             AnswerTitle("yesno", "Scan for Bad Blocks?", "no"),
             AnswerTitle("yesno", "Are You Sure?", "yes"),
             AnswerTitle("yesno", "Mount as the Root Filesystem?", "yes", exit=True),
@@ -182,8 +226,8 @@ class Dinstall:
     def _kernel(self, _: str) -> None:
         """Install or configure the boot kernel."""
         self._main()
-        if self.settings.kernel_floppy:
-            self.s.change_floppy(self.settings.kernel_floppy)
+        if self.variant.kernel_floppy:
+            self.s.change_floppy(self.variant.kernel_floppy)
         self.d.answer_until(
             AnswerTitle("menu", "Select Disk Drive", "/dev/fd0"),
             AnswerTitle("msgbox", "Please Insert Disk", "ok", exit=True),
@@ -206,9 +250,9 @@ class Dinstall:
     def _drivers(self, _: str) -> None:
         """Install optional driver disks."""
         self._main()
-        if not self.settings.driver_floppy:
+        if not self.variant.driver_floppy:
             return
-        self.s.change_floppy(self.settings.driver_floppy)
+        self.s.change_floppy(self.variant.driver_floppy)
         self.d.answer_until(
             AnswerTitle("menu", "Select Disk Drive", "/dev/fd0"),
             AnswerTitle("msgbox", "Please Insert Disk", "ok", exit=True),
@@ -219,8 +263,8 @@ class Dinstall:
         self._main()
         if self.network.net_module:
             self._module("net", self.network.net_module, self.network.net_module_args)
-        if self.settings.fs_module:
-            self._module("fs", self.settings.fs_module, "")
+        if self.variant.fs_module:
+            self._module("fs", self.variant.fs_module, "")
         self.d.answer(AnswerTitle("menu", "Select Category", "Exit"))
 
     def _module(self, category: str, module: str, arguments: str) -> None:
@@ -240,7 +284,7 @@ class Dinstall:
     def _configure_base(self, _: str) -> None:
         """Configure the installed Debian base system."""
         self._main()
-        if self.settings.configure_keyboard:
+        if self.variant.configure_keyboard:
             self.s.serial.wait("TITLE: Keyboard Setup", line=True)
             self.s.serial.wait("TYPE: yesno", line=True)
             self.s.serial.prompt("RESPONSE:", answer="yes")
@@ -296,7 +340,7 @@ class Dinstall:
 
     def _create_accounts(self) -> None:
         """Set the root password and create the configured ordinary user."""
-        o = self.settings
+        o = self.accounts
         self.s.vga_wait("Changing password for root", match=Match.LINE)
         self.s.kb_type(f"{o.root_password}\n")
         self.s.kb_type(f"{o.root_password}\n")
@@ -353,14 +397,14 @@ class Dinstall:
 
     def _postinst(self) -> None:
         """Launch the staged post-installation runtime."""
-        o = self.settings
+        accounts = self.accounts
         hostname = self.network.hostname
         self.s.vga_wait("Have fun!", match=Match.LINE)
-        if o.relogin:
+        if self.variant.relogin:
             self.s.vga_wait(f"{hostname} login:", match=Match.LINE)
             self.s.kb_type("root\n")
             self.s.vga_wait("Password:", match=Match.LINE)
-            self.s.kb_type(f"{o.root_password}\n")
+            self.s.kb_type(f"{accounts.root_password}\n")
         self.s.vga_wait(r"^[^\s]*# *$", match=Match.REGEX)
         prompts = self.s.config.postinst.packages.prompts
         if not prompts:

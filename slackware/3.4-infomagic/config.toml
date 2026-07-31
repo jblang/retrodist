@@ -1,10 +1,8 @@
-# Declarative configuration for the Python retro host.
+[qemu]
+profile = "linux-2.0"
 
-[install]
-driver = "slackware-pkgtool"
-
-[install.boot]
-root_prompt = "VFS: Insert root floppy disk to be loaded into ramdisk and press ENTER"
+[qemu.network]
+device = "ne2k_isa"
 
 [download]
 cdrom = "infomagic/ldr/1998_01"
@@ -15,11 +13,9 @@ boot_image = "bootdsks.144/bare.i"
 root_image = "rootdsks/color.gz"
 truncate = ["bare.i"]
 
-[qemu]
-profile = "linux-2.0"
-
-[qemu.network]
-device = "ne2k_isa"
+[install]
+driver = "slackware-dialog"
+variant = "3.1-3.4"
 
 [postinst]
 stages = ["modules", "tty", "x11"]

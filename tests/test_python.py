@@ -38,23 +38,30 @@ from hostlib.debian_packages import (
 )
 from hostlib.session import InstallSession, Match
 from hostlib.serial import SerialConsole
-from hostlib.installers.slackware import Pkgtool, boot_pkgtool
-from hostlib.installers.debian import Dinstall
-from hostlib.installers.slackware_sysinstall import Sysinstall
-from hostlib.installers import (
-    STEP_HANDLERS,
-    run_configured_install,
-    validate_install_config,
+from hostlib.installers.slackware_dialog import (
+    DialogInstaller as SlackwareDialogInstaller,
+    VARIANT_35 as SLACKWARE_VARIANT_35,
+    run_slackware_dialog,
 )
-from hostlib import installers
+from hostlib.installers.debian_dialog import (
+    DialogInstaller,
+    VARIANT_11 as DEBIAN_VARIANT_11,
+    VARIANT_12 as DEBIAN_VARIANT_12,
+)
+from hostlib.installers.debian_091 import Debian091Installer
+from hostlib.installers.slackware_sysinstall import Sysinstall
+from hostlib.installers.slackware_tty import SlackwareTtyInstaller
+from hostlib.installers import validate_install_config
 from hostlib.installers import redhat_dialog, redhat_newt
 from hostlib.newt_dialog import NewtDialog, parse_dialog
 from hostlib.vga import ScreenBounds, ScreenObserver, ScreenSnapshot
 from hostlib.media import MediaStager
 from hostlib.media_schemas import DebianPackagesConfig, ExtractionConfig, PostinstConfig
 from hostlib.schemas import (
-    DinstallInstallConfig,
-    PkgtoolInstallConfig,
+    DebianDialogInstallConfig,
+    RedHatDialogInstallConfig,
+    RedHatNewtInstallConfig,
+    SlackwareDialogInstallConfig,
     SysinstallInstallConfig,
 )
 from hostlib.qmp import Monitor
@@ -80,12 +87,16 @@ def temporary_config(
     return context, RetroConfig(context=context, data=data or {})
 
 
-def dinstall_config(**values: object) -> DinstallInstallConfig:
-    return DinstallInstallConfig.model_validate({"driver": "debian-dinstall", **values})
+def dialog_config(**values: object) -> DebianDialogInstallConfig:
+    return DebianDialogInstallConfig.model_validate(
+        {"driver": "debian-dialog", "variant": "1.2", **values}
+    )
 
 
-def pkgtool_config(**values: object) -> PkgtoolInstallConfig:
-    return PkgtoolInstallConfig.model_validate({"driver": "slackware-pkgtool", **values})
+def slackware_dialog_config(**values: object) -> SlackwareDialogInstallConfig:
+    return SlackwareDialogInstallConfig.model_validate(
+        {"driver": "slackware-dialog", "variant": "3.5-4.0", **values}
+    )
 
 
 def sysinstall_config(**values: object) -> SysinstallInstallConfig:
@@ -395,6 +406,7 @@ class DownloadTests(unittest.TestCase):
                     "--cut-dirs=2",
                     f"--directory-prefix={destination}",
                     "--continue",
+                    "--reject-regex=[?]",
                     "--reject=*.md5,*index*",
                     "https://x/releases/tree/",
                 ],
@@ -601,27 +613,57 @@ class ConfigTests(unittest.TestCase):
             directory = root / "debian/1.1"
             directory.mkdir(parents=True)
             (directory / "config.toml").write_text(
-                '[install]\ndriver = "debian-dinstall"\n'
+                '[install]\ndriver = "debian-dialog"\nvariant = "1.3"\n'
                 '[install.network]\nhostname = "buzz"\n'
                 'domain = "example.test"\nip = "192.0.2.15"\n'
-                "[install.debian]\ndriver_floppy = false\nrelogin = true\n"
+                '[install.accounts]\nroot_password = "secret"\nuser = "buzz"\n'
             )
             context = Context.create(root, "install", str(directory))
             config = load_config(context)
             install = config.install
             validate_install_config(config)
-            self.assertIsInstance(install, DinstallInstallConfig)
-            assert isinstance(install, DinstallInstallConfig)
+            self.assertIsInstance(install, DebianDialogInstallConfig)
+            assert isinstance(install, DebianDialogInstallConfig)
             self.assertEqual(install.network.hostname, "buzz")
             self.assertEqual(install.network.domain, "example.test")
             self.assertEqual(install.network.ip, "192.0.2.15")
-            self.assertFalse(install.debian.driver_floppy)
-            self.assertTrue(install.debian.relogin)
+            self.assertEqual(install.accounts.root_password, "secret")
+            self.assertEqual(install.accounts.user, "buzz")
+
+    def test_swap_size_defaults_to_qemu_profile_memory(self) -> None:
+        for profile, expected in (("linux-1.2", 64), ("linux-2.4", 128)):
+            with self.subTest(profile=profile):
+                config = RetroConfig(
+                    context=SimpleNamespace(name="test"),
+                    data={
+                        "qemu": {"profile": profile},
+                        "install": {"driver": "slackware-sysinstall"},
+                    },
+                )
+                self.assertEqual(config.install.disk.swap_mb, expected)
+
+        config = RetroConfig(
+            context=SimpleNamespace(name="test"),
+            data={
+                "qemu": {"profile": "linux-2.4"},
+                "install": {
+                    "driver": "slackware-sysinstall",
+                    "disk": {"swap_mb": 32},
+                },
+            },
+        )
+        self.assertEqual(config.install.disk.swap_mb, 32)
 
     def test_nested_installer_option_errors_use_the_config_error_boundary(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
-            data={"install": {"driver": "debian-dinstall", "network": {"ip": 123}}},
+            data={
+                "install": {
+                    "driver": "debian-dialog",
+                    "variant": "1.2",
+                    "network": {"ip": 123},
+                }
+            },
         )
         with self.assertRaisesRegex(ConfigError, "install.network.ip must be a string"):
             _ = config.install
@@ -1220,90 +1262,63 @@ class FdiskTests(unittest.TestCase):
         self.assertEqual(sent[-1], "w")
 
 
-class InstallPlanTests(unittest.TestCase):
-    def test_prompt_sequence_interpolates_config_and_types_embedded_enter(self) -> None:
-        with temporary_root() as root:
-            directory = root / "distro/version"
-            directory.mkdir(parents=True)
-            (directory / "config.toml").write_text(
-                '[install]\ndriver = "prompt-sequence"\n'
-                '[install.network]\nhostname = "retro"\n'
-                '[[install.steps]]\naction = "type"\n'
-                'text = "${install.network.hostname}\\n"\n'
-                '[[install.steps]]\naction = "press"\nkeys = "f12"\n'
-            )
-            session = SimpleNamespace(
-                config=load_config(Context.create(root, "install", str(directory))),
-                kb_type=unittest.mock.Mock(),
-                kb_press=unittest.mock.Mock(),
-            )
-            run_configured_install(session)
-            session.kb_type.assert_called_once_with("retro\n")
-            session.kb_press.assert_called_once_with("f12")
+class InstallerDispatchTests(unittest.TestCase):
+    def test_debian_091_runs_its_one_off_phases_in_order(self) -> None:
+        config = RetroConfig(context=SimpleNamespace(), data={"install": {"driver": "debian-091"}})
+        session = unittest.mock.Mock(config=config)
+        installer = Debian091Installer(session)
+        phases = unittest.mock.Mock()
+        installer._install_base = phases.install_base
+        installer._configure_system = phases.configure_system
+        installer._install_lilo = phases.install_lilo
 
-    def test_prompt_sequence_rejects_invalid_boolean(self) -> None:
-        config = RetroConfig(
-            context=SimpleNamespace(),
-            data={
-                "install": {
-                    "driver": "prompt-sequence",
-                    "steps": [
-                        {
-                            "action": "serial-shell-send",
-                            "command": "setup",
-                            "wait": "false",
-                        }
-                    ],
-                }
-            },
+        with patch("hostlib.installers.debian_091.Fdisk"):
+            installer.install()
+
+        self.assertEqual(
+            phases.mock_calls,
+            [call.install_base(), call.configure_system(), call.install_lilo()],
         )
-        with self.assertRaisesRegex(ConfigError, "wait must be a boolean"):
-            validate_install_config(config)
 
-    def test_prompt_sequence_executes_every_supported_action(self) -> None:
-        steps = [
-            {"action": "wait", "text": "Ready", "match": "line"},
-            {"action": "wait", "transport": "serial", "text": "login:", "match": "regex"},
-            {"action": "type", "text": "${install.network.hostname}\n"},
-            {"action": "press", "keys": ["tab", "ret"], "repeat": 2},
-            {
-                "action": "prompt",
-                "transport": "serial",
-                "questions": ["one", "two"],
-                "answer": "yes",
-                "regex": True,
-            },
-            {
-                "action": "prompt",
-                "questions": ["screen one", "screen two"],
-                "answer": "ok",
-                "regex": True,
-            },
-            {"action": "serial-shell-start", "screen_prompt": "$", "serial_prompt": "#"},
-            {"action": "serial-shell-send", "command": "setup", "wait": False, "prompt": "$"},
-            {
-                "action": "serial-shell-send",
-                "command": ['echo "${install.network.hostname}"', "echo done"],
-                "prompt": "$",
-            },
-            {"action": "serial-send", "text": "raw"},
-            {"action": "serial-shell-exit", "screen_prompt": "done"},
-            {"action": "console-echo", "text": "Installing"},
-            {"action": "partition", "device": "/dev/sda", "swap_mb": 32},
-            {"action": "change-floppy", "image": "root.img"},
-            {"action": "set-boot", "device": "c"},
-            {"action": "run-postinst", "password": "secret", "login": "login:", "shell": "#"},
-        ]
+    def test_debian_091_driver_runs_dedicated_vga_flow(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
-            data={
-                "install": {
-                    "driver": "prompt-sequence",
-                    "default_transport": "vga",
-                    "network": {"hostname": "retro"},
-                    "steps": steps,
-                }
-            },
+            data={"install": {"driver": "debian-091"}},
+        )
+        session = SimpleNamespace(
+            config=config,
+            boot_command=unittest.mock.Mock(),
+            vga_wait=unittest.mock.Mock(),
+            kb_type=unittest.mock.Mock(),
+            kb_press=unittest.mock.Mock(),
+            serial_shell_start=unittest.mock.Mock(),
+            serial_shell_send=unittest.mock.Mock(),
+            serial_shell_exit=unittest.mock.Mock(),
+            change_floppy=unittest.mock.Mock(),
+            set_boot=unittest.mock.Mock(),
+            run_postinst=unittest.mock.Mock(),
+        )
+        with patch("hostlib.installers.debian_091.Fdisk") as fdisk:
+            Debian091Installer(session).install()
+
+        fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/hda", 64)
+        self.assertEqual(
+            session.change_floppy.call_args_list,
+            [call("basedsk1"), call("basedsk2")],
+        )
+        self.assertIn(
+            call("/root/usr/sbin/rdev /root/vmlinuz /dev/hda2"),
+            session.serial_shell_send.call_args_list,
+        )
+        session.run_postinst.assert_called_once_with(
+            login="debra.retro.net login:",
+            shell="[root:~]#",
+        )
+
+    def test_slackware_tty_driver_runs_dedicated_serial_flow(self) -> None:
+        config = RetroConfig(
+            context=SimpleNamespace(),
+            data={"install": {"driver": "slackware-tty"}},
         )
         serial = unittest.mock.Mock()
         session = SimpleNamespace(
@@ -1314,124 +1329,104 @@ class InstallPlanTests(unittest.TestCase):
             kb_press=unittest.mock.Mock(),
             serial_shell_start=unittest.mock.Mock(),
             serial_shell_send=unittest.mock.Mock(),
-            serial_shell_exit=unittest.mock.Mock(),
             serial_console_echo=unittest.mock.Mock(),
-            change_floppy=unittest.mock.Mock(),
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
-        with patch.object(installers, "Fdisk") as fdisk:
-            run_configured_install(session)
-        self.assertEqual(
-            session.vga_wait.call_args_list,
-            [
-                call("Ready", match=Match.LINE, timeout=None),
-                call("screen one", "screen two", match=Match.REGEX),
-            ],
-        )
-        serial.wait.assert_called_once_with("login:", line=False, regex=True, timeout=None)
-        self.assertEqual(session.kb_type.call_args_list, [call("retro\n"), call("ok\n")])
-        self.assertEqual(session.kb_press.call_count, 2)
-        serial.prompt.assert_called_once_with("one", "two", answer="yes", regex=True)
-        session.serial_shell_start.assert_called_once_with(screen_prompt="$", serial_prompt="#")
-        self.assertEqual(
-            session.serial_shell_send.call_args_list,
-            [
-                call("setup", wait=False, prompt="$"),
-                call('echo "retro"', wait=True, prompt="$"),
-                call("echo done", wait=True, prompt="$"),
-            ],
-        )
-        session.serial_shell_exit.assert_called_once_with(screen_prompt="done")
-        fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/sda", 32)
-        session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
+        with patch("hostlib.installers.slackware_tty.Fdisk") as fdisk:
+            SlackwareTtyInstaller(session).install()
 
-    def test_prompt_sequence_preserves_transport_defaults_without_override(self) -> None:
+        fdisk.return_value.partition_swap_root.assert_called_once_with("/dev/hda", 64)
+        session.serial_shell_send.assert_called_once_with("setup", wait=False)
+        serial.prompt.assert_any_call(
+            "Which disk sets do you want to install?",
+            answer="A AP D E F IV N TCL OI OOP X XAP XD XV Y",
+        )
+        session.kb_press.assert_called_once_with("ctrl-alt-delete")
+        session.run_postinst.assert_called_once_with(
+            login="darkstar login:",
+            shell="darkstar:~#",
+        )
+
+    def test_slackware_tty_runs_its_one_off_phases_in_order(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
-            data={
-                "install": {
-                    "driver": "prompt-sequence",
-                    "steps": [
-                        {"action": "wait", "text": "screen"},
-                        {"action": "prompt", "questions": ["serial"], "answer": "yes"},
-                    ],
-                }
-            },
+            data={"install": {"driver": "slackware-tty"}},
         )
-        wait, prompt = config.prompt_sequence.steps
-        self.assertEqual(wait.transport, "vga")
-        self.assertEqual(prompt.transport, "serial")
+        session = unittest.mock.Mock(config=config)
+        installer = SlackwareTtyInstaller(session)
+        phases = unittest.mock.Mock()
+        installer._configure_filesystems = phases.configure_filesystems
+        installer._install_packages = phases.install_packages
+        installer._configure_system = phases.configure_system
 
-    def test_prompt_sequence_applies_default_action_before_transport(self) -> None:
-        config = RetroConfig(
-            context=SimpleNamespace(),
-            data={
-                "install": {
-                    "driver": "prompt-sequence",
-                    "default_action": "prompt",
-                    "default_transport": "vga",
-                    "steps": [{"questions": ["Continue?"], "answer": "y"}],
-                }
-            },
+        with patch("hostlib.installers.slackware_tty.Fdisk"):
+            installer.install()
+
+        self.assertEqual(
+            phases.mock_calls,
+            [
+                call.configure_filesystems(),
+                call.install_packages(),
+                call.configure_system(),
+            ],
         )
-        (prompt,) = config.prompt_sequence.steps
-        self.assertEqual(prompt.action, "prompt")
-        self.assertEqual(prompt.transport, "vga")
 
-    def test_installer_validation_rejects_bad_drivers_controls_and_steps(self) -> None:
+    def test_installer_validation_rejects_bad_drivers_and_controls(self) -> None:
         cases = (
             ({"install": {}}, "must set install.driver"),
             ({"install": {"driver": "unknown"}}, "Unknown install driver"),
-            ({"install": {"driver": "prompt-sequence", "steps": []}}, "requires install.steps"),
             (
                 {
                     "install": {
-                        "driver": "prompt-sequence",
-                        "steps": [{"action": "press", "keys": 3}],
+                        "driver": "debian-dialog",
+                        "variant": "1.2",
+                        "boot": "boot:",
                     }
                 },
-                "keys must be strings",
-            ),
-            (
-                {"install": {"driver": "debian-dinstall", "boot": "boot:"}},
                 "install.boot must be a table",
             ),
             (
-                {"install": {"driver": "redhat-perl", "redhat": {}}},
-                "install.redhat.flow must be a string",
-            ),
-            (
-                {"install": {"driver": "redhat-c", "redhat": {}}},
-                "install.redhat.components is required",
+                {
+                    "install": {
+                        "driver": "redhat-dialog",
+                        "variant": "2.1",
+                        "packages": {},
+                        "accounts": {},
+                    }
+                },
+                "install.packages.package_series is required",
             ),
             (
                 {
                     "install": {
-                        "driver": "redhat-c",
-                        "redhat": {
-                            "components": [],
-                            "partitioning": "unknown",
-                            "mouse_setup": "configure-mouse",
-                            "x11_setup": "choose-card",
-                            "tcp_ip_form": "gateway-and-nameserver",
-                        },
+                        "driver": "redhat-newt",
+                        "variant": "4.0",
+                        "packages": {},
                     }
                 },
-                "partitioning Input should be 'partition-disks'",
-            ),
-            (
-                {"install": {"driver": "redhat-perl", "redhat": {"flow": "2.1"}}},
-                "install.redhat.package_series is required",
+                "install.packages.components is required",
             ),
             (
                 {
                     "install": {
-                        "driver": "redhat-perl",
-                        "redhat": {"flow": "unknown", "package_series": []},
+                        "driver": "redhat-dialog",
+                        "packages": {"package_series": []},
+                        "accounts": {},
                     }
                 },
-                "install.redhat.flow must be one of: 1.1, 2.1, 3.0.3",
+                "install.variant is required",
+            ),
+            (
+                {
+                    "install": {
+                        "driver": "redhat-dialog",
+                        "variant": "2.1",
+                        "packages": {"package_series": []},
+                        "accounts": {"flow": "unknown"},
+                    }
+                },
+                "Unknown install setting.*flow",
             ),
         )
         for data, message in cases:
@@ -1441,10 +1436,24 @@ class InstallPlanTests(unittest.TestCase):
 
 
 class RedHatDriverTests(unittest.TestCase):
-    def test_c_installer_configs_select_explicit_screen_workflows(self) -> None:
+    def test_newt_variant_names_select_release_profiles(self) -> None:
+        self.assertEqual(
+            redhat_newt.VARIANTS,
+            {
+                "4.0": redhat_newt.VARIANT_40,
+                "4.1": redhat_newt.VARIANT_41,
+                "4.2": redhat_newt.VARIANT_42,
+                "5.0": redhat_newt.VARIANT_50,
+                "5.1": redhat_newt.VARIANT_51,
+            },
+        )
+
+    def test_newt_installer_configs_select_explicit_screen_workflows(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
             "4.0-infomagic": (
+                "4.0",
+                redhat_newt.VARIANT_40,
                 "partition-disks",
                 "configure-mouse",
                 "choose-card",
@@ -1452,6 +1461,8 @@ class RedHatDriverTests(unittest.TestCase):
                 "network-and-broadcast",
             ),
             "4.1-infomagic": (
+                "4.1",
+                redhat_newt.VARIANT_41,
                 "partition-disks",
                 "configure-mouse",
                 "choose-card",
@@ -1459,6 +1470,8 @@ class RedHatDriverTests(unittest.TestCase):
                 "gateway-and-nameserver",
             ),
             "4.2-infomagic": (
+                "4.2",
+                redhat_newt.VARIANT_42,
                 "partition-disks",
                 "configure-mouse",
                 "choose-card",
@@ -1466,6 +1479,8 @@ class RedHatDriverTests(unittest.TestCase):
                 "gateway-and-nameserver",
             ),
             "5.0-infomagic": (
+                "5.0",
+                redhat_newt.VARIANT_50,
                 "select-root-partition",
                 "probe-and-emulation",
                 "pci-probe",
@@ -1473,6 +1488,8 @@ class RedHatDriverTests(unittest.TestCase):
                 "gateway-and-nameserver",
             ),
             "5.1-infomagic": (
+                "5.1",
+                redhat_newt.VARIANT_51,
                 "current-disk-partitions",
                 "probe-and-configure-mouse",
                 "pci-probe",
@@ -1480,22 +1497,24 @@ class RedHatDriverTests(unittest.TestCase):
                 "gateway-and-nameserver",
             ),
         }
-        for release, workflows in expected.items():
+        for release, (variant_name, variant, *workflows) in expected.items():
             with self.subTest(release=release):
                 context = Context.create(root, "install", f"redhat/{release}")
-                settings = load_config(context).install.redhat
+                install = load_config(context).install
+                self.assertEqual(install.driver, "redhat-newt")
+                self.assertEqual(install.variant, variant_name)
                 self.assertEqual(
                     (
-                        settings.partitioning,
-                        settings.mouse_setup,
-                        settings.x11_setup,
-                        settings.network_setup,
-                        settings.tcp_ip_form,
+                        variant.partitioning,
+                        variant.mouse_setup,
+                        variant.x11_setup,
+                        variant.network_setup,
+                        variant.tcp_ip_form,
                     ),
-                    workflows,
+                    tuple(workflows),
                 )
 
-    def test_c_installer_configs_declare_exact_component_sets(self) -> None:
+    def test_newt_installer_configs_declare_exact_component_sets(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
             "4.0-infomagic": [
@@ -1551,61 +1570,71 @@ class RedHatDriverTests(unittest.TestCase):
         }
         for release, components in expected.items():
             with self.subTest(release=release):
-                context = Context.create(root, "install", f"redhat/{release}")
+                path = root / "redhat" / release / "config.toml"
+                toml_install = tomllib.loads(path.read_text())["install"]
+                self.assertEqual(set(toml_install["packages"]), {"components"})
+                self.assertEqual(toml_install["accounts"], {"root_password": "password"})
+                context = Context.create(root, "install", str(path.parent))
                 install = load_config(context).install
-                self.assertEqual(install.redhat.components, components)
+                self.assertEqual(install.packages.components, components)
+                self.assertEqual(install.accounts.root_password, "password")
 
-    def test_c_installer_configs_use_source_field_labels(self) -> None:
-        root = Path(__file__).resolve().parent.parent
+    def test_newt_installer_configs_use_source_field_labels(self) -> None:
         expected = {
-            "4.0-infomagic": ("Password        :", "Boot label :"),
-            "4.1-infomagic": ("Password        :", "Boot label :"),
-            "4.2-infomagic": ("Password        :", "Boot label :"),
-            "5.0-infomagic": ("Password        :", "Boot label :"),
-            "5.1-infomagic": ("Password:", "Boot label:"),
+            redhat_newt.VARIANT_40: ("Password        :", "Boot label :"),
+            redhat_newt.VARIANT_41: ("Password        :", "Boot label :"),
+            redhat_newt.VARIANT_42: ("Password        :", "Boot label :"),
+            redhat_newt.VARIANT_50: ("Password        :", "Boot label :"),
+            redhat_newt.VARIANT_51: ("Password:", "Boot label:"),
         }
-        for release, labels in expected.items():
-            with self.subTest(release=release):
-                context = Context.create(root, "install", f"redhat/{release}")
-                settings = load_config(context).install.redhat
+        for variant, labels in expected.items():
+            with self.subTest(variant=variant):
                 self.assertEqual(
-                    (settings.password_field, settings.boot_label_field),
+                    (variant.password_field, variant.boot_label_field),
                     labels,
                 )
 
-    def test_later_c_installer_configs_encode_source_specific_controls(self) -> None:
+    def test_later_newt_installer_configs_encode_source_specific_controls(self) -> None:
         root = Path(__file__).resolve().parent.parent
         expected = {
-            "4.1-infomagic": {
-                "timezone": "UTC",
-                "lilo_setup_dialogs": 2,
-                "lilo_boot_labels": True,
-                "x_video_memory_label": "2048",
-            },
-            "4.2-infomagic": {
-                "timezone": "Etc/UTC",
-                "lilo_setup_dialogs": 2,
-                "lilo_boot_labels": True,
-                "x_video_memory_label": "2048",
-            },
-            "5.0-infomagic": {
-                "timezone": "Etc/UTC",
-                "lilo_setup_dialogs": 2,
-                "lilo_boot_labels": True,
-                # Xconfigurator 3.25 stores 2048 internally but renders the
-                # corresponding wangermemorys entry as "2 meg".
-                "x_video_memory_label": "2 meg",
-            },
-            "5.1-infomagic": {
-                "timezone": "Etc/UTC",
-                "lilo_setup_dialogs": 2,
-                "lilo_boot_labels": True,
-                "x_video_memory_label": "2 meg",
-                "password_field": "Password:",
-                "boot_label_field": "Boot label:",
-            },
+            "4.1-infomagic": (
+                redhat_newt.VARIANT_41,
+                {
+                    "timezone": "UTC",
+                    "extra_lilo_dialog": True,
+                    "x_video_memory_label": "2048",
+                },
+            ),
+            "4.2-infomagic": (
+                redhat_newt.VARIANT_42,
+                {
+                    "timezone": "Etc/UTC",
+                    "extra_lilo_dialog": True,
+                    "x_video_memory_label": "2048",
+                },
+            ),
+            "5.0-infomagic": (
+                redhat_newt.VARIANT_50,
+                {
+                    "timezone": "Etc/UTC",
+                    "extra_lilo_dialog": True,
+                    # Xconfigurator 3.25 stores 2048 internally but renders the
+                    # corresponding wangermemorys entry as "2 meg".
+                    "x_video_memory_label": "2 meg",
+                },
+            ),
+            "5.1-infomagic": (
+                redhat_newt.VARIANT_51,
+                {
+                    "timezone": "Etc/UTC",
+                    "extra_lilo_dialog": True,
+                    "x_video_memory_label": "2 meg",
+                    "password_field": "Password:",
+                    "boot_label_field": "Boot label:",
+                },
+            ),
         }
-        for release, controls in expected.items():
+        for release, (variant, controls) in expected.items():
             with self.subTest(release=release):
                 context = Context.create(root, "install", f"redhat/{release}")
                 install = load_config(context).install
@@ -1615,17 +1644,14 @@ class RedHatDriverTests(unittest.TestCase):
                 )
                 self.assertEqual(install.disk.root_partition, "/dev/hda2")
                 self.assertEqual(install.disk.fat_partition, "/dev/hdb1")
-                self.assertEqual(
-                    install.redhat.timezone_clock_control,
-                    "checkbox",
-                )
+                self.assertTrue(variant.timezone_checkbox)
                 for name, value in controls.items():
                     if name == "timezone":
                         continue
-                    self.assertEqual(getattr(install.redhat, name), value)
+                    self.assertEqual(getattr(variant, name), value)
 
     def test_redhat_dialog_combines_common_flow_and_dispatches_optional_dialogs(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.load_two_ramdisks = unittest.mock.Mock()
         installer.prepare_dialog = unittest.mock.Mock()
         installer.insert_boot_disk = unittest.mock.Mock()
@@ -1636,8 +1662,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.format_root = unittest.mock.Mock()
         installer._finish = unittest.mock.Mock()
         installer.dialog = unittest.mock.Mock()
-        installer.settings = SimpleNamespace(
-            flow="3.0.3",
+        installer.packages = SimpleNamespace(
             package_series=["Networking", "X Windows"],
         )
 
@@ -1679,6 +1704,25 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dismiss_swap_error.assert_called_once_with()
         installer._finish.assert_called_once_with(x_vga=True)
 
+    def test_redhat_dialog_formats_the_configured_root_partition(self) -> None:
+        config = RedHatDialogInstallConfig.model_validate(
+            {
+                "driver": "redhat-dialog",
+                "variant": "1.1",
+                "disk": {"root_partition": "/dev/sda7"},
+                "packages": {"package_series": []},
+                "accounts": {},
+            }
+        )
+        dialog = unittest.mock.Mock()
+        installer = redhat_dialog.DialogInstaller(
+            SimpleNamespace(config=SimpleNamespace(install=config), dialog=dialog)
+        )
+
+        installer.format_root()
+
+        self.assertEqual(dialog.answer.call_args_list[0].args[0].answer, '"/dev/sda7"')
+
     def test_unattended_flow_boots_reboots_and_runs_postinstall(self) -> None:
         config = RetroConfig(
             context=SimpleNamespace(),
@@ -1700,17 +1744,25 @@ class RedHatDriverTests(unittest.TestCase):
             set_boot=unittest.mock.Mock(),
             run_postinst=unittest.mock.Mock(),
         )
-        redhat_newt.run_unattended(session)
+        redhat_newt.run_redhat_unattended(session)
         session.boot_command.assert_called_once_with("boot:", "linux ks=floppy")
         session.vga_wait.assert_called_once_with("Complete")
         session.set_boot.assert_called_once_with("c")
         session.run_postinst.assert_called_once_with("secret", login="login:", shell="#")
 
-    def test_c_installer_composes_explicit_phases(self) -> None:
-        session = SimpleNamespace()
+    def test_newt_installer_composes_explicit_phases(self) -> None:
+        config = RedHatNewtInstallConfig.model_validate(
+            {
+                "driver": "redhat-newt",
+                "variant": "4.0",
+                "packages": {"components": []},
+            }
+        )
+        session = SimpleNamespace(config=SimpleNamespace(install=config))
         installer = unittest.mock.Mock()
-        with patch.object(redhat_newt, "CInstaller", return_value=installer):
-            redhat_newt.run_c_installer(session)
+        with patch.object(redhat_newt, "NewtInstaller", return_value=installer) as constructor:
+            redhat_newt.run_redhat_newt(session)
+        constructor.assert_called_once_with(session, redhat_newt.VARIANT_40)
         for method in (
             installer.boot_and_select_installation_options,
             installer.partition_storage,
@@ -1725,18 +1777,18 @@ class RedHatDriverTests(unittest.TestCase):
         ):
             method.assert_called_once_with()
 
-    def test_c_installer_explicitly_selects_default_installation_options(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
+    def test_newt_installer_explicitly_selects_default_installation_options(self) -> None:
+        installer = object.__new__(redhat_newt.NewtInstaller)
         installer.s = SimpleNamespace(boot_command=unittest.mock.Mock())
         installer.prompts = SimpleNamespace(
             boot_prompt="boot:",
             boot_command="",
             boot_sleep=0,
         )
-        installer.settings = SimpleNamespace(
+        installer.variant = SimpleNamespace(
             color_prompt=False,
             language_prompt=True,
-            keyboard_early=False,
+            keyboard_stage=None,
             pcmcia_prompt=False,
             cdrom_type_prompt=True,
         )
@@ -1754,9 +1806,9 @@ class RedHatDriverTests(unittest.TestCase):
             ],
         )
 
-    def test_c_installer_chooses_yes_to_configure_networking(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(
+    def test_newt_installer_chooses_yes_to_configure_networking(self) -> None:
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(
             network_setup="direct",
             tcp_ip_form="network-and-broadcast",
         )
@@ -1801,9 +1853,9 @@ class RedHatDriverTests(unittest.TestCase):
             ],
         )
 
-    def test_c_installer_applies_the_configured_component_set(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(components=["C Development", "X Development"])
+    def test_newt_installer_applies_the_configured_component_set(self) -> None:
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.components = ["C Development", "X Development"]
         installer.dialog = unittest.mock.Mock()
 
         installer.select_components()
@@ -1815,8 +1867,8 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.advance.assert_called_once_with()
 
     def test_select_root_partition_workflow_runs_scripted_fdisk_first(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(partitioning="select-root-partition")
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(partitioning="select-root-partition")
         installer.dialog = unittest.mock.Mock()
         installer._create_partitions_with_fdisk = unittest.mock.Mock()
         installer._select_root_partition = unittest.mock.Mock()
@@ -1831,7 +1883,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer._select_root_partition.assert_called_once_with()
 
     def test_current_disk_partitions_workflow_waits_after_mount_editor(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
+        installer = object.__new__(redhat_newt.NewtInstaller)
         installer.disk = SimpleNamespace(root_partition="/dev/hda2")
         installer.dialog = unittest.mock.Mock()
 
@@ -1843,8 +1895,8 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.wait_for_title.assert_any_call("Active Swap Space")
 
     def test_probe_and_configure_mouse_workflow_uses_combined_form(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(mouse_setup="probe-and-configure-mouse")
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(mouse_setup="probe-and-configure-mouse")
         installer.dialog = unittest.mock.Mock()
 
         installer.configure_mouse()
@@ -1858,8 +1910,8 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
     def test_probe_and_emulation_workflow_keeps_separate_question(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(mouse_setup="probe-and-emulation")
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(mouse_setup="probe-and-emulation")
         installer.dialog = unittest.mock.Mock()
 
         installer.configure_mouse()
@@ -1890,10 +1942,9 @@ class RedHatDriverTests(unittest.TestCase):
         }
         for workflow, titles in cases.items():
             with self.subTest(workflow=workflow):
-                installer = object.__new__(redhat_newt.CInstaller)
-                installer.settings = SimpleNamespace(
+                installer = object.__new__(redhat_newt.NewtInstaller)
+                installer.variant = SimpleNamespace(
                     x11_setup=workflow,
-                    x_card_label="Cirrus Logic GD543x",
                     x_video_memory_label="2048",
                 )
                 installer.dialog = unittest.mock.Mock()
@@ -1920,8 +1971,8 @@ class RedHatDriverTests(unittest.TestCase):
     def test_redhat_51_accepts_probed_tulip_and_selects_static_networking(
         self,
     ) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(
             network_setup="probe-static",
             tcp_ip_form="gateway-and-nameserver",
         )
@@ -1970,18 +2021,17 @@ class RedHatDriverTests(unittest.TestCase):
             ],
         )
 
-    def test_c_installer_advances_configuration_dialogs_without_button_labels(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(
-            timezone_prompt="Configure Timezones",
-            timezone_clock_control="radio",
-            keyboard_late=True,
+    def test_newt_installer_advances_configuration_dialogs_without_button_labels(self) -> None:
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.variant = SimpleNamespace(
+            timezone_checkbox=False,
+            keyboard_stage="late",
             services_prompt=False,
             printer_prompt=None,
             password_field="Password        :",
-            password="password",
             bootdisk_prompt=False,
         )
+        installer.root_password = "password"
         installer.locale = SimpleNamespace(
             hardware_clock="utc",
             timezone="Etc/UTC",
@@ -2019,17 +2069,16 @@ class RedHatDriverTests(unittest.TestCase):
     def test_later_redhat_timeconfig_uses_gmt_checkbox_and_ok(self) -> None:
         for clock, checked in (("utc", True), ("local", False)):
             with self.subTest(clock=clock):
-                installer = object.__new__(redhat_newt.CInstaller)
-                installer.settings = SimpleNamespace(
-                    timezone_prompt="Configure Timezones",
-                    timezone_clock_control="checkbox",
-                    keyboard_late=False,
+                installer = object.__new__(redhat_newt.NewtInstaller)
+                installer.variant = SimpleNamespace(
+                    timezone_checkbox=True,
+                    keyboard_stage=None,
                     services_prompt=True,
                     printer_prompt="Configure Printer",
                     password_field="Password        :",
-                    password="password",
                     bootdisk_prompt=False,
                 )
+                installer.root_password = "password"
                 installer.locale = SimpleNamespace(
                     hardware_clock=clock,
                     timezone="Etc/UTC",
@@ -2050,8 +2099,8 @@ class RedHatDriverTests(unittest.TestCase):
                 )
 
     def test_complete_installation_waits_for_the_source_defined_done_dialog(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
-        installer.settings = SimpleNamespace(password="password")
+        installer = object.__new__(redhat_newt.NewtInstaller)
+        installer.root_password = "password"
         installer.network_config = SimpleNamespace(hostname="retro")
         installer.dialog = unittest.mock.Mock()
         installer.s = unittest.mock.Mock()
@@ -2063,15 +2112,14 @@ class RedHatDriverTests(unittest.TestCase):
         installer.s.set_boot.assert_called_once_with("c")
 
     def test_lilo_clears_the_staged_fat_disks_boot_label(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
+        installer = object.__new__(redhat_newt.NewtInstaller)
         installer.disk = SimpleNamespace(
             target_disk="/dev/hda",
             fat_partition="/dev/hdb1",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.settings = SimpleNamespace(
-            lilo_setup_dialogs=1,
-            lilo_boot_labels=True,
+        installer.variant = SimpleNamespace(
+            extra_lilo_dialog=False,
             boot_label_field="Boot label :",
         )
 
@@ -2096,7 +2144,7 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(installer.dialog.advance.call_args_list, [call(), call()])
 
     def test_partition_disks_workflow_waits_after_mount_editor(self) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
+        installer = object.__new__(redhat_newt.NewtInstaller)
         installer.disk = SimpleNamespace(
             root_partition="/dev/hda2",
             fat_partition="/dev/hdb1",
@@ -2117,15 +2165,14 @@ class RedHatDriverTests(unittest.TestCase):
     def test_redhat_41_lilo_has_two_setup_dialogs_then_boot_label_editor(
         self,
     ) -> None:
-        installer = object.__new__(redhat_newt.CInstaller)
+        installer = object.__new__(redhat_newt.NewtInstaller)
         installer.disk = SimpleNamespace(
             target_disk="/dev/hda",
             fat_partition="/dev/hdb1",
         )
         installer.dialog = unittest.mock.Mock()
-        installer.settings = SimpleNamespace(
-            lilo_setup_dialogs=2,
-            lilo_boot_labels=True,
+        installer.variant = SimpleNamespace(
+            extra_lilo_dialog=True,
             boot_label_field="Boot label :",
         )
 
@@ -2145,21 +2192,18 @@ class RedHatDriverTests(unittest.TestCase):
         installer.dialog.select_partition.assert_called_once_with("/dev/hdb1")
 
     def test_early_redhat_flow_composes_release_specific_phases(self) -> None:
-        session = SimpleNamespace(
-            config=RetroConfig(
-                context=SimpleNamespace(),
-                data={
-                    "install": {
-                        "driver": "redhat-perl",
-                        "redhat": {"flow": "1.1", "package_series": []},
-                    }
-                },
-            )
-        )
         installer = unittest.mock.Mock()
-        installer.settings.flow = "1.1"
-        with patch.object(redhat_dialog, "PerlInstaller", return_value=installer):
-            redhat_dialog.run_perl_installer(session)
+        config = RedHatDialogInstallConfig.model_validate(
+            {
+                "driver": "redhat-dialog",
+                "variant": "1.1",
+                "packages": {"package_series": []},
+                "accounts": {},
+            }
+        )
+        session = SimpleNamespace(config=SimpleNamespace(install=config))
+        with patch.object(redhat_dialog, "DialogInstaller", return_value=installer):
+            redhat_dialog.run_redhat_dialog(session)
         installer.boot.assert_called_once_with()
         installer.load_ramdisk.assert_called_once_with("rootdisk.img")
         installer.prepare_dialog.assert_called_once_with(
@@ -2167,16 +2211,25 @@ class RedHatDriverTests(unittest.TestCase):
         )
         installer.insert_boot_disk.assert_called_once_with()
         installer.reset_mock()
-        installer.settings.flow = "3.0.3"
-        with patch.object(redhat_dialog, "PerlInstaller", return_value=installer):
-            redhat_dialog.run_perl_installer(session)
+        config = RedHatDialogInstallConfig.model_validate(
+            {
+                "driver": "redhat-dialog",
+                "variant": "3.0.3",
+                "packages": {"package_series": []},
+                "accounts": {},
+            }
+        )
+        session = SimpleNamespace(config=SimpleNamespace(install=config))
+        with patch.object(redhat_dialog, "DialogInstaller", return_value=installer):
+            redhat_dialog.run_redhat_dialog(session)
+        installer.boot.assert_called_once_with()
         installer.install.assert_called_once_with(
             "This script will walk you through each step of the installation.",
             x_vga=True,
         )
 
     def test_early_redhat_x_configuration_uses_detected_cirrus_path(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.dialog = unittest.mock.Mock()
 
         installer._configure_x()
@@ -2196,7 +2249,7 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual(choices[9].answer, "Two")
 
     def test_early_redhat_uses_configured_boot_prompt(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.s = unittest.mock.Mock()
         installer.prompts = SimpleNamespace(
             boot_prompt="custom boot:",
@@ -2208,7 +2261,7 @@ class RedHatDriverTests(unittest.TestCase):
         installer.s.boot_command.assert_called_once_with("custom boot:", "linux expert")
 
     def test_early_redhat_finish_uses_locale_and_root_password(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.s = unittest.mock.Mock()
         installer.dialog = unittest.mock.Mock()
         installer.disk = SimpleNamespace(target_disk="/dev/hda")
@@ -2218,7 +2271,7 @@ class RedHatDriverTests(unittest.TestCase):
             timezone="US/Central",
             keymap="us.map",
         )
-        installer.settings = SimpleNamespace(root_password="secret")
+        installer.accounts = SimpleNamespace(root_password="secret")
         installer._configure_x_vga = unittest.mock.Mock()
         installer._configure_user = unittest.mock.Mock()
         installer._set_root_password = unittest.mock.Mock()
@@ -2237,9 +2290,9 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_configures_optional_user(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.dialog = unittest.mock.Mock()
-        installer.settings = SimpleNamespace(user=None, user_home=True)
+        installer.accounts = SimpleNamespace(user=None, user_home=True)
 
         installer._configure_user()
 
@@ -2247,8 +2300,8 @@ class RedHatDriverTests(unittest.TestCase):
         self.assertEqual((choice.title, choice.answer), ("Create User", "no"))
 
         installer.dialog.reset_mock()
-        installer.settings.user = "retro"
-        installer.settings.user_home = False
+        installer.accounts.user = "retro"
+        installer.accounts.user_home = False
         installer._configure_user()
 
         choices = [call.args[0] for call in installer.dialog.answer.call_args_list]
@@ -2267,9 +2320,9 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_sets_root_password_for_both_prompt_styles(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.s = unittest.mock.Mock()
-        installer.settings = SimpleNamespace(root_password="secret")
+        installer.accounts = SimpleNamespace(root_password="secret")
 
         installer._set_root_password()
 
@@ -2292,7 +2345,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
         installer.s.reset_mock()
-        installer.settings.root_password = ""
+        installer.accounts.root_password = ""
         installer._set_root_password()
         self.assertEqual(
             installer.s.kb_type.call_args_list,
@@ -2304,7 +2357,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_early_redhat_quotes_dialog_media_paths(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.s = unittest.mock.Mock()
         installer.disk = SimpleNamespace(
             fat_mount="/media/retro disk",
@@ -2325,7 +2378,7 @@ class RedHatDriverTests(unittest.TestCase):
         )
 
     def test_redhat_303_x_configuration_uses_installed_dialog_on_vga(self) -> None:
-        installer = object.__new__(redhat_dialog.PerlInstaller)
+        installer = object.__new__(redhat_dialog.DialogInstaller)
         installer.s = unittest.mock.Mock()
 
         installer._configure_x_vga()
@@ -2448,7 +2501,7 @@ class DialogTests(unittest.TestCase):
         ):
             Dialog(serial).answer(AnswerTitle("checklist", "Select Series", ("Typo",)))
 
-    def test_pkgtool_callback_consumes_rewound_trigger_screen(self) -> None:
+    def test_slackware_dialog_callback_consumes_rewound_trigger_screen(self) -> None:
         def screen(title: str, widget: str) -> str:
             return f"TITLE: {title}\nTYPE: {widget}\nRESPONSE:\n"
 
@@ -2458,7 +2511,11 @@ class DialogTests(unittest.TestCase):
             + screen("SETUP COMPLETE", "msgbox")
         )
         dialog = Dialog(serial)
-        Pkgtool(SimpleNamespace(dialog=dialog), pkgtool_config())._configure()
+        config = slackware_dialog_config()
+        SlackwareDialogInstaller(
+            SimpleNamespace(dialog=dialog, config=SimpleNamespace(install=config)),
+            SLACKWARE_VARIANT_35,
+        )._configure()
         self.assertEqual(serial.answers, ["yes", "ok", "ok"])
 
     def test_none_answer_leaves_lookahead_for_outer_dispatch(self) -> None:
@@ -2500,9 +2557,11 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(serial.answers, [""])
 
 
-class DinstallTests(unittest.TestCase):
+class DebianDialogTests(unittest.TestCase):
     def test_start_matches_the_title_inside_its_cp437_dialog_border(self) -> None:
+        config = dialog_config()
         session = SimpleNamespace(
+            config=SimpleNamespace(install=config),
             dialog=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
@@ -2513,8 +2572,8 @@ class DinstallTests(unittest.TestCase):
             serial=unittest.mock.Mock(),
         )
 
-        with patch("hostlib.installers.debian.Fdisk"):
-            Dinstall(session, dinstall_config())._start()
+        with patch("hostlib.installers.debian_dialog.Fdisk"):
+            DialogInstaller(session, DEBIAN_VARIANT_12)._start()
 
         self.assertEqual(
             session.vga_wait.call_args_list[0],
@@ -2522,14 +2581,16 @@ class DinstallTests(unittest.TestCase):
         )
 
     def test_filesystem_module_is_selected_from_its_menu(self) -> None:
-        """Filesystem modules use the same Dinstall module workflow as network drivers."""
+        """Filesystem modules use the same DialogInstaller module workflow as network drivers."""
         dialog = unittest.mock.Mock()
+        config = dialog_config()
         session = SimpleNamespace(
+            config=SimpleNamespace(install=config),
             dialog=dialog,
             vga_wait=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
         )
-        driver = Dinstall(session, dinstall_config(debian={"fs_module": "vfat"}))
+        driver = DialogInstaller(session, DEBIAN_VARIANT_12)
 
         driver._modules("")
 
@@ -2545,14 +2606,12 @@ class DinstallTests(unittest.TestCase):
 
     def test_media_dialogs_use_the_configured_fat_mount(self) -> None:
         dialog = unittest.mock.Mock()
-        session = SimpleNamespace(dialog=dialog)
-        driver = Dinstall(
-            session,
-            dinstall_config(
-                disk={"fat_mount": "/media/retro"},
-                debian={"kernel_floppy": None},
-            ),
+        config = dialog_config(disk={"fat_mount": "/media/retro"})
+        session = SimpleNamespace(
+            dialog=dialog,
+            config=SimpleNamespace(install=config),
         )
+        driver = DialogInstaller(session, DEBIAN_VARIANT_12)
 
         driver._base("")
         base_choices = dialog.answer_until.call_args.args
@@ -2564,27 +2623,44 @@ class DinstallTests(unittest.TestCase):
         self.assertEqual(kernel_choices[3].answer, "/media/retro")
         self.assertEqual(kernel_choices[5].answer, "/media/retro")
 
+    def test_partition_dialogs_use_the_configured_swap_and_root_partitions(self) -> None:
+        dialog = unittest.mock.Mock()
+        config = dialog_config(
+            disk={
+                "swap_partition": "/dev/sda6",
+                "root_partition": "/dev/sda7",
+            }
+        )
+        driver = DialogInstaller(
+            SimpleNamespace(dialog=dialog, config=SimpleNamespace(install=config)),
+            DEBIAN_VARIANT_12,
+        )
+
+        driver._swap("")
+        self.assertEqual(dialog.answer_until.call_args.args[0].answer, "/dev/sda6")
+
+        driver._root("")
+        self.assertEqual(dialog.answer_until.call_args.args[0].answer, "/dev/sda7")
+
     def test_base_configuration_navigates_timezone_path_and_sets_clock_mode(self) -> None:
         root = Path(__file__).resolve().parent.parent
         debian_11 = load_config(Context.create(root, "install", "debian/1.1/official")).install
         for config, answers in (
             (debian_11, ["Etc\n", "UTC\n", "y\n"]),
             (
-                dinstall_config(
-                    locale={"timezone": "US/Central", "hardware_clock": "local"},
-                    debian={"configure_keyboard": True},
-                ),
+                dialog_config(locale={"timezone": "US/Central", "hardware_clock": "local"}),
                 ["US\n", "Central\n", "n\n"],
             ),
         ):
             with self.subTest(timezone=config.locale.timezone):
                 session = SimpleNamespace(
+                    config=SimpleNamespace(install=config),
                     dialog=unittest.mock.Mock(),
                     serial=unittest.mock.Mock(),
                     vga_wait=unittest.mock.Mock(),
                     kb_type=unittest.mock.Mock(),
                 )
-                driver = Dinstall(session, config)
+                driver = DialogInstaller(session, DEBIAN_VARIANT_11)
 
                 driver._configure_base("")
 
@@ -2613,7 +2689,7 @@ class DinstallTests(unittest.TestCase):
         postinst = PostinstConfig(stages=["packages"], packages=packages)
         serial = unittest.mock.Mock()
         session = SimpleNamespace(
-            config=SimpleNamespace(postinst=postinst),
+            config=SimpleNamespace(install=dialog_config(), postinst=postinst),
             postinst_command="/retro/guestlib.d/postinst.sh",
             dialog=unittest.mock.Mock(),
             serial=serial,
@@ -2624,7 +2700,7 @@ class DinstallTests(unittest.TestCase):
             serial_shell_exit=unittest.mock.Mock(),
         )
 
-        Dinstall(session, dinstall_config())._postinst()
+        DialogInstaller(session, DEBIAN_VARIANT_12)._postinst()
 
         session.serial_shell_start.assert_called_once()
         session.serial_shell_send.assert_called_once_with(session.postinst_command, wait=False)
@@ -2634,13 +2710,15 @@ class DinstallTests(unittest.TestCase):
 
         session.config.postinst = PostinstConfig(stages=["packages", "tty"], packages=packages)
         session.serial_shell_exit.reset_mock()
-        Dinstall(session, dinstall_config())._postinst()
+        DialogInstaller(session, DEBIAN_VARIANT_12)._postinst()
         session.serial_shell_exit.assert_not_called()
 
 
-class PkgtoolPromptTests(unittest.TestCase):
+class SlackwareDialogPromptTests(unittest.TestCase):
     def test_prepare_accepts_a_decorated_root_shell_prompt(self) -> None:
+        config = slackware_dialog_config(disk={"fat_filesystem": "vfat"})
         session = SimpleNamespace(
+            config=SimpleNamespace(install=config),
             dialog=unittest.mock.Mock(),
             serial_shell_start=unittest.mock.Mock(),
             serial_shell_send=unittest.mock.Mock(),
@@ -2648,8 +2726,8 @@ class PkgtoolPromptTests(unittest.TestCase):
             kb_type=unittest.mock.Mock(),
         )
 
-        with patch("hostlib.installers.slackware.Fdisk"):
-            Pkgtool(session, pkgtool_config())._prepare()
+        with patch("hostlib.installers.slackware_dialog.Fdisk"):
+            SlackwareDialogInstaller(session, SLACKWARE_VARIANT_35)._prepare()
 
         shell_prompt = r"# *$"
         session.serial_shell_start.assert_called_once_with(
@@ -2658,28 +2736,38 @@ class PkgtoolPromptTests(unittest.TestCase):
         session.serial_shell_exit.assert_called_once_with(
             screen_prompt=shell_prompt, screen_match=Match.REGEX
         )
+        self.assertEqual(
+            session.serial_shell_send.call_args_list[0],
+            call("mkdir -p /retro && mount -t vfat /dev/hdb1 /retro"),
+        )
 
     def test_boot_prompt_can_be_disabled_when_kernel_is_already_running(self) -> None:
         session = SimpleNamespace(
+            config=SimpleNamespace(install=slackware_dialog_config(variant="1.1.2")),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
             change_floppy=unittest.mock.Mock(),
             kb_press=unittest.mock.Mock(),
             dialog=SimpleNamespace(),
         )
-        with patch("hostlib.installers.slackware.Pkgtool.install"):
-            boot_pkgtool(
-                session,
-                boot_prompt=None,
-                root_prompt="insert root disk",
-                config=pkgtool_config(),
-            )
+        with patch("hostlib.installers.slackware_dialog.DialogInstaller.install"):
+            run_slackware_dialog(session)
 
-        session.vga_wait.assert_called_once_with("insert root disk", match=Match.LINE)
+        self.assertEqual(
+            session.vga_wait.call_args_list,
+            [
+                call(
+                    "Please remove the boot kernel disk from your floppy drive,",
+                    match=Match.LINE,
+                ),
+                call("VFS: Insert root floppy and press ENTER"),
+            ],
+        )
         session.kb_type.assert_not_called()
 
     def test_boot_answers_a_second_vfs_prompt_after_changing_root_disk(self) -> None:
         session = SimpleNamespace(
+            config=SimpleNamespace(install=slackware_dialog_config(variant="2.0")),
             boot_command=unittest.mock.Mock(),
             vga_wait=unittest.mock.Mock(),
             kb_type=unittest.mock.Mock(),
@@ -2687,13 +2775,8 @@ class PkgtoolPromptTests(unittest.TestCase):
             kb_press=unittest.mock.Mock(),
             dialog=SimpleNamespace(),
         )
-        with patch("hostlib.installers.slackware.Pkgtool.install"):
-            boot_pkgtool(
-                session,
-                root_prompt="insert root disk",
-                continuation_prompt="VFS: Insert root floppy and press ENTER",
-                config=pkgtool_config(),
-            )
+        with patch("hostlib.installers.slackware_dialog.DialogInstaller.install"):
+            run_slackware_dialog(session)
 
         session.change_floppy.assert_called_once_with("root.img")
         self.assertEqual(
@@ -2704,6 +2787,28 @@ class PkgtoolPromptTests(unittest.TestCase):
 
 
 class SysinstallTests(unittest.TestCase):
+    def test_source_prompt_uses_the_configured_fat_filesystem(self) -> None:
+        installer = object.__new__(Sysinstall)
+        installer.disk = SimpleNamespace(
+            root_partition="/dev/hda2",
+            fat_partition="/dev/hdb1",
+            fat_filesystem="vfat",
+        )
+        installer.s = SimpleNamespace(
+            serial_console_echo=unittest.mock.Mock(),
+            serial_shell_send=unittest.mock.Mock(),
+        )
+        installer._prompt = unittest.mock.Mock()
+        installer._install_type = unittest.mock.Mock(return_value="1")
+        installer._packages = unittest.mock.Mock()
+
+        installer._run_doinstall()
+
+        installer._prompt.assert_any_call(
+            "Enter the type of the filesystem (minix/ext2/msdos)",
+            answer="vfat",
+        )
+
     def test_bootdisk_prompt_creates_a_1440k_floppy(self) -> None:
         with temporary_root() as root:
             serial = SimpleNamespace(
@@ -2711,11 +2816,12 @@ class SysinstallTests(unittest.TestCase):
                 send=unittest.mock.Mock(),
             )
             session = SimpleNamespace(
+                config=SimpleNamespace(install=sysinstall_config()),
                 qemu_dir=root,
                 serial=serial,
                 change_floppy=unittest.mock.Mock(),
             )
-            Sysinstall(session, sysinstall_config())._packages()
+            Sysinstall(session)._packages()
 
             image = root / "bootdisk.img"
             self.assertEqual(image.stat().st_size, 1440 * 1024)
@@ -2928,55 +3034,41 @@ class ManifestCoverageTests(unittest.TestCase):
         )
         self.assertEqual(list(scripts), [])
 
-    def test_prompt_sequence_configs_use_supported_actions(self) -> None:
+    def test_install_configs_do_not_define_steps(self) -> None:
         root = Path(__file__).resolve().parent.parent
         for path in root.glob("**/config.toml"):
             data = tomllib.loads(path.read_text())
             install = data.get("install", {})
-            if install.get("driver") != "prompt-sequence":
-                continue
-            self.assertTrue(install.get("steps"), path.relative_to(root))
-            default_action = install.get("default_action")
-            for step in install["steps"]:
-                self.assertIn(
-                    step.get("action", default_action), STEP_HANDLERS, path.relative_to(root)
-                )
+            self.assertNotIn("steps", install, path.relative_to(root))
 
-    def test_debian_091_uses_vga_prompt_questions(self) -> None:
+    def test_install_settings_use_topical_tables(self) -> None:
         root = Path(__file__).resolve().parent.parent
-        path = root / "debian/0.91/infomagic/config.toml"
-        install = tomllib.loads(path.read_text())["install"]
-        prompts = [
-            step
-            for step in install["steps"]
-            if step.get("action", install.get("default_action")) == "prompt"
-        ]
-        lilo_steps = [
-            step
-            for step in install["steps"]
-            if step.get("action") == "serial-shell-send" and isinstance(step["command"], list)
-        ]
-        self.assertEqual(install["default_transport"], "vga")
-        self.assertEqual(install["default_action"], "prompt")
-        self.assertTrue(all("questions" in step and "text" not in step for step in prompts))
-        self.assertTrue(any(len(step["questions"]) > 1 for step in prompts))
-        self.assertEqual(len(lilo_steps), 1)
+        for path in root.glob("**/config.toml"):
+            relative = path.relative_to(root)
+            install = tomllib.loads(path.read_text()).get("install", {})
+            if relative.parts[0] == "debian":
+                self.assertNotIn("packages", install, relative)
+            for family in ("debian", "redhat", "slackware"):
+                self.assertNotIn(family, install, relative)
+
+    def test_one_off_installers_use_dedicated_python_drivers(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        configs = {
+            "debian/0.91/infomagic/config.toml": "debian-091",
+            "slackware/1.1.1-infomagic/config.toml": "slackware-tty",
+        }
+        for relative, driver in configs.items():
+            install = tomllib.loads((root / relative).read_text())["install"]
+            self.assertEqual(install["driver"], driver)
+            self.assertNotIn("steps", install)
+        self.assertTrue((root / "hostlib/installers/debian_091.py").is_file())
+        self.assertTrue((root / "hostlib/installers/slackware_tty.py").is_file())
         self.assertFalse((root / "guestlib/deb091/lilo.sh").exists())
         self.assertFalse((root / "guestlib/deb091/pkginst.sh").exists())
         self.assertIn(
             'find "$INSTALL_D/packages" -iname',
             (root / "debian/0.91/infomagic/postinst.sh").read_text(),
         )
-        syntax = subprocess.run(
-            ["sh", "-n"],
-            input="\n".join(lilo_steps[0]["command"]).replace(
-                "${install.disk.linux_partition}", "hda2"
-            ),
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(syntax.returncode, 0, syntax.stderr)
 
     def test_canonical_media_link_preserves_already_named_image(self) -> None:
         with temporary_root() as root:
@@ -4190,7 +4282,13 @@ class SessionTests(unittest.TestCase):
             None,
             RetroConfig(
                 context=SimpleNamespace(),
-                data={"install": install or {}, "postinst": postinst or {}},
+                data={
+                    "install": {
+                        "driver": "slackware-sysinstall",
+                        **(install or {}),
+                    },
+                    "postinst": postinst or {},
+                },
             ),
         )
         session._call = lambda coroutine: asyncio.run(coroutine)

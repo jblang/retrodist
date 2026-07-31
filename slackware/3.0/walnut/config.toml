@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [download]
 cdrom = "walnut/slackware/3.0"
 

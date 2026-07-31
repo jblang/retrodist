@@ -12,43 +12,44 @@ import shlex
 
 from ..dialog import AnswerText, AnswerTitle
 from ..fdisk import Fdisk
-from ..schemas import PerlInstallConfig
+from ..schemas import RedHatDialogInstallConfig
 from ..session import InstallSession, Match, fat_mount_command
 
-FLOW_START_DIALOGS = {
-    "2.1": "Welcome to the Red Hat Linux installation program!",
-    "3.0.3": "This script will walk you through each step of the installation.",
-}
 
-
-def run_perl_installer(session: InstallSession) -> None:
-    """Run an early Red Hat Perl-installer installation."""
-    installer = PerlInstaller(session)
+def run_redhat_dialog(session: InstallSession) -> None:
+    """Run the configured early Red Hat dialog installer variant."""
+    config = session.config.install
+    assert isinstance(config, RedHatDialogInstallConfig)
+    installer = DialogInstaller(session)
     installer.boot()
-    flow = installer.settings.flow
-    if flow == "1.1":
+    if config.variant == "1.1":
         installer.load_ramdisk("rootdisk.img")
         installer.prepare_dialog("Welcome to the Red Hat Commercial Linux installation program!")
         installer.dialog.answer(AnswerTitle("msgbox", "Important Copyright Notice", "ok"))
         installer.insert_boot_disk()
-        return
-    first_dialog = FLOW_START_DIALOGS[flow]
-    installer.install(first_dialog, x_vga=flow == "3.0.3")
+    elif config.variant == "2.1":
+        installer.install("Welcome to the Red Hat Linux installation program!", x_vga=False)
+    elif config.variant == "3.0.3":
+        installer.install(
+            "This script will walk you through each step of the installation.",
+            x_vga=True,
+        )
 
 
-class PerlInstaller:
+class DialogInstaller:
     """Drive Red Hat's Perl installer through its ``dialog`` protocol."""
 
-    def __init__(self, session: InstallSession, config: PerlInstallConfig | None = None) -> None:
+    def __init__(self, session: InstallSession) -> None:
         """Bind the typed configuration and dialog transport for one install."""
         self.s = session
-        config = config or session.config.install
-        assert isinstance(config, PerlInstallConfig)
+        config = session.config.install
+        assert isinstance(config, RedHatDialogInstallConfig)
         self.disk = config.disk
         self.locale = config.locale
         self.prompts = config.prompts
         self.network = config.network
-        self.settings = config.redhat
+        self.packages = config.packages
+        self.accounts = config.accounts
         self.dialog = session.dialog
 
     @property
@@ -136,7 +137,7 @@ class PerlInstaller:
             AnswerTitle(
                 "checklist",
                 "Select Series",
-                tuple(self.settings.package_series),
+                tuple(self.packages.package_series),
             )
         )
         self.dialog.answer(AnswerTitle("menu", "X Configuration", "SVGA"))
@@ -250,9 +251,10 @@ class PerlInstaller:
         self.dialog.answer(AnswerTitle("msgbox", "Format Swap", "ok"))
 
     def format_root(self) -> None:
-        """Select and format the standard root partition."""
-        root = f"{self.disk.target_disk}2"
-        self.dialog.answer(AnswerTitle("checklist", "Filesystems", f'"{root}"'))
+        """Select and format the configured root partition."""
+        self.dialog.answer(
+            AnswerTitle("checklist", "Filesystems", f'"{self.disk.root_partition}"')
+        )
         self.dialog.answer(AnswerTitle("yesno", "Filesystems", "yes"))
 
     def _finish(self, *, x_vga: bool = False) -> None:
@@ -296,14 +298,14 @@ class PerlInstaller:
         self.s.set_boot("c")
         self.dialog.answer(AnswerTitle("msgbox", "Installation Complete", "ok"))
         self.s.run_postinst(
-            self.settings.root_password or None,
+            self.accounts.root_password or None,
             login=f"{self.fqdn} login:",
             shell=f"[root@{self.network.hostname} /root]#",
         )
 
     def _configure_user(self) -> None:
         """Create the configured regular user, or skip account creation."""
-        user = self.settings.user
+        user = self.accounts.user
         if user is None:
             self.dialog.answer(AnswerTitle("yesno", "Create User", "no"))
             return
@@ -313,7 +315,7 @@ class PerlInstaller:
             AnswerTitle(
                 "yesno",
                 "Home Directory",
-                "yes" if self.settings.user_home else "no",
+                "yes" if self.accounts.user_home else "no",
             )
         )
         self.dialog.answer(
@@ -327,7 +329,7 @@ class PerlInstaller:
 
     def _set_root_password(self) -> None:
         """Set and confirm the configured root password on either release."""
-        password = self.settings.root_password
+        password = self.accounts.root_password
         self.s.vga_wait(
             r"(New password \(\? for help\):|Enter new password:)",
             match=Match.REGEX,

@@ -1,5 +1,3 @@
-# Declarative configuration for the Python retro host.
-
 [[download.files]]
 path = "disc1.iso"
 url = "https://archive.org/download/InfoMagicLinuxDevelopersResourcesDisk5SunsiteArchivePart2/InfoMagic%20Linux%20Developers%20Resources%20Disk%201%20Red%20Hat%205_0.iso"

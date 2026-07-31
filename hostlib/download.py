@@ -78,6 +78,7 @@ class Wget:
             f"--cut-dirs={cut_dirs}",
             f"--directory-prefix={destination}",
             "--continue",
+            "--reject-regex=[?]",
             f"--reject={','.join(reject)}",
             url,
         )

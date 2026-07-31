@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import (
-    ConfigDict,
-    Field,
-    RootModel,
-    model_validator,
-)
+from pydantic import Field, RootModel
 
 from .media_schemas import NetworkConfig
 from .schema_base import ConfigModel
@@ -20,6 +15,7 @@ class InstallDiskConfig(ConfigModel):
 
     target_disk: str = "/dev/hda"
     swap_mb: int = 64
+    swap_partition: str = "/dev/hda1"
     root_partition: str = "/dev/hda2"
     fat_partition: str = "/dev/hdb1"
     fat_mount: str = "/retro"
@@ -43,126 +39,81 @@ class InstallPromptsConfig(ConfigModel):
     postinst_prompt: str | None = None
 
 
-class DinstallNetworkConfig(NetworkConfig):
+class DebianDialogNetworkConfig(NetworkConfig):
     """Add Debian installer module controls to static networking."""
 
     net_module: str | None = None
     net_module_args: str = ""
 
 
-class DinstallSettings(ConfigModel):
-    """Configure Debian Dinstall-specific choices."""
+class DebianAccountsConfig(ConfigModel):
+    """Configure Debian Dinstall accounts."""
 
-    configure_keyboard: bool = False
-    kernel_floppy: str | None = None
-    driver_floppy: str | Literal[False] | None = "drv1440.bin"
-    relogin: bool = False
-    fs_module: str | None = None
     root_password: str = "password1"
     user: str = "debian"
     user_password: str = "password1"
-    fat_filesystem: str | None = None
 
 
-class PkgtoolDiskConfig(InstallDiskConfig):
-    """Add Slackware target partition choices to common install paths."""
+class SlackwareDialogPackagesConfig(ConfigModel):
+    """Configure Slackware dialog-installer package media and selection."""
 
-    linux_partition: str = "/dev/hda2"
-    linux_partition_name: str = "linux"
-
-
-class PkgtoolSettings(ConfigModel):
-    """Configure Slackware Pkgtool-specific choices."""
-
-    setup_hostname: str = "slackware"
     source: str = "/dev/hdc"
-    lilo_framebuffer: str = "standard"
-    install_mode: str | None = None
     tagfile_path: str | Literal[False] | None = "/retro/tagfiles"
     package_sets: str = '"A" "AP" "N" "X" "XAP"'
-    modem_speed: str = "38400"
-    sendmail_mode: str = "SMTP"
-    xwmconfig: bool = False
-    source_before_target: bool = False
-    simple_lilo: bool = False
 
 
-class CInstallerSettings(ConfigModel):
-    """Configure Red Hat C-installer-specific screens and navigation."""
+class SlackwareBootloaderConfig(ConfigModel):
+    """Configure Slackware boot-loader choices."""
+
+    framebuffer: str = "standard"
+    label: str = "linux"
+
+
+class SlackwareModemConfig(ConfigModel):
+    """Configure Slackware modem choices."""
+
+    speed: str = "38400"
+
+
+class SlackwareMailConfig(ConfigModel):
+    """Configure Slackware mail choices."""
+
+    mode: str = "SMTP"
+
+
+class RedHatNewtPackagesConfig(ConfigModel):
+    """Select the Red Hat package components to install."""
 
     components: list[str]
-    color_prompt: bool = True
-    language_prompt: bool = False
-    keyboard_early: bool = False
-    keyboard_after_packages: bool = False
-    keyboard_late: bool = False
-    pcmcia_prompt: bool = True
-    cdrom_type_prompt: bool = True
-    partitioning: Literal[
-        "partition-disks",
-        "select-root-partition",
-        "current-disk-partitions",
-    ]
-    mouse_setup: Literal[
-        "configure-mouse",
-        "probe-and-emulation",
-        "probe-and-configure-mouse",
-    ]
-    x11_setup: Literal["choose-card", "pci-probe"]
-    network_setup: Literal["direct", "probe-static"] = "direct"
-    tcp_ip_form: Literal["network-and-broadcast", "gateway-and-nameserver"]
-    services_prompt: bool = False
-    printer_prompt: Literal["Add Printers", "Configure Printer"] | None = None
-    x_card_label: str = "Cirrus Logic GD543x"
-    x_video_memory_label: str = "2048"
-    timezone_prompt: str = "Configure Timezones"
-    timezone_clock_control: Literal["radio", "checkbox"] = "radio"
-    lilo_setup_dialogs: int = Field(default=1, ge=1)
-    lilo_boot_labels: bool = True
-    boot_label_field: str = "Boot label :"
-    bootdisk_prompt: bool = False
-    password_field: str = "Password        :"
-    password: str = "password"
 
 
-class PerlInstallerSettings(ConfigModel):
-    """Select the early Red Hat Perl-installer flow."""
+class RedHatDialogPackagesConfig(ConfigModel):
+    """Select the early Red Hat package series to install."""
 
-    flow: Literal["1.1", "2.1", "3.0.3"]
     package_series: list[str]
+
+
+class RedHatDialogAccountsConfig(ConfigModel):
+    """Configure early Red Hat installer accounts."""
+
     root_password: str = ""
     user: str | None = Field(default=None, min_length=1, max_length=8)
     user_home: bool = True
 
 
-class SysinstallDiskConfig(ConfigModel):
-    """Configure early Slackware Sysinstall disk paths and sizes."""
+class SlackwareTtyPackagesConfig(ConfigModel):
+    """Select package sets used by Slackware's early tty setup program."""
 
-    target_disk: str = "/dev/hda"
-    swap_mb: int = 64
-    swap_partition: str = "/dev/hda1"
-    swap_blocks: int = 64000
-    linux_partition: str = "/dev/hda2"
-    fat_partition: str = "/dev/hdb1"
+    package_sets: str = "A AP D E F IV N TCL OI OOP X XAP XD XV Y"
 
 
-class DinstallBootConfig(ConfigModel):
+class DebianDialogBootConfig(ConfigModel):
     """Configure Debian installer boot and root-disk prompts."""
 
     prompt: str = "boot:"
     command: str = ""
     root_prompt: str | None = None
     root_image: str = "root.img"
-
-
-class PkgtoolBootConfig(ConfigModel):
-    """Configure Slackware installer boot and root-disk prompts."""
-
-    boot_prompt: str | Literal[False] | None = "boot:"
-    root_prompt: str | Literal[False] | None = None
-    root_image: str = "root.img"
-    continuation_prompt: str | Literal[False] | None = None
-    keyboard_prompt: bool = False
 
 
 class UnattendedBootConfig(ConfigModel):
@@ -181,10 +132,16 @@ class UnattendedCompletionConfig(ConfigModel):
     boot_device: str = "c"
 
 
-class UnattendedAccountsConfig(ConfigModel):
-    """Configure credentials used after an unattended installation."""
+class RedHatAccountsConfig(ConfigModel):
+    """Configure optional Red Hat root credentials."""
 
     root_password: str | None = None
+
+
+class RedHatNewtAccountsConfig(ConfigModel):
+    """Configure the root credential required by the Newt installer."""
+
+    root_password: str = "password"
 
 
 class UnattendedPromptsConfig(ConfigModel):
@@ -200,264 +157,125 @@ class UnattendedInstallConfig(ConfigModel):
     driver: Literal["redhat-unattended"]
     boot: UnattendedBootConfig
     completion: UnattendedCompletionConfig
-    accounts: UnattendedAccountsConfig = Field(default_factory=UnattendedAccountsConfig)
+    disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
+    accounts: RedHatAccountsConfig = Field(default_factory=RedHatAccountsConfig)
     prompts: UnattendedPromptsConfig = Field(default_factory=UnattendedPromptsConfig)
 
 
-class DinstallInstallConfig(ConfigModel):
+class DebianDialogInstallConfig(ConfigModel):
     """Validate the complete Debian Dinstall configuration."""
 
-    driver: Literal["debian-dinstall"]
-    boot: DinstallBootConfig = Field(default_factory=DinstallBootConfig)
+    driver: Literal["debian-dialog"]
+    variant: Literal["1.1", "1.2", "1.3", "1.3-vfat"]
+    boot: DebianDialogBootConfig = Field(default_factory=DebianDialogBootConfig)
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
     locale: InstallLocaleConfig = Field(
         default_factory=lambda: InstallLocaleConfig(timezone="Etc/UTC")
     )
-    network: DinstallNetworkConfig = Field(
-        default_factory=lambda: DinstallNetworkConfig(hostname="debian")
+    network: DebianDialogNetworkConfig = Field(
+        default_factory=lambda: DebianDialogNetworkConfig(hostname="debian")
     )
-    debian: DinstallSettings = Field(default_factory=DinstallSettings)
+    accounts: DebianAccountsConfig = Field(default_factory=DebianAccountsConfig)
 
 
-class PkgtoolInstallConfig(ConfigModel):
-    """Validate the complete Slackware Pkgtool configuration."""
+class SlackwareDialogInstallConfig(ConfigModel):
+    """Validate the complete Slackware dialog configuration."""
 
-    driver: Literal["slackware-pkgtool"]
-    boot: PkgtoolBootConfig = Field(default_factory=PkgtoolBootConfig)
-    disk: PkgtoolDiskConfig = Field(default_factory=PkgtoolDiskConfig)
+    driver: Literal["slackware-dialog"]
+    variant: Literal[
+        "1.1.2",
+        "2.0",
+        "2.1",
+        "2.2-2.3",
+        "3.0",
+        "3.1-3.4",
+        "3.5-4.0",
+        "7.0-7.1",
+        "8.0-9.0",
+    ]
+    disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
     locale: InstallLocaleConfig = Field(default_factory=InstallLocaleConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="darkstar"))
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
-    slackware: PkgtoolSettings = Field(default_factory=PkgtoolSettings)
+    packages: SlackwareDialogPackagesConfig = Field(
+        default_factory=SlackwareDialogPackagesConfig
+    )
+    bootloader: SlackwareBootloaderConfig = Field(
+        default_factory=SlackwareBootloaderConfig
+    )
+    modem: SlackwareModemConfig = Field(default_factory=SlackwareModemConfig)
+    mail: SlackwareMailConfig = Field(default_factory=SlackwareMailConfig)
 
 
-class CInstallConfig(ConfigModel):
-    """Validate the complete Red Hat C-installer configuration."""
+class RedHatNewtInstallConfig(ConfigModel):
+    """Validate the complete Red Hat Newt configuration."""
 
-    driver: Literal["redhat-c"]
+    driver: Literal["redhat-newt"]
+    variant: Literal["4.0", "4.1", "4.2", "5.0", "5.1"]
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
     locale: InstallLocaleConfig = Field(default_factory=InstallLocaleConfig)
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
-    redhat: CInstallerSettings
+    accounts: RedHatNewtAccountsConfig = Field(
+        default_factory=RedHatNewtAccountsConfig
+    )
+    packages: RedHatNewtPackagesConfig
 
 
-class PerlInstallConfig(ConfigModel):
-    """Validate the complete Red Hat Perl-installer configuration."""
+class RedHatDialogInstallConfig(ConfigModel):
+    """Validate the complete Red Hat dialog configuration."""
 
-    driver: Literal["redhat-perl"]
+    driver: Literal["redhat-dialog"]
+    variant: Literal["1.1", "2.1", "3.0.3"]
     disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
     locale: InstallLocaleConfig = Field(
         default_factory=lambda: InstallLocaleConfig(keymap="us.map")
     )
     prompts: InstallPromptsConfig = Field(default_factory=InstallPromptsConfig)
     network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="redhat"))
-    redhat: PerlInstallerSettings
+    packages: RedHatDialogPackagesConfig
+    accounts: RedHatDialogAccountsConfig = Field(
+        default_factory=RedHatDialogAccountsConfig
+    )
 
 
 class SysinstallInstallConfig(ConfigModel):
     """Validate the complete early Slackware Sysinstall configuration."""
 
     driver: Literal["slackware-sysinstall"]
-    disk: SysinstallDiskConfig = Field(default_factory=SysinstallDiskConfig)
+    disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
 
 
-class Step(ConfigModel):
-    """Common discriminator shared by all prompt-sequence actions."""
+class Debian091InstallConfig(ConfigModel):
+    """Validate Debian 0.91's one-off installer configuration."""
+
+    driver: Literal["debian-091"]
+    disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
+    locale: InstallLocaleConfig = Field(
+        default_factory=lambda: InstallLocaleConfig(timezone="US/Central")
+    )
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="debra"))
 
 
-class WaitStep(Step):
-    """Validate a VGA or serial wait action."""
+class SlackwareTtyInstallConfig(ConfigModel):
+    """Validate Slackware's one-off tty installer configuration."""
 
-    action: Literal["wait"]
-    transport: Literal["vga", "serial"] = "vga"
-    text: str
-    match: Literal["text", "line", "regex"] = "text"
-    timeout: float | None = None
-
-
-class TypeStep(Step):
-    """Validate a keyboard typing action."""
-
-    action: Literal["type"]
-    text: str
-
-
-class PressStep(Step):
-    """Validate a literal key-press action."""
-
-    action: Literal["press"]
-    keys: str | list[str]
-    repeat: int = Field(default=1, ge=1)
-
-
-class PromptStep(Step):
-    """Validate a VGA or serial prompt-and-answer action."""
-
-    action: Literal["prompt"]
-    transport: Literal["vga", "serial"] = "serial"
-    questions: list[str] = Field(min_length=1)
-    answer: str = ""
-    regex: bool = False
-
-
-class SerialShellStartStep(Step):
-    """Validate an interactive serial-shell start action."""
-
-    action: Literal["serial-shell-start"]
-    screen_prompt: str = "#"
-    serial_prompt: str = "#"
-
-
-class SerialShellSendStep(Step):
-    """Validate one or more interactive serial-shell commands."""
-
-    action: Literal["serial-shell-send"]
-    command: str | list[str]
-    wait: bool = True
-    prompt: str = "#"
-
-
-class SerialSendStep(Step):
-    """Validate a raw serial send action."""
-
-    action: Literal["serial-send"]
-    text: str = ""
-
-
-class SerialShellExitStep(Step):
-    """Validate an interactive serial-shell exit action."""
-
-    action: Literal["serial-shell-exit"]
-    screen_prompt: str = "#"
-
-
-class ConsoleEchoStep(Step):
-    """Validate a visible guest-console message action."""
-
-    action: Literal["console-echo"]
-    text: str
-
-
-class PartitionStep(Step):
-    """Validate a disk partitioning action."""
-
-    action: Literal["partition"]
-    device: str | None = None
-    swap_mb: int | None = None
-
-
-class ChangeFloppyStep(Step):
-    """Validate a floppy replacement action."""
-
-    action: Literal["change-floppy"]
-    image: str
-
-
-class SetBootStep(Step):
-    """Validate a QEMU boot-device change action."""
-
-    action: Literal["set-boot"]
-    device: str
-
-
-class RunPostinstStep(Step):
-    """Validate an installed-system post-install action."""
-
-    action: Literal["run-postinst"]
-    password: str | None = None
-    login: str = "login:"
-    shell: str = "#"
-
-
-InstallStep = Annotated[
-    WaitStep
-    | TypeStep
-    | PressStep
-    | PromptStep
-    | SerialShellStartStep
-    | SerialShellSendStep
-    | SerialSendStep
-    | SerialShellExitStep
-    | ConsoleEchoStep
-    | PartitionStep
-    | ChangeFloppyStep
-    | SetBootStep
-    | RunPostinstStep,
-    Field(discriminator="action"),
-]
-
-
-class PromptSequenceConfig(ConfigModel):
-    """Configure a non-empty sequence of discriminated installer actions."""
-
-    default_action: (
-        Literal[
-            "wait",
-            "type",
-            "press",
-            "prompt",
-            "serial-shell-start",
-            "serial-shell-send",
-            "serial-send",
-            "serial-shell-exit",
-            "console-echo",
-            "partition",
-            "change-floppy",
-            "set-boot",
-            "run-postinst",
-        ]
-        | None
-    ) = None
-    default_transport: Literal["vga", "serial"] | None = None
-    steps: list[InstallStep] = Field(min_length=1)
-
-    @model_validator(mode="before")
-    @classmethod
-    def apply_defaults(cls, data: object) -> object:
-        """Apply configured action and transport defaults to installer steps."""
-        if not isinstance(data, dict):
-            return data
-        default_action = data.get("default_action")
-        default_transport = data.get("default_transport")
-        steps = data.get("steps")
-        if not isinstance(steps, list):
-            return data
-        resolved = dict(data)
-        resolved_steps = []
-        for step in steps:
-            if not isinstance(step, dict):
-                resolved_steps.append(step)
-                continue
-            step = dict(step)
-            if default_action is not None and "action" not in step:
-                step["action"] = default_action
-            if (
-                default_transport in {"vga", "serial"}
-                and step.get("action") in {"wait", "prompt"}
-                and "transport" not in step
-            ):
-                step["transport"] = default_transport
-            resolved_steps.append(step)
-        resolved["steps"] = resolved_steps
-        return resolved
-
-
-class PromptSequenceInstallConfig(PromptSequenceConfig):
-    """Validate a prompt sequence while retaining interpolation data tables."""
-
-    driver: Literal["prompt-sequence"]
-    model_config = ConfigDict(strict=True, extra="allow", frozen=True)
+    driver: Literal["slackware-tty"]
+    disk: InstallDiskConfig = Field(default_factory=InstallDiskConfig)
+    locale: InstallLocaleConfig = Field(default_factory=InstallLocaleConfig)
+    network: NetworkConfig = Field(default_factory=lambda: NetworkConfig(hostname="darkstar"))
+    packages: SlackwareTtyPackagesConfig = Field(default_factory=SlackwareTtyPackagesConfig)
 
 
 InstallConfig = Annotated[
-    DinstallInstallConfig
-    | PkgtoolInstallConfig
-    | CInstallConfig
-    | PerlInstallConfig
+    DebianDialogInstallConfig
+    | SlackwareDialogInstallConfig
+    | RedHatNewtInstallConfig
+    | RedHatDialogInstallConfig
     | UnattendedInstallConfig
     | SysinstallInstallConfig
-    | PromptSequenceInstallConfig,
+    | Debian091InstallConfig
+    | SlackwareTtyInstallConfig,
     Field(discriminator="driver"),
 ]
 
