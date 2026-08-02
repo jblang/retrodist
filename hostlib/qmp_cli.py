@@ -9,7 +9,7 @@ import math
 from pathlib import Path
 
 from . import RetroError
-from .qmp import Monitor, encode
+from .qmp import Monitor, encode_key
 from .vga import ScreenObserver
 
 log = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ async def _run(arguments: list[str] | None = None) -> None:
         elif args.command == "send-key":
             await monitor.send_key(args.key)
         elif args.command == "send-text":
-            keys = encode(args.text)
+            keys = encode_key(args.text)
             if args.enter:
                 keys.append("ret")
             for key in keys:

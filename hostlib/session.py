@@ -11,7 +11,7 @@ import shlex
 import time
 from typing import Any, Callable, Coroutine, TypeVar
 
-from .qmp import Monitor, encode
+from .qmp import Monitor, encode_key
 from .serial import SerialConsole
 from .vga import ScreenObserver, ScreenSnapshot
 
@@ -226,11 +226,11 @@ class QemuSession:
             log.info("⌨️  %s ↩️", text[:-1])
         else:
             log.info("⌨️  %s", text.replace("\t", r"\t").replace("\n", r"\n"))
-        self._send_keys(encode(text))
+        self._send_keys(encode_key(text))
 
     def kb_type_quiet(self, text: str) -> None:
         """Type text for a higher-level controller that owns logging."""
-        self._send_keys(encode(text))
+        self._send_keys(encode_key(text))
 
     def boot_command(self, prompt: str, command: str = "") -> None:
         """Wait for a boot prompt and type the configured kernel command line."""

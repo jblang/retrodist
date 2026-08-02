@@ -5,6 +5,8 @@ The Python commands `retro` and `qmp` are the supported workflow, and
 configuration belongs in `config.toml`.
 
 For day-to-day commands and VM operation, see [USAGE.md](USAGE.md).
+For subsystem boundaries and installer control flow, see
+[ARCHITECTURE.md](ARCHITECTURE.md).
 For code that runs inside old guests, see [guestlib/README.md](guestlib/README.md).
 
 ## Add a Distro
@@ -81,7 +83,9 @@ url = "https://archive.org/download/example/disc1.iso"
 Paths are relative and may include directories. Non-CD-ROM media is stored in
 the config's `download.d/`; CD-ROM-backed configs use linked media in `qemu.d/`.
 Successful recursive mirror downloads write `.complete` in the mirrored
-directory. Remove that file to retry the download.
+directory. Remove that file to retry the download. Absolute paths, parent
+traversal, and unsafe mirror release identifiers are rejected. An existing
+direct-download target is reused; a partial target is removed after failure.
 
 ## Extraction
 
@@ -113,7 +117,8 @@ The standard `[extract]` table supports:
 
 Source selectors are relative to `source`; absolute and parent-traversal paths
 are rejected. Custom scripts are resolved from the selected config directory
-and then its immediate parent, so variants may share a hook.
+and then its immediate parent, so variants may share a hook. `package_source`
+and `package_sources` are mutually exclusive.
 
 Example:
 
@@ -137,6 +142,34 @@ conversion that Python cannot express. Hooks run from `qemu.d/`, write final
 media there directly, and stop at the first failing command. A hook-produced
 `install.iso` is preserved; otherwise, ISO sources are linked from the
 configured extraction source.
+
+Declare downloaded-file replacements as tables. Relative sources start in the
+effective download directory (`download.d/`, or `qemu.d/` for a shared CD-ROM
+recipe); destinations must remain beneath `qemu.d/`:
+
+```toml
+[[extract.overlays]]
+source = "fixed/kernel.img"
+destination = "boot/kernel.img"
+```
+
+Extraction hooks receive these paths and command details:
+
+| Variable | Value |
+| --- | --- |
+| `RETRO_D` | Repository root. |
+| `GUESTLIB_D` | Source `guestlib/` directory. |
+| `DISTRO_D` | Selected config directory. |
+| `QEMU_D` | Selected `qemu.d/`. |
+| `DOWNLOAD_D` | Effective download directory. |
+| `TAGFILE_D` | Selected `tagfile.d/`. |
+| `CONFNAME` | Config name relative to the repository when possible. |
+| `COMMAND` | Active `retro` command. |
+
+If `ks.cfg` exists in the selected config or its immediate parent, extraction
+strips blank and comment lines and injects it into an existing `boot.img` as
+`::ks.cfg`. Keep Kickstart policy in that source file; no extraction hook is
+needed.
 
 ## QEMU
 
@@ -162,26 +195,31 @@ Available profiles are `default`, `linux-0.99`, `linux-1.0`, `linux-1.2`,
 `linux-2.0-isa`, `linux-2.0`, `linux-2.2`, and `linux-2.4`. Profiles fix the
 machine, RAM, default disk size, network adapter, and VGA model. Python assigns
 loopback SSH and Telnet forwards from the ranges starting at ports 2200 and
-2300. An explicit empty array disables forwarding. The runtime uses the
-project-wide QEMU system, disk format, display, acceleration, floppy geometry,
-and install-media-derived boot order.
+2300. Omitting `forwards` selects those automatic forwards; an explicit empty
+array keeps guest networking but disables forwarding. Set `enabled = false` to
+omit the guest NIC entirely. The runtime uses the project-wide QEMU system,
+disk format, display, acceleration, floppy geometry, and install-media-derived
+boot order.
 
 The stager supplies conventional `boot.img`, `root.img`, `install.iso`, and FAT
-media.
+media. See [Media Staging](ARCHITECTURE.md#media-staging) for the complete
+filename contract.
 
 ## Automated Installation
 
-Set `install.driver` to one of the major or dedicated drivers registered in
+Set `install.driver` to one of the family or focused drivers registered in
 `hostlib/install/__init__.py`:
 
-- `debian-dialog`
-- `debian-091`
-- `slackware-dialog`
-- `slackware-sysinstall`
-- `slackware-tty`
-- `redhat-dialog`
-- `redhat-newt`
-- `redhat-unattended`
+| Driver | Supported `variant` values | Required driver-specific data |
+| --- | --- | --- |
+| `debian-dialog` | `1.1`, `1.2`, `1.3`, `1.3-vfat` | `variant` |
+| `debian-091` | None | None beyond `driver` |
+| `slackware-dialog` | `1.1.2`, `2.0`, `2.1`, `2.2-2.3`, `3.0`, `3.1-3.4`, `3.5-4.0`, `7.0-7.1`, `8.0-9.0` | `variant` |
+| `slackware-sysinstall` | None | None beyond `driver` |
+| `slackware-tty` | None | None beyond `driver` |
+| `redhat-dialog` | `1.1`, `2.1`, `3.0.3` | `variant`, `install.packages.package_series` |
+| `redhat-newt` | `4.0`, `4.1`, `4.2`, `5.0`, `5.1` | `variant`, `install.packages.components` |
+| `redhat-unattended` | None | `install.boot.command`, `install.completion.prompt` |
 
 Family-driver settings are grouped into topical tables such as
 `install.accounts`, `install.disk`, `install.network`, `install.locale`, and
@@ -191,6 +229,22 @@ drivers use `install.variant` to select a Python-defined profile that owns fixed
 screen sequences, boot prompts, and installer quirks. See the existing configs,
 `hostlib/schemas/`, and `hostlib/install/` for supported values. Use a
 release range or descriptive name when several releases share the same profile.
+
+Common tables have stable meanings, although each driver exposes only the
+tables present in its schema:
+
+| Table | Typical settings |
+| --- | --- |
+| `install.disk` | Target disk, swap/root/FAT partitions, FAT mount point and filesystem, and optional `swap_mb`. |
+| `install.locale` | Hardware clock mode, keymap, and timezone. |
+| `install.network` | Canonical static network values; Debian also accepts module name and arguments. |
+| `install.accounts` | Root and optional user credentials supported by that family. |
+| `install.packages` | Slackware series/source/tagfile path or required Red Hat package selections. |
+| `install.prompts` | Boot input/timing and an optional post-install screen prompt for families that use the shared schema. |
+
+Debian dialog installs use `install.boot` for boot and root-floppy prompts.
+Unattended Red Hat installs use `install.boot`, `install.completion`,
+`install.accounts`, and `install.prompts` with their dedicated schemas.
 
 Red Hat and Slackware install-time package selection belongs under
 `[install.packages]`. Debian installs additional packages after the base system,
@@ -219,12 +273,43 @@ contain only the release-specific values consumed by the driver's typed schema.
 The dedicated `debian_091.py` and `slackware_tty.py` drivers are compact
 examples.
 
+### Adding installer support
+
+For a new release in an existing family:
+
+1. Add or reuse a variant profile in the family driver.
+2. Add the variant name to the corresponding schema `Literal`.
+3. Keep configurable values in the existing typed topical tables.
+4. Add schema and workflow coverage to `tests/test_python.py`.
+
+For a genuinely new driver:
+
+1. Define its strict config model under `hostlib/schemas/`.
+2. Add the model to `InstallConfig` in `hostlib/schemas/__init__.py`.
+3. Implement a `run_*` entry point under `hostlib/install/`.
+4. Register that entry point in `hostlib/install/__init__.py`.
+5. Add configuration, dispatch, and workflow tests before adding recipes.
+
 ## Post-Installation Configuration
 
 `[postinst]` is converted during staging to
 `qemu.d/fat/guestlib.d/distro/config.sh`. The guest runner sources that file
 and executes `stages` in order. Supported stages are `packages`, `modules`,
 `network`, `tty`, `x11`, and `custom`.
+
+| Stage | Purpose | Requests reboot |
+| --- | --- | --- |
+| `packages` | Run the generated Debian package installer. | No |
+| `modules` | Configure boot-time kernel modules. | Yes |
+| `network` | Write static networking for the detected guest layout. | Yes |
+| `tty` | Enable a serial login console. | Yes |
+| `x11` | Write configuration for the detected XFree86 generation. | No |
+| `custom` | Source the configured exceptional guest script. | Only if the script requests it |
+
+Stages run in the declared order. `debug` controls debug logging, `log` selects
+the guest log path, `fat_filesystem` overrides the filesystem used to mount the
+exchange disk, and `reboot` requests a final reboot. The `modules`, `network`,
+and `tty` wrappers set the reboot flag even when `reboot = false` was rendered.
 
 ```toml
 [postinst]
@@ -271,6 +356,9 @@ When package configuration is interactive, the Debian installer switches the
 post-install runner to its automation serial port. Add every expected question
 and response under `postinst.packages.prompts`; questions may arrive in any
 order, but all configured questions must appear. An empty answer submits Enter.
+Set `regex = true` when `expect` is a regular expression. Package prompts are
+invalid unless `packages` is present in `postinst.stages`.
+
 For example, Smail's local-only configuration selects option 4 and accepts the
 summary:
 
@@ -304,6 +392,7 @@ devel = ["standard"]
 device = "/dev/hdc"
 point = "/cdrom"
 filesystem = "iso9660"
+# options = "ro"
 
 [extract]
 package_index = "buzz-fixed/binary-i386/Packages"
@@ -325,23 +414,39 @@ Include `custom` in `stages` and set `custom_script = "postinst.sh"` only when
 the guest needs logic not expressible through the standard stages. Keep
 ordinary stages such as `tty` and `x11` in the array rather than invoking their
 helpers from the custom script. Custom scripts must follow the portability
-rules in [guestlib/README.md](guestlib/README.md).
+rules in [guestlib/README.md](guestlib/README.md). The script is resolved from
+the selected config and then its immediate parent. Scalar values under
+`[postinst.custom]` become uppercase shell variables in the generated config.
 
 ## Slackware Tagsets
 
-Slackware 1.1.2 and later installs may use `*.tag` files. Each line is
-`series package state`, where state is `ADD`, `REC`, `OPT`, or `SKP`; `*` sets
-the series default. A variant-level tagset shadows the version-level file.
+Slackware 1.1.1 and later installs can use host-generated tagfiles. Current
+staging reads only the effective `full.tag`: a selected-config `full.tag`
+replaces one in its immediate parent. Other `*.tag` names are not selected by
+the current schema.
 
-Run `retro tagfile slackware/VERSION/VARIANT` to regenerate `default.tag` from
-staged packages. Installer package series and tagfile paths are configured in
-`[install.packages]`.
+Each rule is `series package state`, where state is `ADD`, `REC`, `OPT`, or
+`SKP`. Use `*` as the package for a series default; an exact package rule wins.
+Packages without either rule default to `SKP`. Staging inventories the package
+tree or ISO and writes per-disk tagfiles plus `disksets.txt` to the FAT share.
+
+`retro tagfile slackware/VERSION/VARIANT` regenerates `default.tag` from the
+installer's original tag metadata. The command overwrites that file. Treat it
+as an editable reference; to affect current automated staging, incorporate the
+desired rules into the effective `full.tag`.
+
+Under `[install.packages]`, `package_sets` selects the series offered to setup.
+The 1.1.1 `slackware-tty` driver uses the tagfiles generated directly in its
+staged package tree. The 1.1.2-and-later `slackware-dialog` driver additionally
+accepts `tagfile_path` for a staged custom path; set it to `false` to use the
+installer's own default tagfiles instead.
 
 ## Generated Files
 
 Do not edit `qemu.d/`, `download.d/`, `tagfile.d/`, or staged
 `qemu.d/fat/guestlib.d/` copies. Edit `config.toml`, `guestlib/`, custom source
-scripts, tagsets, and source READMEs instead.
+scripts, `full.tag`, and source READMEs instead. `default.tag` is the intentional
+source-tree output of `retro tagfile`, not generated `tagfile.d/` state.
 
 ## Validation
 
@@ -349,10 +454,14 @@ Run the cheap checks after source changes:
 
 ```bash
 git diff --check
-python3 -m unittest tests.test_python
+tests/unit.sh
 tests/shellcheck.sh
 black --check .
 ```
+
+`tests/unit.sh` automatically uses the repository `.venv` when available.
+`tests/run.sh` combines the unit and ShellCheck suites; Black remains a separate
+check.
 
 Use the narrowest relevant runtime check:
 

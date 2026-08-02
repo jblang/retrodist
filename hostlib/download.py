@@ -22,17 +22,6 @@ from .schemas.download import DownloadConfig
 log = logging.getLogger(__name__)
 
 
-def _run_wget(*arguments: str) -> None:
-    """Run wget and turn command failures into user-facing errors."""
-    command = ["wget", "--no-verbose", "--show-progress", *arguments]
-    try:
-        result = subprocess.run(command, check=False)
-    except FileNotFoundError as exc:
-        raise CommandError("wget is required to download media") from exc
-    if result.returncode:
-        raise CommandError(f"wget failed with status {result.returncode}")
-
-
 def _mirror_identifier(value: str, setting: str) -> str:
     """Validate a mirror identifier before using it in URLs or local paths."""
     if value in {".", ".."} or re.fullmatch(r"[A-Za-z0-9._+-]+", value) is None:
@@ -40,49 +29,60 @@ def _mirror_identifier(value: str, setting: str) -> str:
     return value
 
 
-class Wget:
-    """Run wget with the download behavior used by Retro."""
+MIRROR_SENTINEL = ".complete"
 
-    MIRROR_SENTINEL = ".complete"
 
-    def retrieve(self, url: str, target: Path) -> None:
-        """Download one URL to an exact destination filename."""
-        try:
-            _run_wget("--output-document", str(target), url)
-        except CommandError:
-            target.unlink(missing_ok=True)
-            raise
-
-    def mirror(
-        self,
-        url: str,
-        destination: Path,
-        reject: tuple[str, ...],
-    ) -> None:
-        """Recursively mirror one URL directly beneath ``destination``."""
-        marker = destination / self.MIRROR_SENTINEL
-        if marker.is_file():
-            log.info(
-                "Skipping completed download; remove %s to retry",
-                os.path.relpath(marker, Path.cwd()),
-            )
-            return
-        path = urllib.parse.urlsplit(url).path.strip("/")
-        cut_dirs = len(path.split("/")) if path else 0
-        destination.mkdir(parents=True, exist_ok=True)
-        log.info("Downloading directory tree %s", url)
-        _run_wget(
-            "--recursive",
-            "--no-parent",
-            "--no-host-directories",
-            f"--cut-dirs={cut_dirs}",
-            f"--directory-prefix={destination}",
-            "--continue",
-            "--reject-regex=[?]",
-            f"--reject={','.join(reject)}",
-            url,
+def download_file(url: str, target: Path) -> None:
+    """Download one URL to an exact destination filename using wget."""
+    try:
+        result = subprocess.run(
+            ["wget", "--no-verbose", "--show-progress", "--output-document", str(target), url],
+            check=False,
         )
-        marker.touch()
+    except FileNotFoundError as exc:
+        target.unlink(missing_ok=True)
+        raise CommandError("wget is required to download media") from exc
+    if result.returncode:
+        target.unlink(missing_ok=True)
+        raise CommandError(f"wget failed with status {result.returncode}")
+
+
+def mirror_tree(url: str, destination: Path, reject: tuple[str, ...]) -> None:
+    """Recursively mirror one URL directly beneath ``destination`` using wget."""
+    marker = destination / MIRROR_SENTINEL
+    if marker.is_file():
+        log.info(
+            "Skipping completed download; remove %s to retry",
+            os.path.relpath(marker, Path.cwd()),
+        )
+        return
+    path = urllib.parse.urlsplit(url).path.strip("/")
+    cut_dirs = len(path.split("/")) if path else 0
+    destination.mkdir(parents=True, exist_ok=True)
+    log.info("Downloading directory tree %s", url)
+    try:
+        result = subprocess.run(
+            [
+                "wget",
+                "--no-verbose",
+                "--show-progress",
+                "--recursive",
+                "--no-parent",
+                "--no-host-directories",
+                f"--cut-dirs={cut_dirs}",
+                f"--directory-prefix={destination}",
+                "--continue",
+                "--reject-regex=[?]",
+                f"--reject={','.join(reject)}",
+                url,
+            ],
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise CommandError("wget is required to download media") from exc
+    if result.returncode:
+        raise CommandError(f"wget failed with status {result.returncode}")
+    marker.touch()
 
 
 class Downloader:
@@ -97,7 +97,6 @@ class Downloader:
         """Initialize a downloader for the selected distro configuration."""
         self.context = context
         self.config = config
-        self.wget = Wget()
 
     def run(self) -> None:
         """Download all media sources required by the selected config.
@@ -136,7 +135,7 @@ class Downloader:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             log.info("Downloading %s", filename)
-            self.wget.retrieve(url, target)
+            download_file(url, target)
         if mirror := download.slackware_mirror:
             self._slackware(mirror, destination)
         if mirror := download.debian_mirror:
@@ -146,7 +145,7 @@ class Downloader:
         """Mirror the requested Slackware release tree."""
         version = _mirror_identifier(version, "slackware_mirror")
         target = destination / f"slackware-{version}"
-        self.wget.mirror(
+        mirror_tree(
             f"http://mirrors.slackware.com/slackware/slackware-{version}/",
             target,
             ("*.md5*", "*.meta4", "*.sha*", "*mirror*", "*index*"),
@@ -182,7 +181,7 @@ class Downloader:
             target = base / name
             if not target.is_file():
                 log.info("Downloading %s", target.relative_to(destination))
-                self.wget.retrieve(f"{root}/{name}", target)
+                download_file(f"{root}/{name}", target)
         for name in directories:
             target = base / name
-            self.wget.mirror(f"{root}/{name}/", target, ("*index*",))
+            mirror_tree(f"{root}/{name}/", target, ("*index*",))

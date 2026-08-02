@@ -59,7 +59,9 @@ qmp eject-disk
 ```
 
 Run `qmp --help` for the complete command list.
-`dump-screen` prints the standard 32 KiB, 80-column VGA text-memory area.
+`dump-screen` prints the complete 80-column rows in the standard 32 KiB VGA
+text-memory area. Its trailing 128 bytes are omitted because they do not form a
+complete row.
 
 Synchronous QEMU scripts, including installer drivers, wait for decoded text
 through `QemuSession`:

@@ -28,7 +28,7 @@ from hostlib.context import Context
 from hostlib import CommandError, ConfigError, RetroError
 from hostlib import download, install, qmp_cli, retro_cli, slackware_tagfiles
 from hostlib.install.fdisk import Fdisk
-from hostlib.qmp import Monitor, encode
+from hostlib.qmp import Monitor, encode_key
 from hostlib.install.dialog import Answer, AnswerText, AnswerTitle, Dialog
 from hostlib.debian_packages import (
     DebianPackage,
@@ -358,7 +358,7 @@ class DownloadTests(unittest.TestCase):
                 ),
                 self.assertRaisesRegex(CommandError, "wget failed with status 8"),
             ):
-                download.Wget().retrieve("https://x/disk.img", target)
+                download.download_file("https://x/disk.img", target)
             self.assertFalse(target.exists())
 
     def test_missing_wget_is_reported(self) -> None:
@@ -366,7 +366,7 @@ class DownloadTests(unittest.TestCase):
             patch("hostlib.download.subprocess.run", side_effect=FileNotFoundError),
             self.assertRaisesRegex(CommandError, "wget is required"),
         ):
-            download.Wget().retrieve("https://x/disk.img", Path("disk.img"))
+            download.download_file("https://x/disk.img", Path("disk.img"))
 
     def test_mirror_release_names_cannot_escape_the_download_directory(self) -> None:
         downloader = download.Downloader(SimpleNamespace(), SimpleNamespace())
@@ -392,8 +392,8 @@ class DownloadTests(unittest.TestCase):
             )
             downloader = download.Downloader(context, config)
             with (
-                patch.object(downloader.wget, "retrieve"),
-                patch.object(downloader.wget, "mirror") as mirror,
+                patch("hostlib.download.download_file"),
+                patch("hostlib.download.mirror_tree") as mirror,
             ):
                 downloader._debian("buzz", config.download_dir)
             urls = [call.args[0] for call in mirror.call_args_list]
@@ -417,11 +417,9 @@ class DownloadTests(unittest.TestCase):
                 "hostlib.download.subprocess.run",
                 return_value=SimpleNamespace(returncode=0),
             ) as wget:
-                download.Wget().mirror(
-                    "https://x/releases/tree/", destination, ("*.md5", "*index*")
-                )
+                download.mirror_tree("https://x/releases/tree/", destination, ("*.md5", "*index*"))
             self.assertTrue(destination.is_dir())
-            self.assertTrue((destination / download.Wget.MIRROR_SENTINEL).is_file())
+            self.assertTrue((destination / download.MIRROR_SENTINEL).is_file())
             wget.assert_called_once_with(
                 [
                     "wget",
@@ -444,18 +442,18 @@ class DownloadTests(unittest.TestCase):
         with temporary_root() as root:
             destination = root / "release"
             destination.mkdir()
-            (destination / download.Wget.MIRROR_SENTINEL).touch()
+            (destination / download.MIRROR_SENTINEL).touch()
             with (
                 patch("hostlib.download.subprocess.run") as wget,
                 self.assertLogs(download.log, "INFO") as logs,
             ):
-                download.Wget().mirror("https://x/releases/tree/", destination, ("*index*",))
+                download.mirror_tree("https://x/releases/tree/", destination, ("*index*",))
             wget.assert_not_called()
             self.assertEqual(
                 logs.output,
                 [
                     "INFO:hostlib.download:Skipping completed download; remove "
-                    f"{os.path.relpath(destination / download.Wget.MIRROR_SENTINEL)} to retry",
+                    f"{os.path.relpath(destination / download.MIRROR_SENTINEL)} to retry",
                 ],
             )
 
@@ -469,8 +467,8 @@ class DownloadTests(unittest.TestCase):
                 ),
                 self.assertRaisesRegex(CommandError, "wget failed with status 8"),
             ):
-                download.Wget().mirror("https://x/releases/tree/", destination, ("*index*",))
-            self.assertFalse((destination / download.Wget.MIRROR_SENTINEL).exists())
+                download.mirror_tree("https://x/releases/tree/", destination, ("*index*",))
+            self.assertFalse((destination / download.MIRROR_SENTINEL).exists())
 
 
 class PackageTests(unittest.TestCase):
@@ -2488,14 +2486,14 @@ class RedHatDriverTests(unittest.TestCase):
 
 class KeyboardTests(unittest.TestCase):
     def test_encode(self) -> None:
-        self.assertEqual(encode("Ab c?"), ["shift-a", "b", "spc", "c", "shift-slash"])
+        self.assertEqual(encode_key("Ab c?"), ["shift-a", "b", "spc", "c", "shift-slash"])
 
     def test_encode_embedded_control_keys(self) -> None:
-        self.assertEqual(encode("root\n\t"), ["r", "o", "o", "t", "ret", "tab"])
+        self.assertEqual(encode_key("root\n\t"), ["r", "o", "o", "t", "ret", "tab"])
 
     def test_rejects_unsupported_characters(self) -> None:
         with self.assertRaises(ValueError):
-            encode("🐧")
+            encode_key("🐧")
 
 
 class _DialogSerial:
@@ -3221,11 +3219,15 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
         snapshot = ScreenSnapshot.capture(b"A\x07B\x07\x00\x07C\x07", 2, 2)
         self.assertEqual(snapshot.text, "AB\n C")
 
-    def test_snapshot_pads_a_partial_final_row(self) -> None:
-        snapshot = ScreenSnapshot.capture(b"A\x07B\x07C\x07", columns=2, rows=None)
+    def test_snapshot_preserves_cell_attributes(self) -> None:
+        snapshot = ScreenSnapshot.capture(b"A\x1eB\x74", columns=2, rows=1)
 
-        self.assertEqual(snapshot.text, "AB\nC ")
-        self.assertEqual(snapshot.cell(2, 2).character, " ")
+        self.assertEqual(snapshot.cell(1, 1).attribute, 0x1E)
+        self.assertEqual(snapshot.cell(1, 2).attribute, 0x74)
+
+    def test_snapshot_rejects_a_partial_final_row(self) -> None:
+        with self.assertRaisesRegex(ValueError, "complete rows"):
+            ScreenSnapshot.capture(b"A\x07B\x07C\x07", columns=2, rows=None)
 
     def test_decode_converts_cp437_graphics_before_removing_controls(self) -> None:
         memory = b"\xda\x07\xc4\x07\xbf\x07\x1b\x07"
@@ -3234,7 +3236,7 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
     def test_full_memory_decode_finds_scrolled_console_text(self) -> None:
         memory = b" " + b"\x07"
         memory *= 80 * 25
-        memory += b"V\x07F\x07S\x07:\x07"
+        memory += b"V\x07F\x07S\x07:\x07" + b" \x07" * 76
         self.assertNotIn("VFS:", ScreenSnapshot.capture(memory, 80, 25).text)
         self.assertIn("VFS:", ScreenSnapshot.capture(memory, 80, None).text)
 
@@ -3321,6 +3323,21 @@ class VgaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(snapshot.contents), 3)
         command = monitor.hmp.await_args.args[0].split()
         self.assertEqual(command[2], "480")
+
+    async def test_unbounded_capture_reads_only_complete_vga_rows(self) -> None:
+        monitor = AsyncMock()
+        with temporary_root() as root:
+
+            async def save(command):
+                _, _, byte_count, destination = command.split()
+                (root / destination).write_bytes(b" \x07" * (int(byte_count) // 2))
+
+            monitor.hmp.side_effect = save
+            snapshot = await ScreenObserver(monitor, root).capture()
+
+        self.assertEqual(len(snapshot.contents), 204)
+        command = monitor.hmp.await_args.args[0].split()
+        self.assertEqual(command[2], "32640")
 
     async def test_snapshot_wait_rejects_invalidated_matching_old_text(self) -> None:
         old = ScreenSnapshot.capture(b"O\x74k\x74 \x07", columns=3, rows=1)

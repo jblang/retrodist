@@ -16,7 +16,7 @@ from . import RetroError
 
 log = logging.getLogger(__name__)
 
-_PUNCTUATION = {
+_PUNCTUATION_KEYS = {
     "\t": "tab",
     "\n": "ret",
     "\\": "backslash",
@@ -55,7 +55,7 @@ _PUNCTUATION = {
 }
 
 
-def encode(text: str) -> list[str]:
+def encode_key(text: str) -> list[str]:
     """Translate ASCII text into QEMU ``send-key`` qcodes.
 
     Uppercase and shifted punctuation become hyphen-separated modifier
@@ -68,7 +68,7 @@ def encode(text: str) -> list[str]:
             keys.append(character)
         elif character.isascii() and character.isupper():
             keys.append(f"shift-{character.lower()}")
-        elif key := _PUNCTUATION.get(character):
+        elif key := _PUNCTUATION_KEYS.get(character):
             keys.append(key)
         else:
             raise ValueError(f"Unsupported character for QEMU keyboard input: {character!r}")

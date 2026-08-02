@@ -47,8 +47,15 @@ The runner provides these lazy-loading public wrappers:
 | `tty_config` | `config/tty.sh` | Enable a serial login console. |
 | `x11_config` | `config/x11.sh` | Generate an XFree86 configuration. |
 
-It sets `ETC_D` to `/etc` and defaults `POSTINST_DEBUG` to `0`,
-`POSTINST_LOG` to `/postinst.log`, and `POSTINST_REBOOT` to `false`.
+The runner defines these defaults:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ETC_D` | `/etc` | Root of the guest's configuration files. |
+| `POSTINST_DEBUG` | `0` | Enables debug logging when set to `1`. |
+| `POSTINST_LOG` | `/postinst.log` | Receives post-install log messages. |
+| `POSTINST_REBOOT` | `false` | Controls whether the guest reboots after the stages finish. |
+
 `mod_config`, `net_config`, and `tty_config` set `POSTINST_REBOOT=true` when
 called; `x11_config` does not. The runner syncs and reboots for `true`, `TRUE`,
 `True`, `yes`, `YES`, `Yes`, or `1`.
@@ -90,17 +97,30 @@ a `~` suffix. It appends module names and options to Debian's `modules` and
 
 ### `net_config`
 
-Set `NET_HOSTNAME`; other defaults target QEMU user networking:
-`NET_IPADDR=10.0.2.15`, `NET_NETMASK=255.255.255.0`,
-`NET_NETWORK=10.0.2.0`, `NET_BROADCAST=10.0.2.255`,
-`NET_GATEWAY=10.0.2.2`, `NET_NAMESERVER=10.0.2.3`, and
-`NET_DOMAINNAME=retro.net`. The helper supports Slackware `rc.inet1`, SysV
-`init.d/network`, and `rc.net` layouts, retaining first backups with `~`.
+Set `NET_HOSTNAME`. The remaining defaults target QEMU user networking:
 
-Optional settings: `NET_DOMAINNAME` (empty or `none` suppresses domain
-records), `NET_ANCIENT_ROUTE=1`, `NET_HOSTNAME_INIT_SET=1`, static ARP values
-in `NET_GATEWAY_HWADDR` and `NET_NAMESERVER_HWADDR`, and command overrides
-`NET_IFCONFIG_PATH`, `NET_ROUTE_PATH`, and `NET_ARP_PATH`.
+| Variable | Default |
+| --- | --- |
+| `NET_IPADDR` | `10.0.2.15` |
+| `NET_NETMASK` | `255.255.255.0` |
+| `NET_NETWORK` | `10.0.2.0` |
+| `NET_BROADCAST` | `10.0.2.255` |
+| `NET_GATEWAY` | `10.0.2.2` |
+| `NET_NAMESERVER` | `10.0.2.3` |
+| `NET_DOMAINNAME` | `retro.net` |
+
+Optional settings provide compatibility with older network layouts:
+
+| Setting | Effect |
+| --- | --- |
+| Empty `NET_DOMAINNAME`, or `none` | Suppresses domain records. |
+| `NET_ANCIENT_ROUTE=1` | Uses routing syntax needed by ancient guests. |
+| `NET_HOSTNAME_INIT_SET=1` | Adds `hostname -S` to the generated init script. |
+| `NET_GATEWAY_HWADDR`, `NET_NAMESERVER_HWADDR` | Add static ARP entries. |
+| `NET_IFCONFIG_PATH`, `NET_ROUTE_PATH`, `NET_ARP_PATH` | Override command paths. |
+
+The helper supports Slackware `rc.inet1`, SysV `init.d/network`, and `rc.net`
+layouts. It retains the first backup of each changed file with a `~` suffix.
 
 ### `tty_config`
 
@@ -141,14 +161,16 @@ divider, and `die MESSAGE...` logs an error then exits.
 `dialog.sh` is a plain-text replacement for
 [dialog(1)](https://linux.die.net/man/1/dialog), whose interface appears in the
 Debian, Slackware, and early Red Hat installers. Their automation replaces an
-installer's real binary with this executable, turning widgets that use the stub
+installer's real binary with this shell script, turning widgets that use the stub
 into labeled text exchanges on the control serial port. Other screens may
 remain VGA-driven. The Python `Dialog` driver consumes each exchange and sends
 the answer expected by the original installer. Its protocol contract is
 documented in
 [`hostlib/install/dialog.py`](../hostlib/install/dialog.py).
 
-For example, a menu exchange is:
+#### Protocol Example
+
+A menu exchange looks like this:
 
 ```text
 --------------------------------------------------------------------------------
@@ -162,49 +184,103 @@ ITEM: uk :: United Kingdom
 RESPONSE: us
 ```
 
-The labels are a wire protocol, not just diagnostic output. The adapter emits
-`BACKTITLE:`, `TITLE:`, `TYPE:`, one `TEXT:` line per prompt line, widget
-metadata, `ITEM:` lines, and `RESPONSE:` where input is required. Preserve
-their spelling and ordering, including `ITEM: tag :: description` and empty
-`TEXT:` lines. The Python Dialog matcher finds `TITLE:` and `TYPE:` in stream
-order, may inspect `TEXT:` and `ITEM:` lines to distinguish similar widgets or
-select an item by description, and waits for `RESPONSE:` before answering.
+The labels form a wire protocol, not merely diagnostic output. The adapter
+emits fields in this order:
 
-Answers must use the value expected by `dialog`: an item tag for menus, text
-for input boxes, and a button word such as `yes`, `no`, `ok`, `cancel`, or
-`esc` for button widgets. Empty menu and radiolist answers choose the default
-item; an empty checklist answer retains the initially selected items.
+1. `BACKTITLE:` and `TITLE:`, when configured.
+2. `TYPE:` with the widget type.
+3. One `TEXT:` field for each prompt line.
+4. Widget-specific metadata and `ITEM:` fields.
+5. `RESPONSE:` when the widget requires input.
 
-Prompt output stays separate from result output. Real `dialog` writes selected
-or typed values to stderr unless `--stdout`, `--stderr`, or `--output-fd`
-selects another descriptor. Installer scripts redirect that result stream into
-files, so protocol text must never leak onto it. Value widgets write their tag
-or text to the selected result fd, checklists honor `--separate-output`, and
-OK/Yes, Cancel/No, and Esc return statuses 0, 1, and 255 respectively.
+Preserve field spelling and ordering. In particular:
 
-Supported widgets are `msgbox`, `infobox`, `yesno`, `inputbox`, `passwordbox`,
-`menu`, `inputmenu`, `checklist`, `radiolist`, `textbox`, and `gauge`. The
-adapter handles titles, output-fd selection, checklist output, defaults, labels,
-positioning, and the cosmetic options used by supported installers. Other long
-options are emitted as `OPTION:` metadata and ignored. When enabled for serial,
-gauges emit changed message text while discarding percentage and `XXX` control
-lines.
+- Keep empty `TEXT:` lines.
+- Format choices as `ITEM: tag :: description`.
+- Do not rename or rearrange protocol fields.
 
-`SERIAL` selects the duplex control device and defaults to `/dev/ttyS3`. When
-the device is writable, the adapter reads answers from it, writes prompts to
-it, and mirrors the exchange to the console. Otherwise it reads stdin and
-writes prompts only to the console. Infoboxes and gauges are omitted from
-serial by default because they require no answer; set `SERIAL_INFOBOXES=1` to
-include them in the host transcript.
+The Python matcher finds `TITLE:` and `TYPE:` in stream order. It may inspect
+`TEXT:` and `ITEM:` fields to distinguish similar widgets or select an item by
+description. It waits for `RESPONSE:` before sending an answer.
+
+#### Answers and Defaults
+
+Answers use the values expected by the real `dialog` program:
+
+| Widget kind | Answer |
+| --- | --- |
+| Menu, input menu, or radiolist | The selected item's tag. |
+| Checklist | One or more item tags. |
+| Input box | The entered text. |
+| Button widget | `yes`, `no`, `ok`, `cancel`, or `esc`. |
+
+Empty answers have widget-specific meanings:
+
+- For a menu or radiolist, select the default item.
+- For a checklist, retain the initially selected items.
+
+#### Output and Exit Status
+
+Prompt output must remain separate from result output. Installer scripts often
+redirect the result stream into files, so protocol text must never leak onto
+that stream.
+
+By default, real `dialog` writes selected or typed values to stderr. The
+`--stdout`, `--stderr`, and `--output-fd` options can select another descriptor.
+Value widgets write their tag or text to that descriptor, and checklists honor
+`--separate-output`.
+
+| Result | Exit status |
+| --- | ---: |
+| OK or Yes | `0` |
+| Cancel or No | `1` |
+| Esc | `255` |
+
+#### Widgets and Options
+
+The adapter supports these widgets:
+
+- Messages: `msgbox`, `infobox`, `textbox`
+- Buttons and text entry: `yesno`, `inputbox`, `passwordbox`
+- Choices: `menu`, `inputmenu`, `checklist`, `radiolist`
+- Progress: `gauge`
+
+It handles titles, output descriptor selection, checklist output, defaults,
+labels, positioning, and the cosmetic options used by supported installers.
+Other long options are emitted as `OPTION:` metadata and ignored.
+
+When gauges are enabled for serial output, they emit changed message text and
+discard percentages and `XXX` control lines.
+
+#### Serial Behavior
+
+`SERIAL` selects the duplex control device and defaults to `/dev/ttyS3`.
+Behavior depends on whether that device is writable:
+
+| Serial device | Answers read from | Prompts written to |
+| --- | --- | --- |
+| Writable | Serial device | Serial device and console |
+| Not writable | stdin | Console only |
+
+Infoboxes and gauges are omitted from serial output by default because they do
+not require an answer. Set `SERIAL_INFOBOXES=1` to include them in the host
+transcript.
+
+#### Replacement Cleanup
 
 Some installers must move an already-running real dialog aside before copying
 the adapter into place. On its first invocation, after that process has exited,
 the adapter removes `/bin/dialog.bak` or `/usr/bin/dialog.bak` to reclaim scarce
-ramdisk space. The `.bak` suffix follows the Slackware replacement convention.
+ramdisk space.
+
+#### Portability Constraints
 
 The adapter is a standalone `/bin/sh` executable, not a sourced library. It
 must run under Bash 1.14 and ash 0.2 using only shell builtins plus its existing
-`rm` dependency. Do not add modern shell syntax or utilities such as `grep`,
-`awk`, `sed`, `cat`, `printf`, `mktemp`, or `command -v`. Installer ramdisks
-may also have almost no free space, so keep the script compact and avoid
-temporary files.
+`rm` dependency.
+
+- Do not add modern shell syntax.
+- Do not add utilities such as `grep`, `awk`, `sed`, `cat`, `printf`, `mktemp`,
+  or `command -v`.
+- Keep the script compact and avoid temporary files. Installer ramdisks may
+  have almost no free space.

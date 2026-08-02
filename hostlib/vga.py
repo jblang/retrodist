@@ -60,11 +60,9 @@ class ScreenSnapshot:
             raise ValueError("VGA memory must contain complete character/attribute pairs")
         length = len(memory) if rows is None else min(len(memory), columns * rows * 2)
         width = columns * 2
-        contents = tuple(
-            row + b" \x07" * ((width - len(row)) // 2)
-            for index in range(0, length, width)
-            if (row := memory[index : index + width])
-        )
+        if length % width:
+            raise ValueError("VGA memory must contain complete rows")
+        contents = tuple(memory[index : index + width] for index in range(0, length, width))
         return cls(columns, contents)
 
     def cell(self, row: int, column: int) -> VgaCell:
@@ -181,8 +179,8 @@ class ScreenObserver:
     """Read VGA memory on demand while a caller waits for a screen predicate."""
 
     _address = 0xB8000
-    _memory_bytes = 32768
     _columns = 80
+    _memory_bytes = 32768 - 32768 % (_columns * 2)
 
     def __init__(
         self,
