@@ -56,18 +56,43 @@ domain = "retro.net"
 stages = ["tty", "x11"]
 ```
 
-Unknown settings and incorrectly typed values are errors. When adding a new
-setting, update its Python model or validator and add unit coverage.
+Unknown keys inside a supported table and incorrectly typed values are errors.
+Only the top-level tables listed below are consumed. When adding a new setting,
+update its Python model or validator and add unit coverage.
+
+The supported top-level tables are:
+
+| Table | Used by | Required for |
+| --- | --- | --- |
+| `[download]` | `retro download` and the extraction prerequisite | Any media that is not already local. |
+| `[extract]` | `retro extract`, `boot`, and `install` | `retro extract`; it may contain only a custom hook when no source selection is needed. |
+| `[qemu]` | `retro boot` and `retro install` | Booting or installing a VM. |
+| `[install]` | `retro install` | Automated installation. Omit it for boot-only configs. |
+| `[postinst]` | Extraction and supported installer drivers | Optional installed-system configuration. |
+
+Reference tables below use these conventions: `string[]` means an array of
+strings, `[[table]]` means an array of tables, and *none* means that the key is
+omitted unless the config supplies it. TOML has no null value; omit optional
+settings instead. Defaults are applied after parent/child inheritance. All
+models are strict: for example, `"true"` is not accepted where a Boolean is
+required, and a scalar is not accepted in place of an array.
 
 ## Downloads
 
-`retro download CONFIG` supports these `[download]` settings:
+`retro download CONFIG` supports these `[download]` settings. Every key is
+optional and more than one source form may be combined.
 
-- `cdrom`: config name below `cdrom/`; its downloaded ISO files are linked into
-  the selected config's `qemu.d/`.
-- `slackware_mirror`: version directory from the official Slackware mirror.
-- `debian_mirror`: release name from `archive.debian.org`.
-- `files`: array of `{ path, url }` tables.
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `cdrom` | string | none | Config name below `cdrom/`. The referenced config is downloaded and its top-level ISO files are linked into the selected config's `qemu.d/`. |
+| `slackware_mirror` | string | none | Version directory from the official Slackware mirror, such as `1.01`. |
+| `debian_mirror` | string | none | Archived Debian release name, such as `buzz`; downloads the release files and directories recognized by the downloader. |
+| `files` | `[[download.files]]` | `[]` | Direct downloads, each described by the required keys below. |
+
+| `download.files` setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `path` | string | required | Relative destination beneath the effective download directory. |
+| `url` | string | required | URL passed to `wget`. |
 
 Example:
 
@@ -94,26 +119,29 @@ guest library, and writes `qemu.d/.extracted`.
 
 The standard `[extract]` table supports:
 
-- `source`: an ISO, tar, 7-Zip, or ZIP archive, directory, or downloaded
-  source path. Its file type selects the extraction library automatically.
-- `boot_image` and `root_image`: boot and root media staged at the top of
-  `qemu.d/` and linked to their conventional names.
-- `extra_images`: additional disk images or image glob patterns staged at the
-  top of `qemu.d/`.
-- `files`: non-image files or glob patterns staged at the top of `qemu.d`.
-- `fat_files`: files staged in `qemu.d/fat/`.
-- `package_source`: one package directory tree within the extraction source.
-- `package_sources`: multiple package trees merged at the destination; use this
-  for archives split between trees such as `binary-i386` and `binary-all`.
-- `package_index`: Debian `Packages` or `Packages.gz` index within the
-  extraction source, staged and parsed while generating the package installer.
-- `package_dest`: destination beneath `qemu.d/fat/`; defaults to `packages`.
-- `decompress`: staged gzip files or glob patterns to decompress.
-- `truncate`: staged floppy files or glob patterns to normalize to 1.44 MB.
-- `boot_link` and `root_link`: staged source names for `boot.img` and `root.img`.
-- `overlays`: downloaded files copied over paths in the staged tree.
-- `custom_script`: exceptional hook, run after selected source media is staged
-  and before declarative postprocessing.
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `source` | string | `""` | ISO, tar, 7-Zip, or ZIP archive, directory, or downloaded source path. The file type selects the extraction implementation. |
+| `boot_image` | string | none | Boot image selected from `source`, staged at the top of `qemu.d/`, and used as the default target of `boot.img`. |
+| `root_image` | string | none | Root image selected from `source`, staged at the top of `qemu.d/`, and used as the default target of `root.img`. |
+| `extra_images` | string[] | `[]` | Additional disk images or image glob patterns selected from `source` and staged at the top of `qemu.d/`. |
+| `files` | string[] | `[]` | Other files or glob patterns selected from `source` and staged at the top of `qemu.d/`. |
+| `fat_files` | string[] | `[]` | Files or glob patterns selected from `source` and staged in `qemu.d/fat/`. |
+| `package_source` | string | none | One package directory tree selected from `source` and copied below `package_dest`. |
+| `package_sources` | string[] | `[]` | Package directory trees merged below `package_dest`, for media split into trees such as `binary-i386` and `binary-all`. Mutually exclusive with `package_source`. |
+| `package_index` | string | none | Debian `Packages` or `Packages.gz` index selected from `source`, staged at the top of `qemu.d/`, and parsed when generating the post-install package script. |
+| `package_dest` | string | `"packages"` | Package-tree destination beneath `qemu.d/fat/`. |
+| `decompress` | string[] | `[]` | Names or glob patterns for staged gzip files to decompress; matching `.gz` files are replaced by their uncompressed forms. |
+| `truncate` | string[] | `[]` | Names or glob patterns for staged, uncompressed floppy images to truncate to 1.44 MB. |
+| `boot_link` | string | none | Staged filename to link as `boot.img`, overriding the basename of `boot_image`. |
+| `root_link` | string | none | Staged filename to link as `root.img`, overriding the basename of `root_image`. |
+| `custom_script` | string | none | Exceptional Bash hook run after source selection and before overlays, links, decompression, and truncation. |
+| `overlays` | `[[extract.overlays]]` | `[]` | File replacements applied after the custom hook. Each entry has the required keys below. |
+
+| `extract.overlays` setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `source` | string | required | Source file. Relative paths start in the effective download directory; absolute paths are accepted. |
+| `destination` | string | required | Relative destination beneath `qemu.d/`; parent traversal is rejected. |
 
 Source selectors are relative to `source`; absolute and parent-traversal paths
 are rejected. Custom scripts are resolved from the selected config directory
@@ -201,6 +229,31 @@ omit the guest NIC entirely. The runtime uses the project-wide QEMU system,
 disk format, display, acceleration, floppy geometry, and install-media-derived
 boot order.
 
+### QEMU setting reference
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `qemu.profile` | string enum | `"default"` | Hardware profile from the table below. |
+| `qemu.disk.size` | string | profile value | Size passed to `qemu-img create`, such as `"500M"` or `"2G"`. It affects creation of a missing `hda.img`, not an existing disk. |
+| `qemu.network.device` | string | profile value | QEMU NIC device name, such as `"ne2k_isa"`, `"pcnet"`, or `"tulip"`. |
+| `qemu.network.enabled` | Boolean | `true` | When false, omit both the user-mode network backend and guest NIC. |
+| `qemu.network.forwards` | array of two-integer arrays | automatic | Each pair is `[host_port, guest_port]`. Omit for automatic SSH and Telnet forwards; use `[]` for no forwards. |
+| `qemu.serial.auxiliary` | string | `"null"` | Backend for guest `ttyS2`, passed as a QEMU `-serial` value. An empty string omits `ttyS2`; `ttyS0`, `ttyS1`, and automation port `ttyS3` are fixed project endpoints. |
+
+Profile values are deliberately centralized rather than repeated in distro
+configs:
+
+| Profile | Machine | RAM | Disk | NIC | VGA |
+| --- | --- | ---: | ---: | --- | --- |
+| `default` | ISA PC | 16 MB | 500 MB | `ne2k_isa` | QEMU default |
+| `linux-0.99` | ISA PC | 64 MB | 500 MB | `ne2k_isa` | QEMU default |
+| `linux-1.0` | ISA PC | 64 MB | 512 MB | `ne2k_isa` | QEMU default |
+| `linux-1.2` | ISA PC | 64 MB | 2 GB | `ne2k_isa` | QEMU default |
+| `linux-2.0-isa` | ISA PC | 64 MB | 2 GB | `ne2k_isa` | QEMU default |
+| `linux-2.0` | PCI PC | 64 MB | 8 GB | `tulip` | `cirrus` |
+| `linux-2.2` | PCI PC | 64 MB | 8 GB | `tulip` | `cirrus` |
+| `linux-2.4` | PCI PC | 128 MB | 8 GB | `tulip` | `std` |
+
 The stager supplies conventional `boot.img`, `root.img`, `install.iso`, and FAT
 media. See [Media Staging](ARCHITECTURE.md#media-staging) for the complete
 filename contract.
@@ -226,21 +279,106 @@ Family-driver settings are grouped into topical tables such as
 `install.packages`. Pydantic validates the complete driver-discriminated
 configuration, and family drivers consume those typed sections directly. Major
 drivers use `install.variant` to select a Python-defined profile that owns fixed
-screen sequences, boot prompts, and installer quirks. See the existing configs,
-`hostlib/schemas/`, and `hostlib/install/` for supported values. Use a
-release range or descriptive name when several releases share the same profile.
+screen sequences, boot prompts, and installer quirks. Use a release range or
+descriptive name when several releases share the same profile.
 
-Common tables have stable meanings, although each driver exposes only the
-tables present in its schema:
+### Installer setting reference
 
-| Table | Typical settings |
-| --- | --- |
-| `install.disk` | Target disk, swap/root/FAT partitions, FAT mount point and filesystem, and optional `swap_mb`. |
-| `install.locale` | Hardware clock mode, keymap, and timezone. |
-| `install.network` | Canonical static network values; Debian also accepts module name and arguments. |
-| `install.accounts` | Root and optional user credentials supported by that family. |
-| `install.packages` | Slackware series/source/tagfile path or required Red Hat package selections. |
-| `install.prompts` | Boot input/timing and an optional post-install screen prompt for families that use the shared schema. |
+The driver determines which nested tables are legal. The applicability column
+uses the exact `install.driver` values; a setting supplied to any other driver
+is rejected.
+
+| Setting | Type | Default | Applies to / meaning |
+| --- | --- | --- | --- |
+| `install.driver` | string enum | required | Selects one driver from the table above. |
+| `install.variant` | string enum | required | Required by `debian-dialog`, `slackware-dialog`, `redhat-dialog`, and `redhat-newt`; accepted values are in the driver table above. Not accepted by the focused drivers. |
+
+Every driver accepts `[install.disk]`:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `target_disk` | string | `"/dev/hda"` | Whole target disk passed to partitioning steps. |
+| `swap_mb` | integer | QEMU profile RAM in MB | Requested swap size. The schema fallback is 64, but a resolved config with `[qemu]` derives this value from the selected profile unless explicitly set. |
+| `swap_partition` | string | `"/dev/hda1"` | Swap partition used by the installer. |
+| `root_partition` | string | `"/dev/hda2"` | Root partition used by the installer. |
+| `fat_partition` | string | `"/dev/hdb1"` | Partition exposing the staged FAT exchange disk. |
+| `fat_mount` | string | `"/retro"` | Guest mount point for the FAT exchange disk. |
+| `fat_filesystem` | string | `"msdos"` | Filesystem name used when mounting the exchange disk during installation. |
+
+`[install.locale]` is accepted by `debian-dialog`, `debian-091`,
+`slackware-dialog`, `slackware-tty`, `redhat-dialog`, and `redhat-newt`:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `hardware_clock` | `"utc"` or `"local"` | `"utc"` | Whether the hardware clock is interpreted as UTC or local time. |
+| `keymap` | string | `"us"` | Installer keymap selection. `redhat-dialog` defaults to `"us.map"`. |
+| `timezone` | string | `"UTC"` | Installer timezone selection. `debian-dialog` defaults to `"Etc/UTC"`; `debian-091` defaults to `"US/Central"`. |
+
+`[install.network]` is accepted by `debian-dialog`, `debian-091`,
+`slackware-dialog`, `slackware-tty`, `redhat-dialog`, and `redhat-newt`:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `hostname` | string | driver-specific | Guest hostname: `"debian"` for `debian-dialog`, `"debra"` for `debian-091`, `"darkstar"` for Slackware, and `"redhat"` for Red Hat. |
+| `domain` | string | `"retro.net"` | DNS domain. |
+| `ip` | string | `"10.0.2.15"` | Static guest IPv4 address. |
+| `netmask` | string | `"255.255.255.0"` | Static IPv4 netmask. |
+| `network` | string | `"10.0.2.0"` | Static network address. |
+| `broadcast` | string | `"10.0.2.255"` | Static broadcast address. |
+| `gateway` | string | `"10.0.2.2"` | Default gateway under QEMU user networking. |
+| `nameserver` | string | `"10.0.2.3"` | DNS resolver under QEMU user networking. |
+| `net_module` | string | none | `debian-dialog` only: installer network module to load. |
+| `net_module_args` | string | `""` | `debian-dialog` only: arguments supplied to `net_module`. |
+
+`[install.prompts]` is accepted by `slackware-dialog`, `redhat-dialog`, and
+`redhat-newt`:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `boot_prompt` | string | `"boot:"` | Text awaited before sending `boot_command`. |
+| `boot_command` | string | `""` | Input sent at the boot prompt. |
+| `boot_sleep` | number | `0` | Seconds to pause during the driver's boot sequence. |
+| `postinst_prompt` | string | none | Screen prompt awaited before starting configured post-install work. |
+
+The remaining tables are driver-specific:
+
+| Driver and table | Setting | Type | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `debian-dialog` `[install.boot]` | `prompt` | string | `"boot:"` | Initial boot prompt. |
+| | `command` | string | `""` | Initial boot command. |
+| | `root_prompt` | string | none | Optional prompt for exchanging the root floppy. |
+| | `root_image` | string | `"root.img"` | Staged root-floppy filename used at that prompt. |
+| `debian-dialog` `[install.accounts]` | `root_password` | string | `"password1"` | Root password entered by Dinstall. |
+| | `user` | string | `"debian"` | Regular account name. |
+| | `user_password` | string | `"password1"` | Regular account password. |
+| `slackware-dialog` `[install.packages]` | `source` | string | `"/dev/hdc"` | Setup package source device or path. |
+| | `tagfile_path` | string or `false` | `"/retro/tagfiles"` | Custom tagfile path; `false` selects the installer's default tagfiles. |
+| | `package_sets` | string | `"\"A\" \"AP\" \"N\" \"X\" \"XAP\""` | Setup-formatted package-series selection. |
+| `slackware-dialog` `[install.bootloader]` | `framebuffer` | string | `"standard"` | Framebuffer choice given to LILO setup. |
+| | `label` | string | `"linux"` | Installed kernel boot label. |
+| `slackware-dialog` `[install.modem]` | `speed` | string | `"38400"` | Modem/serial speed selection. |
+| `slackware-dialog` `[install.mail]` | `mode` | string | `"SMTP"` | Mail configuration mode. |
+| `slackware-tty` `[install.packages]` | `package_sets` | string | `"A AP D E F IV N TCL OI OOP X XAP XD XV Y"` | Space-separated package series selected by the early tty setup program. |
+| `redhat-dialog` `[install.packages]` | `package_series` | string[] | required | Package series selected in the early dialog installer. An empty array is valid. |
+| `redhat-dialog` `[install.accounts]` | `root_password` | string | `""` | Root password. |
+| | `user` | string | none | Optional user name, from one to eight characters. |
+| | `user_home` | Boolean | `true` | Whether the optional user receives a home directory. |
+| `redhat-newt` `[install.packages]` | `components` | string[] | required | Newt installer component labels to select. |
+| `redhat-newt` `[install.accounts]` | `root_password` | string | `"password"` | Required root credential entered by the driver. |
+| `redhat-unattended` `[install.boot]` | `prompt` | string | `"boot:"` | Initial boot prompt. |
+| | `command` | string | required | Boot input, such as a Kickstart command. |
+| `redhat-unattended` `[install.completion]` | `prompt` | string | required | Text indicating that unattended installation is complete. |
+| | `reboot` | Boolean | `true` | Whether to reboot after the completion prompt. |
+| | `postinst` | Boolean | `false` | Whether to run configured post-install stages after unattended installation. |
+| | `boot_device` | string | `"c"` | QEMU monitor boot-device key used for the installed system. |
+| `redhat-unattended` `[install.accounts]` | `root_password` | string | none | Optional root password used by the unattended lifecycle. |
+| `redhat-unattended` `[install.prompts]` | `login_prompt` | string | `"login:"` | Installed-system login prompt awaited before post-install work. |
+| | `shell_prompt` | string | `"#"` | Root shell prompt awaited during post-install work. |
+
+`slackware-sysinstall` has no driver-specific settings beyond `[install.disk]`.
+`debian-091` accepts only `[install.disk]`, `[install.locale]`, and
+`[install.network]`. `slackware-tty` accepts those three tables plus its
+`[install.packages]` table.
 
 Debian dialog installs use `install.boot` for boot and root-floppy prompts.
 Unattended Red Hat installs use `install.boot`, `install.completion`,
@@ -306,10 +444,46 @@ and executes `stages` in order. Supported stages are `packages`, `modules`,
 | `x11` | Write configuration for the detected XFree86 generation. | No |
 | `custom` | Source the configured exceptional guest script. | Only if the script requests it |
 
-Stages run in the declared order. `debug` controls debug logging, `log` selects
-the guest log path, `fat_filesystem` overrides the filesystem used to mount the
-exchange disk, and `reboot` requests a final reboot. The `modules`, `network`,
-and `tty` wrappers set the reboot flag even when `reboot = false` was rendered.
+Stages run in the declared order. The complete top-level reference is:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `postinst.stages` | stage-name array | `[]` | Ordered stages from the table above. Repetition is accepted and executes a stage again. |
+| `postinst.fat_filesystem` | string | none | Overrides `install.disk.fat_filesystem` when the installed system mounts the exchange disk to start the runner. |
+| `postinst.custom_script` | string | none | Guest script resolved from the selected config or immediate parent and staged as `distro/postinst.sh`. Required when `custom` is in `stages`. |
+| `postinst.debug` | Boolean | guest default (`false`) | Enables debug logging. |
+| `postinst.log` | string | guest default (`"/postinst.log"`) | Guest log path. An empty string disables file logging. |
+| `postinst.reboot` | Boolean | guest default (`false`) | Requests a final reboot. The `modules`, `network`, and `tty` wrappers set the reboot flag even when this is false. |
+| `postinst.modules` | scalar-value table | `{}` | Settings rendered with a `MOD_` prefix for the `modules` stage. |
+| `postinst.network` | table | guest defaults below | Typed static-network and compatibility settings listed below. |
+| `postinst.packages` | table | see below | Debian package selection and media settings. |
+| `postinst.tty` | scalar-value table | `{}` | Settings rendered with a `TTY_` prefix for the `tty` stage. |
+| `postinst.x11` | scalar-value table | `{}` | Settings rendered with an `X11_` prefix for the `x11` stage; `mouse_device` is specially rendered as `X11_MOUSEDEV`. |
+| `postinst.custom` | scalar-value table | `{}` | Variables for the custom script, rendered as uppercase names without a prefix. |
+
+The free-form stage tables accept only string, integer, or Boolean values.
+These are the settings consumed by the standard helpers:
+
+| Table and setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `postinst.modules.enable` | string | empty | Newline-separated `module [options...]` specifications to enable at boot. |
+| `postinst.tty.dev` | string | `"ttyS0"` | Serial device name. Old `ttysN` spelling is recognized. |
+| `postinst.tty.baud` | string or integer | `9600` | Getty baud rate. |
+| `postinst.tty.id` | string | derived | Inittab identifier, derived from the serial device when omitted. |
+| `postinst.tty.runlevels` | string or integer | `123456` | Inittab runlevels for the getty. Quote this value if leading zeroes matter. |
+| `postinst.x11.chipset` | string | `"clgd5434"` | Chipset written to applicable XFree86 configurations. |
+| `postinst.x11.mouse_device` | string | detected | Mouse device; tries `/dev/psaux`, `/dev/ps2aux`, then `/dev/cua1`. |
+| `postinst.x11.mousetype` | string | derived | XFree86 mouse protocol; derived as `PS/2` or `Microsoft` for known device names. |
+| `postinst.x11.depths` | string | `"16 8 32"` | Ordered color-depth list for XFree86 3.x/4.x; the first becomes the default. |
+| `postinst.x11.modes` | string | server-specific | Quoted, space-separated mode names. Color defaults to `\"1024x768\" \"800x600\" \"640x480\"`; monochrome defaults to `\"640x480\"`. |
+
+Other keys in `[postinst.modules]`, `[postinst.tty]`, and `[postinst.x11]` are
+also rendered, but have no effect unless a custom or future guest helper reads
+the resulting variable. Prefer the standard names above. Keys in
+`[postinst.custom]` are intentionally script-defined; for example,
+`archive_path = "/mnt/a.tgz"` becomes `ARCHIVE_PATH='/mnt/a.tgz'`.
+Use only letters, digits, and underscores in free-form keys; generated shell
+variable names must begin with a letter.
 
 ```toml
 [postinst]
@@ -335,6 +509,31 @@ mouse_device = "/dev/psaux"
 ```
 
 ### Debian package selection
+
+`[postinst.packages]` accepts:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `roots` | non-empty string[] | `["/retro/packages"]` | Ordered guest package-tree roots searched for every selected archive. |
+| `priorities` | string[] | `[]` | Debian priorities selected globally, case-insensitively. |
+| `add` | string[] | `[]` | Additional package names selected explicitly, case-insensitively. |
+| `skip` | string[] | `[]` | Package names excluded even when selected or required as dependencies. |
+| `sections` | table of string arrays | `{}` | Per-section priority arrays, replacing `priorities` for the named section. Keys are section names. |
+| `prompts` | `[[postinst.packages.prompts]]` | `[]` | Interactive package-configuration exchanges described below. |
+| `mount` | `[postinst.packages.mount]` | none | Optional package-media mount performed by the generated installer. |
+
+| Prompt setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `expect` | string | required | Expected prompt text or regular expression. |
+| `answer` | string | required | Answer to send; `""` sends Enter. |
+| `regex` | Boolean | `false` | Interpret `expect` as a regular expression. |
+
+| Mount setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `device` | string | required | Guest block device containing package media. |
+| `point` | string | `"/cdrom"` | Guest mount point. |
+| `filesystem` | string | `"iso9660"` | Filesystem passed to `mount -t`. |
+| `options` | string | none | Optional value passed to `mount -o`. |
 
 Set `extract.package_index` to the Debian `Packages` or `Packages.gz` path
 within the configured directory, archive, or ISO. Media staging extracts the
@@ -408,7 +607,31 @@ long-filename support.
 `[install.network]` and `[postinst.network]` use the same canonical static
 network names: `hostname`, `domain`, `ip`, `netmask`, `network`, `broadcast`,
 `gateway`, and `nameserver`. Post-install networking additionally accepts the
-guestlib compatibility controls documented in `guestlib/README.md`.
+guestlib compatibility controls below. Only explicitly supplied values are
+rendered. The guest helper supplies QEMU-friendly defaults for all canonical
+values except `hostname`, so set `hostname` whenever the `network` stage is
+enabled.
+
+| Canonical setting | Type | Guest default |
+| --- | --- | --- |
+| `hostname` | string | none; set explicitly |
+| `domain` | string | `"retro.net"` |
+| `ip` | string | `"10.0.2.15"` |
+| `netmask` | string | `"255.255.255.0"` |
+| `network` | string | `"10.0.2.0"` |
+| `broadcast` | string | `"10.0.2.255"` |
+| `gateway` | string | `"10.0.2.2"` |
+| `nameserver` | string | `"10.0.2.3"` |
+
+| Compatibility setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `ancient_route` | integer or Boolean | none | Compared literally with `1`; use integer `1` to enable routing syntax required by ancient guests. |
+| `hostname_init_set` | integer or Boolean | none | Compared literally with `1`; use integer `1` to add `hostname -S` to the generated init script. |
+| `gateway_hwaddr` | string | none | Static ARP address for the gateway. |
+| `nameserver_hwaddr` | string | none | Static ARP address for the nameserver. |
+| `ifconfig_path` | string | none | Override the guest `ifconfig` command path. |
+| `route_path` | string | none | Override the guest `route` command path. |
+| `arp_path` | string | none | Override the guest `arp` command path. |
 
 Include `custom` in `stages` and set `custom_script = "postinst.sh"` only when
 the guest needs logic not expressible through the standard stages. Keep

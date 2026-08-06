@@ -147,7 +147,7 @@ There are a lot of releases here. These make a good chronological tour:
   package tools and installation philosophy already taking shape. Try
   `retro install debian/0.91/infomagic`.
 
-### The classic mid-1990s: 1995–1997
+### Distributions take shape: 1995–1997
 
 - **Slackware 2.3** is a mature Linux 1.2 system from the classic a.out era,
   just before Slackware's move to ELF. It is a great first stop. Try
@@ -158,8 +158,8 @@ There are a lot of releases here. These make a good chronological tour:
 - **Red Hat Linux 3.0.3 “Picasso”** offers an early look at the Red Hat style
   that would shape commercial Linux. Try
   `retro install redhat/3.0.3-infomagic`.
-- **Red Hat Linux 4.2 “Biltmore”** is a widely remembered classic and a fine
-  example of the Linux 2.0 era. Try `retro install redhat/4.2-infomagic`.
+- **Red Hat Linux 4.2 “Biltmore”** shows Red Hat's Linux 2.0-era installer and
+  package selection. Try `retro install redhat/4.2-infomagic`.
 
 ### The desktop years: 1998–1999
 
@@ -188,7 +188,7 @@ small media differences.
   FTP snapshots, utilities, source trees, and assorted curiosities shipped
   alongside Linux distributions.
 
-These are genuinely old operating systems. Expect rough edges, unfamiliar
+These are truly old operating systems. Expect rough edges, unfamiliar
 installers, and the occasional historical bug. They are also insecure by
 modern standards: do not put sensitive information in a guest or expose its
 services publicly. retrodist uses QEMU's isolated user-mode networking by
