@@ -11,7 +11,7 @@ Do not edit staged `qemu.d/fat/guestlib.d/` files; edit this directory or the
 distro's source `postinst.sh`. Host staging is implemented in
 [`hostlib/guestlib.py`](../hostlib/guestlib.py) and coordinated by
 [`hostlib/media.py`](../hostlib/media.py); adding a distro is covered by
-[CONTRIBUTING.md](../CONTRIBUTING.md).
+[CONFIG.md](../CONFIG.md).
 
 ## Compatibility
 

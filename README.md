@@ -199,7 +199,7 @@ default.
 - [USAGE.md](USAGE.md): commands, VM controls, networking, and moving files.
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the host, QEMU, and old guest systems
   fit together.
-- [CONTRIBUTING.md](CONTRIBUTING.md): adding or maintaining distro recipes.
+- [CONFIG.md](CONFIG.md): adding or maintaining distro configurations.
 - [guestlib/README.md](guestlib/README.md): the portable runtime used inside
   old installers and installed systems.
 

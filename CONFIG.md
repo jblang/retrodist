@@ -1,4 +1,4 @@
-# Contributing
+# Configuration Guide
 
 This guide is the main reference for adding and maintaining distro configs.
 The Python commands `retro` and `qmp` are the supported workflow, and

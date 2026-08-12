@@ -11,7 +11,7 @@ distributions in QEMU, with scripted unattended installs where supported.
 
 - User-facing overview: [README.md](README.md)
 - Commands and VM operation: [USAGE.md](USAGE.md)
-- Adding or maintaining distro configs: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Adding or maintaining distro configs: [CONFIG.md](CONFIG.md)
 - Python host implementation and API documentation: [`hostlib/`](hostlib)
 - In-guest installation runtime: [guestlib/README.md](guestlib/README.md)
 
@@ -64,7 +64,7 @@ them only when the task calls for VM-level verification.
 
 After code or config changes, review related documentation for needed updates.
 Check the nearest README plus any linked reference doc, such as
-[CONTRIBUTING.md](CONTRIBUTING.md) or [guestlib/README.md](guestlib/README.md).
+[CONFIG.md](CONFIG.md) or [guestlib/README.md](guestlib/README.md).
 
 ## Compatibility Verification
 

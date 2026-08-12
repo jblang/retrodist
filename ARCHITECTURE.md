@@ -5,34 +5,36 @@ Linux releases. Modern Python owns orchestration and installer policy; QEMU
 provides the machine and control surfaces; small portable shell programs run
 only where the installer or installed guest must cooperate.
 
-The current architecture is centered on **host-side installer drivers**. Media
-download and VM assembly are important supporting pipelines, but most release
-compatibility lives in typed install configuration, reusable family drivers,
-screen/protocol controllers, and the guest post-install handoff.
+The architecture is centered on **host-side installer drivers**. The host turns
+configuration and historical media into a VM, then drives the original
+installer through observable screen and serial states. Small guest programs are
+staged only for work that must happen inside the installer or installed system.
 
-For configuration fields, see [CONTRIBUTING.md](CONTRIBUTING.md). For guest-code
+For configuration fields, see [CONFIG.md](CONFIG.md). For guest-code
 portability rules, see [guestlib/README.md](guestlib/README.md).
 
 ## Architecture at a Glance
 
 ```mermaid
 flowchart LR
-    config["config.toml<br/>release data"]
-    prepare["Download and stage<br/>hostlib"]
-    vm["QEMU<br/>old installer"]
-    driver["Python installer driver<br/>release workflow"]
-    controls["QemuSession<br/>QMP + VGA + ttyS3"]
-    guestlib["guestlib<br/>adapter + post-install"]
-    system["Installed system"]
+    config["config.toml"] --> host["Python host<br/>stage, validate, drive"]
+    media["Historical media"] --> host
 
-    config --> prepare --> vm --> system
-    config --> driver
-    driver <--> controls <--> vm
-    prepare -->|FAT exchange disk| guestlib
-    guestlib <-->|installer protocol| controls
-    driver -->|launch after install| guestlib
-    guestlib --> system
+    subgraph vm[QEMU guest]
+        installer["Original installer"] --> system["Installed system"]
+        runtime["guestlib<br/>installer adapter + post-install"] -->|post-install changes| system
+    end
+
+    host -->|assemble and start| installer
+    host <-->|QMP, VGA, ttyS3| installer
+    host -->|stage on FAT disk| runtime
+    host <-->|structured protocol| runtime
 ```
+
+The diagram separates three responsibilities: declarative release data, modern
+host orchestration, and software running in the emulated machine. The host
+controls the workflow, while the original installer remains responsible for
+creating the target system.
 
 | Area | Architectural weight | What belongs there |
 | --- | --- | --- |
@@ -52,35 +54,31 @@ sequenceDiagram
     autonumber
     actor User
     participant App as retro / Application
-    participant Stage as Downloader + MediaStager
-    participant VM as QemuRuntime
     participant Driver as Installer driver
     participant Session as QemuSession
-    participant Guest as Installer / guestlib
+    participant VM as QEMU installer / guestlib
 
     User->>App: retro install CONFIG
-    App->>App: resolve TOML and validate install driver
-    App->>Stage: download and stage media + guestlib
-    Stage-->>App: qemu.d workspace
-    App->>VM: start QEMU and connect QMP
+    App->>App: validate, stage media, and start QEMU
     App->>Driver: run(session, RetroConfig)
     loop Installer workflow
         Driver->>Session: wait for semantic state
         Session-->>Driver: VGA or serial match
         Driver->>Session: type, select, swap media, or run shell command
-        Session->>Guest: QMP keyboard / ttyS3 / media control
+        Session->>VM: QMP keyboard / ttyS3 / media control
     end
-    Driver->>Guest: launch staged postinst runner when configured
+    Driver->>Session: launch post-install runner when configured
+    Session->>VM: start staged guestlib script
     Driver-->>App: final scripted step dispatched or observed
-    App->>VM: keep VM open until it exits
+    VM-->>App: process eventually exits
 ```
 
 The important lifecycle rules are:
 
 - Install configuration is validated **before** downloads, staging, disk
   creation, or QEMU startup.
-- The original installer remains the authority for formatting, package
-  installation, boot-loader setup, and similar distro behavior.
+- The original installer remains the authority for disk formatting, base-system
+  package installation, boot-loader setup, and similar distro behavior.
 - A Python driver coordinates the installer through observable states; it does
   not use fixed-duration macros as its main control mechanism.
 - Installation is one-time VM creation. Later `retro boot` runs do not invoke a
@@ -101,15 +99,14 @@ flowchart TD
     parent["Parent config.toml"]
     child["Selected config.toml"]
     resolved["Resolved RetroConfig"]
-    union["InstallConfigModel<br/>driver-discriminated union"]
-    registry["DRIVERS registry"]
-    entry["run_* entry point"]
+    model["Typed install model<br/>selected by driver"]
+    dispatch["Driver registry"]
+    entry["Installer entry point"]
 
     parent --> resolved
     child --> resolved
-    resolved --> union
-    union -->|validated driver name| registry --> entry
-    resolved -->|typed disk, network,<br/>locale, packages, prompts| entry
+    resolved --> model --> dispatch --> entry
+    model -->|validated settings| entry
 ```
 
 | Concern | Owner | Rule |
@@ -168,37 +165,18 @@ Drivers receive two separate objects:
 | `QemuSession` | Distro-independent synchronous control of the running VM. |
 
 `QemuSession` is intentionally synchronous because installer workflows read
-like scripts. QMP and serial transports remain asynchronous so they can keep
-receiving data while a driver blocks on the next installer state.
+like scripts. Its QMP, VGA, and serial operations run on the event loop; in
+particular, serial input continues to be buffered while a driver blocks on the
+next installer state.
 
 ```mermaid
 flowchart LR
-    subgraph worker[Installer worker thread]
-        driver["Family or focused driver"]
-        dialog["Dialog / NewtDialog / Fdisk"]
-        session["QemuSession"]
-        driver --> dialog --> session
-        driver --> session
-    end
+    worker["Worker thread<br/>driver → controllers → QemuSession"]
+    eventloop["Main event loop<br/>QMP monitor · screen observer · serial console"]
+    qemu["QEMU<br/>keyboard/media · VGA memory · ttyS3"]
 
-    subgraph loop[Main asyncio event loop]
-        qmp["Monitor"]
-        vga["ScreenObserver"]
-        serial["SerialConsole"]
-    end
-
-    subgraph qemu[QEMU]
-        keyboard["Keyboard + media"]
-        memory["VGA text memory"]
-        tty["ttyS3"]
-    end
-
-    session -->|thread-safe coroutine calls| qmp
-    session -->|screen waits| vga
-    session <-->|prompt stream| serial
-    qmp --> keyboard
-    qmp -->|pmemsave| memory --> vga
-    serial <--> tty
+    worker <-->|thread-safe bridge| eventloop
+    eventloop <-->|control and observation| qemu
 ```
 
 `run_script` owns this boundary:
@@ -246,7 +224,7 @@ constraints, but run at different times.
 | Guest component | Runs when | Responsibility |
 | --- | --- | --- |
 | `dialog.sh` | During supported installers | Stand-in for old `dialog(1)`; exposes widget metadata over `ttyS3` and returns the host's answer to the installer. |
-| `postinst.sh` and `config/*.sh` | After the original install | Apply reusable installed-system configuration for packages, modules, network, serial login, and X11. |
+| `postinst.sh`, `config/*.sh`, and generated distro scripts | After the original install | Apply reusable installed-system configuration for packages, modules, network, serial login, and X11. |
 
 The installer adapter preserves the parts of real `dialog(1)` that installer
 scripts depend on:
@@ -267,7 +245,7 @@ During extraction, `GuestlibStager` rebuilds
 - `distro/postinst.sh` only for a configured custom stage;
 - Slackware tagfiles where required.
 
-The post-install runner is an ordered stage machine generated from
+The post-install runner is an ordered stage machine configured by
 `postinst.stages`:
 
 ```mermaid
@@ -275,7 +253,7 @@ flowchart LR
     toml["[postinst]<br/>ordered stages"]
     render["GuestlibStager<br/>config.sh + optional scripts"]
     runner["guestlib/postinst.sh"]
-    stages["packages → modules → network<br/>→ tty → x11 → custom"]
+    stages["Selected stage wrappers<br/>in declared order"]
     result["sync + optional reboot"]
 
     toml --> render --> runner --> stages --> result
@@ -298,8 +276,8 @@ stderr and `POSTINST_LOG`; debug messages are opt-in. The runner validates
 required generated scripts, reports completion, calls `sync`, and reboots when
 `POSTINST_REBOOT` is enabled by config or by a stage wrapper.
 
-Shared configuration helpers detect the target's historical file layout,
-preserve the first backup before rewriting native files, and skip unsupported
+Shared configuration helpers detect the target's historical file layout, back
+up native files using that subsystem's legacy convention, and skip unsupported
 layouts where safe. Release-specific exceptions remain in the custom stage
 rather than accumulating in these cross-distro helpers.
 
@@ -313,8 +291,10 @@ The guest boundary stays narrow:
   simple quoted shell assignments.
 - Guest scripts contain only behavior that must run against the old system's
   files and commands.
-- Guest code must remain compatible with very old `sh`, Bash, and ash and with
-  minimal installer ramdisks.
+- All guest code must remain compatible with old `sh` implementations. The
+  installer-facing adapter has the stricter constraint of running in minimal
+  ramdisks; post-install helpers may use utilities present on the installed
+  target.
 - `qemu.d/fat/guestlib.d/` is generated; edit `guestlib/`, not its staged copy.
 
 ## Supporting Host Pipelines
@@ -342,14 +322,16 @@ monolithic startup schema:
 | Config section | Primary consumer |
 | --- | --- |
 | `[download]` | `Downloader` |
-| `[extract]` | `MediaStager` and `MediaExtractor` |
+| `[extract]` | `MediaStager` and `MediaExtractor`; `Downloader` also reads package selectors for Debian mirrors. |
 | `[qemu]` | `QemuRuntime` |
 | `[install]` | Installer validation and the selected driver |
 | `[postinst]` | `GuestlibStager` and installer post-install helpers |
 
 All schema models share strict typing and unknown-field rejection. A section is
-validated when its owning subsystem consumes it, so unused sections do not
-couple otherwise independent commands.
+validated when a command reaches a consumer for it, so unrelated sections do
+not need to validate. The Debian mirror path is the intentional exception
+across boundaries: acquisition reads package selectors from `[extract]` to know
+which package trees to download.
 
 ### Command Orchestration
 
@@ -374,15 +356,14 @@ small filename contract consumed by `QemuRuntime`.
 ```mermaid
 flowchart LR
     source["download.d / shared CD-ROM"]
-    extract["MediaExtractor"]
+    extract["Select and extract<br/>declared media"]
     hook["optional extract.sh"]
-    transform["decompress, truncate,<br/>links + overlays"]
-    kickstart["optional ks.cfg injection"]
-    stage["qemu.d conventions"]
-    refresh["GuestlibStager"]
+    transform["Declarative transforms<br/>and optional ks.cfg"]
+    stage["qemu.d<br/>conventional filenames"]
+    guestlib["GuestlibStager"]
 
-    source --> extract --> hook --> transform --> kickstart --> stage
-    refresh --> stage
+    source --> extract --> hook --> transform --> stage
+    guestlib --> stage
 ```
 
 Acquisition and extraction preserve repeatability and constrain untrusted media
@@ -390,7 +371,7 @@ paths:
 
 | Input path | Behavior and safety contract |
 | --- | --- |
-| Direct downloads | Reject absolute and parent-traversal targets, skip complete files, and remove a partial target after failure. |
+| Direct downloads | Reject absolute and parent-traversal targets, skip existing targets, and remove the target after a failed transfer. |
 | HTTP mirrors | Validate release identifiers, continue interrupted transfers, and write `.complete` only after the recursive download succeeds. |
 | Shared CD-ROM configs | Download into the referenced `cdrom/` config and symlink its ISO images into the selected recipe's `qemu.d`. |
 | Directories and archives | Select only declared files and package trees from directories, tar, ZIP, and 7-Zip sources; reject escaping selectors and members. |
@@ -419,34 +400,32 @@ cannot express.
 
 ### Host-Generated Package Inputs
 
-Package selection is decided on the host, then translated into the native input
-expected by each historical installer.
+Package selection is decided on the host, then translated into the guest-side
+mechanism used by each distro: direct `dpkg` calls after Debian installation or
+tagfiles consumed by Slackware's original installer.
 
 ```mermaid
 flowchart LR
     subgraph debian[Debian post-install packages]
-        index["Packages / Packages.gz"]
-        select["priorities + sections<br/>add + skip"]
-        resolve["dependency resolver"]
-        script["generated packages.sh"]
-        dpkg["guest dpkg"]
-        index --> resolve
-        select --> resolve --> script --> dpkg
+        dinput["Package indexes<br/>+ selection rules"]
+        resolve["Host dependency resolver"]
+        script["Generated packages.sh"]
+        dpkg["Guest dpkg"]
+        dinput --> resolve --> script --> dpkg
     end
 
     subgraph slackware[Slackware install-time packages]
-        inventory["package tree or ISO inventory"]
-        rules["effective full.tag rules"]
-        tags["tagfiles + disksets.txt"]
-        setup["original setup / Pkgtool"]
-        inventory --> tags
-        rules --> tags --> setup
+        sinput["Package inventory<br/>+ full.tag rules"]
+        generate["Host tagfile generator"]
+        tags["Generated tagfiles<br/>+ disksets.txt"]
+        setup["Original setup / Pkgtool"]
+        sinput --> generate --> tags --> setup
     end
 ```
 
 | Pipeline | Host policy | Generated result | Guest behavior |
 | --- | --- | --- | --- |
-| Debian | Union global priorities, per-section priorities, and explicit additions; `skip` has final precedence. Resolve `Pre-Depends` and `Depends` recursively, choose the first available alternative or provider, and order dependencies before users. | Portable `distro/packages.sh` with one `dpkg --install` call per selected package. | Search configured roots in order, optionally mount package media, and fail if an archive is absent or `dpkg` fails. |
+| Debian | Apply a section's priority list when present, otherwise the global list, then add explicit packages; `skip` has final precedence. Resolve `Pre-Depends` and `Depends` recursively, choose the first available alternative or provider, and order dependencies before users. | Portable `distro/packages.sh` with one `dpkg --install` call per selected package. | Search configured roots in order, optionally mount package media, and fail if an archive is absent or `dpkg` fails. |
 | Slackware | Inventory `.tgz`/`.tar` packages from staged directories or ISO; load the selected config's `full.tag` or its immediate parent's. Exact package rules beat series wildcards, and the fallback is `SKP`. | Per-disk `tagfile` inputs plus `disksets.txt` on the FAT share. | The original setup/Pkgtool package-selection path consumes the generated files. |
 
 Debian version constraints are intentionally ignored because the historical

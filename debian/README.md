@@ -63,7 +63,7 @@ account, and `dselect`) before running the configured post-install stages.
 
 The optional `packages` post-install stage installs declaratively selected
 priorities, per-section priorities, and named packages with their dependencies.
-See [CONTRIBUTING.md](../CONTRIBUTING.md#debian-package-selection) for index
+See [CONFIG.md](../CONFIG.md#debian-package-selection) for index
 parsing and CD-ROM or VFAT package-media configuration.
 
 `0.91`'s `dinstall` is a prompt-and-response shell script. Its dedicated

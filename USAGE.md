@@ -153,7 +153,7 @@ forwards = [[8080, 80], [2200, 22]]
 
 An empty `forwards` array disables forwarding. Setting `enabled = false` in the
 same table removes the guest network adapter. See
-[CONTRIBUTING.md](CONTRIBUTING.md#qemu) for the QEMU configuration reference.
+[CONFIG.md](CONFIG.md#qemu) for the QEMU configuration reference.
 
 ## Moving Files In and Out
 
